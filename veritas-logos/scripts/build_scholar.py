@@ -368,7 +368,7 @@ dump("creeds-index.json", {"docs": sorted(index, key=lambda d: d["year"]), "refs
 # Each summary is checked against its source: a section of Schaff that must contain the phrase given, or a web page read when this was written.
 print("Church history")
 events = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "church_events.json"), encoding="utf-8"))
-WORKS = {"hcc1": "Philip Schaff, History of the Christian Church, vol. 1", "hcc2": "Philip Schaff, History of the Christian Church, vol. 2", "hcc3": "Philip Schaff, History of the Christian Church, vol. 3", "hcc4": "Philip Schaff, History of the Christian Church, vol. 4", "hcc5": "Philip Schaff, History of the Christian Church, vol. 5", "hcc6": "Philip Schaff, History of the Christian Church, vol. 6", "hcc7": "Philip Schaff, History of the Christian Church, vol. 7", "hcc8": "Philip Schaff, History of the Christian Church, vol. 8", "creeds1": "Philip Schaff, The Creeds of Christendom, vol. 1"}
+WORKS = {"hcc1": "Philip Schaff, History of the Christian Church, vol. 1", "hcc2": "Philip Schaff, History of the Christian Church, vol. 2", "hcc3": "Philip Schaff, History of the Christian Church, vol. 3", "hcc4": "Philip Schaff, History of the Christian Church, vol. 4", "hcc5": "Philip Schaff, History of the Christian Church, vol. 5", "hcc6": "Philip Schaff, History of the Christian Church, vol. 6", "hcc7": "Philip Schaff, History of the Christian Church, vol. 7", "hcc8": "Philip Schaff, History of the Christian Church, vol. 8", "creeds1": "Philip Schaff, The Creeds of Christendom, vol. 1", "npnf204": "Nicene and Post-Nicene Fathers, Series 2, vol. 4"}
 raws = {w: ccel(f"schaff/{w}") for w in WORKS}
 all_divs = {}
 for w, r in raws.items():
@@ -394,7 +394,7 @@ terms = {x["id"] for x in json.load(open(os.path.join(DATA, "glossary.json"), en
 creed_ids = {d["id"] for d in DOCS}
 ev_ids = {e["id"] for e in events}
 # These sections name the event but their nearest sentence doesn't state it well, so only the section is cited.
-NOQUOTE = {"jerusalem-council","marcion","rule-of-faith","theodosius","constantinople-1","chalcedon-split","benedict","toledo-filioque","gottschalk","anselm","worms-1122","fourth-crusade","zwingli","marburg","augsburg","institutes","consensus-tigurinus","peace-augsburg","belgic","heidelberg","second-helvetic","thirty-nine","trent","concord","dort","westminster","savoy","dositheus","immaculate","syllabus","nicaea-2","erasmus-nt","islam","henry-supremacy","vatican-1","scots-confession","geneva","charlemagne","aquinas","triumph-orthodoxy","mogila","constance"}
+NOQUOTE = {"jerusalem-council","festal-39","rule-of-faith","constantinople-1","chalcedon-split","benedict","anselm","worms-1122","fourth-crusade","zwingli","marburg","augsburg","institutes","consensus-tigurinus","peace-augsburg","belgic","heidelberg","second-helvetic","thirty-nine","trent","concord","dort","westminster","savoy","dositheus","immaculate","syllabus","nicaea-2","erasmus-nt","islam","henry-supremacy","vatican-1","scots-confession","geneva","charlemagne","aquinas","triumph-orthodoxy","mogila","constance"}
 out_ev = []; problems = []
 for e in events:
     r = dict(e)
