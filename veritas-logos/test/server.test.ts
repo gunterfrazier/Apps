@@ -61,6 +61,12 @@ test("reads are open, with CORS and clear errors", async () => {
 });
 
 test("reference endpoints", async () => {
+  const writers = await (await j("/v1/writers")).json();
+  assert.ok(writers.results.some((w: any) => w.id === "augustine-of-hippo" && w.year === 430));
+  const on = await (await j("/v1/writings?ref=John%203:16&limit=3")).json();
+  assert.equal(on.results.length, 3);
+  assert.ok(on.results.every((r: any) => r.edition && r.text));
+  assert.equal((await j("/v1/writings?ref=Nonsense%2099")).status, 400);
   const ins = await (await j("/v1/insights?ref=Romans%201:17")).json();
   assert.ok(ins.quotes.some((q: any) => q.ref.startsWith("Habakkuk 2:4")));
   assert.ok((await (await j("/v1/verses/words?ref=Genesis%201:1")).json()).words.length > 3);

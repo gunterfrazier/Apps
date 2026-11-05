@@ -72,7 +72,7 @@ test/          Automated tests
 - A lifespan must match the verse where the verse gives a total. Noah is left off the timeline because BibleData counts 951 years and Genesis 9:29 says 950.
 - Quotations and parallels must share a run of wording, which is shown with each one.
 
-Sources can still contain errors, and their chronology and family links reflect their editors' judgment. To rebuild, run `npm run data:build -- --sources ../sources`, which needs local copies of the sources listed in `DATA-LICENSES.md`.
+Sources can still contain errors, and their chronology and family links reflect their editors' judgment. To rebuild, run `npm run data:build -- --sources ../sources`, then `npm run data:writings -- --sources ../sources` (it needs Python 3.11 or later and runs second because the first step clears `public/data`), which needs local copies of the sources listed in `DATA-LICENSES.md`.
 
 ## Known limits
 

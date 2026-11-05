@@ -115,6 +115,9 @@ function About() {
         <li><strong>Topics:</strong> Nave's Topical Bible (public domain), via BibleData by Brady Stephenson, CC BY 4.0.</li>
         <li><strong>People, family links, book names and chronology:</strong> BibleData, CC BY 4.0.</li>
         <li><strong>Confessions:</strong> public-domain texts and proof lists via Creeds.json.</li>
+        <li><strong>Church Fathers:</strong> public-domain translations, chiefly the Ante-Nicene and Nicene and Post-Nicene Fathers and Newman's Catena Aurea, via HistoricalChristianFaith's Commentaries and Writings databases. Each quote was matched word for word against the named edition, and quotes that failed were dropped.</li>
+        <li><strong>Later teachers:</strong> Matthew Henry and Spurgeon's Treasury of David via LyteWord (CC0); Wesley's Explanatory Notes (public domain, structured by History of Methodism, CC BY 4.0); Calvin's Institutes, Luther on Galatians (Graebner's 1949 abridgment) and Edwards's sermons via Project Gutenberg. Spurgeon's sermons are an index that links out.</li>
+        <li><strong>New Testament dates:</strong> the years in Ussher's Annals of the World (1650), via BibleData. The captions are plain labels for the cited passages.</li>
       </ul>
       <p className="fine">A source can still contain errors, and its chronology and family links reflect its editors' judgment. Citations let you check them against the verses.</p>
       <p className="fine">NIV, ESV, NASB, NLT and CJB are under copyright, so they aren't included.</p>

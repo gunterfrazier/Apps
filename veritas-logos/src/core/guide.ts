@@ -4,6 +4,7 @@ import { getCrossRefs, getLexEntry, getLexIndex, getVerseWords, normalizeStrongs
 import { BOOKS, bookName, formatSegment, parseReference, type RefSegment } from "./references";
 import { searchText } from "./bible";
 import { getInsights, type PassageInsights } from "./insights";
+import { excerptsForPassage, varied, writingsCredit } from "./writings";
 
 export type GuideFormat = "inductive" | "exegetical" | "smallgroup" | "teaching";
 export const GUIDE_FORMATS: { id: GuideFormat; name: string; blurb: string }[] = [
@@ -289,6 +290,17 @@ function questionsFor(format: GuideFormat, label: string, words: KeyWord[], cros
   return { open: "", observe, interpret, apply };
 }
 
+/** A short sampler of historic writers on the passage: one excerpt each, earliest first, with its edition named. */
+async function writersSection(refs: string[]): Promise<GuideSection | null> {
+  const lists = await Promise.all(refs.slice(0, 3).map((r) => excerptsForPassage(r)));
+  const picks = varied(lists.flat().sort((a, b) => (a.writer.year ?? 9999) - (b.writer.year ?? 9999)), 5);
+  if (!picks.length) return null;
+  return sec("views", "What historic writers said", "assembled", {
+    body: "Excerpts from public-domain editions, earliest first. Open the Writers page for this passage to see more and to choose your own.",
+    items: picks.map((e) => ({ label: `${e.writer.name}, ${e.title} (on ${e.reference}). ${e.source}`, text: e.text.length > 700 ? `${e.text.slice(0, 700).replace(/\s+\S*$/, "")} …` : e.text })),
+  });
+}
+
 function insightSections(all: PassageInsights[]) {
   const uniq = <T extends { ref: string }>(list: T[]) => list.filter((x, i, a) => a.findIndex((y) => y.ref === x.ref) === i);
   const linkItems: SectionItem[] = [
@@ -496,7 +508,7 @@ export interface ResolvedGuide extends Omit<Guide, "sections"> {
 }
 
 const DATA_CREDIT =
-  "Hebrew and Greek data from STEP Bible (Tyndale House, CC BY 4.0). Strong's dictionaries via Open Scriptures (CC BY-SA). Cross-references from OpenBible.info (CC BY). Topics from Nave's Topical Bible. People from BibleData (CC BY 4.0).";
+  `Hebrew and Greek data from STEP Bible (Tyndale House, CC BY 4.0). Strong's dictionaries via Open Scriptures (CC BY-SA). Cross-references from OpenBible.info (CC BY). Topics from Nave's Topical Bible. People from BibleData (CC BY 4.0). ${writingsCredit}`;
 
 /** Fills in the verse text from the guide's translation. */
 export async function resolveGuide(guide: Guide): Promise<ResolvedGuide> {

@@ -26,6 +26,7 @@ import { setLoader } from "../src/core/data";
 import { allFigures, buildSubgraph, findShortestPath, getFigure, describeRelationshipStep } from "../src/core/figure-graph";
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, guideToText, isGuideFormat, resolveGuide, sanitizeGuide, newId, type Guide } from "../src/core/guide";
 import { getInsights } from "../src/core/insights";
+import { excerptsForPassage, getWritingsIndex, sermonsForPassage } from "../src/core/writings";
 import { getConcordance, getCrossRefs, getLexEntry, getVerseWords, normalizeStrongs, searchLexicon, decodeMorph } from "../src/core/lexicon";
 import { ensureFigures, peopleInPassage, versesOfPerson } from "../src/core/people";
 import { bookName, parseReference } from "../src/core/references";
@@ -160,6 +161,19 @@ export function createServer(opts: ServerOptions = {}) {
       if (!parseReference(ref)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
       const i = await getInsights(ref);
       return send(res, 200, { reference: i.reference, book: i.book, topics: i.topics, confessions: i.confessions, quotes: i.quotes, quoted_by: i.quotedBy, parallels: i.parallels, possible_allusions: i.possibleAllusions });
+    }
+    if (method === "GET" && p === "/v1/writers") {
+      const { authors } = await getWritingsIndex();
+      return send(res, 200, { results: authors.map((a) => ({ id: a.id, name: a.name, year: a.year, category: a.cat, flag: a.flag || undefined, excerpts: a.n, works: a.works.map(([title, count]) => ({ title, count })), wiki: a.wiki || undefined })) });
+    }
+    if (method === "GET" && p === "/v1/writings") {
+      const ref = required(u, "ref");
+      if (!parseReference(ref)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
+      const lim = clampInt(u.searchParams.get("limit"), 20, 1, 100), off = clampInt(u.searchParams.get("offset"), 0, 0, 1e6);
+      const writer = u.searchParams.get("writer");
+      const [short, long, sermons] = await Promise.all([excerptsForPassage(ref), excerptsForPassage(ref, "comm"), sermonsForPassage(ref)]);
+      const all = [...short, ...long].filter((e) => !writer || e.writer.id === writer);
+      return send(res, 200, { reference: ref, total: all.length, results: all.slice(off, off + lim).map((e) => ({ writer: e.writer.name, writer_id: e.writer.id, year: e.writer.year, work: e.title, on: e.reference, edition: e.source, source_url: e.url || undefined, text: e.text })), spurgeon_sermons: sermons });
     }
     if (method === "GET" && p === "/v1/lexicon") return send(res, 200, { results: (await searchLexicon(required(u, "q"), clampInt(u.searchParams.get("limit"), 20, 1, 100))).map((r) => ({ id: r[0], lemma: r[1], transliteration: r[2], gloss: r[3], occurrences: r[4] })) });
     if (method === "GET" && seg[0] === "lexicon" && seg[1] && !seg[2]) {

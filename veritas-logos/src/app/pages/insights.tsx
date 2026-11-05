@@ -6,6 +6,7 @@ import { lensName, newId, type Guide, type GuideSection } from "../../core/guide
 import { getInsights } from "../../core/insights";
 import { aiInsight, detectAi, friendlyAiError, type AiMode } from "../ai-client";
 import { saveGuide, setPref, toast, useData } from "../store";
+import { WritersPreview } from "./writers";
 import { Empty, ErrorNote, Loading, LensSelect, OriginTag, RefLink, RefText, Tag, useAsync } from "../ui";
 
 /** Adds sections to the guide being worked on, starting one if needed. */
@@ -81,6 +82,8 @@ export function InsightsPanel({ reference, translation }: { reference: string; t
         {!data.confessions.length && <Empty>The confessions in this app don't cite this passage.</Empty>}
         <p className="fine">Proof texts listed in the Westminster Confession and Larger Catechism, the Heidelberg Catechism and a Baptist Catechism. This open data covers Reformed and Baptist documents only. Ask the AI about other traditions.</p>
       </section>
+
+      <WritersPreview reference={data.reference} />
 
       <section>
         <h3>Topics citing this passage</h3>

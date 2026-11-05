@@ -37,9 +37,30 @@ console.log(`citations on parent links naming both people in the cited chapter: 
 if (missed.length) console.log(`extra citations not matched: ${missed.slice(0, 10).join("; ")}`);
 if (rate < 0.95) errors.push("too many family links fail to name both people in the cited chapter");
 
-const { rows, events } = read("timeline.json");
-for (const r of rows) if (!byId.has(r.id) || !exists(r.startRef) || r.to < r.from) errors.push(`timeline row ${r.label}`);
+const { rows, events, nt } = read("timeline.json");
+for (const r of rows) if ((r.kind !== "period" && !byId.has(r.id)) || !exists(r.startRef) || r.to < r.from) errors.push(`timeline row ${r.label}`);
 for (const e of events) if (!exists(e.ref)) errors.push(`timeline event ${e.label}`);
+for (const e of nt) if (!exists(e.ref) || e.x < -10 || e.x > 80) errors.push(`New Testament date ${e.label}`);
+
+// Writers: every reference must exist, every excerpt must name a source, and modern copyrighted authors must be absent.
+const index = read("writings/index.json");
+const authorNames = index.authors.map((a) => a.name);
+for (const banned of ["CS Lewis", "JRR Tolkien", "Douglas Wilson", "GK Chesterton"]) if (authorNames.includes(banned)) errors.push(`${banned} should not be in the data`);
+let excerpts = 0;
+for (const [kind, parts] of [["writings", index.writings], ["comm", index.comm]]) {
+  for (const [book, list] of Object.entries(parts)) {
+    for (const [, , k] of list) {
+      const shard = read(`${kind}/${String(book).padStart(2, "0")}-${k}.json`);
+      for (const [a, t, c1, v1, c2, v2, text] of shard.q) {
+        excerpts++;
+        const chapters = counts[book - 1];
+        if (!index.authors[a] || !shard.t[t] || !index.sources[shard.t[t][2]] || !text) errors.push(`${kind} ${book}: bad record`);
+        if (!chapters?.[c1 - 1] || c2 < c1) errors.push(`${kind} ${book}: no chapter ${c1}`);
+      }
+    }
+  }
+}
+console.log(`writers ${index.authors.length}, excerpts ${excerpts}`);
 
 const topics = read("topics/index.json");
 console.log(`people ${figures.length}, topics ${topics.length}, timeline rows ${rows.length}`);

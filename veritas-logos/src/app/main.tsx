@@ -7,7 +7,10 @@ import { refOf } from "../core/bible";
 import { ReadPage } from "./pages/read";
 import { BookPage, BooksPage, ExplorePage, LettersPage, LexiconPage, TopicPage, TopicsPage, WordPage } from "./pages/explore";
 import { decodeTopic, GuidePage, GuidesPage, NewGuidePage, SharedGuidePage } from "./pages/guides";
-import { PathsPage, PeoplePage, PersonPage, TimelinePage, TreePage } from "./pages/people";
+import { PathsPage, PeoplePage, PersonPage, TreePage } from "./pages/people";
+import { TimelinePage } from "./pages/timeline";
+import { PassageWritersPage, WriterPage, WritersPage } from "./pages/writers";
+import { parseTimelineRoute } from "../core/timeline";
 import { LibraryPage } from "./pages/library";
 import { AskPage } from "./pages/ask";
 
@@ -42,7 +45,13 @@ function pageFor(route: string): { node: ReactNode; tab: string } {
     case "person": return { node: <PersonPage key={tail} id={tail} />, tab: "people" };
     case "tree": return { node: <TreePage id={tail || undefined} />, tab: "people" };
     case "paths": return { node: <PathsPage />, tab: "people" };
-    case "timeline": return { node: <TimelinePage />, tab: "people" };
+    case "timeline": return { node: <TimelinePage at={parseTimelineRoute(tail)} />, tab: "people" };
+    case "writers": return { node: <WritersPage />, tab: "explore" };
+    case "writer": return { node: <WriterPage key={tail} id={tail} />, tab: "explore" };
+    case "on": {
+      const r = tail ? parseReadParts(tail) : null;
+      return r ? { node: <PassageWritersPage key={tail} reference={refOf(r.book, r.chapter, r.verse, r.verseEnd)} />, tab: "explore" } : { node: <WritersPage />, tab: "explore" };
+    }
     case "ask": {
       const r = tail ? parseReadParts(tail) : null;
       return { node: <AskPage contextRef={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "ask" };

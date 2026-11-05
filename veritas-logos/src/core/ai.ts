@@ -9,6 +9,7 @@ import { getFigure } from "./figure-graph";
 import { searchFigures } from "./figure-search";
 import { lensName, type Guide, type GuideSection, newId, type SectionItem } from "./guide";
 import { getInsights } from "./insights";
+import { excerptsForPassage, FLAG_NOTE, varied } from "./writings";
 import { decodeMorph, getCrossRefs, getLexEntry, getVerseWords, normalizeStrongs, searchLexicon } from "./lexicon";
 import { ensureFigures, versesOfPerson } from "./people";
 import { bookName, findReferences, parseReference } from "./references";
@@ -102,6 +103,17 @@ export function aiTools(translation: TranslationId): AiTool[] {
           possibleAllusions: i.possibleAllusions.slice(0, 5).map((a) => a.ref),
           crossReferences: xrefs,
         };
+      },
+    },
+    {
+      name: "historic_writers",
+      description: "Returns what Church Fathers and later teachers wrote on a passage, from public-domain editions: writer, year, work, the edition, and the excerpt. Use it whenever someone asks how the Fathers, Reformers or other teachers read a passage. Quote only what this returns, and name the writer and edition.",
+      inputSchema: { type: "object", properties: { reference: { type: "string" }, writer: { type: "string", description: "Optional part of a writer's name, such as Augustine" } }, required: ["reference"] },
+      execute: async ({ reference, writer }) => {
+        const want = writer ? String(writer).toLowerCase() : "";
+        const [short, long] = await Promise.all([excerptsForPassage(String(reference)), excerptsForPassage(String(reference), "comm")]);
+        const all = [...short, ...long].filter((e) => !want || e.writer.name.toLowerCase().includes(want));
+        return { total: all.length, excerpts: (want ? all : varied(all, 10)).slice(0, 10).map((e) => ({ writer: e.writer.name, year: e.writer.year, work: e.title, on: e.reference, edition: e.source, note: FLAG_NOTE[e.writer.flag], text: clip(e.text, 900) })) };
       },
     },
     {

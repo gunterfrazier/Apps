@@ -9,6 +9,7 @@ import { readHash, type ReadRoute } from "../routes";
 import { getData, navigate, setPref, toast, update, useData, type HighlightColor } from "../store";
 import { ErrorNote, Loading, Sheet, Tag, TranslationSelect, RefLink, useAsync, Empty } from "../ui";
 import { addSectionsToGuide, InsightsPanel } from "./insights";
+import { passageWritersHash } from "./writers";
 
 const vKey = (b: number, c: number, v: number) => `${b}:${c}:${v}`;
 const COLORS: HighlightColor[] = ["amber", "green", "blue", "rose"];
@@ -307,6 +308,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
         </div>
       )}
 
+      <p className="chapter-links"><a href={`#${passageWritersHash(book, chapter)}`}>What the Fathers and teachers said on this chapter</a></p>
       <div className="chapter-nav">
         <button type="button" className="btn" onClick={prev} disabled={book === 1 && chapter === 1}>Previous chapter</button>
         <button type="button" className="btn" onClick={next} disabled={book === 66 && chapter === (chapters ?? 22)}>Next chapter</button>

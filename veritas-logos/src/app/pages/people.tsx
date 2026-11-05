@@ -3,7 +3,7 @@ import { newId } from "../../core/guide";
 import { buildSubgraph, describeRelationshipStep, findShortestPath, formatGenerations, getFigure, getSiblings, lineageFromAdam, parentLink, resolveFigures, stepLink, summarizePath } from "../../core/figure-graph";
 import type { Figure } from "../../core/figure-types";
 import { GROUP_FILTERS, searchFigures, type GroupFilter } from "../../core/figure-search";
-import { ensureFigures, getTimeline, versesOfPerson } from "../../core/people";
+import { ensureFigures, versesOfPerson } from "../../core/people";
 import { layoutTree, type LayoutDims } from "../../core/tree-layout";
 import { navigate, update, useData } from "../store";
 import { Empty, Loading, RefLink, RefText, useAsync } from "../ui";
@@ -19,7 +19,7 @@ const Ready = ({ children }: { children: () => ReactNode }) => {
   return <>{children()}</>;
 };
 
-const SubNav = ({ active }: { active: string }) => (
+export const SubNav = ({ active }: { active: string }) => (
   <div className="subnav" role="tablist">
     {[["people", "People"], ["tree", "Family tree"], ["paths", "Pathfinder"], ["timeline", "Timeline"]].map(([h, label]) => (
       <a key={h} href={`#${h}`} className={active === h ? "on" : ""}>{label}</a>
@@ -307,61 +307,6 @@ function Paths() {
         </>
       )}
       <p className="fine">{CREDIT}</p>
-    </div>
-  );
-}
-
-// ---------- Timeline ----------
-const PPY = 0.6;
-export const TimelinePage = () => <Ready>{() => <Timeline />}</Ready>;
-function Timeline() {
-  const { data } = useAsync(getTimeline, []);
-  const [kind, setKind] = useState("all");
-  const [picked, setPicked] = useState<number | null>(null);
-  const rows = useMemo(() => (data?.rows ?? []).filter((r) => kind === "all" || r.kind === kind).sort((a, b) => a.from - b.from), [data, kind]);
-  useEffect(() => setPicked(null), [kind]);
-  if (!data) return <div className="page"><Loading /></div>;
-  const max = 3700;
-  const x = (y: number) => y * PPY;
-  const ticks: number[] = [];
-  for (let y = 0; y <= max; y += 500) ticks.push(y);
-  const sel = picked !== null ? rows[picked] : null;
-  const overlap = sel ? rows.filter((r) => r !== sel && r.id !== sel.id && r.from <= sel.to && r.to >= sel.from).slice(0, 12) : [];
-  return (
-    <div className="page">
-      <h1 className="page-title">Timeline</h1>
-      <SubNav active="timeline" />
-      <div className="filters">
-        <select id="tl-kind" aria-label="Show" value={kind} onChange={(e) => setKind(e.target.value)}>
-          <option value="all">Lives, reigns, judges and prophets</option><option value="life">Lives</option><option value="reign">Reigns</option><option value="judge">Judges</option><option value="prophet">Prophets</option>
-        </select>
-      </div>
-      {sel && (
-        <div className="tree-detail">
-          <div><a href={`#person-${sel.id}`}><strong>{sel.label}</strong></a><span className="fine"> Years {sel.from} to {sel.to} from creation{sel.estimated ? ", estimated" : ""}</span></div>
-          <p className="fine"><RefText text={sel.calc.replace(/[A-Za-z-]+_\d+/g, (m) => m.replace(/_\d+$/, ""))} /></p>
-          <p className="fine">Start: <RefLink refText={sel.startRef} />{sel.endRef && <> · End: <RefLink refText={sel.endRef} /></>}</p>
-          {overlap.length > 0 && <p className="fine">At the same time: {overlap.map((o, i) => <span key={o.label}>{i > 0 && ", "}<button type="button" className="ref" onClick={() => setPicked(rows.indexOf(o))}>{o.label.replace(/^The (life|reign) of /i, "")}</button></span>)}</p>}
-        </div>
-      )}
-      <div className="timeline">
-        <div style={{ width: x(max), position: "relative" }}>
-          <div className="tl-axis">{ticks.map((t) => <span key={t} style={{ left: x(t) }}>Year {t}</span>)}</div>
-          <div className="tl-events">{data.events.map((e) => <span key={e.label} style={{ left: x(e.year) }}>{e.label}</span>)}</div>
-          <div className="tl-rows" style={{ backgroundSize: `${500 * PPY}px 100%` }}>
-            {rows.map((r, i) => (
-              <div key={`${r.id}-${r.label}`} className="tl-row">
-                <button type="button" className={`tl-bar ${picked === i ? "on" : ""} ${r.estimated ? "estimated" : ""} ${(r.to - r.from) * PPY > 90 ? "wide" : ""}`} style={{ left: x(r.from), width: Math.max(8, (r.to - r.from) * PPY) }} onClick={() => setPicked(i)}>
-                  <span className="tl-name">{r.label.replace(/^The (life|reign) of /i, "")}</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <p className="fine">Years count from creation, added up by BibleData from the ages and reigns Scripture gives, and each row shows its working. Lighter bars are estimates. Other chronologies differ, and this data stops at the end of the Old Testament.</p>
-      {data.excluded.map((e) => <p key={e.name} className="fine">{e.name} is left out because this data counts {e.source} years, while <RefLink refText={e.ref} /> says {e.verse}.</p>)}
-      <ul className="fine-list">{data.events.map((e) => <li key={e.label}>{e.label}: year {e.year}{e.bce ? `, about ${e.bce} BC on this count` : ""} (<RefLink refText={e.ref} />)</li>)}</ul>
     </div>
   );
 }

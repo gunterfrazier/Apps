@@ -17,6 +17,8 @@ fs.rmSync(OUT, { recursive: true, force: true });
 const mk = (d) => fs.mkdirSync(path.join(OUT, d), { recursive: true });
 ["bible", "words", "xref", "lex", "conc", "topics"].forEach(mk);
 const write = (rel, data) => fs.writeFileSync(path.join(OUT, rel), JSON.stringify(data));
+// Per-book lookups (quotations, confession citations, topics, people) share one file per book, to stay within the host's file limit.
+const refBooks = Array.from({ length: 66 }, () => ({}));
 const BOOK_NAMES = ["Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther","Job","Psalms","Proverbs","Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi","Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians","Ephesians","Philippians","Colossians","1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"];
 const CODES = "Gen Exo Lev Num Deu Jos Jdg Rut 1Sa 2Sa 1Ki 2Ki 1Ch 2Ch Ezr Neh Est Job Psa Pro Ecc Sng Isa Jer Lam Ezk Dan Hos Jol Amo Oba Jon Mic Nam Hab Zep Hag Zec Mal Mat Mrk Luk Jhn Act Rom 1Co 2Co Gal Eph Php Col 1Th 2Th 1Ti 2Ti Tit Phm Heb Jas 1Pe 2Pe 1Jn 2Jn 3Jn Jud Rev".split(" ");
 const codeToBook = new Map(CODES.map((c, i) => [c.toUpperCase(), i + 1]));
@@ -347,13 +349,12 @@ for (const [from, list] of rawPairs) {
     }
   }
 }
-fs.mkdirSync(path.join(OUT, "intertext"), { recursive: true });
 inter.forEach((d, i) => {
   for (const e of Object.values(d)) {
     if (e.a) e.a = e.a.sort((x, y) => y[1] - x[1]).slice(0, 8);
     for (const f of ["q", "by", "p"]) if (e[f]) e[f] = e[f].filter((x, j, arr) => arr.findIndex((y) => y[0] === x[0]) === j).slice(0, 8);
   }
-  write(`intertext/${String(i + 1).padStart(2, "0")}.json`, d);
+  refBooks[i].i = d;
 });
 console.log("intertext quotes", nQ, "parallels", nP, "possible allusions", nA);
 
@@ -401,9 +402,8 @@ for (const [file, abbr, name, year, tradition] of CONFESSIONS) {
     else if (item.Question) addSection(`Q${item.Number}`, item.Question, item.Answer || "", item.Proofs);
   }
 }
-fs.mkdirSync(path.join(OUT, "confessions"), { recursive: true });
-write("confessions/sections.json", { docs: Object.fromEntries(CONFESSIONS.map(([, a, n, y, t]) => [a, { name: n, year: y, tradition: t }])), sections: confSections });
-confBooks.forEach((d, i) => write(`confessions/${String(i + 1).padStart(2, "0")}.json`, d));
+write("confession-sections.json", { docs: Object.fromEntries(CONFESSIONS.map(([, a, n, y, t]) => [a, { name: n, year: y, tradition: t }])), sections: confSections });
+confBooks.forEach((d, i) => { refBooks[i].c = d; });
 console.log("confession sections", confSections.length, "citations", confCites, "unparsed", confBad);
 
 
@@ -428,8 +428,7 @@ for (const letter of Object.keys(byLetter)) {
     }
   }
 }
-fs.mkdirSync(path.join(OUT, "topic-verses"), { recursive: true });
-topicVerses.forEach((d, i) => write(`topic-verses/${String(i + 1).padStart(2, "0")}.json`, d));
+topicVerses.forEach((d, i) => { refBooks[i].t = d; });
 write("topics/names.json", topicRows);
 
 // ---------- 12. Books, people and chronology from BibleData (CC BY 4.0) ----------
@@ -547,10 +546,11 @@ for (const row of csvRows("BibleData-PersonVerse.csv")) {
   const v = (verseIndex[b - 1][key] ??= []);
   if (!v.includes(f.id)) v.push(f.id);
 }
-fs.mkdirSync(path.join(OUT, "person-verses"), { recursive: true });
-verseIndex.forEach((d, i) => write(`person-verses/${String(i + 1).padStart(2, "0")}.json`, d));
+verseIndex.forEach((d, i) => { refBooks[i].p = d; });
 const pvDelta = Object.fromEntries(Object.entries(personVerses).map(([id, codes]) => [id, [...codes].sort((a, b) => a - b).map((c, i, arr) => (i ? c - arr[i - 1] : c))]));
-write("person-verses/all.json", pvDelta);
+write("person-verses-all.json", pvDelta);
+fs.mkdirSync(path.join(OUT, "refs"), { recursive: true });
+refBooks.forEach((d, i) => write(`refs/${String(i + 1).padStart(2, "0")}.json`, d));
 
 // Lifespans and reigns, keeping only those whose start cites a verse. The dataset's own calculation is shown with each.
 // Where the cited verse gives a total ("lived a total of 950 years"), the row must agree with it or it's left out.
@@ -574,12 +574,54 @@ const timeline = csvRows("BibleData-Epoch.csv").flatMap((e) => {
   }
   return [{ id: f.id, kind: e.epoch_type.toLowerCase(), label: clearName(e.epoch_name).replace(/\*$/, ""), estimated: /\*\s*$/.test(e.epoch_name) || /HYPOTHESIS|ESTIMATE/i.test(e.epoch_notes), from: +e.start_year_ah, to: +e.end_year_ah, startRef, endRef: niceRef(e.end_year_reference_id), calc: prettyRefs(clearName(e.start_year_calculation)) }];
 });
-const WANT = { Begin_Flood: "The Flood begins", The_Exodus: "The Exodus", Begin_first_Temple_construction: "First Temple begun", Destruction_of_Solomons_Temple: "First Temple destroyed", Cyrus_Decree: "Decree of Cyrus", End_second_Temple_construction: "Second Temple finished" };
-const events = csvRows("BibleData-Event.csv").filter((e) => WANT[e.event_id] && e.event_year_ah).map((e) => ({ label: WANT[e.event_id], year: +e.event_year_ah, bce: +e.bce_year || null, ref: niceRef(e.event_reference_id) }));
-write("timeline.json", { rows: timeline, events, excluded: timelineExcluded });
+// Periods that aren't one person's life: bondage, exile, building work and the like.
+const PERIOD_TYPES = new Set(["Period", "Bondage", "Exile", "Travel", "Construction", "Captivity", "Battle", "Unique"]);
+const periods = csvRows("BibleData-Epoch.csv").flatMap((e) => {
+  if (!PERIOD_TYPES.has(e.epoch_type) || !e.start_year_ah || !e.end_year_ah || /\bduring\b/i.test(e.epoch_name)) return [];
+  const startRef = niceRef(e.start_year_reference_id);
+  if (!startRef) return [];
+  return [{ id: "", kind: "period", label: clearName(e.epoch_name).replace(/\*\s*$/, ""), estimated: /\*\s*$/.test(e.epoch_name) || /HYPOTHESIS|ESTIMATE/i.test(e.epoch_notes), from: +e.start_year_ah, to: +e.end_year_ah, startRef, endRef: niceRef(e.end_year_reference_id), calc: prettyRefs(clearName(e.start_year_calculation)) }];
+});
+
+// Single dated events. Births, deaths and begin/end markers are left out because the bars above already show them.
+const EVENT_TYPES = new Set(["Travel", "Unique", "Covenant", "Battle", "Prophesy", "Marriage", "Message", "Construction", "Meeting", "Destruction", "Vision"]);
+const WANT = new Set(["Begin_Flood", "The_Exodus", "Begin_first_Temple_construction", "Destruction_of_Solomons_Temple", "Cyrus_Decree", "End_second_Temple_construction"]);
+const events = csvRows("BibleData-Event.csv").flatMap((e) => {
+  if (!(WANT.has(e.event_id) || EVENT_TYPES.has(e.event_type)) || !e.event_year_ah || +e.event_year_ah >= 3962) return [];
+  const ref = niceRef(e.event_reference_id);
+  if (!ref) return [];
+  return [{ label: clearName(e.event_name).replace(/\*\s*$/, ""), year: +e.event_year_ah, kind: e.event_type, estimated: /\*\s*$/.test(e.event_name) || /HYPOTHESIS|ESTIMATE/i.test(e.event_notes), bce: +e.bce_year || null, ussherBc: +e.ussher_bce_year || null, ref, calc: prettyRefs(clearName(e.event_year_calculation || "")) }];
+});
+
+// BibleData's chronology stops at Malachi. For the New Testament the year is read from Ussher's Annals (1650), row by row.
+// The wording here is a plain caption for the cited passage. Only the year comes from the Annals, which is why the row number is kept.
+const NT_EVENTS = [
+  [6027, "John the Baptist's birth foretold", "Luke 1:5-22"], [6041, "Jesus's birth foretold to Mary", "Luke 1:26-38"], [6059, "Birth of Jesus", "Luke 2:1-7"],
+  [6062, "Wise men visit", "Matthew 2:1-12"], [6066, "Flight to Egypt", "Matthew 2:13-15"], [6086, "Return from Egypt", "Matthew 2:19-21"], [6187, "Jesus at the temple, aged twelve", "Luke 2:41-47"],
+  [6283, "John the Baptist begins preaching", "Luke 3:1-2"], [6289, "Baptism of Jesus", "Matthew 3:13-17"], [6339, "Jesus teaches the crowds on the mountain", "Luke 6:20-49"], [6380, "Transfiguration", "Luke 9:28-36"],
+  [6456, "Last Supper", "Luke 22:14-18"], [6480, "Crucifixion of Jesus", "Luke 23:26-46"], [6488, "Resurrection of Jesus", "Luke 24:1-12"], [6507, "Ascension", "Acts 1:6-11"], [6511, "Pentecost", "Acts 2:1-41"],
+  [6520, "Stephen's speech and death", "Acts 7:1-60"], [6536, "Saul's conversion", "Acts 9:1-7"], [6659, "Peter and Cornelius", "Acts 10:9-48"], [6676, "James son of Zebedee killed", "Acts 12:2"], [6679, "Death of Herod Agrippa", "Acts 12:18-23"],
+  [6692, "Paul and Barnabas sent from Antioch", "Acts 13:1-4"], [6758, "Council at Jerusalem", "Acts 15:6-32"], [6781, "Paul and Barnabas part ways", "Acts 15:36-41"], [6794, "Paul at Athens", "Acts 17:16-31"],
+  [6804, "Paul writes 1 Thessalonians", "1 Thessalonians 1:1-5"], [6823, "Paul at Ephesus", "Acts 19:1-8"], [6831, "Paul writes Galatians", "Galatians 1:6-7"], [6836, "Paul writes 1 Corinthians", "1 Corinthians 16:10"], [6842, "Paul writes 2 Corinthians", "2 Corinthians 1:8-9"], [6844, "Paul writes Romans", "Romans 16:1"],
+  [6852, "Paul's arrest in Jerusalem", "Acts 21:17-40"], [6868, "Paul appeals to Caesar", "Acts 25:1-12"], [6874, "Paul's voyage and shipwreck", "Acts 27:9-44"], [6878, "Paul in Rome", "Acts 28:14-31"],
+  [6908, "Paul writes Philippians", "Philippians 1:12-13"], [6909, "Paul writes Colossians and Philemon", "Colossians 1:7-8"], [6910, "Paul writes Ephesians", "Ephesians 6:21-22"], [6913, "Paul writes Hebrews, on Ussher's reading", "Hebrews 13:23-24"],
+  [6924, "Paul writes 1 Timothy", "1 Timothy 1:20"], [6925, "Paul writes Titus", "Titus 3:12-13"], [6938, "Peter writes 2 Peter", "2 Peter 3:1"], [6939, "Paul writes 2 Timothy", "2 Timothy 4:12"],
+  [6978, "Jerusalem and its temple destroyed, as Jesus foretold", "Luke 21:20-24"],
+];
+const ussher = new Map(csvRows("Ussher-AnnalsOfTheWorld.csv").map((u) => [+u.paragraph_nr, u]));
+const USX = { Luke: "LUK", Matthew: "MAT", Acts: "ACT", Romans: "ROM", Galatians: "GAL", Philippians: "PHP", Colossians: "COL", Ephesians: "EPH", Hebrews: "HEB", Titus: "TIT", "1 Thessalonians": "1TH", "1 Corinthians": "1CO", "2 Corinthians": "2CO", "1 Timothy": "1TI", "2 Timothy": "2TI", "2 Peter": "2PE" };
+const nt = NT_EVENTS.map(([para, label, ref]) => {
+  const u = ussher.get(para);
+  const book = ref.replace(/ \d+:.*$/, "");
+  // The row must actually cite the passage, except the fall of Jerusalem, which the Annals record as history.
+  if (!u || (para !== 6978 && !u.event.includes(USX[book]))) throw new Error(`Ussher row ${para} doesn't match ${ref}`);
+  const year = u.gc_bc_ad === "BC" ? 1 - +u.gc_year : +u.gc_year;
+  return { label, x: year, ref, para };
+});
+write("timeline.json", { rows: [...timeline, ...periods], events, nt, excluded: timelineExcluded });
 console.log("timeline rows left out for disagreeing with the verse:", JSON.stringify(timelineExcluded));
 console.log("dropped family links, sample:", droppedLinks.slice(0, 30).join("; "));
-console.log("people", figuresList.length, "family links", famLinks, "dropped", famDropped, "timeline rows", timeline.length, "events", events.length);
+console.log("people", figuresList.length, "family links", famLinks, "dropped", famDropped, "timeline rows", timeline.length + periods.length, "events", events.length, "nt", nt.length);
 
 const size = (p) => fs.statSync(p).isDirectory() ? fs.readdirSync(p).reduce((a, f) => a + size(path.join(p, f)), 0) : fs.statSync(p).size;
 for (const d of fs.readdirSync(OUT)) console.log(d, (size(path.join(OUT, d)) / 1e6).toFixed(1) + "MB", fs.statSync(path.join(OUT, d)).isDirectory() ? fs.readdirSync(path.join(OUT, d)).length + " files" : "");

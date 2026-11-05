@@ -11,6 +11,8 @@ import { decodeMorph, gematria, getConcordance, getLexEntry, getVerseWords, sear
 import { parseReference } from "../src/core/references";
 import { findShortestPath, getFigure } from "../src/core/figure-graph";
 import { ensureFigures, getTimeline, peopleInPassage, versesOfPerson } from "../src/core/people";
+import { excerptsByWriter, excerptsForPassage, getWritingsIndex, searchWritings, sermonsForPassage } from "../src/core/writings";
+import { ahToX, formatSpan, formatYear, getTimelineItems, parseTimelineRoute, timelineForPassage, timelineHash } from "../src/core/timeline";
 
 before(() => setLoader(async (p) => JSON.parse(await fs.promises.readFile(path.join("public/data", p), "utf8"))));
 
@@ -171,4 +173,45 @@ test("BibliaTree's pathfinder works on the sourced people", async () => {
 test("reference parsing", () => {
   assert.equal(parseReference("Psalm 23")?.[0].book, 19);
   assert.equal(parseReference("1 Cor 13:4-7")?.[0].verseEnd, 7);
+});
+
+test("writers: every excerpt names an edition, and modern authors are left out", async () => {
+  const index = await getWritingsIndex();
+  for (const banned of ["CS Lewis", "JRR Tolkien", "Douglas Wilson", "GK Chesterton"]) assert.ok(!index.authors.some((a) => a.name === banned), banned);
+  const john = await excerptsForPassage("John 3:16");
+  assert.ok(john.some((e) => e.writer.name === "Tertullian" && /Ante-Nicene/.test(e.source) && /only-begotten/.test(e.text)));
+  assert.ok(john.every((e) => e.source && e.title));
+  assert.deepEqual(john.map((e) => e.writer.year ?? 9999), john.map((e) => e.writer.year ?? 9999).sort((a, b) => a - b), "earliest first");
+  // A verse lookup only returns what touches that verse.
+  assert.ok(john.every((e) => e.book === 43 && e.c1 <= 3 && e.c2 >= 3));
+  assert.ok(!(await excerptsForPassage("John 3:16", "comm")).some((e) => e.v1 === 0), "chapter introductions stay with the whole chapter");
+  assert.ok((await excerptsForPassage("John 3", "comm")).some((e) => e.v1 === 0));
+});
+
+test("writers: commentaries, Calvin's citations and the sermon index", async () => {
+  assert.ok((await excerptsForPassage("John 3:16", "comm")).some((e) => e.writer.name === "Matthew Henry"));
+  assert.ok((await excerptsForPassage("Psalm 23:1", "comm")).some((e) => /Treasury/.test(e.title) && /shepherd/i.test(e.text)));
+  assert.ok((await excerptsForPassage("Galatians 2:20", "comm")).some((e) => e.writer.name === "Martin Luther" && /Graebner/.test(e.source)));
+  assert.ok((await excerptsForPassage("Deuteronomy 32:35", "comm")).some((e) => /Sinners in the Hands/.test(e.title) && /Their foot shall slide/.test(e.text)));
+  assert.ok((await excerptsByWriter("john-calvin", 45)).length > 100);
+  assert.ok((await sermonsForPassage("Song of Solomon 6:13")).some((s) => s.number === 593 && /spurgeon\.org\/sermons\/inward-conflicts$/.test(s.url)));
+  assert.ok((await searchWritings("only-begotten", { book: 43, limit: 5 })).length === 5);
+});
+
+test("timeline: years convert, and each item points to real verses", async () => {
+  assert.equal(formatYear(0), "1 BC");
+  assert.equal(formatYear(1), "AD 1");
+  assert.equal(formatYear(ahToX(3919)), "43 BC"); // BibleData's own bce_year for this row
+  assert.equal(formatYear(ahToX(3969)), "AD 8");
+  assert.equal(formatSpan(-1040, -970), "1041 to 971 BC");
+  assert.equal(parseTimelineRoute(timelineHash(70).slice(9)), 70);
+  assert.equal(parseTimelineRoute(timelineHash(-1446).slice(9)), -1446);
+  const { items } = await getTimelineItems();
+  const find = (label: string, band: string) => items.find((i) => i.label === label && i.band === band)!;
+  assert.equal(formatYear(find("Birth of Jesus", "nt").x1), "5 BC"); // Ussher's Annals, paragraph 6059
+  assert.equal(formatYear(find("Pentecost", "nt").x1), "AD 33");
+  assert.equal(formatYear(find("The Exodus", "event").x1), "1447 BC");
+  assert.ok(items.some((i) => i.band === "writer" && i.writerId === "augustine-of-hippo" && i.x1 === 430));
+  assert.ok(items.some((i) => i.band === "confession"));
+  assert.ok((await timelineForPassage("Acts 2:1")).some((i) => i.label === "Pentecost"));
 });
