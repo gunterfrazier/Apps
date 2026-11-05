@@ -13,6 +13,7 @@ import { excerptsForPassage, FLAG_NOTE, varied } from "./writings";
 import { searchGlossary } from "./glossary";
 import { creedText, getChronology, getChurchEvents, getCreed, getCreedIndex, getJosephus, lookupDictionary, verseVariants, lxxChapters, vulgateChapters } from "./scholar";
 import { getBookMeta } from "./content";
+import { searchPassage, searchSummary } from "./passage-search";
 import { decodeMorph, getCrossRefs, getLexEntry, getVerseWords, normalizeStrongs, searchLexicon } from "./lexicon";
 import { ensureFigures, versesOfPerson } from "./people";
 import { bookName, findReferences, parseReference } from "./references";
@@ -490,6 +491,74 @@ function coerceExegesisParts(raw: unknown): Exegesis | null {
 export function coerceExegesis(raw: unknown): Exegesis | null {
   const out = coerceExegesisParts(raw);
   return out && (out.thesis || out.verses.length) ? out : null;
+}
+
+// ---------- A word or topic in selected verses, through a lens ----------
+export interface TopicReading {
+  definition: string;
+  occurrences: { ref: string; word: string; sense: string; reading: string }[];
+  conceptual: string;
+  fromText: string;
+  fromFramework: string;
+  doctrines: { name: string; connection: string }[];
+  otherReadings: { tradition: string; reading: string }[];
+  debated: string[];
+  sources: unknown[];
+}
+
+export async function topicPrompt(reference: string, query: string, translation: TranslationId, lens: LensId, hasTools = true): Promise<string> {
+  const found = await searchPassage(reference, query, translation, lens);
+  if (!found) throw { code: "bad_query", userMessage: "Type a word or topic of at least two letters." };
+  const lensText = lens === "all"
+    ? "The reader hasn't chosen one lens. Give the understanding most Christian traditions share, and show the differences under otherReadings."
+    : `Read this from inside the ${lensName(lens)} tradition, in terms its own teachers would recognize. Present how it reads the term, and don't declare it right or wrong.${lensGuide(lens)}`;
+  const presence = found.direct
+    ? "The app found this word in these verses or behind them in the Hebrew or Greek. Different uses may carry different senses, so say which sense each one has."
+    : "The app found no direct match: the word isn't in these verses in this translation, and no Hebrew or Greek word here is rendered that way. Say so plainly. Leave occurrences empty, and use conceptual to say whether and how this tradition connects the idea to these verses, and on what basis. Don't imply the word is present.";
+  return `${AI_RULES}
+
+The reader selected ${reference} in ${translationInfo(translation).name} and searched it for this word or topic:
+<search>${query.slice(0, 80)}</search>
+${lensText}
+${presence}
+Some of the original words below are linked only because a lexicon lists this English as a possible rendering ("link":"lexicon"). Use them only if they truly bear on the topic here.
+
+<findings>
+${clip(searchSummary(found), 24000)}
+</findings>
+${await groundingFor(reference, translation)}
+
+${sourceRules(hasTools, "word_study, define_term, search_creeds, historic_writers, lookup_dictionary")}
+
+Reply with only one JSON object in this shape:
+{"definition":"how this tradition understands the word or topic","occurrences":[{"ref":"Romans 3:21","word":"the word as it appears","sense":"its sense in this verse","reading":"how this tradition reads it here"}],"conceptual":"only if there's no direct match: how the tradition connects the idea to these verses","fromText":"what the words in these verses themselves establish","fromFramework":"what this tradition brings to them from its wider theology","doctrines":[{"name":"doctrine","connection":"how this reading bears on it"}],"otherReadings":[{"tradition":"name","reading":"how they differ, fairly stated"}],"debated":["what is still debated"],"sources":[]}
+Only comment on verses in ${reference}. Keep it under about 700 words. Use empty arrays where there is nothing solid to say.`;
+}
+
+export function coerceTopicReading(raw: unknown): TopicReading | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const list = <T>(v: unknown, n: number, f: (x: Record<string, unknown>) => T): T[] => (Array.isArray(v) ? v.slice(0, n).filter((x) => x && typeof x === "object").map((x) => f(x as Record<string, unknown>)) : []);
+  const out: TopicReading = {
+    definition: asStr(r.definition, 3000),
+    occurrences: list(r.occurrences, 40, (x) => ({ ref: asStr(x.ref, 80), word: asStr(x.word, 80), sense: asStr(x.sense, 600), reading: asStr(x.reading, 1500) })),
+    conceptual: asStr(r.conceptual, 3000), fromText: asStr(r.fromText, 3000), fromFramework: asStr(r.fromFramework, 3000),
+    doctrines: list(r.doctrines, 12, (x) => ({ name: asStr(x.name, 120), connection: asStr(x.connection, 1200) })),
+    otherReadings: list(r.otherReadings, 12, (x) => ({ tradition: asStr(x.tradition, 100), reading: asStr(x.reading, 1500) })),
+    debated: Array.isArray(r.debated) ? r.debated.map((x) => asStr(x, 600)).filter(Boolean).slice(0, 12) : [],
+    sources: Array.isArray(r.sources) ? r.sources : [],
+  };
+  return out.definition || out.occurrences.length || out.conceptual ? out : null;
+}
+
+/** The app decides whether a verse is really in the selection, not the AI. */
+export async function versesOutside(reference: string, translation: TranslationId, refs: string[]): Promise<string[]> {
+  const passage = await getPassage(translation, reference);
+  const inside = new Set((passage?.parts.flatMap((p) => p.verses) ?? []).map((v) => `${v.book}:${v.chapter}:${v.verse}`));
+  return refs.filter((r) => {
+    const s = parseReference(r)?.[0];
+    return !s || !inside.has(`${s.book}:${s.chapter}:${s.verseStart ?? 1}`);
+  });
 }
 
 export const guideRequestPresets = [

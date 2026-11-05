@@ -7,6 +7,7 @@ import { Loading, useAsync } from "../ui";
 import { ExegesisView, ExploreResult, JobProgress, draftToSection, placeInGuide } from "./ai-explore";
 import { DraftPreview } from "./guides";
 import { addSectionsToGuide, AiInsightView } from "./insights";
+import { TopicReadingView } from "./passage-search";
 
 const activeJob = (j: AiJob) => j.status === "queued" || j.status === "running" || j.status === "interrupted";
 
@@ -46,6 +47,10 @@ function JobResult({ job }: { job: AiJob }) {
   if (job.kind === "exegesis") {
     const r = job.result;
     return <ExegesisView e={r.exegesis} checked={r.checked} stray={r.stray} thin={r.thin} reference={job.payload.reference} lens={job.payload.lens} onAdd={(s) => { addAnywhere(s, job.payload.reference, job); done(); }} />;
+  }
+  if (job.kind === "topic") {
+    const r = job.result;
+    return <TopicReadingView r={r} query={job.payload.query} reference={job.payload.reference} lens={job.payload.lens} onAdd={(s) => { addAnywhere(s, job.payload.reference, job); done(); }} />;
   }
   if (job.kind === "insight") return <AiInsightView insight={job.result} reference={job.payload.reference} lens={job.payload.lens} onAdd={(s) => { addAnywhere(s, job.payload.reference, job); done(); }} />;
   return (

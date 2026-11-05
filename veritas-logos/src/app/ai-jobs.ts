@@ -4,7 +4,7 @@ import type { TranslationId } from "../core/bible";
 import type { LensId } from "../core/content";
 import type { Guide } from "../core/guide";
 import { checkSources, type CheckedSource } from "../core/research";
-import { aiChat, aiDraft, aiExegesisStage, aiExplore, aiInsight, aiResearch, detectAi, friendlyAiError, type AskOpts, type Turn } from "./ai-client";
+import { aiChat, aiDraft, aiExegesisStage, aiExplore, aiInsight, aiResearch, aiTopicReading, detectAi, friendlyAiError, type AskOpts, type Turn } from "./ai-client";
 import { toast } from "./store";
 
 /**
@@ -12,7 +12,7 @@ import { toast } from "./store";
  * Each one is saved as it goes. If the phone pauses the app or the connection drops while it's
  * in the background, the work picks up again when the app comes back.
  */
-export type JobKind = "explore" | "exegesis" | "insight" | "draft" | "chat";
+export type JobKind = "explore" | "exegesis" | "insight" | "draft" | "chat" | "topic";
 export type JobStatus = "queued" | "running" | "done" | "error" | "interrupted";
 export interface JobTarget { guideId?: string; sectionId?: string; canReplace?: boolean }
 export interface AiJob {
@@ -204,6 +204,7 @@ const RUNNERS: Record<JobKind, Runner> = {
   insight: (job, opts) => aiInsight(job.payload.reference, job.payload.translation, job.payload.lens, opts),
   draft: (job, opts) => aiDraft(job.payload.guide, job.payload.request, opts),
   explore: (job, opts) => aiExplore(job.payload.context, job.payload.request, opts),
+  topic: (job, opts) => aiTopicReading(job.payload.reference, job.payload.query, job.payload.translation, job.payload.lens, opts),
   chat: async (job, opts) => {
     const { turns, translation, lens, contextRef, research } = job.payload as { turns: Turn[]; translation: TranslationId; lens: LensId; contextRef?: string; research: boolean };
     if (research) {
@@ -243,6 +244,7 @@ const RUNNERS: Record<JobKind, Runner> = {
 // ---------- Helpers for each feature ----------
 export const exegesisKey = (reference: string, translation: TranslationId, lens: LensId) => `exegesis:${reference}:${lens}:${translation}`;
 export const insightKey = (reference: string, translation: TranslationId, lens: LensId) => `insight:${reference}:${lens}:${translation}`;
+export const topicKey = (reference: string, query: string, translation: TranslationId, lens: LensId) => `topic:${reference}:${query.trim().toLowerCase()}:${lens}:${translation}`;
 export const draftKey = (guide: Guide) => `draft:${guide.id}`;
 export const exploreKey = (where: string, heading: string) => `explore:${where}:${heading}`;
 export type ExplorePayload = { context: ExploreContext; request: string };

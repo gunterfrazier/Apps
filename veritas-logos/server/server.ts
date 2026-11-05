@@ -20,7 +20,7 @@ import http from "node:http";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { chatPreamble, checkReferences, exegesisStagePrompt, explorePrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
+import { chatPreamble, checkReferences, exegesisStagePrompt, explorePrompt, topicPrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
 import { getPassage, isTranslationId, searchText, TRANSLATIONS, DEFAULT_TRANSLATION, translationInfo, decodeVerseCode, refOf, getVerse, type TranslationId } from "../src/core/bible";
 import { getTopic, searchTopics } from "../src/core/content";
 import { setLoader } from "../src/core/data";
@@ -362,7 +362,13 @@ export function createServer(opts: ServerOptions = {}) {
         const stage = { id: st.id === "verses" || st.id === "theology" ? st.id : "overview", label: "", from: Number(st.from) || 0, to: Number(st.to) || 12 } as const;
         messages = [{ role: "user", content: await exegesisStagePrompt(body.reference, translation, lens, stage, typeof body.earlier === "string" ? body.earlier.slice(0, 20000) : "") }];
         useTools = true;
-      } else throw new HttpError(400, "bad_purpose", "Use purpose insight, chat, draft, explore or exegesis.");
+      } else if (body.purpose === "topic") {
+        if (typeof body.reference !== "string" || !parseReference(body.reference)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
+        if (typeof body.query !== "string" || body.query.trim().length < 2) throw new HttpError(400, "bad_query", "Send a word or topic of at least two letters.");
+        system = "You are the study assistant in Veritas Logos.";
+        messages = [{ role: "user", content: await topicPrompt(body.reference, body.query, translation, lens) }];
+        useTools = true;
+      } else throw new HttpError(400, "bad_purpose", "Use purpose insight, chat, draft, explore, exegesis or topic.");
 
       res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" });
       const ctl = new AbortController();

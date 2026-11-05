@@ -13,6 +13,7 @@ export interface AiRequest {
   request?: unknown;
   section?: unknown;
   stage?: unknown;
+  query?: unknown;
   earlier?: unknown;
 }
 interface RunOptions {

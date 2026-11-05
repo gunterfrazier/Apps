@@ -9,6 +9,7 @@ import { guideToDocx } from "../../core/docx";
 import { StudyNav } from "./notebook";
 import { EXPLORE_PRESETS } from "../../core/ai";
 import { ExegesisBlock, ExploreSheet, sectionText, useAiMode } from "./ai-explore";
+import { PassageSearchBlock } from "./passage-search";
 import { draftKey, enqueueJob, exploreKey, markSeen, removeJob, useJob } from "../ai-jobs";
 import { appBase, copyText, decodeFromLink, encodeForLink, IS_ARTIFACT, saveFile } from "../files";
 import { deleteGuide, navigate, saveGuide, toast, update, useData } from "../store";
@@ -207,6 +208,7 @@ function SectionEditor({ section: s, translation, onChange, onDelete, onMove, co
   const isBackground = /background to research/i.test(s.heading);
   const passages = guide.sections.flatMap((x) => (x.kind === "passage" && x.ref ? [x.ref] : []));
   const exploreJob = useJob(exploreKey(`${guide.id}:${s.id}`, s.heading));
+  const [searching, setSearching] = useState(false);
   return (
     <article className={`section-card origin-card-${s.origin}`}>
       <div className="section-top">
@@ -245,7 +247,13 @@ function SectionEditor({ section: s, translation, onChange, onDelete, onMove, co
         {exploreJob && exploreJob.status !== "done" && exploreJob.status !== "error" && <button type="button" className="link-btn" onClick={() => setExplore("open")}>AI is working on this…</button>}
         {!exploreJob && isBackground && <button type="button" className="btn small primary" onClick={() => setExplore("background")}>Research this with AI</button>}
         {!exploreJob && <button type="button" className="link-btn" onClick={() => setExplore("open")}>Explore and expand</button>}
+        {s.kind === "passage" && s.ref && <button type="button" className="link-btn" onClick={() => setSearching(true)}>Search this passage</button>}
       </div>
+      {searching && s.ref && (
+        <Sheet wide title={`Search ${s.ref}`} onClose={() => setSearching(false)}>
+          <PassageSearchBlock bare reference={s.ref} translation={translation} lens={guide.lens} target={{ guideId: guide.id, sectionId: s.id }} onAdd={(n) => { n.reduceRight((_, x) => { onInsert(s.id, x); return x; }, n[0]); setSearching(false); toast("Added below this passage"); }} />
+        </Sheet>
+      )}
       {explore && (
         <ExploreSheet
           where={`${guide.id}:${s.id}`}

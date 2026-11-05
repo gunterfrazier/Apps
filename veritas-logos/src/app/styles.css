@@ -503,3 +503,18 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
 .job-state.ready { color: var(--tl-creed); font-weight: 600; }
 .job-state.bad { color: var(--warn); font-weight: 600; }
 .ai-check { margin-top: 1.4rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+
+.ps-form { display: flex; gap: .4rem; align-items: stretch; margin: .3rem 0 .5rem; }
+.ps-form input { flex: 1; min-width: 0; }
+.ps-block { margin: .6rem 0 1rem; padding: .7rem .85rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.ps-block.bare { padding: 0; border: 0; background: none; }
+.ps-block > h3 { margin: 0 0 .15rem; }
+.ps-count { font-weight: 600; margin: .5rem 0 .2rem; }
+.ps-verse { margin: .35rem 0; font-family: var(--font-serif); }
+.ps-verse mark { background: color-mix(in srgb, var(--accent-strong) 28%, transparent); color: inherit; border-radius: 2px; padding: 0 .08em; }
+.ps-word { padding: .45rem 0; border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); overflow-wrap: anywhere; }
+.ps-word .uses { font-size: .85rem; color: var(--ink-2); margin: .15rem 0 0; }
+.ps-group { margin-top: .8rem; }
+.ps-group h4 { margin: 0 0 .25rem; }
+.ps-ai { margin-top: .9rem; }
+.lens-tag { font-size: .72rem; font-weight: 600; color: var(--accent-strong); margin-left: .35rem; white-space: nowrap; }

@@ -15,7 +15,8 @@ import { getGlossary, searchGlossary, termById } from "../src/core/glossary";
 import { creedsCiting, getChurchEvents, getCreed, getCreedIndex, getDeuterocanon, getDisputed, getApostolic, getJosephus, getSynopsis, lxxChapters, lxxPsalms, sameStrong, taggedVerse, verseVariants, vulgateChapters, getChronology, getDoctrine } from "../src/core/scholar";
 import { exportAll, formatCitation, parseSourceLine } from "../src/core/cite";
 import { checkResearch, checkSources } from "../src/core/research";
-import { coerceExegesis, coerceExplore, emptyExegesis, exegesisPlan, exegesisStagePrompt, explorePrompt, insightPrompt, mergeExegesis, parseJsonReply, repairJson, strayWords, aiTools } from "../src/core/ai";
+import { searchPassage, queryPattern } from "../src/core/passage-search";
+import { coerceTopicReading, topicPrompt, versesOutside, coerceExegesis, coerceExplore, emptyExegesis, exegesisPlan, exegesisStagePrompt, explorePrompt, insightPrompt, mergeExegesis, parseJsonReply, repairJson, strayWords, aiTools } from "../src/core/ai";
 import { lookupDictionary } from "../src/core/scholar";
 import { lensName } from "../src/core/guide";
 import { LENS_IDS } from "../src/core/content";
@@ -485,4 +486,56 @@ test("AI tools stay inside the platform's rules", () => {
     assert.ok(new TextEncoder().encode(t.description).length <= 1024, t.name);
     assert.ok(new TextEncoder().encode(JSON.stringify(t.inputSchema ?? {})).length <= 4096, t.name);
   }
+});
+
+test("passage search: finds the word, its forms, and the Hebrew or Greek behind it", async () => {
+  const love = (await searchPassage("1 John 4:7-12", "love", "BSB", "reformed"))!;
+  assert.ok(love.direct);
+  assert.ok(love.verses.length >= 3);
+  assert.ok(love.originals.some((o) => o.strong === "G25"), "agapaō");
+  assert.ok(love.originals.some((o) => o.strong === "G26"), "agapē");
+  assert.ok(love.originals.find((o) => o.strong === "G26")!.uses[0].ref.startsWith("1 John 4"));
+  const re = queryPattern("law")!;
+  assert.ok(re.test("the law of God"));
+  assert.ok(re.test("laws"));
+  assert.ok(!re.test("lawyer"), "a longer word isn't a match");
+  assert.ok(queryPattern("righteousness")!.test("the righteous"));
+  assert.ok(queryPattern("love")!.test("loving"));
+  assert.equal(queryPattern("a"), null);
+});
+
+test("passage search: a different tag gloss still points to the likely word", async () => {
+  const mercy = (await searchPassage("Psalm 136:1-9", "mercy", "KJV"))!;
+  assert.equal(mercy.originals[0].strong, "H2617");
+  assert.equal(mercy.originals[0].how, "likely");
+  const law = (await searchPassage("Romans 8:1-11", "law", "BSB"))!;
+  assert.equal(law.originals[0].how, "here");
+  assert.ok(!law.originals.some((o) => o.how === "likely"), "a verse already explained by its tag adds no guesses");
+});
+
+test("passage search: searching by Strong's number or original word", async () => {
+  const byId = (await searchPassage("John 1:1-5", "G3056", "BSB"))!;
+  assert.equal(byId.originals[0].strong, "G3056");
+  assert.equal(byId.originals[0].how, "asked");
+  assert.equal(byId.originals[0].uses.length, 3);
+  const byName = (await searchPassage("John 1:1-5", "logos", "BSB"))!;
+  assert.equal(byName.originals[0].strong, "G3056");
+});
+
+test("passage search: a topic that isn't in the text says so, and the AI is told", async () => {
+  const none = (await searchPassage("John 1:1-5", "Trinity", "BSB", "reformed"))!;
+  assert.equal(none.direct, false);
+  assert.equal(none.verses.length, 0);
+  const p = await topicPrompt("John 1:1-5", "Trinity", "BSB", "reformed");
+  assert.match(p, /found no direct match/);
+  assert.match(await topicPrompt("Romans 3:21-26", "righteousness", "BSB", "covenant"), /federal heads/);
+  assert.match(await topicPrompt("Romans 3:21-26", "righteousness", "BSB", "covenant", false), /no lookup tools/);
+  assert.equal(await searchPassage("John 1:1", "x", "BSB"), null);
+});
+
+test("topic reading: replies are shaped, and verses outside the selection are caught", async () => {
+  assert.equal(coerceTopicReading({}), null);
+  const r = coerceTopicReading({ definition: "d", occurrences: [{ ref: "John 1:1", word: "w" }], debated: ["x"] })!;
+  assert.equal(r.occurrences.length, 1);
+  assert.deepEqual(await versesOutside("John 1:1-5", "BSB", ["John 1:2", "John 3:16"]), ["John 3:16"]);
 });

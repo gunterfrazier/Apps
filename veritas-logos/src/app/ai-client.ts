@@ -1,6 +1,6 @@
 import type { TranslationId } from "../core/bible";
 import type { LensId } from "../core/content";
-import { aiTools, AI_RULES, chatPreamble, coerceDraftSections, coerceExplore, coerceInsight, exegesisStagePrompt, explorePrompt, guideDraftPrompt, insightPrompt, parseJsonReply, type AiInsight, type ExegesisStage, type ExploreContext, type ExploreDraft } from "../core/ai";
+import { aiTools, AI_RULES, chatPreamble, coerceDraftSections, coerceExplore, coerceInsight, coerceTopicReading, topicPrompt, versesOutside, type TopicReading, exegesisStagePrompt, explorePrompt, guideDraftPrompt, insightPrompt, parseJsonReply, type AiInsight, type ExegesisStage, type ExploreContext, type ExploreDraft } from "../core/ai";
 import type { Guide, GuideSection } from "../core/guide";
 import { checkResearch, checkSources, RESEARCH_RULES, type CheckedSource, type ResearchAnswer } from "../core/research";
 import { getData } from "./store";
@@ -111,6 +111,7 @@ export const TOOLSETS = {
   overview: ["book_background", "lookup_dictionary", "search_josephus", "historic_writers"],
   verses: ["word_study", "lookup_dictionary", "historic_writers"],
   theology: ["search_creeds", "define_term", "historic_writers"],
+  topic: ["word_study", "define_term", "search_creeds", "historic_writers", "lookup_dictionary"],
 };
 
 const toolsFor = (translation: TranslationId, names: string[], opts: AskOpts) => {
@@ -242,6 +243,14 @@ export async function aiExplore(c: ExploreContext, request: string, opts: AskOpt
 /** Writes one step of an exegesis. */
 export async function aiExegesisStage(reference: string, translation: TranslationId, lens: LensId, stage: ExegesisStage, earlier: string, opts: AskOpts = {}): Promise<unknown> {
   return askJson((has) => exegesisStagePrompt(reference, translation, lens, stage, earlier, has), { purpose: "exegesis", reference, translation, lens, stage, earlier: earlier.slice(0, 20000) }, translation, opts, { tier: "complex", toolNames: TOOLSETS[stage.id] });
+}
+
+/** How the chosen lens reads a word or topic in selected verses. Its citations and verses are checked afterward. */
+export async function aiTopicReading(reference: string, query: string, translation: TranslationId, lens: LensId, opts: AskOpts = {}): Promise<{ reading: TopicReading; checked: CheckedSource[]; outside: string[] }> {
+  const raw = await askJson((has) => topicPrompt(reference, query, translation, lens, has), { purpose: "topic", reference, query, translation, lens }, translation, opts, { tier: "complex", toolNames: TOOLSETS.topic });
+  const reading = coerceTopicReading(raw);
+  if (!reading) throw { code: "bad_reply", userMessage: "The assistant's reply couldn't be read. Try again." };
+  return { reading, checked: await checkSources(reading.sources, translation), outside: await versesOutside(reference, translation, reading.occurrences.map((o) => o.ref)) };
 }
 
 /** What the viewer can do, without spending anything. */
