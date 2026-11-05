@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-server/
+dist-artifact/
+src/.gen/
+.test-build/
+.tmp/
+*.db
+*.db-shm
+*.db-wal
+.env
