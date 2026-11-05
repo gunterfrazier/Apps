@@ -68,7 +68,9 @@ for (const t of glossary) {
   for (const d of t.defs) if (!d.source || !d.text) errors.push(`glossary ${t.term}: definition with no source`);
   for (const r of t.refs) if (!exists(r)) errors.push(`glossary ${t.term}: bad reference ${r}`);
 }
-console.log(`glossary terms ${glossary.length}, with a definition ${glossary.filter((t) => t.defs.length).length}`);
+const byTerm = new Set(glossary.map((t) => t.id));
+for (const t of glossary) if (t.see && !byTerm.has(t.see)) errors.push(`glossary ${t.term}: points to missing ${t.see}`);
+console.log(`glossary terms ${glossary.length}, quoted ${glossary.filter((t) => t.defs.length).length}, your glossary ${glossary.filter((t) => t.own).length}`);
 
 const topics = read("topics/index.json");
 console.log(`people ${figures.length}, topics ${topics.length}, timeline rows ${rows.length}`);

@@ -119,12 +119,12 @@ export function aiTools(translation: TranslationId): AiTool[] {
     },
     {
       name: "define_term",
-      description: "Returns definitions of a theological term quoted from public-domain dictionaries, catechisms and histories, each with its source. Use this before explaining a doctrine's meaning, and name the source. If it returns no definitions, say the app has none and label your own explanation as a draft.",
+      description: "Returns a theological term's definition from the reader's own glossary, which names no sources, along with definitions quoted from public-domain dictionaries, catechisms and histories, each with its source. Use this before explaining a doctrine's meaning, say which is which, and name the source. If it returns nothing, say the app has no definition and label your own explanation as a draft.",
       inputSchema: { type: "object", properties: { term: { type: "string" } }, required: ["term"] },
       execute: async ({ term }) => {
         const t = (await searchGlossary(String(term), 1))[0];
         if (!t) return { term, definitions: [] };
-        return { term: t.term, definitions: t.defs.slice(0, 4).map((d) => ({ source: d.source, text: clip(d.text, 900) })), verses: t.refs };
+        return { term: t.term, alsoCalled: t.aliases, readersOwnGlossary: t.own || undefined, definitions: t.defs.slice(0, 4).map((d) => ({ source: d.source, text: clip(d.text, 900) })), verses: t.refs };
       },
     },
     {

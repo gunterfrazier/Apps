@@ -166,12 +166,12 @@ export function createServer(opts: ServerOptions = {}) {
     if (method === "GET" && p === "/v1/glossary") {
       const query = u.searchParams.get("q");
       const terms = query ? await searchGlossary(query, clampInt(u.searchParams.get("limit"), 20, 1, 100)) : await getGlossary();
-      return send(res, 200, { results: terms.map((t) => ({ id: t.id, term: t.term, definitions: t.defs.length })) });
+      return send(res, 200, { results: terms.map((t) => ({ id: t.id, term: t.term, definitions: t.defs.length, also_called: t.aliases })) });
     }
     if (method === "GET" && seg[0] === "glossary" && seg[1] && !seg[2]) {
       const t = await termById(seg[1]);
       if (!t) throw new HttpError(404, "not_found", "No term with that id.");
-      return send(res, 200, { id: t.id, term: t.term, definitions: t.defs.map((d) => ({ source: d.source, heading: d.head, text: d.text, source_url: d.url || undefined })), verses: t.refs, topic: t.topic || undefined });
+      return send(res, 200, { id: t.id, term: t.term, also_called: t.aliases, owners_glossary: t.own || undefined, see: t.see || undefined, definitions: t.defs.map((d) => ({ source: d.source, heading: d.head, text: d.text, source_url: d.url || undefined })), verses: t.refs, topic: t.topic || undefined });
     }
     if (method === "GET" && p === "/v1/writers") {
       const { authors } = await getWritingsIndex();

@@ -37,11 +37,18 @@ A quote in the Catena Aurea is as Aquinas collected it. It's often condensed, an
 Two uses:
 
 1. Quotes labeled with those series must also appear word for word in CCEL's text with footnotes removed. This corrects the volume number on each quote, and a quote that fails is dropped.
-2. Where a work tags a Scripture reference, that place becomes a "Cites this verse" entry: the sentence with the reference and one on each side. A reference in a footnote counts only if the note is short and mostly the reference itself, which is an editor naming the verse. Editors' prefaces and longer notes are skipped, as are chapter-only references, spans over 25 verses, and the objections in Aquinas's Summa, which aren't his own view. The Summa cites the Vulgate, so its Psalms and Old Testament history are left out because they're numbered or named differently. Each writer gets at most six entries for one verse from one file. The current build has 71,647 of these entries.
+2. Where a work tags a Scripture reference, that place becomes a "Cites this verse" entry: the sentence with the reference and one on each side. A reference in a footnote counts only if the note is short and mostly the reference itself, which is an editor naming the verse. Editors' prefaces and longer notes are skipped, as are chapter-only references, spans over 25 verses, and the objections in Aquinas's Summa, which aren't his own view. The Summa cites the Vulgate, so its Psalms and Old Testament history are left out because they're numbered or named differently. Each writer gets at most six entries for one verse from one file. The current build has about 71,000 of these entries, plus about 37,600 from the older works below.
 
 Other public-domain works used this way: Aquinas's Summa, Watson's A Body of Divinity, Bunyan's The Pilgrim's Progress, Baxter's The Reformed Pastor and First Principles of the Reformation (Luther). Calvin's commentaries come from the same copy, which has 10 verse-by-verse volumes of CCEL's set: Genesis, parts of the Harmony of the Law and the Gospels, Romans, 2 Corinthians, the Pastoral Epistles, Hebrews and the Catholic Epistles.
 
-Files with no rights statement are held back even when the work is old. These include Owen, Edwards's Works, Hodge's Systematic Theology, Manton, Ryle and the later volumes of Schaff's History. CCEL's Spurgeon sermons also have no statement, and their wording matches the modernized edition, so they aren't used.
+**Older works with no rights statement.** Many CCEL files have an empty rights field. The app's owner approved adding the older ones once each edition's date was checked, so they're listed with that date in `OLDER_WORKS`: Edwards's Works (1834), Manton (1870–72), Owen's Communion with God, Glory of Christ and Mortification of Sin (Goold's edition of 1850–53, in a photographic reprint), Gill (1770), Hodge's Systematic Theology (1871–73) and Ephesians, Ryle's Holiness (1879, 1952 reprint), Bunyan's Grace Abounding, Baxter's A Call to the Unconverted, Anselm (Deane, 1903), the London Baptist Confession, and Schaff's History (1910 edition). The works themselves are old, but this isn't a rights statement from CCEL, and these files carry a comment reading "Copyright Christian Classics Ethereal Library," which may refer to its markup. Check this before any public release. Each writer keeps at most three entries per verse here, in shorter excerpts, to stay within the host's size limit.
+
+Left out after that date check:
+
+- Owen's Justice, Perseverance, Pneumatologia and Sermons: the files say "© AGES Software," and the ones checked also say the text "has not been proof-read."
+- Luther's Bondage of the Will: Atherton's 1931 revision of Cole's translation, which may still be under US copyright until 2027.
+- The Rutherford selection: a modern edition with no date in the file.
+- Spurgeon's sermons: the wording is modernized.
 
 **Later teachers.**
 
@@ -68,8 +75,8 @@ Built by `scripts/build_glossary.py`. The list of terms and which entry answers 
 
 - Easton's Bible Dictionary (1897), Schaff's Dictionary of the Bible (American Sunday-School Union, 1880) and Smith's Bible Dictionary (1884 edition), from CCEL's files marked public domain, as held in [bible-dictionary-dataset](https://github.com/neuu-org/bible-dictionary-dataset) (its structure is CC BY 4.0). That dataset calls the Schaff book "Hastings," but the file's own title page identifies it.
 - The Westminster Larger Catechism, Heidelberg Catechism and Baptist Catechism already in the app.
-- Schaff's History of the Christian Church, vol. 2, and Watson's A Body of Divinity, from CCEL's files marked public domain. These are the opening prose of a section on the subject, so they describe a term more than define it.
+- Schaff's History of the Christian Church, Hodge's Systematic Theology and Watson's A Body of Divinity, from CCEL's files. These are the opening prose of a section on the subject, so they often describe a term more than define it, and the section's own title is shown.
 
-A term with no entry in these sources stays listed with no definition. The sources lean toward 1800s Protestant scholarship, and the app says so.
+A term with no entry in any source stays listed with no definition. The sources lean toward 1800s Protestant scholarship, and the app says so.
 
-[Rebecca Writes](http://rebecca-writes.com/theological-terms-in-ao/) is linked from the glossary page only. Its pages couldn't be read from the build environment, so nothing was taken from it.
+**The owner's glossary.** `Theological_Terms.docx` holds 370 entries, kept word for word and labeled "Your glossary" with "No source named." Its file metadata names the app's owner as author, and it names no sources. The app doesn't treat it as a cited source, and it's kept apart from the quoted definitions. Some entries closely resemble wording in Wayne Grudem's Systematic Theology (Miracle is one), so check the document's history before any public release. The build reads it from `extra/own/Theological_Terms.docx` under the sources folder, and it isn't stored in the repository in its original form, only as text in `public/data/glossary.json`.

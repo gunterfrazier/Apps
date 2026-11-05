@@ -257,7 +257,7 @@ export function WritersPage({ initialSearch }: { initialSearch?: string }) {
           <details className="doctrine">
             <summary>How these were chosen</summary>
             <p>Your rule for this app is that everything stored must trace to a source you can check. So a quote from the Fathers is kept only if it comes from a named public-domain edition, and its wording was found word for word in that edition's text. Quotes from the Ante-Nicene and Nicene series were also matched against CCEL's text of those volumes.</p>
-            <p>Most other entries come from CCEL's tagged Scripture references in works its own files mark as public domain. These show where a writer cites a verse.</p>
+            <p>Most other entries come from CCEL's tagged Scripture references, in works its files mark as public domain and in older works whose editions were checked by date. These show where a writer cites a verse.</p>
             <p>That leaves out a lot on purpose: excerpts of copyrighted modern series, recent translations (including AI translations from Latin), and modern authors still under copyright. So some well-known works, such as Augustine's Sermons and Jerome's Commentary on Isaiah, aren't here. Those texts exist, but not in an edition that passes this test.</p>
             <p>Being included doesn't mean a writer is right. These writers disagree with each other, and some were later condemned, which is marked where the source records it.</p>
           </details>

@@ -695,7 +695,7 @@ print("spurgeon sermons indexed", n_s, "without a clear text", bad)
 
 # ---------- 8. Where writers cite a verse, from CCEL's tagged Scripture references ----------
 OSIS = {"Gen":1,"Exod":2,"Lev":3,"Num":4,"Deut":5,"Josh":6,"Judg":7,"Ruth":8,"1Sam":9,"2Sam":10,"1Kgs":11,"2Kgs":12,"1Chr":13,"2Chr":14,"Ezra":15,"Neh":16,"Esth":17,"Job":18,"Ps":19,"Prov":20,"Eccl":21,"Song":22,"Isa":23,"Jer":24,"Lam":25,"Ezek":26,"Dan":27,"Hos":28,"Joel":29,"Amos":30,"Obad":31,"Jonah":32,"Mic":33,"Nah":34,"Hab":35,"Zeph":36,"Hag":37,"Zech":38,"Mal":39,"Matt":40,"Mark":41,"Luke":42,"John":43,"Acts":44,"Rom":45,"1Cor":46,"2Cor":47,"Gal":48,"Eph":49,"Phil":50,"Col":51,"1Thess":52,"2Thess":53,"1Tim":54,"2Tim":55,"Titus":56,"Phlm":57,"Heb":58,"Jas":59,"1Pet":60,"2Pet":61,"1John":62,"2John":63,"3John":64,"Jude":65,"Rev":66}
-EDITORIAL = re.compile(r"prolegomena|preface|introduct|translator|editor|index|indexes|contents|title page|elucidation|chronolog|^notes?\b|excursus|genealogical|bibliograph|dedication|credits|memoir|synopsis|life of st|chief events|as a homilist|comparative table|appended note|dates of treatises", re.I)
+EDITORIAL = re.compile(r"prolegomena|preface|introduct|translator|editor|index|indexes|contents|title page|elucidation|chronolog|^notes?\b|excursus|genealogical|bibliograph|dedication|credits|memoir|synopsis|life of st|chief events|as a homilist|comparative table|appended note|dates of treatises|literature|foreword|brainerd", re.I)
 # (volume, top-level section id or None for the whole volume, writer folder)
 AUTH = {
     "anf01": {"ii": "Clement of Rome", "iii": "Epistle to Diognetus", "iv": "Polycarp of Smyrna", "v": "Ignatius of Antioch", "vi": "Epistle of Barnabas", "vii": "Papias of Hierapolis", "viii": "Justin Martyr", "ix": "Irenaeus"},
@@ -793,7 +793,7 @@ for i, recs in enumerate(writings):
                 existing[(r[0], i + 1, r[4], v)] += norm(r[8])[:4000] + "|"
 cite_stats = collections.Counter()
 
-def index_citations(raw, resolve, urlbase, source_for, by_author=False):
+def index_citations(raw, resolve, urlbase, source_for, by_author=False, cap=PER_VERSE_CAP, clip_to=700, shared=None):
     """Walks one file. resolve(path) gives a writer index or None for a section."""
     notes = []
     def stash(m):
@@ -804,7 +804,7 @@ def index_citations(raw, resolve, urlbase, source_for, by_author=False):
     body = re.sub(r"<p\b[^>]*/>", "", body)
     stack = {}
     seen_here = set()
-    per_verse = collections.Counter()
+    per_verse = shared if shared is not None else collections.Counter()
     for m in TOKEN.finditer(body):
         if m.group(1):
             lv = int(m.group(1))
@@ -872,11 +872,11 @@ def index_citations(raw, resolve, urlbase, source_for, by_author=False):
         for pos, parsed in spots:
             for b, c1, v1, v2 in parse_refs(parsed):
                 key = (a, top_ids, b, c1, v1)
-                if key in seen_here or per_verse[(a, b, c1, v1)] >= PER_VERSE_CAP:
+                if key in seen_here or per_verse[(a, b, c1, v1)] >= cap:
                     cite_stats["repeat or over the per-verse cap"] += 1
                     continue
                 seen_here.add(key)
-                excerpt, _ = clip(sentences_around(plain, pos), 700)
+                excerpt, _ = clip(sentences_around(plain, pos), clip_to)
                 nq = norm(excerpt)
                 if len(nq) < 30:
                     continue
@@ -924,6 +924,37 @@ for rel, folder, label, kw in EXTRA_WORKS:
     src = src_ix(label)
     index_citations(raw, lambda path, a=a: a, f"https://ccel.org/ccel/{rel}", src)
 print("all citations", dict(cite_stats))
+
+# Older works whose CCEL file has no rights statement. The owner of this app approved adding them once each edition's date
+# was checked, so each is listed with that date. Left out after that check: Owen's Justice, Perseverance, Pneumatologia and
+# Sermons (the files say "© AGES Software" and "has not been proof-read"), Luther's Bondage of the Will (the 1931 Atherton
+# revision), the Rutherford selection (a modern edition), and Spurgeon's sermons (modernized wording).
+OLDER_WORKS = [
+    (["edwards/works1", "edwards/works2"], "Jonathan Edwards", "The Works of Jonathan Edwards, rev. Edward Hickman (1834)", {}),
+    ([f"manton/manton0{i}" for i in range(1, 9)], "Thomas Manton", "The Complete Works of Thomas Manton, vols. 1–8 (James Nisbet, 1870–72)", {"cat": RM, "wiki": WIKI + "Thomas_Manton", "dates": "1620–1677", "year": 1677}),
+    (["owen/communion", "owen/glory", "owen/mort"], "John Owen", "The Works of John Owen, ed. William H. Goold (1850–53), photographic reprint by Banner of Truth (1965–67)", {"cat": RM, "wiki": WIKI + "John_Owen_(theologian)", "dates": "1616–1683", "year": 1683}),
+    (["gill/practical"], "John Gill", "John Gill, A Body of Practical Divinity (1770)", {"cat": RM, "wiki": WIKI + "John_Gill_(theologian)", "dates": "1697–1771", "year": 1771}),
+    (["hodge/theology1", "hodge/theology2", "hodge/theology3", "hodge/ephesians"], "Charles Hodge", "Charles Hodge, Systematic Theology (1871–73) and Commentary on Ephesians (1856)", {"cat": RM, "wiki": WIKI + "Charles_Hodge", "dates": "1797–1878", "year": 1878}),
+    (["ryle/holiness"], "J. C. Ryle", "J. C. Ryle, Holiness (1879), James Clarke reprint (1952)", {"cat": RM, "wiki": WIKI + "J._C._Ryle", "dates": "1816–1900", "year": 1900}),
+    (["bunyan/grace"], "John Bunyan", "John Bunyan, Grace Abounding (1666)", {}),
+    (["baxter/unconverted"], "Richard Baxter", "Richard Baxter, A Call to the Unconverted (1658; 1795 printing)", {}),
+    (["anselm/basic_works"], "Anselm of Canterbury", "Anselm, Proslogium, Monologium and other works, trans. S. N. Deane (Open Court, 1903)", {}),
+    (["anonymous/bcf"], "London Baptist Confession", "The London Baptist Confession of Faith (1677/89)", {"cat": "Councils & Canons", "wiki": WIKI + "1689_Baptist_Confession_of_Faith", "year": 1689}),
+    ([f"schaff/hcc{i}" for i in range(1, 9)], "Philip Schaff", "Philip Schaff, History of the Christian Church (1910 edition), digital text by the Electronic Bible Society", {"cat": RM, "wiki": WIKI + "Philip_Schaff", "dates": "1819–1893", "year": 1893}),
+]
+before = cite_stats["kept"]
+for rels, folder, label, kw in OLDER_WORKS:
+    a = author(folder, meta_by_folder.get(folder, {}), cat=kw.get("cat"), wiki=kw.get("wiki"), dates=kw.get("dates"))
+    if kw.get("year"):
+        authors[a]["year"] = kw["year"]
+    src = src_ix(label)
+    shared = collections.Counter()
+    start = cite_stats["kept"]
+    for rel in rels:
+        # These run to tens of thousands of proof texts, so each writer keeps fewer per verse, in shorter excerpts, to stay within the host's size limit.
+        index_citations(ccel_raw(rel + ".xml"), lambda path, a=a: a, f"https://ccel.org/ccel/{rel}", src, cap=3, clip_to=520, shared=shared)
+    print("older work", folder, cite_stats["kept"] - start)
+print("older works kept", cite_stats["kept"] - before)
 
 # ---------- 9. Calvin's commentaries: sections by verse ----------
 SC = re.compile(r"<scripCom\b([^>]*?)/?>")

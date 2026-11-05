@@ -236,7 +236,25 @@ test("glossary: definitions are quoted with sources, and gaps stay visible", asy
   assert.ok(just.defs.some((d) => /Easton/.test(d.source) && /forensic/.test(d.text)));
   assert.ok(just.defs.some((d) => /Westminster Larger Catechism/.test(d.source) && /free grace/.test(d.text)));
   assert.ok(just.defs.every((d) => d.source && d.text));
-  assert.equal((await termById("perichoresis"))!.defs.length, 0);
+  const peri = (await termById("perichoresis"))!;
+  assert.equal(peri.defs.length, 0);
+  assert.match(peri.own, /mutual indwelling/);
+  assert.equal((await termById("circumincession"))!.id, "perichoresis", "other names in a heading find the same entry");
+  assert.ok(terms.some((t) => !t.defs.length && !t.own && !t.see), "gaps stay visible");
+  assert.equal((await termById("credobaptism"))!.see, "believers-baptism");
+  assert.match((await termById("priest"))!.own, /^As an office of Christ: /);
+  assert.equal((await termById("tertullian"))!.writer, "tertullian");
   assert.equal((await searchGlossary("propitiation", 1))[0].id, "propitiation");
   assert.ok(!terms.some((t) => t.defs.some((d) => /Hastings/.test(d.source))), "that file's title page says it's Schaff's dictionary");
+});
+
+test("older works: added with dated editions, and the excluded ones stay out", async () => {
+  const index = await getWritingsIndex();
+  const names = index.authors.map((a) => a.name);
+  for (const n of ["Jonathan Edwards", "Thomas Manton", "John Owen", "John Gill", "Charles Hodge", "J. C. Ryle", "Philip Schaff"]) assert.ok(names.includes(n), n);
+  assert.ok(index.sources.some((s) => /Goold/.test(s) && /1850/.test(s)));
+  assert.ok(!index.sources.some((s) => /Atherton|Bondage|Rutherford/.test(s)), "Luther's 1931 revision and the Rutherford selection are left out");
+  const owen = index.authors.find((a) => a.name === "John Owen")!;
+  assert.ok(!owen.works.some(([w]) => /Pneumatologia|Sermons/i.test(w)), "files marked (c) AGES Software are left out");
+  assert.ok(((await termById("arianism"))!).defs.length > 0);
 });
