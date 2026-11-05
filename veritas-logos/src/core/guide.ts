@@ -536,6 +536,8 @@ export async function resolveGuide(guide: Guide): Promise<ResolvedGuide> {
 const versesPlain = (verses: VerseLine[]) => verses.map((v) => `${v.verse} ${v.text || "(not in this translation)"}`).join(" ");
 const originNote = (o: Origin) => (o === "you" ? "" : ORIGIN_LABEL[o]);
 
+export const DATA_CREDIT_TEXT = DATA_CREDIT;
+
 export function guideToMarkdown(g: ResolvedGuide): string {
   const out: string[] = [`# ${g.title}`];
   if (g.subtitle) out.push(`*${g.subtitle}*`);

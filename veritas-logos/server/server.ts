@@ -13,6 +13,7 @@
  *   AI_DAILY_LIMIT       AI requests per key or address per day (default 50)
  *   RATE_LIMIT_PER_MIN   requests per key or address per minute (default 120)
  */
+import { CREED_CREDIT, getChurchEvents, getCreed, getCreedIndex } from "../src/core/scholar";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
@@ -172,6 +173,21 @@ export function createServer(opts: ServerOptions = {}) {
       const t = await termById(seg[1]);
       if (!t) throw new HttpError(404, "not_found", "No term with that id.");
       return send(res, 200, { id: t.id, term: t.term, also_called: t.aliases, owners_glossary: t.own || undefined, corrections: t.corrections?.length ? t.corrections : undefined, note: t.note, see: t.see || undefined, definitions: t.defs.map((d) => ({ source: d.source, heading: d.head, text: d.text, source_url: d.url || undefined })), verses: t.refs, topic: t.topic || undefined });
+    }
+    if (method === "GET" && p === "/v1/church-history") {
+      const query = u.searchParams.get("q")?.toLowerCase();
+      const cat = u.searchParams.get("kind");
+      const events = (await getChurchEvents()).filter((e) => (!cat || e.cat === cat) && (!query || `${e.title} ${e.summary}`.toLowerCase().includes(query)));
+      return send(res, 200, { results: events.map((e) => ({ id: e.id, title: e.title, year: e.y1, until: e.y2, about: e.approx || undefined, kind: e.cat, traditions: e.trad, summary: e.summary, source: e.source, source_url: e.url, page: e.page || undefined, quote: e.quote, verses: e.refs, terms: e.terms, writers: e.writers, creeds: e.creeds })) });
+    }
+    if (method === "GET" && p === "/v1/creeds") {
+      const { docs } = await getCreedIndex();
+      return send(res, 200, { results: docs.map((d) => ({ id: d.id, name: d.name, year: d.year, tradition: d.tradition, volume: d.vol, source_url: d.url })) });
+    }
+    if (method === "GET" && seg[0] === "creeds" && seg[1] && !seg[2]) {
+      const d = await getCreed(seg[1]);
+      if (!d) throw new HttpError(404, "not_found", "No document with that id.");
+      return send(res, 200, { id: d.id, name: d.name, year: d.year, tradition: d.tradition, volume: d.vol, source_url: d.url, source: CREED_CREDIT, blocks: d.blocks });
     }
     if (method === "GET" && p === "/v1/writers") {
       const { authors } = await getWritingsIndex();

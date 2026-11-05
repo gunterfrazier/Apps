@@ -69,6 +69,31 @@ Wesley notes with no lead-in words are dropped, because the edition's parser som
 
 Old Testament dates come from BibleData's epochs and events (CC BY 4.0). New Testament years are read from its copy of Ussher's Annals of the World (1650). That copy's wording appears to be a modern revision, so only the year and paragraph number are used, and the captions are plain labels for the cited passages. Writers appear at the `default_year` in the Commentaries-Database metadata, or at the death year for the few added by hand (Henry, Spurgeon, Edwards). Confessions use the year in the confession data.
 
+## Scholarly texts and tools
+
+Built by `scripts/build_scholar.py`. Everything comes from a named source, and these notes say what was changed.
+
+| Data | Source | License and status |
+|---|---|---|
+| Septuagint | Swete's edition (1909–30) as digitized by the [First Thousand Years of Greek](https://github.com/OpenGreekAndLatin/First1KGreek), through [nathans/lxx-swete](https://github.com/nathans/lxx-swete) | CC BY-SA 4.0. Machine-corrected, and has no Ecclesiastes |
+| Clementine Vulgate | [jrichter/ClementineVulgateConverter](https://github.com/jrichter/ClementineVulgateConverter) | Text public domain |
+| Word links to the BSB | [tuscaroratech/berean-study-bible-with-strongs](https://github.com/tuscaroratech/berean-study-bible-with-strongs) | BSB is CC0, and the repository states no license for its tagging. 79% of verses match the app's BSB exactly, and the rest differ slightly in wording |
+| Greek edition differences, Qere and Ketiv | STEP Bible's TAGNT and TAHOT, Tyndale House | CC BY 4.0. This compares printed editions and isn't a manuscript apparatus |
+| Gospel synopsis | Section order and parallels from Aland's Synopsis, through [cbop-dev/aland-gospel-synopsis](https://github.com/cbop-dev/aland-gospel-synopsis) | MIT for the data file. Aland's own Greek text isn't included. Check the numbering's status before a commercial release |
+| Creeds and confessions | Schaff, The Creeds of Christendom, 6th ed., vols. 2–3, CCEL files marked public domain | Public domain. Schaff's footnotes are left out |
+| Deuterocanon | Douay-Rheims (1899) via [yoarikso/douayrheimsbible](https://github.com/yoarikso/douayrheimsbible), MIT. King James 1611 via [Saorsa-Ind](https://github.com/Saorsa-Ind/King-James-Version-1611-JSON-Dataset), CC0. Greek from Swete | Texts public domain, Greek CC BY-SA 4.0 |
+| Apostolic Fathers | Greek: [Open Apostolic Fathers](https://github.com/jtauber/apostolic-fathers), from Lake (1912), CC BY-SA 4.0. English: Ante-Nicene Fathers (1885–86), from CCEL | Paired by chapter. English is missing where numbering differs, and for 2 Clement and Hermas |
+| Josephus | Whiston's translation (1737), Project Gutenberg 2846, 2848, 2849, 2850 | Public domain. Gutenberg's header and license text are removed, so the text isn't presented as a Gutenberg edition |
+| Print page numbers | The `<pb>` marks in CCEL's files, located by matching each quote | Present only where the file marks pages |
+
+**Church history events.** `scripts/church_events.json` holds 105 events chosen by hand. Claude wrote each short summary. For older events, the build checks that the named section of Schaff's History or Creeds holds the given phrase, and it quotes a sentence from that section where one states the event well. For later events, each page named was read when the summary was written. Schaff wrote from a Protestant point of view.
+
+**Disputed dates and passages.** `scripts/chronology.json`, `book_dating.json` and `disputed.json` are short summaries by Claude with a source named for each view. "Dating the Bible" was read through a copy of the Wikipedia article, so check the live page. Which Greek editions print which words is computed from STEP's data.
+
+**Not included.** Critical apparatus from NA28 or BHS and lexicons such as BDAG and HALOT are under copyright. Philo isn't included, because no open English translation could be loaded here. The Greek and Latin of later Fathers aren't included, because open texts of them don't line up with the old translations in a way the app can check.
+
+**AI research mode.** A confirmed source shows that the quoted words exist in the app's data. It doesn't show that they support the claim, so the reader still has to judge that. This has been tested with a stand-in for the model, not with real model answers.
+
 ## Theological terms
 
 Built by `scripts/build_glossary.py`. The list of terms and which entry answers each one are chosen by hand. The definitions aren't written for the app; they're quoted from:

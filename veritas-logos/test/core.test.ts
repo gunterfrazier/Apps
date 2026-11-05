@@ -12,6 +12,11 @@ import { parseReference } from "../src/core/references";
 import { findShortestPath, getFigure } from "../src/core/figure-graph";
 import { ensureFigures, getTimeline, peopleInPassage, versesOfPerson } from "../src/core/people";
 import { getGlossary, searchGlossary, termById } from "../src/core/glossary";
+import { creedsCiting, getChurchEvents, getCreed, getCreedIndex, getDeuterocanon, getDisputed, getApostolic, getJosephus, getSynopsis, lxxChapters, lxxPsalms, sameStrong, taggedVerse, verseVariants, vulgateChapters, getChronology, getDoctrine } from "../src/core/scholar";
+import { exportAll, formatCitation, parseSourceLine } from "../src/core/cite";
+import { checkResearch } from "../src/core/research";
+import { guideDocumentXml, guideToDocx } from "../src/core/docx";
+import { editionNote, excerptsAt, workCaution, writerTradition, writerById } from "../src/core/writings";
 import { excerptsByWriter, excerptsForPassage, getWritingsIndex, searchWritings, sermonsForPassage } from "../src/core/writings";
 import { ahToX, formatSpan, formatYear, getTimelineItems, parseTimelineRoute, timelineForPassage, timelineHash } from "../src/core/timeline";
 
@@ -282,4 +287,129 @@ test("older works: added with dated editions, and the excluded ones stay out", a
   const owen = index.authors.find((a) => a.name === "John Owen")!;
   assert.ok(!owen.works.some(([w]) => /Pneumatologia|Sermons/i.test(w)), "files marked (c) AGES Software are left out");
   assert.ok(((await termById("arianism"))!).defs.length > 0);
+});
+
+test("church history: every event has a source and valid links", async () => {
+  const events = await getChurchEvents();
+  assert.ok(events.length >= 90);
+  assert.ok(events.every((e) => e.source && e.summary && e.y1));
+  const c = events.find((e) => e.id === "chalcedon")!;
+  assert.equal(c.y1, 451);
+  assert.equal(c.cat, "council");
+  assert.ok(events.find((e) => e.id === "great-schism")!.quote!.includes("1054"));
+  for (const cat of ["council", "creed", "schism", "reform", "shift", "turning"]) assert.ok(events.some((e) => e.cat === cat), cat);
+  for (const e of events) for (const r of e.refs ?? []) assert.ok(parseReference(r), r);
+});
+
+test("creeds: traditions are covered, with original text and page marks", async () => {
+  const { docs } = await getCreedIndex();
+  for (const t of ["Roman Catholic", "Eastern Orthodox", "Lutheran", "Reformed", "Anglican", "Baptist", "Methodist"]) assert.ok(docs.some((d) => d.tradition === t), t);
+  const nicene = (await getCreed("nicene-creed"))!;
+  assert.ok(nicene.blocks.some((b) => b[0] === "2" && /ΠΑΤΕΡΑ/.test(b[1])));
+  assert.ok(nicene.blocks.some((b) => b[0] === "pg"));
+  assert.ok((await creedsCiting(43, 1, 3)).length > 0);
+});
+
+test("ancient texts: Septuagint Psalm numbers shift, and the Vulgate follows them", async () => {
+  assert.deepEqual(lxxPsalms(23), [22]);
+  assert.deepEqual(lxxPsalms(116), [114, 115]);
+  const [p] = await lxxChapters(19, 23);
+  assert.equal(p.chapter, 22);
+  assert.ok(p.verses[0][1].includes("Κύριος ποιμαίνει"));
+  assert.ok((await vulgateChapters(1, 1))[0].verses[0][1].startsWith("In principio"));
+  assert.equal((await lxxChapters(21, 1)).length, 0, "this digital Swete has no Ecclesiastes");
+});
+
+test("word links: the BSB is tagged to the same Strong's numbers as the Greek", async () => {
+  const tags = await taggedVerse(43, 3, 16);
+  const son = tags.find((t) => t.text.startsWith("Son"))!;
+  assert.ok(sameStrong(son.strong, "G5207"));
+  assert.ok(sameStrong("G0026", "G26a"));
+  assert.ok((await taggedVerse(1, 1, 1)).some((t) => t.strong === "H430"));
+});
+
+test("editions: known differences show up", async () => {
+  const comma = await verseVariants(62, 5, 7);
+  assert.ok(comma.some((w) => w[3] === "TR"), "the Comma Johanneum is only in the TR");
+  const jn = await verseVariants(43, 1, 18);
+  assert.ok(jn.some((w) => /huios/.test(w[4])));
+  assert.ok((await getDisputed()).some((d) => d.ref === "1 John 5:7-8"));
+});
+
+test("deuterocanon, primary texts and synopsis load", async () => {
+  const dc = await getDeuterocanon();
+  const tob = dc.books.find((b) => b.id === "tobit")!;
+  assert.ok(tob.dra && tob.kjv && tob.lxx);
+  const af = await getApostolic();
+  const clem = af.works.find((w) => w.id === "1-clement")!;
+  assert.ok(clem.chapters.find((c) => c.n === "1")!.eng.length > 100);
+  assert.ok(clem.chapters.find((c) => c.n === "1")!.greek.length > 1);
+  const jo = await getJosephus();
+  assert.equal(jo.works.find((w) => w.id === "antiquities")!.books.length, 20);
+  const syn = await getSynopsis();
+  assert.ok(syn.pericopes.length > 300);
+});
+
+test("citations: series, volume and page are read from the source line", () => {
+  const parsed = parseSourceLine("Ante-Nicene Fathers, vol. 3, ed. Roberts and Donaldson (1885–96)");
+  assert.equal(parsed.container, "Ante-Nicene Fathers");
+  assert.equal(parsed.volume, "3");
+  assert.equal(parsed.editors, "Roberts and Donaldson");
+  const rec = { id: "x", kind: "section" as const, author: "Tertullian", title: "Against Praxeas", ...parsed, pages: "598" };
+  assert.match(formatCitation(rec, "sbl"), /ANF 3:598/);
+  assert.match(formatCitation(rec, "chicago"), /Tertullian, “Against Praxeas,” in Ante-Nicene Fathers, vol\. 3/);
+  assert.match(formatCitation(rec, "bibtex"), /@incollection/);
+  assert.match(formatCitation(rec, "ris"), /TY  - CHAP/);
+  assert.match(exportAll([rec], "ris"), /ER  - /);
+});
+
+test("excerpts carry print pages, and doubtful works are flagged", async () => {
+  const shards = await getDoctrine();
+  assert.ok(shards["arianism"]);
+  const some = Object.values(shards["arianism"].s)[0];
+  const ex = await excerptsAt(some.slice(0, 1));
+  assert.ok(ex[0].text.length > 0);
+  assert.ok(workCaution("Epistle of Pseudo-Ignatius to the Tarsians"));
+  assert.equal(workCaution("Against Praxeas"), "");
+  assert.match(editionNote("Ante-Nicene Fathers, vol. 3, ed. Roberts and Donaldson (1885–96)"), /Modern critical editions/);
+  assert.equal(writerTradition((await writerById("martin-luther"))!), "Lutheran");
+});
+
+test("research mode: quotes are checked word for word and made-up ones fail", async () => {
+  const a = await checkResearch({
+    summary: "s",
+    claims: [
+      { text: "real creed", sources: [{ type: "creed", doc: "westminster-shorter", quote: "is to glorify God, and to enjoy him forever" }] },
+      { text: "fake creed", sources: [{ type: "creed", doc: "westminster-shorter", quote: "this sentence was never written in the catechism at all" }] },
+      { text: "bad verse", sources: [{ type: "scripture", ref: "John 99:1" }] },
+      { text: "good verse", sources: [{ type: "scripture", ref: "John 3:16" }] },
+      { text: "event", sources: [{ type: "event", event: "nicaea-1" }] },
+      { text: "no source", sources: [] },
+    ],
+    gaps: ["g"],
+  }, "BSB");
+  assert.deepEqual(a!.claims.map((c) => c.supported), [true, false, false, true, true, false]);
+  assert.equal(await checkResearch("not json", "BSB"), null);
+});
+
+test("Word export has real footnotes", () => {
+  const g: any = { title: "T & G", subtitle: "s", translation: "BSB", notice: "n", sections: [
+    { id: "1", kind: "passage", heading: "John 3:16", origin: "assembled", ref: "John 3:16", verses: [{ verse: 16, text: "For God so loved" }] },
+    { id: "2", kind: "views", heading: "Augustine", origin: "assembled", items: [{ label: "Augustine, City of God. Nicene and Post-Nicene Fathers, Series 1, vol. 2 (1886–89)", text: "Two loves" }] },
+    { id: "3", kind: "text", heading: "Draft", origin: "ai", body: "A draft" },
+  ] };
+  const { document, footnotes } = guideDocumentXml(g);
+  assert.equal((document.match(/w:footnoteReference /g) ?? []).length, 2);
+  assert.match(footnotes, /City of God/);
+  assert.match(document, /T &amp; G/);
+  const zip = guideToDocx(g);
+  assert.equal(new TextDecoder().decode(zip.slice(0, 2)), "PK");
+});
+
+test("dating: disputed items name their sources", async () => {
+  const c = await getChronology();
+  const ex = c.items.find((i) => i.id === "exodus")!;
+  assert.equal(ex.views.length, 2);
+  assert.ok(ex.views.every((v) => v.source));
+  assert.ok(c.books.some((b) => b.book === "Daniel"));
 });

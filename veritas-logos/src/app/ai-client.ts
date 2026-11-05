@@ -2,6 +2,7 @@ import type { TranslationId } from "../core/bible";
 import type { LensId } from "../core/content";
 import { aiTools, AI_RULES, chatPreamble, coerceDraftSections, coerceInsight, guideDraftPrompt, insightPrompt, parseJsonReply, type AiInsight } from "../core/ai";
 import type { Guide, GuideSection } from "../core/guide";
+import { checkResearch, RESEARCH_RULES, type ResearchAnswer } from "../core/research";
 import { getData } from "./store";
 
 export type AiMode = "viewer" | "server" | "none";
@@ -136,6 +137,14 @@ export async function aiDraft(guide: Guide, request: string, opts: AskOpts = {})
   const sections = coerceDraftSections(parseJsonReply(text));
   if (!sections.length) throw { code: "bad_reply", userMessage: "The assistant's reply couldn't be read. Try again." };
   return sections;
+}
+
+/** Research mode: the question goes out with stricter rules, and every source in the reply is checked against the app's data. */
+export async function aiResearch(turns: Turn[], translation: TranslationId, lens: LensId, contextRef: string | undefined, opts: AskOpts = {}): Promise<{ raw: string; answer: ResearchAnswer | null }> {
+  const last = turns[turns.length - 1];
+  const asked: Turn[] = [...turns.slice(0, -1), { role: "user", content: `${RESEARCH_RULES}\n\nQuestion: ${last.content}` }];
+  const raw = await aiChat(asked, translation, lens, contextRef, opts);
+  return { raw, answer: await checkResearch(parseJsonReply(raw), translation) };
 }
 
 export { AI_RULES };

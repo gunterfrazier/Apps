@@ -1,0 +1,14 @@
+[
+{"id":"exodus","title":"The Exodus","match":"^The Exodus","modernX":-1249,"views":[
+ {"label":"Early date, about 1446 BC","x":-1445,"who":"Reads 1 Kings 6:1 (480 years before Solomon's Temple) as a literal count.","source":"Biblical Archaeology Society, “Dating the Exodus”","url":"https://library.biblicalarchaeology.org/sidebar/dating-the-exodus/"},
+ {"label":"Late date, 13th century BC","x":-1249,"who":"Links it to the reign of Ramesses II and the Merneptah Stele (about 1208 BC).","source":"Biblical Archaeology Society, “Dating the Exodus”","url":"https://library.biblicalarchaeology.org/sidebar/dating-the-exodus/"}],"refs":["1 Kings 6:1","Exodus 1:11"]},
+{"id":"birth-of-jesus","title":"Birth of Jesus","match":"^Birth of Jesus","modernX":-4,"views":[
+ {"label":"Between 6 and 4 BC","x":-4,"who":"Most scholars, because Herod the Great died about 4 BC.","source":"Wikipedia, “Chronology of Jesus”","url":"https://en.wikipedia.org/wiki/Chronology_of_Jesus"}],"refs":["Matthew 2:1","Luke 2:1-2"]},
+{"id":"crucifixion","title":"Crucifixion of Jesus","match":"^(The )?(Crucifixion|Death of Jesus|Jesus (was )?crucified)","modernX":30,"views":[
+ {"label":"7 April AD 30","x":30,"who":"One of the two dates that fit the Passover calendar and Pilate's term.","source":"Wikipedia, “Chronology of Jesus”","url":"https://en.wikipedia.org/wiki/Chronology_of_Jesus"},
+ {"label":"3 April AD 33","x":33,"who":"The other date that fits.","source":"Wikipedia, “Chronology of Jesus”","url":"https://en.wikipedia.org/wiki/Chronology_of_Jesus"}],"refs":["Luke 3:1"]},
+{"id":"division-kingdom","title":"Division of the kingdom","match":"(division|divided).*kingdom|kingdom.*(division|divided)","modernX":-930,"views":[
+ {"label":"931 BC","x":-930,"who":"Edwin Thiele, The Mysterious Numbers of the Hebrew Kings. Other chronologists differ by a few years.","source":"Wikipedia, “The Mysterious Numbers of the Hebrew Kings”","url":"https://en.wikipedia.org/wiki/The_Mysterious_Numbers_of_the_Hebrew_Kings"}],"refs":["1 Kings 12:1-20"]},
+{"id":"jerusalem-587","title":"Fall of Jerusalem to Babylon","match":"(First Temple|Solomon's Temple).*destroy|^Destruction of Solomon","modernX":-585,"views":[
+ {"label":"586 BC","x":-585,"who":"Thiele's reign table ends Zedekiah in 586.","source":"Wikipedia, “The Mysterious Numbers of the Hebrew Kings”","url":"https://en.wikipedia.org/wiki/The_Mysterious_Numbers_of_the_Hebrew_Kings"}],"refs":["2 Kings 25:1-10"]}
+]

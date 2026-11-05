@@ -70,6 +70,10 @@ for (const t of glossary) {
   for (const c of t.corrections ?? []) if (!c.original || !c.why || !c.kind) errors.push(`glossary ${t.term}: correction with no original or reason`);
   if (!t.defs.length && !t.own && !t.see) errors.push(`glossary ${t.term}: no definition`);
 }
+const church = read("scholar/church.json").events;
+for (const e of church) if (!e.source || !e.summary || !e.y1) errors.push(`church event ${e.id}: missing source, summary or date`);
+for (const e of church) for (const r of e.refs ?? []) if (!/^[1-3]? ?[A-Za-z ]+ \d/.test(r)) errors.push(`church event ${e.id}: bad reference ${r}`);
+console.log(`church history events ${church.length}, creeds ${read("scholar/creeds-index.json").docs.length}`);
 const byTerm = new Set(glossary.map((t) => t.id));
 for (const t of glossary) if (t.see && !byTerm.has(t.see)) errors.push(`glossary ${t.term}: points to missing ${t.see}`);
 console.log(`glossary terms ${glossary.length}, quoted ${glossary.filter((t) => t.defs.length).length}, your glossary ${glossary.filter((t) => t.own).length}`);

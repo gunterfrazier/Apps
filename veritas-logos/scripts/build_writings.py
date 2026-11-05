@@ -192,7 +192,23 @@ def ccel_rights(raw):
 raw_vols = {v: ccel_raw(f"schaff/{v}.xml") for v in VOL_LABEL}
 for v, r in raw_vols.items():
     assert "public domain" in ccel_rights(r).lower(), v
-ccel_norm = {v: norm(re.sub(r"<note\b.*?</note>", "", r, flags=re.S)) for v, r in raw_vols.items()}
+# The print pages travel with the text: each volume's letters are kept with where every <pb> starts, so a quote can name its page.
+import bisect
+ccel_norm, ccel_pages = {}, {}
+for _v, _r in raw_vols.items():
+    _p = re.split(r'<pb\b[^>]*?\bn="(\w+)"[^>]*?/>', re.sub(r"<note\b.*?</note>", "", _r, flags=re.S))
+    _first = norm(_p[0])
+    _chunks, _starts, _names, _at = [_first], [], [], len(_first)
+    for _i in range(1, len(_p), 2):
+        _starts.append(_at); _names.append(_p[_i])
+        _t = norm(_p[_i + 1]); _chunks.append(_t); _at += len(_t)
+    ccel_norm[_v] = "".join(_chunks); ccel_pages[_v] = (_starts, _names)
+def page_of(v, q):
+    at = ccel_norm[v].find(q[:150])
+    if at < 0: return ""
+    starts, names = ccel_pages[v]
+    i = bisect.bisect_right(starts, at) - 1
+    return names[i] if i >= 0 else ""
 VOL_FOR_AUTHOR = {
     "Tertullian": ["anf03", "anf04"], "Irenaeus": ["anf01"], "Justin Martyr": ["anf01"], "Clement of Rome": ["anf01", "anf09"], "Ignatius of Antioch": ["anf01"], "Polycarp of Smyrna": ["anf01"], "Epistle of Barnabas": ["anf01"], "Papias of Hierapolis": ["anf01"],
     "Shepherd of Hermas": ["anf02"], "Clement of Alexandria": ["anf02"], "Theophilus of Antioch": ["anf02"], "Tatian the Assyrian": ["anf02"], "Athenagoras of Athens": ["anf02"], "Origen of Alexandria": ["anf04", "anf09"],
@@ -327,6 +343,7 @@ for folder in folders:
                 stats["wording not found in the cited edition"] += 1
                 continue
             # The series' own text at CCEL is the stronger check, and it also settles the exact volume.
+            vol = None
             if src.startswith(("Ante-Nicene", "Nicene")):
                 vol = in_ccel(folder, q)
                 if not vol:
@@ -350,7 +367,8 @@ for folder in folders:
             extra = c.get("append_to_author_name") or ""
             if "as quoted by" in extra:
                 title = title if "Catena" in title else f"{title} ({extra.strip(' ()')})"
-            writings[b - 1].append((a, title, url, src_ix(src), c1, v1, c2, v2, text))
+            page = (page_of(vol, q) if (src in VOL_LABEL.values() and vol) else "")
+            writings[b - 1].append((a, title, url, src_ix(src), c1, v1, c2, v2, text, 0, page))
             A = authors[a]
             A["n"] += 1
             A["books"][b] += 1
@@ -802,6 +820,9 @@ def index_citations(raw, resolve, urlbase, source_for, by_author=False, cap=PER_
     body = re.sub(r"<note\b[^>]*>(.*?)</note>", stash, raw, flags=re.S)
     # An empty <p /> would otherwise swallow the heading and paragraph after it.
     body = re.sub(r"<p\b[^>]*/>", "", body)
+    pb_at, pb_n = [], []
+    for pm in re.finditer(r'<pb\b[^>]*?\bn="(\w+)"', body):
+        pb_at.append(pm.start()); pb_n.append(pm.group(1))
     stack = {}
     seen_here = set()
     per_verse = shared if shared is not None else collections.Counter()
@@ -884,7 +905,8 @@ def index_citations(raw, resolve, urlbase, source_for, by_author=False, cap=PER_
                     cite_stats["already a quote"] += 1
                     continue
                 per_verse[(a, b, c1, v1)] += 1
-                writings[b - 1].append((a, label, f"{urlbase}.{top_ids}.html" if top_ids else urlbase, source_for, c1, v1, c1, v2, excerpt, 1))
+                pi = bisect.bisect_right(pb_at, m.start()) - 1
+                writings[b - 1].append((a, label, f"{urlbase}.{top_ids}.html" if top_ids else urlbase, source_for, c1, v1, c1, v2, excerpt, 1, pb_n[pi] if pi >= 0 else ""))
                 A = authors[a]
                 A["n"] += 1
                 A["books"][b] += 1
@@ -1030,7 +1052,8 @@ def write_shards(records, outdir):
                     if tk not in tix:
                         tix[tk] = len(titles)
                         titles.append([title, url, src, 1] if cite else [title, url, src])
-                    rows.append([a, tix[tk], c1, v1, c2, v2, text])
+                    page = rec[10] if len(rec) > 10 else ""
+                    rows.append([a, tix[tk], c1, v1, c2, v2, text, page] if page else [a, tix[tk], c1, v1, c2, v2, text])
             name = f"{b:02d}-{k}.json"
             s = json.dumps({"t": titles, "q": rows}, ensure_ascii=False, separators=(",", ":"))
             assert "�" not in s, name

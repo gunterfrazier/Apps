@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { newId } from "../../core/guide";
 import { BOOKS, bookName, formatSegment, parseReference } from "../../core/references";
 import { timelineForPassage, timelineHash, formatYear, formatSpan } from "../../core/timeline";
-import { CATEGORIES, categoryLabel, excerptsByWriter, excerptsForPassage, FLAG_NOTE, getWritingsIndex, searchWritings, sermonsForBook, sermonsForPassage, varied, writerById, writerYearLabel, type Excerpt, type SearchHit, type Writer } from "../../core/writings";
+import { CATEGORIES, categoryLabel, editionNote, excerptsByWriter, excerptsForPassage, FLAG_NOTE, getWritingsIndex, searchWritings, sermonsForBook, sermonsForPassage, TRADITION_ORDER, varied, workCaution, writerById, writerTradition, writerYearLabel, type Excerpt, type SearchHit, type Writer } from "../../core/writings";
+import { citeId, parseSourceLine, type CiteRecord } from "../../core/cite";
+import { centuryLabel, eventHash, eventsForWriter, yearToCentury } from "../../core/scholar";
+import { Actions, Backlinks, CenturyBars, CiteButton, saveQuoteToNotebook, ScholarshipLinks } from "./scholar-ui";
+import { SubNav } from "./people";
 import { readHash, hashForReference } from "../routes";
 import { useData } from "../store";
 import { Empty, ErrorNote, Loading, Paras, RefLink, Tag, useAsync } from "../ui";
@@ -25,6 +29,10 @@ function FlagTag({ w }: { w: Writer }) {
   return null;
 }
 
+export const citeOfExcerpt = (e: Excerpt): CiteRecord => ({
+  id: citeId(e.writer.id, e.title, e.reference), kind: "section", author: e.writer.name, title: e.title, ...parseSourceLine(e.source), pages: e.page, url: e.url || undefined,
+});
+
 export function ExcerptCard({ e, hideWriter, hit }: { e: Excerpt; hideWriter?: boolean; hit?: string }) {
   const { guides, activeGuideId, prefs } = useData();
   const [open, setOpen] = useState(false);
@@ -43,17 +51,22 @@ export function ExcerptCard({ e, hideWriter, hit }: { e: Excerpt; hideWriter?: b
         {!hideWriter && <span className="fine">{writerYearLabel(e.writer)}</span>}
         <FlagTag w={e.writer} />
         {e.cites && <Tag>Cites this verse</Tag>}
+        {workCaution(e.title) && <Tag tone="warn">Authorship disputed</Tag>}
       </header>
       <p className="ex-on">{e.title}, on <RefLink refText={e.reference} /></p>
       <div className="ex-text">
         {open || !long ? <Paras text={e.text} /> : <p>{preview}</p>}
       </div>
       {long && <button type="button" className="link-btn" onClick={() => setOpen(!open)}>{open ? "Show less" : "Read all of it"}</button>}
-      <p className="fine ex-source">{e.source}{e.text.endsWith(" …") ? ". Shortened here because of its length; the source has the rest." : ""}</p>
-      <div className="ex-actions">
+      <p className="fine ex-source">{e.source}{e.page ? `, p. ${e.page}` : ""}{e.text.endsWith(" …") ? ". Shortened here because of its length; the source has the rest." : ""}</p>
+      {workCaution(e.title) && <p className="fine">{workCaution(e.title)}</p>}
+      {editionNote(e.source) && <p className="fine">{editionNote(e.source)}</p>}
+      <Actions>
         <button type="button" className="link-btn" onClick={add}>Add to guide</button>
+        <CiteButton record={citeOfExcerpt(e)} />
+        <button type="button" className="link-btn" onClick={() => saveQuoteToNotebook(`${e.writer.name} on ${e.reference}`, e.text, `${e.writer.name}, ${e.title}. ${e.source}${e.page ? `, p. ${e.page}` : ""}.`)}>Save to notebook</button>
         {e.url && <a className="link-btn" href={e.url} target="_blank" rel="noreferrer">Check the source</a>}
-      </div>
+      </Actions>
     </article>
   );
 }
@@ -117,9 +130,87 @@ export function WritersPreview({ reference }: { reference: string }) {
   );
 }
 
+/** How a passage was read over time, century by century, with two writers side by side when wanted. */
+export function HistoryOfInterpretation({ reference, compact }: { reference: string; compact?: boolean }) {
+  const { data, loading, error } = useAsync(async () => {
+    const [a, b] = await Promise.all([excerptsForPassage(reference), excerptsForPassage(reference, "comm")]);
+    return [...a, ...b].filter((e) => e.writer.year && e.writer.year > 0);
+  }, [reference]);
+  const [trad, setTrad] = useState("all");
+  const [century, setCentury] = useState<number | null>(null);
+  const [view, setView] = useState<"time" | "compare">("time");
+  const [a, setA] = useState("");
+  const [b, setB] = useState("");
+  const [shown, setShown] = useState(compact ? 6 : 16);
+  useEffect(() => { setCentury(null); setA(""); setB(""); setShown(compact ? 6 : 16); }, [reference]);
+  // A work written under another's name doesn't belong at that writer's date, so it's set apart.
+  const doubtful = useMemo(() => (data ?? []).filter((e) => workCaution(e.title)), [data]);
+  const dated = useMemo(() => (data ?? []).filter((e) => !workCaution(e.title)), [data]);
+  const inTrad = useMemo(() => dated.filter((e) => trad === "all" || writerTradition(e.writer) === trad), [dated, trad]);
+  const counts = useMemo(() => { const m: Record<string, number> = {}; inTrad.forEach((e) => { const c = yearToCentury(e.writer.year!); m[c] = (m[c] ?? 0) + 1; }); return m; }, [inTrad]);
+  const traditions = useMemo(() => TRADITION_ORDER.filter((t) => dated.some((e) => writerTradition(e.writer) === t)), [dated]);
+  const writers = useMemo(() => { const m = new Map<string, Writer>(); dated.forEach((e) => m.set(e.writer.id, e.writer)); return [...m.values()].sort((x, y) => (x.year ?? 0) - (y.year ?? 0)); }, [dated]);
+  const list = useMemo(() => inTrad.filter((e) => century === null || yearToCentury(e.writer.year!) === century).sort((x, y) => x.writer.year! - y.writer.year! || Number(x.cites) - Number(y.cites)), [inTrad, century]);
+  const groups = useMemo(() => {
+    const m = new Map<number, Excerpt[]>();
+    for (const e of list.slice(0, shown)) { const c = yearToCentury(e.writer.year!); m.set(c, [...(m.get(c) ?? []), e]); }
+    return [...m];
+  }, [list, shown]);
+  useEffect(() => { if (writers.length >= 2 && !a) { setA(writers[0].id); setB(writers[writers.length - 1].id); } }, [writers]);
+  if (loading) return <Loading label="Gathering the history of this passage" />;
+  if (error) return <ErrorNote error={error} />;
+  if (!data?.length) return <Empty>No dated writer in this app comments on this exact passage.</Empty>;
+  const col = (id: string) => dated.filter((e) => e.writer.id === id);
+  return (
+    <div className="interp">
+      <div className="segmented" role="group" aria-label="View">
+        <button type="button" className={view === "time" ? "on" : ""} onClick={() => setView("time")}>By century</button>
+        <button type="button" className={view === "compare" ? "on" : ""} onClick={() => setView("compare")}>Compare two writers</button>
+      </div>
+      {view === "time" && (
+        <>
+          <div className="filters">
+            <select aria-label="Tradition" value={trad} onChange={(e) => { setTrad(e.target.value); setCentury(null); }}>
+              <option value="all">All traditions ({dated.length})</option>
+              {traditions.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            {century !== null && <button type="button" className="btn small" onClick={() => setCentury(null)}>Show every century</button>}
+          </div>
+          <CenturyBars counts={counts} picked={century} onPick={(c) => setCentury(century === c ? null : c)} />
+          {groups.map(([c, es]) => (
+            <section key={c}>
+              <h3>{centuryLabel(c)}</h3>
+              {es.map((e, i) => <ExcerptCard key={`${e.writer.id}-${i}`} e={e} />)}
+            </section>
+          ))}
+          {shown < list.length && <button type="button" className="btn small" onClick={() => setShown(shown + 20)}>Show more ({list.length - shown} left)</button>}
+          {doubtful.length > 0 && (
+            <details className="doctrine">
+              <summary>Authorship disputed, so not placed by date ({doubtful.length})</summary>
+              {doubtful.slice(0, 12).map((e, i) => <ExcerptCard key={i} e={e} />)}
+            </details>
+          )}
+        </>
+      )}
+      {view === "compare" && (
+        <>
+          <div className="filters">
+            <select aria-label="First writer" value={a} onChange={(e) => setA(e.target.value)}>{writers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select>
+            <select aria-label="Second writer" value={b} onChange={(e) => setB(e.target.value)}>{writers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select>
+          </div>
+          <div className="pair-grid">
+            {[a, b].map((id, n) => <section key={n} className="pair-col">{col(id).slice(0, 6).map((e, i) => <ExcerptCard key={i} e={e} />)}{!col(id).length && <Empty>Nothing here.</Empty>}</section>)}
+          </div>
+        </>
+      )}
+      <p className="fine">The grouping by tradition is a rough one by period and church, and these writers are only those whose works passed this app's sourcing rule, so it isn't a complete history of interpretation. A writer is placed at the year the source gives, usually about when he died.</p>
+    </div>
+  );
+}
+
 /** Everything on one passage: excerpts, long commentaries and sermons. */
 export function PassageWritersPage({ reference }: { reference: string }) {
-  const [tab, setTab] = useState<"writers" | "comm" | "sermons">("writers");
+  const [tab, setTab] = useState<"writers" | "history" | "comm" | "sermons">("writers");
   const [cat, setCat] = useState("all");
   const [who, setWho] = useState("all");
   const [how, setHow] = useState<"all" | "comments" | "cites">("all");
@@ -138,12 +229,13 @@ export function PassageWritersPage({ reference }: { reference: string }) {
     <div className="page">
       <p className="eyebrow"><a href="#writers">Writers</a></p>
       <h1 className="page-title">What writers said on {title}</h1>
-      {h && <p><a href={`#${h}`}>Read {title}</a></p>}
+      {h && <p><a href={`#${h}`}>Read {title}</a> · <a href={`#compare-${h.slice(5)}`}>Compare Hebrew, Greek and Latin</a></p>}
       <div className="tabs" role="tablist">
-        {([["writers", `Fathers and teachers${short.data ? ` (${short.data.length})` : ""}`], ["comm", "Commentaries"], ["sermons", "Sermons"]] as const).map(([id, label]) => (
+        {([["writers", `Fathers and teachers${short.data ? ` (${short.data.length})` : ""}`], ["history", "Through history"], ["comm", "Commentaries"], ["sermons", "Sermons"]] as const).map(([id, label]) => (
           <button type="button" key={id} role="tab" aria-selected={tab === id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
+      {tab === "history" && <HistoryOfInterpretation reference={reference} />}
       {tab === "writers" && (
         <>
           <ErrorNote error={short.error} />
@@ -213,7 +305,7 @@ function SearchWritings({ writer, initial }: { writer?: string; initial?: string
         </select>
         <button type="submit" className="btn small primary">Search</button>
       </form>
-      {!book && !writer && <p className="fine">Searching the whole Bible downloads all the writings, about 115 MB, one book at a time. Choose a book to search faster.</p>}
+      {!book && !writer && <p className="fine">Searching the whole Bible downloads all the writings, about 140 MB, one book at a time. Choose a book to search faster.</p>}
       {progress && <p className="loading" role="status"><span className="dot" />Searching book {progress[0]} of {progress[1]}…</p>}
       {hits && <p className="fine">{hits.length >= 100 ? "Showing the first 100 matches." : `${hits.length} ${hits.length === 1 ? "match" : "matches"}.`}</p>}
       {hits && hits.length > 0 && <ExcerptList list={hits} hit={run?.q} hideWriter={!!writer} />}
@@ -225,14 +317,16 @@ export function WritersPage({ initialSearch }: { initialSearch?: string }) {
   const { data, error } = useAsync(getWritingsIndex, []);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
+  const [trad, setTrad] = useState("all");
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return (data?.authors ?? []).filter((a) => (cat === "all" || a.cat === cat) && (!s || a.name.toLowerCase().includes(s))).sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999));
-  }, [data, q, cat]);
+    return (data?.authors ?? []).filter((a) => (cat === "all" || a.cat === cat) && (trad === "all" || writerTradition(a) === trad) && (!s || a.name.toLowerCase().includes(s))).sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999));
+  }, [data, q, cat, trad]);
   return (
     <div className="page">
       <h1 className="page-title">Church Fathers and teachers</h1>
       <p className="sub">What influential Christian writers said about Scripture, from the first century on. Each excerpt names the published edition it comes from.</p>
+      <SubNav active="writers" />
       <ErrorNote error={error} />
       {!data && !error && <Loading />}
       {data && (
@@ -243,12 +337,16 @@ export function WritersPage({ initialSearch }: { initialSearch?: string }) {
               <option value="all">All periods</option>
               {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
             </select>
+            <select aria-label="Tradition" value={trad} onChange={(e) => setTrad(e.target.value)}>
+              <option value="all">All traditions</option>
+              {TRADITION_ORDER.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
           <div className="writer-list">
             {list.map((w) => (
               <a key={w.id} className="tool-row" href={`#writer-${w.id}`}>
                 <strong>{w.name}</strong>
-                <span>{writerYearLabel(w)} · {categoryLabel(w.cat)} · {w.n.toLocaleString()} {w.n === 1 ? "excerpt" : "excerpts"}</span>
+                <span>{writerYearLabel(w)} · {writerTradition(w)} · {w.n.toLocaleString()} {w.n === 1 ? "excerpt" : "excerpts"}</span>
               </a>
             ))}
           </div>
@@ -274,6 +372,7 @@ export function WriterPage({ id }: { id: string }) {
   const current = book ?? (w?.books.length ? [...w.books].sort((a, b) => b[1] - a[1])[0][0] : null);
   const excerpts = useAsync(async () => (w && current ? excerptsByWriter(w.id, current) : []), [w?.id, current]);
   const isSpurgeon = id === "charles-spurgeon";
+  const events = useAsync(() => eventsForWriter(id), [id]);
   const sermons = useAsync(async () => (isSpurgeon && current && view === "sermons" ? sermonsForBook(current) : []), [isSpurgeon, current, view]);
   if (loading) return <div className="page"><Loading /></div>;
   if (error) return <div className="page"><ErrorNote error={error} /></div>;
@@ -282,12 +381,13 @@ export function WriterPage({ id }: { id: string }) {
     <div className="page">
       <p className="eyebrow"><a href="#writers">Writers</a></p>
       <h1 className="page-title">{w.name}</h1>
-      <p className="sub">{writerYearLabel(w)} · {categoryLabel(w.cat)}</p>
+      <p className="sub">{writerYearLabel(w)} · {categoryLabel(w.cat)} · {writerTradition(w)}</p>
       {w.flag && <p className="note">{FLAG_NOTE[w.flag]}</p>}
       <div className="action-row">
         {w.year !== null && w.year > 0 && <a className="btn small" href={`#${timelineHash(w.year)}`}>On the timeline ({formatYear(w.year)})</a>}
         {w.wiki && <a className="btn small" href={w.wiki} target="_blank" rel="noreferrer">Biography on Wikipedia</a>}
       </div>
+      {(events.data?.length ?? 0) > 0 && <><h4>In church history</h4><div className="chips">{events.data!.map((e) => <a key={e.id} className="chip" href={`#${eventHash(e.id)}`}>{e.title}</a>)}</div></>}
       <details className="doctrine" open={w.works.length <= 4}>
         <summary>Works in this app</summary>
         <ul className="fine-list">{w.works.map(([t, n]) => <li key={t}>{t} <span className="fine">({n.toLocaleString()})</span></li>)}</ul>
@@ -313,6 +413,8 @@ export function WriterPage({ id }: { id: string }) {
       )}
       {view === "sermons" && (sermons.loading ? <Loading /> : sermons.data && <SermonList list={sermons.data} />)}
       <SearchWritings writer={w.id} />
+      <Backlinks names={[w.name]} />
+      <ScholarshipLinks query={w.name} />
       <p className="fine">Want a summary of this writer's thought? <a href={`#ask`}>Ask the AI assistant</a>. Its answers are drafts, so check them against these excerpts.</p>
     </div>
   );

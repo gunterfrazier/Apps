@@ -9,7 +9,10 @@ import { readHash, type ReadRoute } from "../routes";
 import { getData, navigate, setPref, toast, update, useData, type HighlightColor } from "../store";
 import { ErrorNote, Loading, Sheet, Tag, TranslationSelect, RefLink, useAsync, Empty } from "../ui";
 import { addSectionsToGuide, InsightsPanel } from "./insights";
-import { passageWritersHash } from "./writers";
+import { HistoryOfInterpretation, passageWritersHash } from "./writers";
+import { EditionsPanel, Interlinear, VerseColumns } from "./texts";
+import { Backlinks, ScholarshipLinks, useMedia } from "./scholar-ui";
+import { creedsCiting } from "../../core/scholar";
 
 const vKey = (b: number, c: number, v: number) => `${b}:${c}:${v}`;
 const COLORS: HighlightColor[] = ["amber", "green", "blue", "rose"];
@@ -87,24 +90,48 @@ export function WordRow({ w }: { w: WordTuple }) {
 }
 
 function WordsTab({ book, chapter, verse, verseEnd }: { book: number; chapter: number; verse: number; verseEnd: number }) {
+  const [mode, setMode] = useState<"inter" | "list">("inter");
   const { data, loading, error } = useAsync(async () => {
+    if (mode === "inter") return [];
     const out: { v: number; words: WordTuple[] }[] = [];
     for (let v = verse; v <= verseEnd; v++) out.push({ v, words: await getVerseWords(book, chapter, v) });
     return out;
-  }, [book, chapter, verse, verseEnd]);
-  if (loading) return <Loading label="Loading Hebrew and Greek" />;
-  if (error) return <ErrorNote error={error} />;
+  }, [book, chapter, verse, verseEnd, mode]);
+  const verses = Array.from({ length: verseEnd - verse + 1 }, (_, i) => verse + i).slice(0, 40);
   return (
     <div>
-      {data!.map(({ v, words }) => (
+      <div className="segmented" role="group" aria-label="Layout">
+        <button type="button" className={mode === "inter" ? "on" : ""} onClick={() => setMode("inter")}>Word by word</button>
+        <button type="button" className={mode === "list" ? "on" : ""} onClick={() => setMode("list")}>List</button>
+      </div>
+      {mode === "inter" && verses.map((v) => <div key={v}>{verseEnd > verse && <h4>Verse {v}</h4>}<Interlinear book={book} chapter={chapter} verse={v} /></div>)}
+      {mode === "list" && (loading ? <Loading label="Loading Hebrew and Greek" /> : error ? <ErrorNote error={error} /> : (data ?? []).map(({ v, words }) => (
         <div key={v}>
           {verseEnd > verse && <h4>Verse {v}</h4>}
           {words.length ? words.map((w, i) => <WordRow key={i} w={w} />) : <Empty>No original-language words for this verse.</Empty>}
         </div>
-      ))}
-      <p className="fine">Hebrew and Greek from STEP Bible (Tyndale House), CC BY 4.0. {book >= 40 && "The Greek follows the Nestle-Aland text, so wording can differ from the KJV's Textus Receptus."}</p>
+      )))}
+      <p className="fine"><a href="#morph">Search by grammar</a>. {book >= 40 && "The Greek follows the Nestle-Aland text, so wording can differ from the KJV's."}</p>
     </div>
   );
+}
+
+function TextTab({ book, chapter, verse }: { book: number; chapter: number; verse: number }) {
+  const hash = readHash({ book, chapter, verse }).slice(5);
+  return (
+    <div>
+      <VerseColumns book={book} chapter={chapter} verse={verse} compact />
+      <p><a className="btn small" href={`#compare-${hash}`}>Open full comparison</a> <a className="btn small" href="#textual">Textual notes</a></p>
+      <h4>Printed editions</h4>
+      <EditionsPanel book={book} chapter={chapter} verse={verse} />
+    </div>
+  );
+}
+
+function CreedsCiting({ book, chapter, verse }: { book: number; chapter: number; verse: number }) {
+  const { data } = useAsync(() => creedsCiting(book, chapter, verse), [book, chapter, verse]);
+  if (!data?.length) return null;
+  return <><h4>Cited in creeds and confessions</h4><div className="chips">{data.map((d) => <a key={d.id} className="chip" href={`#creed-${d.id}`}>{d.name}</a>)}</div></>;
 }
 
 function LinksTab({ book, chapter, verse, translation }: { book: number; chapter: number; verse: number; translation: TranslationId }) {
@@ -120,6 +147,7 @@ function LinksTab({ book, chapter, verse, translation }: { book: number; chapter
       <h4>Cross-references</h4>
       {data!.list.length ? <ul className="link-list">{data!.list.map((x) => <li key={x.ref}><RefLink refText={x.ref} /></li>)}</ul> : <Empty>No cross-references for this verse.</Empty>}
       <p className="fine">From OpenBible.info, strongest first.</p>
+      <CreedsCiting book={book} chapter={chapter} verse={verse} />
       {data!.people.length > 0 && (
         <>
           <h4>People named in this verse</h4>
@@ -131,6 +159,9 @@ function LinksTab({ book, chapter, verse, translation }: { book: number; chapter
 }
 
 function NotesTab({ noteKey, reference }: { noteKey: string; reference: string }) {
+  return <><NoteEditor noteKey={noteKey} reference={reference} /><Backlinks passage={reference} /><ScholarshipLinks query={reference} /></>;
+}
+function NoteEditor({ noteKey, reference }: { noteKey: string; reference: string }) {
   const { notes } = useData();
   const [text, setText] = useState(notes[noteKey]?.text ?? "");
   useEffect(() => { setText(getData().notes[noteKey]?.text ?? ""); }, [noteKey]);
@@ -146,16 +177,23 @@ function NotesTab({ noteKey, reference }: { noteKey: string; reference: string }
   return (
     <div>
       <label htmlFor="verse-note" className="label">Your note on {reference}</label>
-      <textarea id="verse-note" className="input" rows={7} value={text} onChange={(e) => save(e.target.value)} placeholder="Write what you notice. Notes save as you type, on this device." />
+      <textarea id="verse-note" className="input" rows={7} value={text} onChange={(e) => save(e.target.value)} placeholder="Write what you notice. Notes save as you type." />
+      <p className="fine">This also appears in your <a href="#notebook">notebook</a>.</p>
     </div>
   );
 }
 
 // ---------- The sheet for a verse or passage ----------
-export function VerseSheet({ book, chapter, verse, initialEnd, onClose }: { book: number; chapter: number; verse: number; initialEnd?: number; onClose: () => void }) {
+const STUDY_TABS = [["insights", "Insights"], ["words", "Hebrew & Greek"], ["history", "Through history"], ["text", "Text"], ["links", "Links"], ["notes", "My note"]] as const;
+type StudyTab = (typeof STUDY_TABS)[number][0];
+let lastTab: StudyTab = "insights";
+
+export function VerseSheet({ book, chapter, verse, initialEnd, onClose, docked }: { book: number; chapter: number; verse: number; initialEnd?: number; onClose: () => void; docked?: boolean }) {
   const { prefs, highlights, bookmarks, guides, activeGuideId } = useData();
   const [end, setEnd] = useState(initialEnd ?? verse);
-  const [tab, setTab] = useState<"insights" | "words" | "links" | "notes">("insights");
+  const [tab, setTabState] = useState<StudyTab>(lastTab);
+  const setTab = (t: StudyTab) => { lastTab = t; setTabState(t); };
+  useEffect(() => setEnd(initialEnd ?? verse), [book, chapter, verse, initialEnd]);
   const { data: total } = useAsync(() => verseCount(book, chapter), [book, chapter]);
   const reference = refOf(book, chapter, verse, end);
   const { data: text } = useAsync(async () => {
@@ -176,8 +214,8 @@ export function VerseSheet({ book, chapter, verse, initialEnd, onClose }: { book
     });
   };
   const add = () => addSectionsToGuide([{ id: newId(), kind: "passage", heading: reference, origin: "assembled", ref: reference }], reference, guides, activeGuideId, prefs.translation, prefs.lens);
-  return (
-    <Sheet wide title={reference} onClose={onClose}>
+  const body = (
+    <>
       <p className="verse-quote">{text ?? "…"}</p>
       <div className="range-row">
         <label htmlFor="range-end">Through verse</label>
@@ -195,18 +233,27 @@ export function VerseSheet({ book, chapter, verse, initialEnd, onClose }: { book
         <a className="btn small" href={`#ask-${readHash({ book, chapter, verse, verseEnd: end }).slice(5)}`} onClick={onClose}>Ask AI</a>
       </div>
       <div className="tabs" role="tablist">
-        {(["insights", "words", "links", "notes"] as const).map((t) => (
-          <button type="button" key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
-            {t === "insights" ? "Insights" : t === "words" ? "Hebrew & Greek" : t === "links" ? "Links" : "My note"}
-          </button>
+        {STUDY_TABS.map(([t, label]) => (
+          <button type="button" key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{label}</button>
         ))}
       </div>
       {tab === "insights" && <InsightsPanel reference={reference} translation={prefs.translation} />}
       {tab === "words" && <WordsTab book={book} chapter={chapter} verse={verse} verseEnd={end} />}
       {tab === "links" && <LinksTab book={book} chapter={chapter} verse={verse} translation={prefs.translation} />}
+      {tab === "history" && <HistoryOfInterpretation reference={reference} compact />}
+      {tab === "text" && <TextTab book={book} chapter={chapter} verse={verse} />}
       {tab === "notes" && <NotesTab noteKey={end > verse ? `${key}-${end}` : key} reference={reference} />}
-    </Sheet>
+    </>
   );
+  if (docked) {
+    return (
+      <aside className="study-dock" aria-label={`Study ${reference}`}>
+        <div className="dock-head"><strong>{reference}</strong><button type="button" className="icon-btn" aria-label="Close study panel" onClick={onClose}>×</button></div>
+        <div className="dock-body">{body}</div>
+      </aside>
+    );
+  }
+  return <Sheet wide title={reference} onClose={onClose}>{body}</Sheet>;
 }
 
 // ---------- Reader ----------
@@ -219,6 +266,25 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   const [speaking, setSpeaking] = useState<number | null>(null);
   const stopSpeak = useRef<(() => void) | null>(null);
   const translation = route?.translation ?? prefs.translation;
+  const wide = useMedia("(min-width: 1100px)");
+  // On a wide screen the study panel sits beside the text and follows the verse you pick.
+  useEffect(() => {
+    if (!wide) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "j" || e.key === "k") {
+        setSheet((s) => {
+          const v = (s?.verse ?? 0) + (e.key === "j" ? 1 : -1);
+          if (v < 1 || (verses && v > verses.length)) return s;
+          document.getElementById(`v${v}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+          return { verse: v };
+        });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   useEffect(() => {
     if (route?.translation && route.translation !== prefs.translation) setPref("translation", route.translation);
@@ -226,7 +292,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   useEffect(() => { update((d) => (d.lastRead.book === book && d.lastRead.chapter === chapter ? d : { ...d, lastRead: { book, chapter } })); }, [book, chapter]);
   useEffect(() => {
     if (route?.verse) {
-      setSheet(null);
+      setSheet(wide ? { verse: route.verse, end: route.verseEnd } : null);
       const el = document.getElementById(`v${route.verse}`);
       el?.scrollIntoView({ block: "center" });
     }
@@ -263,6 +329,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   const inRange = (v: number) => route?.verse && v >= route.verse && v <= (route.verseEnd ?? route.verse);
 
   return (
+    <div className={`reader-wrap ${wide && sheet ? "with-dock" : ""}`}>
     <div className="page reader">
       <div className="toolbar">
         <button type="button" className="pick-btn" onClick={() => setPicker(true)}>{bookName(book)} {chapter} <span aria-hidden="true">▾</span></button>
@@ -283,7 +350,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
 
       <div className="study-cta">
         <button type="button" className="btn small" onClick={() => verses && setSheet({ verse: 1, end: verses.length })}>Study this chapter</button>
-        <span className="fine">or tap any verse for insights, Hebrew and Greek, and links</span>
+        <span className="fine">or tap any verse for insights, Hebrew and Greek, its history and links</span>
       </div>
 
       {loading && <Loading label="Loading Scripture" />}
@@ -295,7 +362,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
             const hl = highlights[vKey(book, chapter, v.verse)];
             const hasNote = Boolean(notes[vKey(book, chapter, v.verse)]);
             return (
-              <div key={v.verse} id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${inRange(v.verse) ? "target" : ""}`} role="button" tabIndex={0}
+              <div key={v.verse} id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${inRange(v.verse) ? "target" : ""} ${wide && sheet && v.verse >= sheet.verse && v.verse <= (sheet.end ?? sheet.verse) ? "picked" : ""}`} role="button" tabIndex={0}
                 onClick={() => setSheet({ verse: v.verse })} onKeyDown={(e) => { if (e.key === "Enter") setSheet({ verse: v.verse }); }}>
                 <sup>{v.verse}</sup>
                 {v.text ? <span>{v.text}</span> : <em className="missing">This verse isn't in the {translation} text. Some manuscripts include it, so it's kept as a footnote in many Bibles.</em>}
@@ -315,7 +382,9 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       </div>
 
       {picker && <Picker book={book} chapter={chapter} onClose={() => setPicker(false)} onPick={(b, c) => { setPicker(false); go(b, c); }} />}
-      {sheet && <VerseSheet book={book} chapter={chapter} verse={sheet.verse} initialEnd={sheet.end} onClose={() => setSheet(null)} />}
+      {sheet && !wide && <VerseSheet book={book} chapter={chapter} verse={sheet.verse} initialEnd={sheet.end} onClose={() => setSheet(null)} />}
+    </div>
+    {sheet && wide && <VerseSheet docked book={book} chapter={chapter} verse={sheet.verse} initialEnd={sheet.end} onClose={() => setSheet(null)} />}
     </div>
   );
 }

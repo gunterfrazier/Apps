@@ -12,6 +12,8 @@ A phone-first Bible study guide builder and reference tool, for personal use. It
 - **Study guide builder:** from any passage or topic, in four formats, in one step or through six guided steps. Guides can be edited, exported, shared by link and embedded.
 - **AI assistant:** explains passages, answers questions and drafts guide sections. It works from the app's real text, and flags references that don't exist.
 - **People:** 3,009 people from BibleData, with family links citing their verses, a family tree, a pathfinder and a timeline.
+- **Church history:** an interactive timeline of 105 councils, schisms, reformations, creeds and theological shifts, each with a checked source.
+- **Scholar tools:** citations in five formats, a word-by-word interlinear, grammar search, the Septuagint and Vulgate side by side, Greek edition differences, a Gospel synopsis, 45 creeds across traditions, the deuterocanon, the Apostolic Fathers in Greek and English, Josephus, how a verse was read century by century, disputed dates, a notebook with backlinks, a bibliography with PDFs, advanced search and an AI research mode that checks its quotes.
 - **Connections:** links, embeds and a REST API. See `docs-API.md`.
 
 Every section of a guide says where it came from: cited sources, AI draft or your own writing. No Scripture text is ever generated. If a verse doesn't exist, the app says so.
@@ -39,7 +41,7 @@ Checks: `npm run typecheck`, `npm test`, `npm run data:check`.
 The app can also run on your own site. The hosted options are built and tested but not deployed. A public release would also need user accounts and billing if you charge a subscription or usage fee, and you should recheck the data licenses.
 
 
-1. **Static site only (cheapest).** Upload `dist/` to any static host. Everything works except AI and saved API guides. It's about 70 MB, so turn on compression if your host offers it. Most do.
+1. **Static site only (cheapest).** Upload `dist/` to any static host. Everything works except AI and saved API guides. It's about 240 MB, so turn on compression if your host offers it. Most do.
 2. **Static site plus server (needed for AI and the API).** Run `dist-server/server.js`, or the included `Dockerfile`, on any Node host with a persistent disk for the SQLite database. Set the values in `.env.example`.
 
 ## Turning on AI
@@ -74,12 +76,23 @@ test/          Automated tests
 
 Sources can still contain errors, and their chronology and family links reflect their editors' judgment. To rebuild, run `npm run data:build -- --sources ../sources`, then `npm run data:writings -- --sources ../sources` and `npm run data:glossary -- --sources ../sources` (they need Python 3.11 or later and run after the first step because it clears `public/data`), which needs local copies of the sources listed in `DATA-LICENSES.md`.
 
+## How the features connect
+
+Any passage, term, writer, event or creed is one tap from the others:
+
+- **Passage:** Insights, word-by-word Hebrew and Greek, Through history (by century, or two writers side by side), Text (Septuagint, Vulgate and Greek editions), Links, and your note, which also shows other notes that name it.
+- **Term:** your glossary, named definitions, its use by century, church history events, your notes and modern scholarship links.
+- **Writer:** excerpts by book, tradition, events and your notes.
+- **Event:** source, quote, documents, writers, terms and verses.
+- **Everything** can be cited in Chicago, Turabian, SBL, BibTeX or RIS, saved to My sources or the Notebook, and added to a guide. Guides export to Word with real footnotes.
+- **Go anywhere** (Ctrl K or the search button) opens any verse, term, writer, event, creed or tool. On a wide screen the study panel stays beside the text, and J and K move between verses.
+
 ## Known limits
 
 - There is no sourced data yet for idioms, customs, or the first audience, so those rely on AI drafts. Public-domain works could be added as cited sources.
-- Confession citations cover Reformed and Baptist documents only, because that's the open data available.
-- Only the 66-book canon is included, so Catholic and Orthodox deuterocanonical books are missing.
-- Hebrew and Greek are shown per verse, not linked word by word to the English.
-- New Testament dates follow one chronology, Ussher's. Old Testament dates follow BibleData's. Scholars date many of these differently.
+- The verse-by-verse confession citations in Insights cover Reformed and Baptist documents, while the Creeds section adds Catholic, Orthodox and other traditions through Schaff (6th ed.), so nothing after about 1930 is there.
+- The deuterocanon has its own reader and isn't part of the reader's search, references or writers' excerpts, which cover the 66-book canon.
+- Hebrew and Greek are linked word by word only to a tagged BSB, not to the other translations.
+- By default, New Testament dates follow Ussher and Old Testament dates follow BibleData. A switch moves a few disputed dates to common modern ones, and Disputed dates lists the views, but most dates have only the source's value.
 - 77 entries in the owner's glossary were reworded by Claude at his request. They are unsourced editorial work, tagged "Corrected," and each shows the original wording. Four definitions are short quotations from copyrighted dictionaries and need replacing or permission before any public release.
 - CCEL's Fathers and Calvin files came from a third-party copy on GitHub, and only 10 volumes of Calvin's commentaries are in it. See DATA-LICENSES.md.

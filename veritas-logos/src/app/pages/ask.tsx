@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { checkReferences } from "../../core/ai";
 import { lensName, newId } from "../../core/guide";
-import { aiChat, detectAi, friendlyAiError, type AiMode, type Turn } from "../ai-client";
+import { aiChat, aiResearch, detectAi, friendlyAiError, type AiMode, type Turn } from "../ai-client";
+import type { CheckedClaim, ResearchAnswer } from "../../core/research";
 import { saveGuide, setPref, useData, toast, navigate } from "../store";
 import { copyText } from "../files";
 import { Loading, LensSelect, RefText, TranslationSelect, OriginTag, useAsync } from "../ui";
@@ -32,6 +33,8 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
   const [streaming, setStreaming] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [context, setContext] = useState(contextRef);
+  const [research, setResearch] = useState(false);
+  const [checked, setChecked] = useState<Record<number, ResearchAnswer>>({});
   const ctl = useRef<AbortController | null>(null);
   const end = useRef<HTMLDivElement | null>(null);
   useEffect(() => { let live = true; detectAi().then((m) => live && setMode(m)); return () => { live = false; ctl.current?.abort(); }; }, []);
@@ -48,8 +51,15 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
     setStreaming("");
     ctl.current = new AbortController();
     try {
-      const answer = await aiChat(next, prefs.translation, prefs.lens, context, { signal: ctl.current.signal, onText: setStreaming });
-      setTurns([...next, { role: "assistant", content: answer }]);
+      if (research) {
+        const { raw, answer } = await aiResearch(next, prefs.translation, prefs.lens, context, { signal: ctl.current.signal, onText: () => setStreaming("Finding and checking sources") });
+        const shown = answer ? [answer.summary, ...answer.claims.map((c) => c.text)].filter(Boolean).join("\n\n") : raw;
+        if (answer) setChecked((m) => ({ ...m, [next.length]: answer }));
+        setTurns([...next, { role: "assistant", content: shown }]);
+      } else {
+        const answer = await aiChat(next, prefs.translation, prefs.lens, context, { signal: ctl.current.signal, onText: setStreaming });
+        setTurns([...next, { role: "assistant", content: answer }]);
+      }
     } catch (e: any) {
       if (e?.text) setTurns([...next, { role: "assistant", content: e.text }]);
       setError(friendlyAiError(e));
@@ -69,8 +79,10 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
         <>
           <div className="filters">
             <label className="field-inline" htmlFor="ask-lens">Lens <LensSelect id="ask-lens" value={prefs.lens} onChange={(l) => setPref("lens", l)} /></label>
+            <label className="field-inline" htmlFor="ask-research"><input id="ask-research" type="checkbox" checked={research} onChange={(e) => setResearch(e.target.checked)} /> Research mode</label>
             <label className="field-inline" htmlFor="ask-translation">Text <TranslationSelect id="ask-translation" value={prefs.translation} onChange={(t) => setPref("translation", t)} /></label>
           </div>
+          {research && <p className="fine">In research mode, the assistant must tie every claim to a passage, writer, creed or term in this app. The app then checks each quote word for word, and marks anything it can't confirm as unsupported.</p>}
           {context && <p className="context-chip">Looking at <RefText text={context} /> <button type="button" className="link-btn" onClick={() => setContext(undefined)}>Remove</button></p>}
           {!turns.length && streaming === null && (
             <div className="tool-list">
@@ -82,7 +94,7 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
           <div className="chat">
             {turns.map((t, i) => (
               <div key={i} className={`bubble ${t.role}`}>
-                {t.role === "assistant" ? <Answer text={t.content} onAdd={() => addAnswer(t.content, turns[i - 1]?.content ?? "AI answer")} /> : <p>{t.content}</p>}
+                {t.role === "assistant" ? (checked[i] ? <CheckedAnswer a={checked[i]} onAdd={() => addAnswer(t.content, turns[i - 1]?.content ?? "AI answer")} /> : <Answer text={t.content} onAdd={() => addAnswer(t.content, turns[i - 1]?.content ?? "AI answer")} />) : <p>{t.content}</p>}
               </div>
             ))}
             {streaming !== null && <div className="bubble assistant">{streaming ? <Prose text={streaming} /> : <Loading label="Thinking" />}<button type="button" className="link-btn" onClick={() => ctl.current?.abort()}>Stop</button></div>}
@@ -101,6 +113,39 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
 
 function Prose({ text }: { text: string }) {
   return <>{text.split(/\n{2,}/).map((p, i) => <p key={i} style={{ whiteSpace: "pre-wrap" }}><RefText text={p.replace(/\*\*/g, "")} /></p>)}</>;
+}
+
+function ClaimRow({ c }: { c: CheckedClaim }) {
+  return (
+    <li className={`claim ${c.supported ? "ok" : "bad"}`}>
+      <p><strong>{c.supported ? "Supported" : "Unsupported"}.</strong> <RefText text={c.text} /></p>
+      <ul className="fine-list">
+        {c.sources.map((s, i) => (
+          <li key={i}>
+            <span className={s.ok ? "ok-mark" : "bad-mark"}>{s.ok ? "Checked" : "Not confirmed"}</span>{" "}
+            {s.hash ? <a href={`#${s.hash}`}>{s.label}</a> : <RefText text={s.label} />}{s.detail ? `: “${s.detail}”` : ""}
+            <span className="fine"> {s.why}</span>
+          </li>
+        ))}
+        {!c.sources.length && <li>No source was given.</li>}
+      </ul>
+    </li>
+  );
+}
+function CheckedAnswer({ a, onAdd }: { a: ResearchAnswer; onAdd: () => void }) {
+  const ok = a.claims.filter((c) => c.supported).length;
+  return (
+    <>
+      {a.summary && <p><RefText text={a.summary} /></p>}
+      <p className="fine">{ok} of {a.claims.length} claims have a source the app could confirm. A confirmed source shows the words exist, and you still need to judge whether they support the claim.</p>
+      <ul className="claims">{a.claims.map((c, i) => <ClaimRow key={i} c={c} />)}</ul>
+      {a.gaps.length > 0 && <><h4>What the app's sources don't settle</h4><ul className="fine-list">{a.gaps.map((g, i) => <li key={i}>{g}</li>)}</ul></>}
+      <div className="bubble-actions">
+        <OriginTag origin="ai" />
+        <button type="button" className="link-btn" onClick={onAdd}>Add to guide</button>
+      </div>
+    </>
+  );
 }
 
 function Answer({ text, onAdd }: { text: string; onAdd: () => void }) {

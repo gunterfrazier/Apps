@@ -4,6 +4,11 @@ import { newId } from "../../core/guide";
 import { useData } from "../store";
 import { Empty, ErrorNote, Loading, Paras, RefLink, Tag, useAsync } from "../ui";
 import { addSectionsToGuide } from "./insights";
+import { centuryLabel, eventHash, eventsForTerm, getDoctrine } from "../../core/scholar";
+import { excerptsAt } from "../../core/writings";
+import { ExcerptCard } from "./writers";
+import { Backlinks, CenturyBars, CiteButton, ScholarshipLinks, saveQuoteToNotebook } from "./scholar-ui";
+import { citeId, parseSourceLine } from "../../core/cite";
 
 export function GlossaryPage() {
   const { data, error } = useAsync(getGlossary, []);
@@ -65,9 +70,32 @@ export function GlossaryPage() {
   );
 }
 
+/** Where a term appears in the writers, by century. The counts are of words in the excerpts, so they show use, not teaching. */
+function ThroughCenturies({ id }: { id: string }) {
+  const { data } = useAsync(async () => (await getDoctrine())[id] ?? null, [id]);
+  const [picked, setPicked] = useState<number | null>(null);
+  const first = data ? Number(Object.keys(data.n)[0]) : null;
+  const c = picked ?? first;
+  const excerpts = useAsync(async () => (data && c ? excerptsAt(data.s[String(c)] ?? []) : []), [data, c]);
+  if (!data) return null;
+  const total = Object.values(data.n).reduce((a, b) => a + b, 0);
+  return (
+    <section>
+      <h3>Through the centuries</h3>
+      <p className="fine">{total.toLocaleString()} excerpts use this word. Choose a century to see early uses.</p>
+      <CenturyBars counts={data.n} picked={c} onPick={setPicked} />
+      {c && <h4>{centuryLabel(c)}</h4>}
+      {excerpts.loading && <Loading label="Opening the writings" />}
+      {excerpts.data?.map((e, i) => <ExcerptCard key={i} e={e} hit={undefined} />)}
+      <p className="fine">Counts come from the excerpts in this app, so they reflect what's been kept here more than how common a teaching was. Spelling and translation also affect them.</p>
+    </section>
+  );
+}
+
 export function TermPage({ id }: { id: string }) {
   const { guides, activeGuideId, prefs } = useData();
   const { data: t, loading, error } = useAsync(() => termById(id), [id]);
+  const events = useAsync(async () => (t ? eventsForTerm(t.id) : []), [t?.id]);
   if (loading) return <div className="page"><Loading /></div>;
   if (error) return <div className="page"><ErrorNote error={error} /></div>;
   if (!t) return <div className="page"><p className="empty">That term isn't in the glossary. <a href="#glossary">See all terms</a>.</p></div>;
@@ -114,6 +142,8 @@ export function TermPage({ id }: { id: string }) {
           <p className="fine ex-source">{d.source}</p>
           <div className="ex-actions">
             <button type="button" className="link-btn" onClick={() => addDef(d)}>Add to guide</button>
+            <CiteButton record={{ id: citeId(t.id, d.short), kind: "section", title: d.head, ...parseSourceLine(d.source), url: d.url || undefined }} />
+            <button type="button" className="link-btn" onClick={() => saveQuoteToNotebook(`${t.term}: ${d.short}`, d.text, d.source, [t.term.toLowerCase().replace(/\s+/g, "-")])}>Save to notebook</button>
             {d.url && <a className="link-btn" href={d.url} target="_blank" rel="noreferrer">Check the source</a>}
           </div>
         </article>
@@ -127,13 +157,18 @@ export function TermPage({ id }: { id: string }) {
           <div className="chips">{t.refs.map((r) => <RefLink key={r} refText={r} />)}</div>
         </section>
       )}
+      {(events.data?.length ?? 0) > 0 && <section><h3>In church history</h3><div className="chips">{events.data!.map((e) => <a key={e.id} className="chip" href={`#${eventHash(e.id)}`}>{e.title}, {e.y1}</a>)}</div></section>}
+      {!t.see && <ThroughCenturies id={t.id} />}
+      <Backlinks names={[t.term, ...t.aliases]} />
       <section>
         <h3>Keep studying</h3>
         <div className="action-row">
           {t.writer && <a className="btn small primary" href={`#writer-${t.writer}`}>Read this writer</a>}
           {t.topic && <a className="btn small" href={`#topic-${t.topic}`}>Nave's topic</a>}
           <a className="btn small" href={`#writers-q-${encodeURIComponent(t.term.replace(/^The /, "").toLowerCase()).replace(/%20/g, "-")}`}>What writers said</a>
+          <a className="btn small" href={`#search-${encodeURIComponent(t.term.toLowerCase()).replace(/%20/g, "-")}`}>Search everything</a>
         </div>
+        <ScholarshipLinks query={t.term} />
       </section>
     </div>
   );

@@ -21,7 +21,7 @@ const Ready = ({ children }: { children: () => ReactNode }) => {
 
 export const SubNav = ({ active }: { active: string }) => (
   <div className="subnav" role="tablist">
-    {[["people", "People"], ["tree", "Family tree"], ["paths", "Pathfinder"], ["timeline", "Timeline"]].map(([h, label]) => (
+    {[["timeline", "Bible timeline"], ["church", "Church history"], ["writers", "Writers"], ["creeds", "Creeds"], ["people", "People"], ["tree", "Family tree"], ["paths", "Pathfinder"]].map(([h, label]) => (
       <a key={h} href={`#${h}`} className={active === h ? "on" : ""}>{label}</a>
     ))}
   </div>

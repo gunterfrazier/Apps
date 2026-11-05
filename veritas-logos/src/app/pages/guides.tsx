@@ -5,6 +5,8 @@ import type { LensId } from "../../core/content";
 import { blankGuide, generateGuide, GUIDE_FORMATS, GuideInputError, guideToHtml, guideToMarkdown, guideToText, guideToWord, lensName, newId, ORIGIN_LABEL, resolveGuide, sanitizeGuide, type Guide, type GuideFormat, type GuideSection, type SectionItem } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
 import { aiDraft, detectAi, friendlyAiError, type AiMode } from "../ai-client";
+import { guideToDocx } from "../../core/docx";
+import { StudyNav } from "./notebook";
 import { appBase, copyText, decodeFromLink, encodeForLink, IS_ARTIFACT, saveFile } from "../files";
 import { deleteGuide, navigate, saveGuide, toast, update, useData } from "../store";
 import { Empty, ErrorNote, LensSelect, Loading, OriginTag, Paras, RefLink, RefText, Sheet, TranslationSelect, useAsync } from "../ui";
@@ -27,6 +29,7 @@ export function GuidesPage() {
   return (
     <div className="page">
       <h1 className="page-title">Study guides</h1>
+      <StudyNav active="guides" />
       <a className="cta" href="#new"><strong>Build a study guide</strong><span>From any passage or topic, with real Scripture, word studies, cross-references and questions</span></a>
       <h3>Start with</h3>
       <div className="chips">{STARTERS.map((s) => <a className="chip" key={s} href={`#new-${encodeTopic(s)}`}>{s}</a>)}</div>
@@ -393,7 +396,7 @@ function GuideShare({ guide }: { guide: Guide }) {
     if (kind === "md") return saveFile(`${slug}.md`, guideToMarkdown(r), "text/markdown");
     if (kind === "html") return saveFile(`${slug}.html`, guideToHtml(r), "text/html");
     if (kind === "txt") return saveFile(`${slug}.txt`, guideToText(r), "text/plain");
-    if (kind === "doc") return saveFile(`${slug}.doc`, guideToWord(r), "application/msword");
+    if (kind === "doc") return saveFile(`${slug}.docx`, new Blob([guideToDocx(r) as BlobPart], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }), "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     return saveFile(`${slug}.json`, JSON.stringify(guide, null, 2), "application/json");
   };
   return (
@@ -401,14 +404,14 @@ function GuideShare({ guide }: { guide: Guide }) {
       <h3>Export</h3>
       <div className="action-row">
         <button type="button" className="btn small primary" onClick={() => doExport("copy")}>Copy text</button>
-        {!IS_ARTIFACT && <button type="button" className="btn small" onClick={() => doExport("doc")}>Word</button>}
+        <button type="button" className="btn small" onClick={() => doExport("doc")}>Word (.docx) with footnotes</button>
         <button type="button" className="btn small" onClick={() => doExport("html")}>HTML</button>
         <button type="button" className="btn small" onClick={() => doExport("md")}>Markdown</button>
         <button type="button" className="btn small" onClick={() => doExport("txt")}>Plain text</button>
         <button type="button" className="btn small" onClick={() => doExport("json")}>Guide file</button>
         {!IS_ARTIFACT && <button type="button" className="btn small" onClick={() => window.print()}>Print or PDF</button>}
       </div>
-      {IS_ARTIFACT && <p className="fine">Word export and printing work once the app is on your own website.</p>}
+      {IS_ARTIFACT && <p className="fine">Printing works once the app is on your own website.</p>}
       <h3>Share a link</h3>
       <p>The whole guide travels inside the link, so anyone who opens it gets a copy they can read and save.</p>
       {link ? <><textarea id="share-link" aria-label="Share link" className="input mono" rows={3} readOnly value={link} onFocus={(e) => e.currentTarget.select()} /><button type="button" className="btn small" onClick={() => copyText(link, "Link copied")}>Copy link</button>{link.length > 8000 && <p className="fine">This link is long, and some apps may cut it off. For a long guide, share the guide file instead.</p>}</> : <Loading />}

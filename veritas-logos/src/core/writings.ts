@@ -37,9 +37,11 @@ export interface Excerpt {
   kind: WritingKind;
   /** True when the writer only cites the verse here, rather than commenting on it. */
   cites: boolean;
+  /** The printed page in the named edition, where the source file marks pages. */
+  page?: string;
 }
 
-interface Shard { t: [string, string, number, number?][]; q: [number, number, number, number, number, number, string][] }
+interface Shard { t: [string, string, number, number?][]; q: [number, number, number, number, number, number, string, string?][] }
 
 export const getWritingsIndex = () => load<WritingsIndex>("writings/index.json");
 export const writerById = async (id: string) => (await getWritingsIndex()).authors.find((a) => a.id === id);
@@ -62,6 +64,44 @@ export const FLAG_NOTE: Record<string, string> = {
   "early-doc": "An early document outside the Bible, included as a witness to how Christians read Scripture.",
 };
 
+/** Broad tradition, for filtering. It's a simple grouping by period and church. */
+const TRADITION_BY_WRITER: Record<string, string> = {
+  "martin-luther": "Lutheran", "john-calvin": "Reformed", "charles-hodge": "Reformed", "philip-schaff": "Reformed", "jonathan-edwards": "Reformed", "matthew-henry": "Reformed", "thomas-watson": "Reformed", "thomas-manton": "Reformed", "john-owen": "Reformed", "richard-baxter": "Reformed",
+  "john-bunyan": "Baptist", "john-gill": "Baptist", "charles-spurgeon": "Baptist", "london-baptist-confession": "Baptist",
+  "john-wesley": "Methodist", "j-c-ryle": "Anglican",
+};
+export function writerTradition(w: Writer): string {
+  if (TRADITION_BY_WRITER[w.id]) return TRADITION_BY_WRITER[w.id];
+  if (w.cat.startsWith("Eastern")) return "Eastern";
+  if (w.cat.startsWith("Syriac")) return "Syriac";
+  if (w.cat.startsWith("Western")) return (w.year ?? 0) >= 1054 ? "Medieval Catholic" : "Latin West";
+  if (w.cat.startsWith("Early")) return "Early church";
+  return w.cat.startsWith("Councils") ? "Councils" : "Other";
+}
+export const TRADITION_ORDER = ["Early church", "Eastern", "Latin West", "Syriac", "Medieval Catholic", "Lutheran", "Reformed", "Anglican", "Baptist", "Methodist", "Councils", "Other"];
+
+/** A note on an edition's age, for readers who need to weigh an older translation. */
+export function editionNote(source: string): string {
+  const y = /(1[0-9]{3})/.exec(source)?.[1];
+  if (!y) return "";
+  if (/Ante-Nicene|Nicene and Post-Nicene/.test(source)) return `Translation from ${y}–1900. Modern critical editions may read differently.`;
+  if (Number(y) < 1950 && /trans\./.test(source)) return `Older translation. Modern critical editions may read differently.`;
+  return "";
+}
+
+/** Works whose authorship modern scholars doubt, though the source files name a writer. */
+const DISPUTED_WORKS: [RegExp, string][] = [
+  [/spurious/i, "The source's own editors call this work spurious."],
+  [/pseudo-|pseudo /i, "Written under another's name."],
+  [/clementine (homilies|recognitions)|recognitions of clement|homilies of clement/i, "Part of the Pseudo-Clementine literature, not by Clement of Rome."],
+  [/apostolic constitutions/i, "A fourth-century church order that claims to be from the apostles."],
+  [/\b2 clement|second epistle of clement/i, "Clement's authorship isn't accepted. It's an early anonymous homily."],
+  [/longer (version|recension)/i, "The longer version of Ignatius's letters is usually taken as a later expansion."],
+  [/decretals/i, "A collection of forged papal letters from the ninth century."],
+  [/doubtful|dubious/i, "The source's own editors question this attribution."],
+];
+export const workCaution = (title: string): string => DISPUTED_WORKS.find(([rx]) => rx.test(title))?.[1] ?? "";
+
 export const writerYearLabel = (w: Writer) => w.dates || (w.year === null ? "date unknown" : w.year < 0 ? `about ${-w.year} BC` : `about AD ${w.year}`);
 
 const refLabel = (book: number, c1: number, v1: number, c2: number, v2: number) => {
@@ -72,7 +112,7 @@ const refLabel = (book: number, c1: number, v1: number, c2: number, v2: number) 
 
 async function loadPart(kind: WritingKind, book: number, part: number, index: WritingsIndex): Promise<Excerpt[]> {
   const s = await load<Shard>(`${kind}/${pad2(book)}-${part}.json`);
-  return s.q.map(([a, t, c1, v1, c2, v2, text]) => ({
+  return s.q.map(([a, t, c1, v1, c2, v2, text, page]) => ({
     writer: index.authors[a],
     title: s.t[t][0],
     url: s.t[t][1],
@@ -82,6 +122,7 @@ async function loadPart(kind: WritingKind, book: number, part: number, index: Wr
     text,
     kind,
     cites: !!s.t[t][3],
+    page,
   }));
 }
 
@@ -147,6 +188,30 @@ export async function searchWritings(query: string, opts: { book?: number; write
     opts.onProgress?.(i + 1, books.length);
   }
   return hits;
+}
+
+/** Search with century and tradition filters, for the advanced search page. */
+export async function excerptsFromSearch(query: string, opts: { from: number; to: number; tradition: string; book?: number; limit: number; onProgress?: (d: number, t: number) => void; cancelled?: () => boolean }): Promise<SearchHit[]> {
+  const inRange = (e: Excerpt) => {
+    const y = e.writer.year;
+    if (!y) return opts.from <= 1 && opts.to >= 21;
+    const c = Math.floor((y - 1) / 100) + 1;
+    return c >= opts.from && c <= opts.to && (opts.tradition === "all" || writerTradition(e.writer) === opts.tradition);
+  };
+  const all = await searchWritings(query, { book: opts.book, limit: 3000, onProgress: opts.onProgress, cancelled: opts.cancelled });
+  return all.filter(inRange).slice(0, opts.limit);
+}
+
+/** Loads particular excerpts by the shard and row the doctrine index names. */
+export async function excerptsAt(refs: [string, number][]): Promise<Excerpt[]> {
+  const index = await getWritingsIndex();
+  const out: Excerpt[] = [];
+  for (const [shard, row] of refs) {
+    const [b, k] = shard.split("-").map(Number);
+    const part = await loadPart("writings", b, k, index);
+    if (part[row]) out.push(part[row]);
+  }
+  return out;
 }
 
 /** Spurgeon's sermons, by the text he preached on. An index only: the link goes to the original wording at the Spurgeon Library. */

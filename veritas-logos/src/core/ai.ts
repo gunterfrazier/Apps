@@ -11,6 +11,7 @@ import { lensName, type Guide, type GuideSection, newId, type SectionItem } from
 import { getInsights } from "./insights";
 import { excerptsForPassage, FLAG_NOTE, varied } from "./writings";
 import { searchGlossary } from "./glossary";
+import { creedText, getChurchEvents, getCreed, getCreedIndex, verseVariants, lxxChapters, vulgateChapters } from "./scholar";
 import { decodeMorph, getCrossRefs, getLexEntry, getVerseWords, normalizeStrongs, searchLexicon } from "./lexicon";
 import { ensureFigures, versesOfPerson } from "./people";
 import { bookName, findReferences, parseReference } from "./references";
@@ -125,6 +126,46 @@ export function aiTools(translation: TranslationId): AiTool[] {
         const t = (await searchGlossary(String(term), 1))[0];
         if (!t) return { term, definitions: [] };
         return { term: t.term, alsoCalled: t.aliases, readersOwnGlossary: t.own || undefined, readersGlossaryWasCorrected: t.corrections?.length ? true : undefined, note: t.note, definitions: t.defs.slice(0, 4).map((d) => ({ source: d.source, text: clip(d.text, 900) })), verses: t.refs };
+      },
+    },
+    {
+      name: "church_history",
+      description: "Searches dated church history events (councils, schisms, reformations, creeds, theological shifts) with their sources. Use it for questions about when or why something happened in the church.",
+      inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
+      execute: async ({ query }) => {
+        const q = String(query).toLowerCase();
+        const list = (await getChurchEvents()).filter((e) => `${e.title} ${e.summary}`.toLowerCase().includes(q)).slice(0, 10);
+        return list.map((e) => ({ id: e.id, title: e.title, year: e.y1, until: e.y2, kind: e.cat, summary: e.summary, source: e.source, quote: e.quote }));
+      },
+    },
+    {
+      name: "search_creeds",
+      description: "Searches creeds and confessions from Catholic, Orthodox and Protestant traditions in Schaff's Creeds of Christendom, and returns the document id, tradition, year and matching passages.",
+      inputSchema: { type: "object", properties: { query: { type: "string" }, tradition: { type: "string", description: "Optional, such as Roman Catholic, Eastern Orthodox, Lutheran, Reformed, Anglican" } }, required: ["query"] },
+      execute: async ({ query, tradition }) => {
+        const q = String(query).toLowerCase();
+        const want = tradition ? String(tradition).toLowerCase() : "";
+        const out: unknown[] = [];
+        for (const m of (await getCreedIndex()).docs) {
+          if (want && !m.tradition.toLowerCase().includes(want)) continue;
+          const d = await getCreed(m.id);
+          if (!d) continue;
+          const t = creedText(d), at = t.toLowerCase().indexOf(q);
+          if (at >= 0) out.push({ id: m.id, name: m.name, tradition: m.tradition, year: m.year, passage: t.slice(Math.max(0, at - 240), at + 400) });
+          if (out.length >= 8) break;
+        }
+        return out;
+      },
+    },
+    {
+      name: "ancient_text",
+      description: "Returns one verse in the Septuagint or Vulgate, and for New Testament verses, which printed Greek editions differ on its wording. Septuagint Psalm numbers differ from English ones.",
+      inputSchema: { type: "object", properties: { reference: { type: "string" } }, required: ["reference"] },
+      execute: async ({ reference }) => {
+        const s = parseReference(String(reference))?.[0];
+        if (!s || !s.verseStart) return { error: "Give one verse." };
+        const pick = (l: { verses: [number, string][] }[]) => l.flatMap((c) => c.verses.filter(([v]) => v === s.verseStart).map(([, t]) => t)).join(" ");
+        return { septuagint: pick(await lxxChapters(s.book, s.chapter)) || undefined, vulgate: pick(await vulgateChapters(s.book, s.chapter)) || undefined, editionDifferences: (await verseVariants(s.book, s.chapter, s.verseStart)).slice(0, 40) };
       },
     },
     {

@@ -65,6 +65,11 @@ test("reference endpoints", async () => {
   assert.ok(term.definitions.length >= 2 && term.owners_glossary);
   assert.match(term.corrections[0].original, /legal declaration/);
   assert.equal((await j("/v1/glossary/nope")).status, 404);
+  const hist = await (await j("/v1/church-history?kind=council&q=chalcedon")).json();
+  assert.ok(hist.results.some((e: any) => e.id === "chalcedon"));
+  const creed = await (await j("/v1/creeds/nicene-creed")).json();
+  assert.ok(creed.blocks.length > 3);
+  assert.equal((await j("/v1/creeds/nope")).status, 404);
   const writers = await (await j("/v1/writers")).json();
   assert.ok(writers.results.some((w: any) => w.id === "augustine-of-hippo" && w.year === 430));
   const on = await (await j("/v1/writings?ref=John%203:16&limit=3")).json();

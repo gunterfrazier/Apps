@@ -4,7 +4,7 @@ import { segmentsOverlap } from "./content";
 import { getTimeline } from "./people";
 import { getWritingsIndex, writerYearLabel } from "./writings";
 
-export type Band = "milestone" | "life" | "rule" | "prophet" | "period" | "event" | "nt" | "writer" | "confession";
+export type Band = "milestone" | "life" | "rule" | "prophet" | "period" | "event" | "nt" | "writer" | "confession" | "council" | "creed" | "schism" | "reform" | "shift" | "turning";
 
 /** A point or span on the chart. x is a calendar year with no gap: AD 1 is 1, 1 BC is 0, 2 BC is -1. */
 export interface TimeItem {
@@ -23,6 +23,8 @@ export interface TimeItem {
   ah?: [number, number];
   ussherBc?: number | null;
   note?: string;
+  /** A church history event's id. */
+  eventId?: string;
 }
 
 export const BANDS: { id: Band; label: string; hint: string }[] = [
@@ -47,7 +49,27 @@ export const formatSpan = (a: number, b: number) => {
 };
 
 export const TIME_MIN = -3999;
-export const TIME_MAX = 2000;
+export const TIME_MAX = 2030;
+
+export const CHURCH_BANDS: { id: Band; label: string; hint: string }[] = [
+  { id: "council", label: "Councils", hint: "Councils and synods" },
+  { id: "creed", label: "Creeds and confessions", hint: "Creeds, confessions and declarations" },
+  { id: "schism", label: "Schisms and divisions", hint: "Where churches divided" },
+  { id: "reform", label: "Reformations and renewal", hint: "Reform and renewal movements, and reconciliation" },
+  { id: "shift", label: "Theological shifts", hint: "Changes in how theology was done" },
+  { id: "turning", label: "Turning points", hint: "Events that changed the church's setting" },
+  { id: "writer", label: "Writers", hint: "Church Fathers and later teachers in this app" },
+];
+export const CHURCH_MIN = 1;
+export const CHURCH_ERAS: { id: string; label: string; from: number; to: number }[] = [
+  { id: "all", label: "All of it", from: 1, to: 2030 },
+  { id: "early", label: "Early church", from: 30, to: 325 },
+  { id: "councils", label: "Age of the councils", from: 300, to: 800 },
+  { id: "medieval", label: "Medieval", from: 780, to: 1300 },
+  { id: "late", label: "Late medieval", from: 1280, to: 1520 },
+  { id: "reformation", label: "Reformation", from: 1500, to: 1660 },
+  { id: "modern", label: "Modern", from: 1650, to: 2030 },
+];
 
 export const ERAS: { id: string; label: string; from: number; to: number }[] = [
   { id: "all", label: "Whole story", from: TIME_MIN, to: TIME_MAX },

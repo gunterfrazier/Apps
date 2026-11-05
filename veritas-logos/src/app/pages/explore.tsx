@@ -9,15 +9,30 @@ import { hashForReference, readHash } from "../routes";
 import { navigate, useData } from "../store";
 import { Empty, ErrorNote, LexText, Loading, RefLink, useAsync } from "../ui";
 import { chapterCount } from "../../core/bible";
+import { getChronology } from "../../core/scholar";
+import { ExploreNav } from "./texts";
+import { ScholarshipLinks } from "./scholar-ui";
 
-const TOOLS = [
-  { hash: "writers", title: "Church Fathers and teachers", text: "What about 120 writers said on each passage, from public-domain editions" },
-  { hash: "glossary", title: "Theological terms", text: "Your glossary, beside definitions quoted from public-domain sources" },
-  { hash: "timeline", title: "Timeline", text: "An interactive chart from creation through the Church Fathers and Reformers" },
-  { hash: "books", title: "Books of the Bible", text: "Hebrew and Greek names, chapters and verses for all 66 books" },
-  { hash: "topics", title: "Topics", text: "5,319 subjects from Nave's Topical Bible" },
-  { hash: "lexicon", title: "Hebrew and Greek lexicon", text: "19,500 entries with a concordance for every word" },
-  { hash: "letters", title: "Letter value calculator", text: "Standard Hebrew and Greek letter values for any word" },
+const TOOLS: [string, { hash: string; title: string; text: string }[]][] = [
+  ["Words and languages", [
+    { hash: "lexicon", title: "Hebrew and Greek lexicon", text: "19,500 entries with a concordance for every word" },
+    { hash: "morph", title: "Search by grammar", text: "Find every aorist passive, every Hiphil, or any form of a word" },
+    { hash: "glossary", title: "Theological terms", text: "Your glossary beside named sources, with each term's use through the centuries" },
+    { hash: "letters", title: "Letter value calculator", text: "Standard Hebrew and Greek letter values for any word" },
+  ]],
+  ["The text", [
+    { hash: "compare", title: "Compare texts", text: "Hebrew, Septuagint, Greek, Vulgate and English, with quotations side by side" },
+    { hash: "synopsis", title: "Gospel synopsis", text: "366 sections of Matthew, Mark, Luke and John in parallel" },
+    { hash: "textual", title: "Textual notes", text: "Disputed passages, and what each Greek edition prints" },
+    { hash: "dc", title: "Deuterocanon and related books", text: "Books in Catholic and Orthodox Bibles, with where each church stands" },
+    { hash: "originals", title: "Primary texts", text: "Apostolic Fathers in Greek and English, and Josephus" },
+    { hash: "books", title: "Books of the Bible", text: "Names, chapters, verses and disputed dates" },
+    { hash: "topics", title: "Topics", text: "5,319 subjects from Nave's Topical Bible" },
+  ]],
+  ["Search and history", [
+    { hash: "search", title: "Advanced search", text: "The Bible, terms, church history, creeds, writers and your notes together" },
+    { hash: "history", title: "History", text: "Timelines, Church Fathers, creeds and biblical people" },
+  ]],
 ];
 
 export function ExplorePage() {
@@ -45,6 +60,7 @@ export function ExplorePage() {
   return (
     <div className="page">
       <h1 className="page-title">Explore</h1>
+      <ExploreNav active="explore" />
       <input id="search" className="input big" type="search" placeholder="Search a verse, word, topic, person or G26" aria-label="Search" value={q} onChange={(e) => setQ(e.target.value)} />
       {query.length >= 2 && !parsedRef && !strongs && (
         <div className="filters">
@@ -55,9 +71,14 @@ export function ExplorePage() {
       )}
 
       {query.length < 2 && (
-        <div className="tool-list">
-          {TOOLS.map((t) => <a key={t.hash} href={`#${t.hash}`} className="tool-row"><strong>{t.title}</strong><span>{t.text}</span></a>)}
-        </div>
+        <>
+          {TOOLS.map(([group, list]) => (
+            <section key={group}>
+              <h3>{group}</h3>
+              <div className="tool-list">{list.map((t) => <a key={t.hash} href={`#${t.hash}`} className="tool-row"><strong>{t.title}</strong><span>{t.text}</span></a>)}</div>
+            </section>
+          ))}
+        </>
       )}
 
       {parsedRef && hashForReference(parsedRef) && <a className="tool-row" href={`#${hashForReference(parsedRef)}`}><strong>Open {parsedRef}</strong><span>Go to this passage in the reader</span></a>}
@@ -105,6 +126,7 @@ export function LexiconPage() {
   return (
     <div className="page">
       <h1 className="page-title">Lexicon</h1>
+      <ExploreNav active="lexicon" />
       <input id="lex-search" className="input big" type="search" placeholder="Try love, agape, H2617 or shalom" aria-label="Search the lexicon" value={q} onChange={(e) => setQ(e.target.value)} />
       {loading && query.trim() && <Loading />}
       {data?.map((r) => <LexRow key={r[0]} r={r} />)}
@@ -186,6 +208,7 @@ export function BooksPage() {
 
 export function BookPage({ slug }: { slug: string }) {
   const book = BOOKS.find((b) => b.name.toLowerCase().replace(/\s+/g, "") === slug);
+  const dating = useAsync(async () => (await getChronology()).books.find((b) => b.book === book?.name), [slug]);
   const { data } = useAsync(async () => {
     if (!book) return null;
     const [meta, chapters] = await Promise.all([getBookMeta(book.number), chapterCount(book.number)]);
@@ -203,10 +226,18 @@ export function BookPage({ slug }: { slug: string }) {
         {m?.hebrew && <><dt>Hebrew name</dt><dd><span className="hebrew" lang="he" dir="rtl">{m.hebrew}</span> {m.hebrewTranslit}{m.hebrewMeaning ? `, “${m.hebrewMeaning}”` : ""}</dd></>}
         {m?.greek && <><dt>Greek name</dt><dd><span className="greek" lang="grc">{m.greek}</span> {m.greekTranslit}{m.greekMeaning ? `, “${m.greekMeaning}”` : ""}</dd></>}
       </dl>
+      {dating.data && (
+        <div className="note">
+          <strong>When it was written is disputed</strong>
+          <ul className="fine-list">{dating.data.views.map((v) => <li key={v.label}><strong>{v.label}.</strong> {v.who}</li>)}</ul>
+          <a className="link-btn" href="#dating">See sources</a>
+        </div>
+      )}
       <h3>Chapters</h3>
       <div className="num-grid">{Array.from({ length: data.chapters }, (_, i) => i + 1).map((c) => <button type="button" key={c} onClick={() => navigate(readHash({ book: book.number, chapter: c }))}>{c}</button>)}</div>
       <a className="btn primary" href={`#new-${book.name.toLowerCase().replace(/\s+/g, "")}`}>Build a study guide on {book.name}</a>
       <a className="btn" href={`#ask-${slug}-1`}>Ask AI about this book</a>
+      <ScholarshipLinks query={`${book.name} biblical studies`} />
     </div>
   );
 }
