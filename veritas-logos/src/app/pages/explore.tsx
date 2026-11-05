@@ -11,7 +11,8 @@ import { Empty, ErrorNote, LexText, Loading, RefLink, useAsync } from "../ui";
 import { chapterCount } from "../../core/bible";
 
 const TOOLS = [
-  { hash: "writers", title: "Church Fathers and teachers", text: "What 100 writers said on each passage, from public-domain editions" },
+  { hash: "writers", title: "Church Fathers and teachers", text: "What about 110 writers said on each passage, from public-domain editions" },
+  { hash: "glossary", title: "Theological terms", text: "Definitions quoted from public-domain dictionaries and catechisms" },
   { hash: "timeline", title: "Timeline", text: "An interactive chart from creation through the Church Fathers and Reformers" },
   { hash: "books", title: "Books of the Bible", text: "Hebrew and Greek names, chapters and verses for all 66 books" },
   { hash: "topics", title: "Topics", text: "5,319 subjects from Nave's Topical Bible" },

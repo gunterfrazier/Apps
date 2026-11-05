@@ -35,9 +35,11 @@ export interface Excerpt {
   reference: string;
   text: string;
   kind: WritingKind;
+  /** True when the writer only cites the verse here, rather than commenting on it. */
+  cites: boolean;
 }
 
-interface Shard { t: [string, string, number][]; q: [number, number, number, number, number, number, string][] }
+interface Shard { t: [string, string, number, number?][]; q: [number, number, number, number, number, number, string][] }
 
 export const getWritingsIndex = () => load<WritingsIndex>("writings/index.json");
 export const writerById = async (id: string) => (await getWritingsIndex()).authors.find((a) => a.id === id);
@@ -79,6 +81,7 @@ async function loadPart(kind: WritingKind, book: number, part: number, index: Wr
     reference: refLabel(book, c1, v1, c2, v2),
     text,
     kind,
+    cites: !!s.t[t][3],
   }));
 }
 
@@ -172,11 +175,11 @@ export async function sermonsForBook(book: number): Promise<SermonLink[]> {
   return (all[book - 1] ?? []).map(([number, title, c, v1, v2, volume]) => ({ number, title, volume, reference: refLabel(book, c, v1, c, v2), url: sermonUrl(title) })).sort((a, b) => a.reference.localeCompare(b.reference, undefined, { numeric: true }));
 }
 
-/** One excerpt per writer, earliest first, for a short preview. */
+/** One excerpt per writer, earliest first, for a short preview. Comments on the passage come before bare citations. */
 export function varied(list: Excerpt[], n: number): Excerpt[] {
   const seen = new Set<string>();
   const out: Excerpt[] = [];
-  for (const e of list) {
+  for (const e of [...list.filter((x) => !x.cites), ...list.filter((x) => x.cites)]) {
     if (seen.has(e.writer.id)) continue;
     seen.add(e.writer.id);
     out.push(e);
@@ -185,5 +188,5 @@ export function varied(list: Excerpt[], n: number): Excerpt[] {
   return out;
 }
 
-export const writingsCredit = "Church Fathers: public-domain translations (Ante-Nicene and Nicene and Post-Nicene Fathers, Newman's Catena Aurea and others) via HistoricalChristianFaith's Commentaries-Database and Writings-Database. Matthew Henry and Spurgeon's Treasury of David via LyteWord (CC0). Wesley's Notes via History of Methodism (structure CC BY 4.0). Calvin, Luther and Edwards via Project Gutenberg.";
+export const writingsCredit = "Church Fathers: public-domain translations (Ante-Nicene and Nicene and Post-Nicene Fathers, Newman's Catena Aurea and others) via HistoricalChristianFaith's Commentaries-Database and Writings-Database, checked against CCEL's text. Citations and Calvin's commentaries from CCEL. Matthew Henry and Spurgeon's Treasury of David via LyteWord (CC0). Wesley's Notes via History of Methodism (structure CC BY 4.0). Calvin's Institutes, Luther and Edwards via Project Gutenberg.";
 export { formatSegment };

@@ -42,6 +42,7 @@ export function ExcerptCard({ e, hideWriter, hit }: { e: Excerpt; hideWriter?: b
         {!hideWriter && <a className="ex-writer" href={`#writer-${e.writer.id}`}>{e.writer.name}</a>}
         {!hideWriter && <span className="fine">{writerYearLabel(e.writer)}</span>}
         <FlagTag w={e.writer} />
+        {e.cites && <Tag>Cites this verse</Tag>}
       </header>
       <p className="ex-on">{e.title}, on <RefLink refText={e.reference} /></p>
       <div className="ex-text">
@@ -121,6 +122,7 @@ export function PassageWritersPage({ reference }: { reference: string }) {
   const [tab, setTab] = useState<"writers" | "comm" | "sermons">("writers");
   const [cat, setCat] = useState("all");
   const [who, setWho] = useState("all");
+  const [how, setHow] = useState<"all" | "comments" | "cites">("all");
   const short = useAsync(() => excerptsForPassage(reference), [reference]);
   const long = useAsync(async () => (tab === "comm" ? excerptsForPassage(reference, "comm") : null), [reference, tab]);
   const sermons = useAsync(async () => (tab === "sermons" ? sermonsForPassage(reference) : null), [reference, tab]);
@@ -129,7 +131,7 @@ export function PassageWritersPage({ reference }: { reference: string }) {
   const cats = useMemo(() => CATEGORIES.filter((c) => short.data?.some((e) => e.writer.cat === c.id)), [short.data]);
   const inCat = useMemo(() => (short.data ?? []).filter((e) => cat === "all" || e.writer.cat === cat), [short.data, cat]);
   const writers = useMemo(() => { const m = new Map<string, string>(); inCat.forEach((e) => m.set(e.writer.id, e.writer.name)); return [...m]; }, [inCat]);
-  const list = useMemo(() => inCat.filter((e) => who === "all" || e.writer.id === who), [inCat, who]);
+  const list = useMemo(() => inCat.filter((e) => (who === "all" || e.writer.id === who) && (how === "all" || (how === "cites") === e.cites)), [inCat, who, how]);
   useEffect(() => setWho("all"), [cat]);
   const h = hashForReference(reference);
   return (
@@ -156,10 +158,16 @@ export function PassageWritersPage({ reference }: { reference: string }) {
                 <option value="all">All {writers.length} writers</option>
                 {writers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
               </select>
+              <select aria-label="Comments or citations" value={how} onChange={(e) => setHow(e.target.value as "all" | "comments" | "cites")}>
+                <option value="all">Comments and citations</option>
+                <option value="comments">Comments on the passage</option>
+                <option value="cites">Places that cite it</option>
+              </select>
             </div>
           )}
           {short.data && <ExcerptList list={list} empty="No excerpts on this exact passage." />}
           <p className="fine">Earliest first. Excerpts marked Catena Aurea are as collected by Thomas Aquinas in the 1200s, so they're often condensed and his attributions aren't always certain.</p>
+          <p className="fine">“Cites this verse” means the passage was tagged in CCEL's text of the work, or named in a short editor's note. It isn't always a comment on the verse, and a writer may be quoting someone he goes on to answer, so open the source to see the context.</p>
         </>
       )}
       {tab === "comm" && (
@@ -181,8 +189,8 @@ export function PassageWritersPage({ reference }: { reference: string }) {
   );
 }
 
-function SearchWritings({ writer }: { writer?: string }) {
-  const [q, setQ] = useState("");
+function SearchWritings({ writer, initial }: { writer?: string; initial?: string }) {
+  const [q, setQ] = useState(initial ?? "");
   const [book, setBook] = useState(0);
   const [run, setRun] = useState<{ q: string; book: number; n: number } | null>(null);
   const [hits, setHits] = useState<SearchHit[] | null>(null);
@@ -205,7 +213,7 @@ function SearchWritings({ writer }: { writer?: string }) {
         </select>
         <button type="submit" className="btn small primary">Search</button>
       </form>
-      {!book && !writer && <p className="fine">Searching the whole Bible downloads all the writings, about 70 MB, one book at a time. Choose a book to search faster.</p>}
+      {!book && !writer && <p className="fine">Searching the whole Bible downloads all the writings, about 115 MB, one book at a time. Choose a book to search faster.</p>}
       {progress && <p className="loading" role="status"><span className="dot" />Searching book {progress[0]} of {progress[1]}…</p>}
       {hits && <p className="fine">{hits.length >= 100 ? "Showing the first 100 matches." : `${hits.length} ${hits.length === 1 ? "match" : "matches"}.`}</p>}
       {hits && hits.length > 0 && <ExcerptList list={hits} hit={run?.q} hideWriter={!!writer} />}
@@ -213,7 +221,7 @@ function SearchWritings({ writer }: { writer?: string }) {
   );
 }
 
-export function WritersPage() {
+export function WritersPage({ initialSearch }: { initialSearch?: string }) {
   const { data, error } = useAsync(getWritingsIndex, []);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
@@ -245,10 +253,11 @@ export function WritersPage() {
             ))}
           </div>
           {!list.length && <Empty>No writer matches that.</Empty>}
-          <SearchWritings />
+          <SearchWritings initial={initialSearch} />
           <details className="doctrine">
             <summary>How these were chosen</summary>
-            <p>Your rule for this app is that everything stored must trace to a source you can check. So a quote from the Fathers is kept only if it comes from a named public-domain edition, and its wording was found word for word in that edition's text.</p>
+            <p>Your rule for this app is that everything stored must trace to a source you can check. So a quote from the Fathers is kept only if it comes from a named public-domain edition, and its wording was found word for word in that edition's text. Quotes from the Ante-Nicene and Nicene series were also matched against CCEL's text of those volumes.</p>
+            <p>Most other entries come from CCEL's tagged Scripture references in works its own files mark as public domain. These show where a writer cites a verse.</p>
             <p>That leaves out a lot on purpose: excerpts of copyrighted modern series, recent translations (including AI translations from Latin), and modern authors still under copyright. So some well-known works, such as Augustine's Sermons and Jerome's Commentary on Isaiah, aren't here. Those texts exist, but not in an edition that passes this test.</p>
             <p>Being included doesn't mean a writer is right. These writers disagree with each other, and some were later condemned, which is marked where the source records it.</p>
           </details>

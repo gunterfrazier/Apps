@@ -62,6 +62,14 @@ for (const [kind, parts] of [["writings", index.writings], ["comm", index.comm]]
 }
 console.log(`writers ${index.authors.length}, excerpts ${excerpts}`);
 
+// Glossary: every definition names a source, every cited verse exists, and no entry has been written for the app.
+const glossary = read("glossary.json").terms;
+for (const t of glossary) {
+  for (const d of t.defs) if (!d.source || !d.text) errors.push(`glossary ${t.term}: definition with no source`);
+  for (const r of t.refs) if (!exists(r)) errors.push(`glossary ${t.term}: bad reference ${r}`);
+}
+console.log(`glossary terms ${glossary.length}, with a definition ${glossary.filter((t) => t.defs.length).length}`);
+
 const topics = read("topics/index.json");
 console.log(`people ${figures.length}, topics ${topics.length}, timeline rows ${rows.length}`);
 if (errors.length) { console.error(errors.slice(0, 40).join("\n")); console.error(`${errors.length} problems`); process.exit(1); }

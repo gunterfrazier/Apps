@@ -17,6 +17,8 @@ export const OPENAPI = {
     "/v1/search": { get: { summary: "Search Bible text", parameters: [q("q", "Words to find", true), translation, q("mode", "words (default) or phrase"), q("limit", "1 to 100")], responses: ok } },
     "/v1/verses/words": { get: { summary: "Hebrew or Greek words of a verse", parameters: [q("ref", "One verse", true)], responses: ok } },
     "/v1/crossrefs": { get: { summary: "Cross-references for a verse", parameters: [q("ref", "One verse", true)], responses: ok } },
+    "/v1/glossary": { get: { summary: "Theological terms, or search them", parameters: [q("q", "A term or word"), q("limit", "1 to 100")], responses: ok } },
+    "/v1/glossary/{id}": { get: { summary: "One term, with definitions quoted from named public-domain works", parameters: [path1("id", "Term id, such as justification")], responses: ok } },
     "/v1/writers": { get: { summary: "Church Fathers and later teachers in the app, with dates, works and counts", responses: { "200": { description: "OK" } } } },
     "/v1/writings": { get: { summary: "What historic writers said about a passage, each excerpt naming its public-domain edition", parameters: [q("ref", "A verse or passage", true), q("writer", "A writer id from /v1/writers"), q("limit", "1 to 100"), q("offset", "Start position")], responses: { "200": { description: "OK" } } } },
     "/v1/insights": { get: { summary: "Sourced data on a passage: Nave's topics, confessions citing it, quotations, parallels and possible allusions", parameters: [q("ref", "A verse or passage", true)], responses: ok } },

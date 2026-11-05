@@ -72,7 +72,7 @@ test/          Automated tests
 - A lifespan must match the verse where the verse gives a total. Noah is left off the timeline because BibleData counts 951 years and Genesis 9:29 says 950.
 - Quotations and parallels must share a run of wording, which is shown with each one.
 
-Sources can still contain errors, and their chronology and family links reflect their editors' judgment. To rebuild, run `npm run data:build -- --sources ../sources`, then `npm run data:writings -- --sources ../sources` (it needs Python 3.11 or later and runs second because the first step clears `public/data`), which needs local copies of the sources listed in `DATA-LICENSES.md`.
+Sources can still contain errors, and their chronology and family links reflect their editors' judgment. To rebuild, run `npm run data:build -- --sources ../sources`, then `npm run data:writings -- --sources ../sources` and `npm run data:glossary -- --sources ../sources` (they need Python 3.11 or later and run after the first step because it clears `public/data`), which needs local copies of the sources listed in `DATA-LICENSES.md`.
 
 ## Known limits
 
@@ -80,4 +80,6 @@ Sources can still contain errors, and their chronology and family links reflect 
 - Confession citations cover Reformed and Baptist documents only, because that's the open data available.
 - Only the 66-book canon is included, so Catholic and Orthodox deuterocanonical books are missing.
 - Hebrew and Greek are shown per verse, not linked word by word to the English.
-- The timeline stops at the end of the Old Testament, because the chronology data does.
+- New Testament dates follow one chronology, Ussher's. Old Testament dates follow BibleData's. Scholars date many of these differently.
+- Some theological terms have no definition, because the public-domain sources here don't cover them.
+- CCEL's Fathers and Calvin files came from a third-party copy on GitHub, and only 10 volumes of Calvin's commentaries are in it. See DATA-LICENSES.md.

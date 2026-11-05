@@ -127,6 +127,7 @@ def norm(s):
 def clean(s):
     s = strip_html(s).replace("\ufffd", "").replace("\u00a0", " ").replace("\r", "")
     s = re.sub(r"[ \t]+", " ", s)
+    s = re.sub(r" ([,.;:?!])", r"\1", s)
     s = re.sub(r" ?\n ?", "\n", s)
     s = re.sub(r"\n{2,}", "\n\n", s)
     return s.strip()
@@ -178,12 +179,49 @@ def work_source(path):
             return src
     return None
 
+# ---------- CCEL's text of the Fathers series ----------
+# These are CCEL's own ThML files. Their rights field is read, and a file must say it's public domain to be used.
+CCEL = os.path.join(X, "ccel-copy/references/ccel/authors")
+VOL_LABEL = {**{f"anf{i:02d}": ANF(i) for i in range(1, 10)}, **{f"npnf1{i:02d}": NPNF1(i) for i in range(1, 15)}, **{f"npnf2{i:02d}": NPNF2(i) for i in range(1, 15)}}
+def ccel_raw(rel):
+    return open(os.path.join(CCEL, rel), encoding="utf-8", errors="replace").read()
+def ccel_rights(raw):
+    head = re.search(r"<ThML\.head>.*?</ThML\.head>", raw, re.S)
+    m = re.search(r"<DC\.Rights[^>]*>([^<]*)", head.group(0) if head else raw[:8000])
+    return (m.group(1).strip() if m else "")
+raw_vols = {v: ccel_raw(f"schaff/{v}.xml") for v in VOL_LABEL}
+for v, r in raw_vols.items():
+    assert "public domain" in ccel_rights(r).lower(), v
+ccel_norm = {v: norm(re.sub(r"<note\b.*?</note>", "", r, flags=re.S)) for v, r in raw_vols.items()}
+VOL_FOR_AUTHOR = {
+    "Tertullian": ["anf03", "anf04"], "Irenaeus": ["anf01"], "Justin Martyr": ["anf01"], "Clement of Rome": ["anf01", "anf09"], "Ignatius of Antioch": ["anf01"], "Polycarp of Smyrna": ["anf01"], "Epistle of Barnabas": ["anf01"], "Papias of Hierapolis": ["anf01"],
+    "Shepherd of Hermas": ["anf02"], "Clement of Alexandria": ["anf02"], "Theophilus of Antioch": ["anf02"], "Tatian the Assyrian": ["anf02"], "Athenagoras of Athens": ["anf02"], "Origen of Alexandria": ["anf04", "anf09"],
+    "Hippolytus of Rome": ["anf05"], "Cyprian": ["anf05"], "Caius Presbyter of Rome": ["anf05"], "Novatian": ["anf05"], "Gregory of Neocaesarea": ["anf06"], "Dionysius of Alexandria": ["anf06"], "Julius Africanus": ["anf06"], "Alexander of Alexandria": ["anf06"], "Peter of Alexandria": ["anf06"], "Methodius of Olympus": ["anf06"], "Arnobius of Sicca": ["anf06"], "Theonas of Alexandria": ["anf06"], "Theognostus Of Alexandria": ["anf06"], "Archelaus of Carrhae": ["anf06"], "Malchion": ["anf06"],
+    "Lucius Caecilius Firmianus Lactantius": ["anf07"], "Victorinus of Pettau": ["anf07"], "Apostolic Constitutions": ["anf07"], "Didache": ["anf07"], "The Liturgy Of The Blessed Apostles": ["anf07"], "Commodian": ["anf04"], "Marcus Minucius Felix": ["anf04"], "The Passion of Saints Perpetua and Felicity": ["anf03"], "Pseudo-Clement": ["anf08"],
+    "John Chrysostom": [f"npnf1{i:02d}" for i in range(9, 15)], "Augustine of Hippo": [f"npnf1{i:02d}" for i in range(1, 9)],
+    "Eusebius of Caesarea": ["npnf201"], "Socrates Scholasticus": ["npnf202"], "Theodoret of Cyrus": ["npnf203"], "Tyrannius Rufinus": ["npnf203"], "Athanasius of Alexandria": ["npnf204"], "Gregory of Nyssa": ["npnf205"], "Jerome": ["npnf206", "npnf203"], "Cyril of Jerusalem": ["npnf207"], "Gregory of Nazianzus": ["npnf207"], "Basil of Caesarea": ["npnf208"], "Hilary of Poitiers": ["npnf209"], "John Damascene": ["npnf209"], "Ambrose of Milan": ["npnf210"], "John Cassian": ["npnf211"], "Sulpicius Severus": ["npnf211"], "Vincent of Lérins": ["npnf211"], "Leo the Great": ["npnf212"], "Gregory the Dialogist": ["npnf212", "npnf213"], "Ephrem the Syrian": ["npnf213"], "Council of Carthage of 419": ["npnf214"],
+}
+def in_ccel(folder, q):
+    """Returns the volume whose CCEL text holds this quote, trying the writer's own volumes first."""
+    def hit(t):
+        return q in t or (len(q) > 400 and q[:150] in t and q[-150:] in t)
+    first = VOL_FOR_AUTHOR.get(folder, [])
+    for v in first:
+        if hit(ccel_norm[v]):
+            return v
+    for v in ccel_norm:
+        if v not in first and hit(ccel_norm[v]):
+            return v
+    return None
+print("loaded", len(ccel_norm), "CCEL volumes,", round(sum(map(len, ccel_norm.values())) / 1e6), "million letters")
+
 # ---------- Author table ----------
 NAME_FIX = {"Gregory the Dialogist": "Gregory the Great", "Lucius Caecilius Firmianus Lactantius": "Lactantius", "Gregory of Neocaesarea": "Gregory Thaumaturgus (of Neocaesarea)"}
 authors, author_ix = [], {}
 def slug(s):
     return re.sub(r"[^a-z0-9]+", "-", unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()).strip("-")
 def author(name, meta=None, **kw):
+    kw = {k: v for k, v in kw.items() if v is not None}
     if name in author_ix:
         return author_ix[name]
     meta = meta or {}
@@ -243,6 +281,7 @@ for folder in folders:
         meta_by_folder[folder] = tomllib.load(open(mp, "rb"))
 
 seen = set()
+failed_ccel = []
 for folder in folders:
     base = os.path.join(CDB, folder)
     meta = meta_by_folder.get(folder, {})
@@ -287,6 +326,17 @@ for folder in folders:
             if len(q) < 40 or not (q in t or (len(q) > 400 and q[:150] in t and q[-150:] in t)):
                 stats["wording not found in the cited edition"] += 1
                 continue
+            # The series' own text at CCEL is the stronger check, and it also settles the exact volume.
+            if src.startswith(("Ante-Nicene", "Nicene")):
+                vol = in_ccel(folder, q)
+                if not vol:
+                    stats["wording not found in CCEL's text of the series"] += 1
+                    failed_ccel.append((folder, c.get("source_title"), key, c["quote"][:90]))
+                    continue
+                stats["confirmed in CCEL's text of the series"] += 1
+                if VOL_LABEL[vol] != src:
+                    stats["volume label corrected from CCEL"] += 1
+                src = VOL_LABEL[vol]
             b, c1, v1, c2, v2 = key
             dedupe = (folder, b, c1, v1, q[:200])
             if dedupe in seen:
@@ -308,6 +358,7 @@ for folder in folders:
             stats["kept"] += 1
 
 print("fathers", dict(stats))
+print("sample not found in CCEL:", failed_ccel[:12])
 print("machine marked files hit", sum(1 for p, f in flags.items() if f))
 
 # ---------- 2. Wesley's Explanatory Notes (whole Bible) ----------
@@ -594,7 +645,7 @@ for rep, gid in (("Institutes-of-the-Christian-Religion--Vol.-1-of-2-_45001/4500
                 continue
             seen_c.add(key)
             text, _ = clip(sentences_around(plain, pos), 1400)
-            writings[b - 1].append((calvin, label, f"https://www.gutenberg.org/ebooks/{gid}", src_c, c1, v1, c1, v2, text))
+            writings[b - 1].append((calvin, label, f"https://www.gutenberg.org/ebooks/{gid}", src_c, c1, v1, c1, v2, text, 1))
             authors[calvin]["n"] += 1
             authors[calvin]["books"][b] += 1
             authors[calvin]["works"]["Institutes of the Christian Religion"] += 1
@@ -642,11 +693,279 @@ authors[spurgeon]["works"]["Sermons (index only)"] += n_s
 authors[spurgeon]["works"]["The Treasury of David"] += n_t
 print("spurgeon sermons indexed", n_s, "without a clear text", bad)
 
+# ---------- 8. Where writers cite a verse, from CCEL's tagged Scripture references ----------
+OSIS = {"Gen":1,"Exod":2,"Lev":3,"Num":4,"Deut":5,"Josh":6,"Judg":7,"Ruth":8,"1Sam":9,"2Sam":10,"1Kgs":11,"2Kgs":12,"1Chr":13,"2Chr":14,"Ezra":15,"Neh":16,"Esth":17,"Job":18,"Ps":19,"Prov":20,"Eccl":21,"Song":22,"Isa":23,"Jer":24,"Lam":25,"Ezek":26,"Dan":27,"Hos":28,"Joel":29,"Amos":30,"Obad":31,"Jonah":32,"Mic":33,"Nah":34,"Hab":35,"Zeph":36,"Hag":37,"Zech":38,"Mal":39,"Matt":40,"Mark":41,"Luke":42,"John":43,"Acts":44,"Rom":45,"1Cor":46,"2Cor":47,"Gal":48,"Eph":49,"Phil":50,"Col":51,"1Thess":52,"2Thess":53,"1Tim":54,"2Tim":55,"Titus":56,"Phlm":57,"Heb":58,"Jas":59,"1Pet":60,"2Pet":61,"1John":62,"2John":63,"3John":64,"Jude":65,"Rev":66}
+EDITORIAL = re.compile(r"prolegomena|preface|introduct|translator|editor|index|indexes|contents|title page|elucidation|chronolog|^notes?\b|excursus|genealogical|bibliograph|dedication|credits|memoir|synopsis|life of st|chief events|as a homilist|comparative table|appended note|dates of treatises", re.I)
+# (volume, top-level section id or None for the whole volume, writer folder)
+AUTH = {
+    "anf01": {"ii": "Clement of Rome", "iii": "Epistle to Diognetus", "iv": "Polycarp of Smyrna", "v": "Ignatius of Antioch", "vi": "Epistle of Barnabas", "vii": "Papias of Hierapolis", "viii": "Justin Martyr", "ix": "Irenaeus"},
+    "anf02": {"ii": "Shepherd of Hermas", "iii": "Tatian the Assyrian", "iv": "Theophilus of Antioch", "v": "Athenagoras of Athens", "vi": "Clement of Alexandria"},
+    "anf03": {"iv": "Tertullian", "v": "Tertullian", "vi": "Tertullian"},
+    "anf04": {"iii": "Tertullian", "iv": "Marcus Minucius Felix", "v": "Commodian", "vi": "Origen of Alexandria"},
+    "anf05": {"iii": "Hippolytus of Rome", "iv": "Cyprian", "v": "Caius Presbyter of Rome", "vi": "Novatian"},
+    "anf06": {"iii": "Gregory of Neocaesarea", "iv": "Dionysius of Alexandria", "v": "Julius Africanus", "vii": "Archelaus of Carrhae", "ix": "Peter of Alexandria", "x": "Alexander of Alexandria", "xi": "Methodius of Olympus", "xii": "Arnobius of Sicca"},
+    "anf07": {"iii": "Lucius Caecilius Firmianus Lactantius", "vi": "Victorinus of Pettau", "viii": "Didache", "ix": "Apostolic Constitutions"},
+    "anf08": {"v": "Pseudo-Clement", "vi": "Pseudo-Clement"},
+    "anf09": {"xv": "Origen of Alexandria", "xvi": "Origen of Alexandria"},
+    "npnf201": {"iii": "Eusebius of Caesarea", "iv": "Eusebius of Caesarea"},
+    "npnf202": {"ii": "Socrates Scholasticus", "iii": "Sozomen"},
+    "npnf203": {"iv": "Theodoret of Cyrus", "v": "Jerome", "vi": "Tyrannius Rufinus"},
+    "npnf205": {x: "Gregory of Nyssa" for x in ("viii", "ix", "x", "xi", "xii", "xiii")},
+    "npnf206": {"v": "Jerome", "vi": "Jerome", "vii": "Jerome"},
+    "npnf207": {"ii": "Cyril of Jerusalem", "iii": "Gregory of Nazianzus", "iv": "Gregory of Nazianzus"},
+    "npnf208": {"vii": "Basil of Caesarea", "viii": "Basil of Caesarea", "ix": "Basil of Caesarea"},
+    "npnf209": {"iii": "John Damascene"},
+    "npnf210": {"iv": "Ambrose of Milan", "v": "Ambrose of Milan"},
+    "npnf211": {"ii": "Sulpicius Severus", "iii": "Vincent of Lérins", "iv": "John Cassian"},
+    "npnf212": {"ii": "Leo the Great", "iii": "Gregory the Dialogist"},
+    "npnf213": {"ii": "Gregory the Dialogist", "iii": "Ephrem the Syrian"},
+}
+WHOLE = {**{f"npnf1{i:02d}": "Augustine of Hippo" for i in range(1, 9)}, **{f"npnf1{i:02d}": "John Chrysostom" for i in range(9, 15)}, "npnf204": "Athanasius of Alexandria"}
+EXTRA_WORKS = [
+    ("aquinas/summa", "Thomas Aquinas", "Thomas Aquinas, Summa Theologica, trans. Fathers of the English Dominican Province (1911–25)", {}),
+    ("watson/divinity", "Thomas Watson", "Thomas Watson, A Body of Divinity (1692)", {"cat": RM, "wiki": WIKI + "Thomas_Watson_(Puritan)", "year": 1686}),
+    ("bunyan/pilgrim", "John Bunyan", "John Bunyan, The Pilgrim's Progress (1678)", {"cat": RM, "wiki": WIKI + "John_Bunyan", "dates": "1628–1688", "year": 1688}),
+    ("baxter/pastor", "Richard Baxter", "Richard Baxter, The Reformed Pastor (1656)", {"cat": RM, "wiki": WIKI + "Richard_Baxter", "dates": "1615–1691", "year": 1691}),
+    ("luther/first_prin", "Martin Luther", "First Principles of the Reformation, ed. Wace and Buchheim (John Murray, 1883)", {}),
+]
+NEW_WRITERS = {
+    "Sozomen": {"cat": "Eastern & Byzantine Theology", "wiki": WIKI + "Sozomen", "year": 450},
+    "Epistle to Diognetus": {"cat": "Early Fathers (Pre-Nicaea)", "wiki": WIKI + "Epistle_to_Diognetus", "year": 150},
+}
+counts_all = counts
+
+VULGATE_SAFE = {"Gen", "Exod", "Lev", "Num", "Deut", "Isa", "Jer", "Ezek", "Matt", "Mark", "Luke", "John", "Acts", "Rom", "1Cor", "2Cor", "Gal", "Eph", "Phil", "Col", "1Thess", "2Thess", "1Tim", "2Tim", "Titus", "Phlm", "Heb", "Jas", "1Pet", "2Pet", "1John", "2John", "3John", "Jude", "Rev"}
+GENERIC_TOP = re.compile(r"treatises|writings in connection|selections|the works of|letters and sermons|^select|^part\b", re.I)
+GENERIC_SUB = re.compile(r"^(part\b|apologetic|anti-marcion|ethical)", re.I)
+
+def work_title(path, by_author):
+    titles = [t for t, _ in path if t]
+    if not titles:
+        return ""
+    picks = titles[1:] if by_author and len(titles) > 1 else titles
+    for t in picks:
+        if not GENERIC_TOP.search(t) and not GENERIC_SUB.search(t):
+            work = t
+            break
+    else:
+        work = picks[-1]
+    work = re.sub(r"^(?:The )?(?:Commentary and )?Homilies of S(?:ain)?t\. John Chrysostom.*?\b(?:on|upon) (?:the )?", "Homilies on ", work)
+    return work[:60].rstrip(" ,:;")
+
+def parse_refs(parsed):
+    """Reads CCEL's tag, such as |Rom|8|28|0|0 or |Gen|1|1|2|3, and keeps verses that exist in the 66 books."""
+    out = []
+    for one in parsed.split(";"):
+        bits = one.split("|")
+        if len(bits) < 6 or bits[1] not in OSIS:
+            continue
+        # The Summa cites the Vulgate. Its Psalms and historical books are numbered or named differently, so only books that line up are used.
+        if bits[0] and (bits[0] != "vul" or bits[1] not in VULGATE_SAFE):
+            continue
+        b = OSIS[bits[1]]
+        try:
+            c1, v1, c2, v2 = (int(x) for x in bits[2:6])
+        except ValueError:
+            continue
+        chs = counts_all[b - 1]
+        if not v1 or c1 < 1 or c1 > len(chs) or v1 > chs[c1 - 1]:
+            continue
+        if c2 and c2 != c1:
+            continue  # A span across chapters says little about any one verse.
+        v2 = min(v2 or v1, chs[c1 - 1])
+        if v2 < v1 or v2 - v1 > 25:
+            continue
+        out.append((b, c1, v1, v2))
+    return out
+
+def tidy_title(t):
+    t = html.unescape(re.sub(r"\s+", " ", t)).strip(" .")
+    return tidy_caps(t)
+
+TOKEN = re.compile(r"<div(\d)\b([^>]*)>|</div(\d)>|<p\b[^>]*>(.*?)</p>", re.S)
+SCRIP = re.compile(r"<scripRef\b([^>]*)>(.*?)</scripRef>", re.S)
+PER_VERSE_CAP = 6
+existing = collections.defaultdict(str)
+for i, recs in enumerate(writings):
+    for r in recs:
+        if authors[r[0]]["name"]:
+            for v in range(r[5], r[7] + 1):
+                existing[(r[0], i + 1, r[4], v)] += norm(r[8])[:4000] + "|"
+cite_stats = collections.Counter()
+
+def index_citations(raw, resolve, urlbase, source_for, by_author=False):
+    """Walks one file. resolve(path) gives a writer index or None for a section."""
+    notes = []
+    def stash(m):
+        notes.append(m.group(1))
+        return f"\x01{len(notes) - 1}\x02"
+    body = re.sub(r"<note\b[^>]*>(.*?)</note>", stash, raw, flags=re.S)
+    # An empty <p /> would otherwise swallow the heading and paragraph after it.
+    body = re.sub(r"<p\b[^>]*/>", "", body)
+    stack = {}
+    seen_here = set()
+    per_verse = collections.Counter()
+    for m in TOKEN.finditer(body):
+        if m.group(1):
+            lv = int(m.group(1))
+            title = re.search(r'title="([^"]*)"', m.group(2))
+            did = re.search(r'\bid="([^"]*)"', m.group(2))
+            stack[lv] = (tidy_title(title.group(1)) if title else "", did.group(1) if did else "")
+            for k in [k for k in stack if k > lv]:
+                del stack[k]
+            continue
+        if m.group(3):
+            stack.pop(int(m.group(3)), None)
+            continue
+        para = m.group(4)
+        if not para or ("scripRef" not in para and "\x01" not in para):
+            continue
+        path = [stack[k] for k in sorted(stack)]
+        if not path or any(EDITORIAL.search(t) for t, _ in path):
+            continue
+        # In the Summa an objection is the view Aquinas goes on to answer, so it isn't his own.
+        if re.match(r"\s*(<[^>]+>\s*)*Objection\b", para):
+            cite_stats["objection in the Summa"] += 1
+            continue
+        a = resolve(path)
+        if a is None:
+            continue
+        # Mark each citation's place, then strip the tags so the position lands in plain text.
+        found = []
+        def scrip(sm):
+            pm = re.search(r'parsed="([^"]*)"', sm.group(1))
+            found.append(pm.group(1) if pm else "")
+            return f"\x03{len(found) - 1}\x04" + sm.group(2)
+        marked = SCRIP.sub(scrip, para)
+        def note_mark(nm):
+            text = notes[int(nm.group(1))]
+            plain_note = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text)).strip()
+            # A short note that's only a reference is the editors naming the verse being used. Longer notes are their commentary.
+            if len(plain_note) > 120 or "scripRef" not in text:
+                return ""
+            parsed = ";".join(pm for pm in re.findall(r'parsed="([^"]*)"', text))
+            found.append(parsed)
+            return f"\x03{len(found) - 1}\x04"
+        marked = re.sub(r"\x01(\d+)\x02", note_mark, marked)
+        if not found:
+            continue
+        text = html.unescape(re.sub(r"<[^>]+>", "", marked))
+        text = re.sub(r"[ \t\r\n]+", " ", text).replace("\ufffd", "")
+        text = re.sub(r" ([,.;:?!])", r"\1", text)
+        plain, spots, last = [], [], 0
+        offset = 0
+        for sp in re.finditer(r"\x03(\d+)\x04", text):
+            plain.append(text[last:sp.start()])
+            offset += sp.start() - last
+            spots.append((offset, found[int(sp.group(1))]))
+            last = sp.end()
+        plain.append(text[last:])
+        plain = "".join(plain).strip()
+        if len(plain) < 40:
+            continue
+        top_ids = path[-1][1]
+        work = work_title(path, by_author)
+        deepest = path[-1][0]
+        label = (f"{work}: {deepest}" if deepest and deepest != work and not work.startswith(deepest) else work)[:100]
+        if "summa" in urlbase:
+            label = f"Summa Theologica, {top_ids.replace('_', ' ')}: {re.sub(r'^Article. [0-9]+ - ', '', deepest)}"[:110]
+        for pos, parsed in spots:
+            for b, c1, v1, v2 in parse_refs(parsed):
+                key = (a, top_ids, b, c1, v1)
+                if key in seen_here or per_verse[(a, b, c1, v1)] >= PER_VERSE_CAP:
+                    cite_stats["repeat or over the per-verse cap"] += 1
+                    continue
+                seen_here.add(key)
+                excerpt, _ = clip(sentences_around(plain, pos), 700)
+                nq = norm(excerpt)
+                if len(nq) < 30:
+                    continue
+                if nq[:60] in existing.get((a, b, c1, v1), ""):
+                    cite_stats["already a quote"] += 1
+                    continue
+                per_verse[(a, b, c1, v1)] += 1
+                writings[b - 1].append((a, label, f"{urlbase}.{top_ids}.html" if top_ids else urlbase, source_for, c1, v1, c1, v2, excerpt, 1))
+                A = authors[a]
+                A["n"] += 1
+                A["books"][b] += 1
+                A["works"][work[:80]] += 1
+                cite_stats["kept"] += 1
+
+for name, kw in NEW_WRITERS.items():
+    a = author(name, cat=kw["cat"], wiki=kw["wiki"])
+    authors[a]["year"] = kw["year"]
+
+def writer_ix(folder):
+    return author(folder, meta_by_folder.get(folder, {}))
+
+for vol in VOL_LABEL:
+    raw = raw_vols[vol]
+    src_ix_vol = src_ix(VOL_LABEL[vol])
+    table = AUTH.get(vol, {})
+    whole = WHOLE.get(vol)
+    def resolve(path, table=table, whole=whole):
+        if whole:
+            return writer_ix(whole)
+        folder = table.get(path[0][1])
+        if not folder:
+            return None
+        if folder == "Ephrem the Syrian" and any(re.search(r"aphrahat|demonstration", t, re.I) for t, _ in path[1:]):
+            return writer_ix("Aphrahat the Persian Sage")
+        return writer_ix(folder)
+    index_citations(raw, resolve, f"https://ccel.org/ccel/schaff/{vol}", src_ix_vol, by_author=not whole)
+print("fathers citations", dict(cite_stats))
+
+for rel, folder, label, kw in EXTRA_WORKS:
+    raw = ccel_raw(rel + ".xml")
+    assert "public domain" in ccel_rights(raw).lower(), rel
+    a = author(folder, meta_by_folder.get(folder, {}), cat=kw.get("cat"), wiki=kw.get("wiki"), dates=kw.get("dates"))
+    if kw.get("year"):
+        authors[a]["year"] = kw["year"]
+    src = src_ix(label)
+    index_citations(raw, lambda path, a=a: a, f"https://ccel.org/ccel/{rel}", src)
+print("all citations", dict(cite_stats))
+
+# ---------- 9. Calvin's commentaries: sections by verse ----------
+SC = re.compile(r"<scripCom\b([^>]*?)/?>")
+calvin_files = [f for f in sorted(os.listdir(os.path.join(CCEL, "calvin"))) if re.match(r"calcom\d+\.xml$", f)]
+src_cc = src_ix("Calvin's Commentaries, Calvin Translation Society edition (1840s–50s), text from CCEL")
+n_cc = 0
+for fn in calvin_files:
+    raw = ccel_raw(f"calvin/{fn}")
+    assert "public domain" in ccel_rights(raw).lower(), fn
+    vol_title = re.search(r"<DC\.Title[^>]*>([^<]*)", raw).group(1).strip()
+    body = raw[raw.index("</ThML.head>"):]
+    body = re.sub(r"<note\b.*?</note>", "", body, flags=re.S)
+    marks = [m for m in SC.finditer(body) if 'type="Commentary"' in m.group(1)]
+    for i, m in enumerate(marks):
+        pm = re.search(r'parsed="([^"]*)"', m.group(1))
+        idm = re.search(r'\bid="([^"]*?)-p', m.group(1))
+        if not pm:
+            continue
+        refs = parse_refs(pm.group(1))
+        if not refs:
+            continue
+        chunk = body[m.end(): marks[i + 1].start() if i + 1 < len(marks) else len(body)]
+        chunk = re.sub(r"<(?:/p|/div\d|h\d)[^>]*>", "\n\n", chunk)
+        text = clean(chunk)
+        text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
+        if len(text) < 60:
+            continue
+        text, _ = clip(text, 9000)
+        b, c1, v1, v2 = refs[0]
+        url = f"https://ccel.org/ccel/calvin/{fn[:-4]}.{idm.group(1)}.html" if idm else f"https://ccel.org/ccel/calvin/{fn[:-4]}.html"
+        comm[b - 1].append((calvin, vol_title[:70], url, src_cc, c1, v1, c1, v2, text))
+        authors[calvin]["n"] += 1
+        authors[calvin]["books"][b] += 1
+        authors[calvin]["works"]["Commentaries (the volumes available from CCEL's files)"] += 1
+        n_cc += 1
+print("calvin commentary sections", n_cc, "from", len(calvin_files), "volumes")
+
 # ---------- Output ----------
 for d in (OUT_W, OUT_C):
     shutil.rmtree(d, ignore_errors=True)
     os.makedirs(d)
-PART_BYTES = 1_600_000
+PART_BYTES = 2_400_000
 
 def write_shards(records, outdir):
     parts = {}
@@ -661,7 +980,7 @@ def write_shards(records, outdir):
             by_ch[r[4]].append(r)
         groups, cur, size = [], [], 0
         for ch in sorted(by_ch):
-            sz = sum(len(r[8].encode()) + 60 for r in by_ch[ch])
+            sz = sum(len(r[8].encode()) + 40 for r in by_ch[ch])
             if cur and size + sz > PART_BYTES:
                 groups.append(cur)
                 cur, size = [], 0
@@ -673,11 +992,13 @@ def write_shards(records, outdir):
         for k, chs in enumerate(groups):
             titles, tix, rows = [], {}, []
             for ch in chs:
-                for a, title, url, src, c1, v1, c2, v2, text in by_ch[ch]:
-                    tk = (title, url, src)
+                for rec in by_ch[ch]:
+                    a, title, url, src, c1, v1, c2, v2, text = rec[:9]
+                    cite = rec[9] if len(rec) > 9 else 0
+                    tk = (title, url, src, cite)
                     if tk not in tix:
                         tix[tk] = len(titles)
-                        titles.append([title, url, src])
+                        titles.append([title, url, src, 1] if cite else [title, url, src])
                     rows.append([a, tix[tk], c1, v1, c2, v2, text])
             name = f"{b:02d}-{k}.json"
             s = json.dumps({"t": titles, "q": rows}, ensure_ascii=False, separators=(",", ":"))
@@ -704,5 +1025,6 @@ for a in authors:
 index = {"authors": out_authors, "sources": sources, "writings": w_parts, "comm": c_parts, "sermons": None}
 json.dump(index, open(os.path.join(OUT_W, "index.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 json.dump(sermons, open(os.path.join(OUT_W, "sermons.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-json.dump({"stats": stats, "kept": stats["kept"]}, open(os.path.join(OUT_W, "stats.json"), "w"), separators=(",", ":"))
+json.dump({"stats": stats, "citations": cite_stats, "kept": stats["kept"]}, open(os.path.join(OUT_W, "stats.json"), "w"), separators=(",", ":"))
+print("excerpts per kind", sum(map(len, writings)), sum(map(len, comm)))
 print("writings", round(w_total / 1e6, 1), "MB", sum(len(v) for v in w_parts.values()), "files; comm", round(c_total / 1e6, 1), "MB", sum(len(v) for v in c_parts.values()), "files; authors", len(authors))

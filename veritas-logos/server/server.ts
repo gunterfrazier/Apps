@@ -27,6 +27,7 @@ import { allFigures, buildSubgraph, findShortestPath, getFigure, describeRelatio
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, guideToText, isGuideFormat, resolveGuide, sanitizeGuide, newId, type Guide } from "../src/core/guide";
 import { getInsights } from "../src/core/insights";
 import { excerptsForPassage, getWritingsIndex, sermonsForPassage } from "../src/core/writings";
+import { getGlossary, searchGlossary, termById } from "../src/core/glossary";
 import { getConcordance, getCrossRefs, getLexEntry, getVerseWords, normalizeStrongs, searchLexicon, decodeMorph } from "../src/core/lexicon";
 import { ensureFigures, peopleInPassage, versesOfPerson } from "../src/core/people";
 import { bookName, parseReference } from "../src/core/references";
@@ -162,6 +163,16 @@ export function createServer(opts: ServerOptions = {}) {
       const i = await getInsights(ref);
       return send(res, 200, { reference: i.reference, book: i.book, topics: i.topics, confessions: i.confessions, quotes: i.quotes, quoted_by: i.quotedBy, parallels: i.parallels, possible_allusions: i.possibleAllusions });
     }
+    if (method === "GET" && p === "/v1/glossary") {
+      const query = u.searchParams.get("q");
+      const terms = query ? await searchGlossary(query, clampInt(u.searchParams.get("limit"), 20, 1, 100)) : await getGlossary();
+      return send(res, 200, { results: terms.map((t) => ({ id: t.id, term: t.term, definitions: t.defs.length })) });
+    }
+    if (method === "GET" && seg[0] === "glossary" && seg[1] && !seg[2]) {
+      const t = await termById(seg[1]);
+      if (!t) throw new HttpError(404, "not_found", "No term with that id.");
+      return send(res, 200, { id: t.id, term: t.term, definitions: t.defs.map((d) => ({ source: d.source, heading: d.head, text: d.text, source_url: d.url || undefined })), verses: t.refs, topic: t.topic || undefined });
+    }
     if (method === "GET" && p === "/v1/writers") {
       const { authors } = await getWritingsIndex();
       return send(res, 200, { results: authors.map((a) => ({ id: a.id, name: a.name, year: a.year, category: a.cat, flag: a.flag || undefined, excerpts: a.n, works: a.works.map(([title, count]) => ({ title, count })), wiki: a.wiki || undefined })) });
@@ -173,7 +184,7 @@ export function createServer(opts: ServerOptions = {}) {
       const writer = u.searchParams.get("writer");
       const [short, long, sermons] = await Promise.all([excerptsForPassage(ref), excerptsForPassage(ref, "comm"), sermonsForPassage(ref)]);
       const all = [...short, ...long].filter((e) => !writer || e.writer.id === writer);
-      return send(res, 200, { reference: ref, total: all.length, results: all.slice(off, off + lim).map((e) => ({ writer: e.writer.name, writer_id: e.writer.id, year: e.writer.year, work: e.title, on: e.reference, edition: e.source, source_url: e.url || undefined, text: e.text })), spurgeon_sermons: sermons });
+      return send(res, 200, { reference: ref, total: all.length, results: all.slice(off, off + lim).map((e) => ({ writer: e.writer.name, writer_id: e.writer.id, year: e.writer.year, work: e.title, on: e.reference, edition: e.source, source_url: e.url || undefined, cites_only: e.cites || undefined, text: e.text })), spurgeon_sermons: sermons });
     }
     if (method === "GET" && p === "/v1/lexicon") return send(res, 200, { results: (await searchLexicon(required(u, "q"), clampInt(u.searchParams.get("limit"), 20, 1, 100))).map((r) => ({ id: r[0], lemma: r[1], transliteration: r[2], gloss: r[3], occurrences: r[4] })) });
     if (method === "GET" && seg[0] === "lexicon" && seg[1] && !seg[2]) {

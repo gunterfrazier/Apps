@@ -10,6 +10,7 @@ import { searchFigures } from "./figure-search";
 import { lensName, type Guide, type GuideSection, newId, type SectionItem } from "./guide";
 import { getInsights } from "./insights";
 import { excerptsForPassage, FLAG_NOTE, varied } from "./writings";
+import { searchGlossary } from "./glossary";
 import { decodeMorph, getCrossRefs, getLexEntry, getVerseWords, normalizeStrongs, searchLexicon } from "./lexicon";
 import { ensureFigures, versesOfPerson } from "./people";
 import { bookName, findReferences, parseReference } from "./references";
@@ -114,6 +115,16 @@ export function aiTools(translation: TranslationId): AiTool[] {
         const [short, long] = await Promise.all([excerptsForPassage(String(reference)), excerptsForPassage(String(reference), "comm")]);
         const all = [...short, ...long].filter((e) => !want || e.writer.name.toLowerCase().includes(want));
         return { total: all.length, excerpts: (want ? all : varied(all, 10)).slice(0, 10).map((e) => ({ writer: e.writer.name, year: e.writer.year, work: e.title, on: e.reference, edition: e.source, note: FLAG_NOTE[e.writer.flag], text: clip(e.text, 900) })) };
+      },
+    },
+    {
+      name: "define_term",
+      description: "Returns definitions of a theological term quoted from public-domain dictionaries, catechisms and histories, each with its source. Use this before explaining a doctrine's meaning, and name the source. If it returns no definitions, say the app has none and label your own explanation as a draft.",
+      inputSchema: { type: "object", properties: { term: { type: "string" } }, required: ["term"] },
+      execute: async ({ term }) => {
+        const t = (await searchGlossary(String(term), 1))[0];
+        if (!t) return { term, definitions: [] };
+        return { term: t.term, definitions: t.defs.slice(0, 4).map((d) => ({ source: d.source, text: clip(d.text, 900) })), verses: t.refs };
       },
     },
     {

@@ -11,6 +11,7 @@ import { decodeMorph, gematria, getConcordance, getLexEntry, getVerseWords, sear
 import { parseReference } from "../src/core/references";
 import { findShortestPath, getFigure } from "../src/core/figure-graph";
 import { ensureFigures, getTimeline, peopleInPassage, versesOfPerson } from "../src/core/people";
+import { getGlossary, searchGlossary, termById } from "../src/core/glossary";
 import { excerptsByWriter, excerptsForPassage, getWritingsIndex, searchWritings, sermonsForPassage } from "../src/core/writings";
 import { ahToX, formatSpan, formatYear, getTimelineItems, parseTimelineRoute, timelineForPassage, timelineHash } from "../src/core/timeline";
 
@@ -214,4 +215,28 @@ test("timeline: years convert, and each item points to real verses", async () =>
   assert.ok(items.some((i) => i.band === "writer" && i.writerId === "augustine-of-hippo" && i.x1 === 430));
   assert.ok(items.some((i) => i.band === "confession"));
   assert.ok((await timelineForPassage("Acts 2:1")).some((i) => i.label === "Pentecost"));
+});
+
+test("writers: citations from CCEL are marked, and objections in the Summa are left out", async () => {
+  const gen = await excerptsForPassage("Genesis 1:1");
+  assert.ok(gen.some((e) => e.cites && /Ante-Nicene|Nicene/.test(e.source)));
+  const rom = await excerptsByWriter("thomas-aquinas", 45);
+  assert.ok(rom.some((e) => /Summa/.test(e.source)));
+  assert.ok(rom.every((e) => !/^(… )?Objection \d/.test(e.text)));
+  const verse = await excerptsForPassage("Romans 8:28", "comm");
+  assert.ok(verse.some((e) => e.writer.name === "John Calvin" && /Calvin Translation Society/.test(e.source)));
+  // Dates and labels: every Fathers-series quote names one exact volume.
+  for (const e of await excerptsForPassage("Hebrews 11:1")) if (/Ante-Nicene|Nicene/.test(e.source)) assert.match(e.source, /vol\. \d+,/);
+});
+
+test("glossary: definitions are quoted with sources, and gaps stay visible", async () => {
+  const terms = await getGlossary();
+  assert.ok(terms.length > 150);
+  const just = (await termById("justification"))!;
+  assert.ok(just.defs.some((d) => /Easton/.test(d.source) && /forensic/.test(d.text)));
+  assert.ok(just.defs.some((d) => /Westminster Larger Catechism/.test(d.source) && /free grace/.test(d.text)));
+  assert.ok(just.defs.every((d) => d.source && d.text));
+  assert.equal((await termById("perichoresis"))!.defs.length, 0);
+  assert.equal((await searchGlossary("propitiation", 1))[0].id, "propitiation");
+  assert.ok(!terms.some((t) => t.defs.some((d) => /Hastings/.test(d.source))), "that file's title page says it's Schaff's dictionary");
 });

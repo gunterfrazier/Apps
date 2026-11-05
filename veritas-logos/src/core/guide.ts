@@ -293,7 +293,7 @@ function questionsFor(format: GuideFormat, label: string, words: KeyWord[], cros
 /** A short sampler of historic writers on the passage: one excerpt each, earliest first, with its edition named. */
 async function writersSection(refs: string[]): Promise<GuideSection | null> {
   const lists = await Promise.all(refs.slice(0, 3).map((r) => excerptsForPassage(r)));
-  const picks = varied(lists.flat().sort((a, b) => (a.writer.year ?? 9999) - (b.writer.year ?? 9999)), 5);
+  const picks = varied(lists.flat().sort((a, b) => (a.writer.year ?? 9999) - (b.writer.year ?? 9999)), 5).filter((e) => !e.cites);
   if (!picks.length) return null;
   return sec("views", "What historic writers said", "assembled", {
     body: "Excerpts from public-domain editions, earliest first. Open the Writers page for this passage to see more and to choose your own.",

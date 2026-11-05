@@ -28,9 +28,20 @@ Built by `scripts/build_writings.py`. The rule: nothing goes in unless it traces
 2. Its wording appears word for word in that edition's text.
 3. The source file isn't marked as machine translated.
 
-Results of the current build: 95,222 quotes on file, 25,059 kept. Left out: 41,954 from works not on the list, 16,834 with no source file to check, 8,789 whose wording wasn't found in the cited edition (many appear to be excerpts of a modern copyrighted series), 2,026 on books outside the 66, 447 from files marked as machine translated, 83 with a missing source file and 30 duplicates. Modern authors in that database, such as C. S. Lewis, are left out too.
+Results of the current build: 95,222 quotes on file, 24,229 kept. Left out: 41,954 from works not on the list, 16,834 with no source file to check, 8,789 whose wording wasn't found in the cited edition (many appear to be excerpts of a modern copyrighted series), 2,026 on books outside the 66, 836 labeled as Ante-Nicene or Nicene that weren't found in CCEL's text of those series, 447 from files marked as machine translated, 83 with a missing source file and 24 duplicates. Modern authors in that database, such as C. S. Lewis, are left out too. Of the quotes kept, 13,895 were confirmed in CCEL's text of the series, and 2,909 of those had their volume label corrected or narrowed to one volume. The other kept quotes are from editions not in the CCEL files used here, chiefly the Catena Aurea, so they rest on the Writings-Database text alone.
 
 A quote in the Catena Aurea is as Aquinas collected it. It's often condensed, and his attributions aren't always certain.
+
+**The CCEL check and citations.** The Ante-Nicene and Nicene and Post-Nicene volumes come from the Christian Classics Ethereal Library's ThML files, whose rights field reads "Public Domain." CCEL's site couldn't be reached from the build environment, so these files came from [theology-corpus](https://github.com/timothyhartzog/theology-corpus), a third-party copy on GitHub that has no license of its own. Replace it with CCEL's files if `ccel.org` becomes reachable. CCEL's own [copyright page](https://www.ccel.org/about/copyright.html) couldn't be read from here either, so read it before any public release.
+
+Two uses:
+
+1. Quotes labeled with those series must also appear word for word in CCEL's text with footnotes removed. This corrects the volume number on each quote, and a quote that fails is dropped.
+2. Where a work tags a Scripture reference, that place becomes a "Cites this verse" entry: the sentence with the reference and one on each side. A reference in a footnote counts only if the note is short and mostly the reference itself, which is an editor naming the verse. Editors' prefaces and longer notes are skipped, as are chapter-only references, spans over 25 verses, and the objections in Aquinas's Summa, which aren't his own view. The Summa cites the Vulgate, so its Psalms and Old Testament history are left out because they're numbered or named differently. Each writer gets at most six entries for one verse from one file. The current build has 71,647 of these entries.
+
+Other public-domain works used this way: Aquinas's Summa, Watson's A Body of Divinity, Bunyan's The Pilgrim's Progress, Baxter's The Reformed Pastor and First Principles of the Reformation (Luther). Calvin's commentaries come from the same copy, which has 10 verse-by-verse volumes of CCEL's set: Genesis, parts of the Harmony of the Law and the Gospels, Romans, 2 Corinthians, the Pastoral Epistles, Hebrews and the Catholic Epistles.
+
+Files with no rights statement are held back even when the work is old. These include Owen, Edwards's Works, Hodge's Systematic Theology, Manton, Ryle and the later volumes of Schaff's History. CCEL's Spurgeon sermons also have no statement, and their wording matches the modernized edition, so they aren't used.
 
 **Later teachers.**
 
@@ -50,3 +61,15 @@ Wesley notes with no lead-in words are dropped, because the edition's parser som
 ## Timeline
 
 Old Testament dates come from BibleData's epochs and events (CC BY 4.0). New Testament years are read from its copy of Ussher's Annals of the World (1650). That copy's wording appears to be a modern revision, so only the year and paragraph number are used, and the captions are plain labels for the cited passages. Writers appear at the `default_year` in the Commentaries-Database metadata, or at the death year for the few added by hand (Henry, Spurgeon, Edwards). Confessions use the year in the confession data.
+
+## Theological terms
+
+Built by `scripts/build_glossary.py`. The list of terms and which entry answers each one are chosen by hand. The definitions aren't written for the app; they're quoted from:
+
+- Easton's Bible Dictionary (1897), Schaff's Dictionary of the Bible (American Sunday-School Union, 1880) and Smith's Bible Dictionary (1884 edition), from CCEL's files marked public domain, as held in [bible-dictionary-dataset](https://github.com/neuu-org/bible-dictionary-dataset) (its structure is CC BY 4.0). That dataset calls the Schaff book "Hastings," but the file's own title page identifies it.
+- The Westminster Larger Catechism, Heidelberg Catechism and Baptist Catechism already in the app.
+- Schaff's History of the Christian Church, vol. 2, and Watson's A Body of Divinity, from CCEL's files marked public domain. These are the opening prose of a section on the subject, so they describe a term more than define it.
+
+A term with no entry in these sources stays listed with no definition. The sources lean toward 1800s Protestant scholarship, and the app says so.
+
+[Rebecca Writes](http://rebecca-writes.com/theological-terms-in-ao/) is linked from the glossary page only. Its pages couldn't be read from the build environment, so nothing was taken from it.

@@ -61,6 +61,8 @@ test("reads are open, with CORS and clear errors", async () => {
 });
 
 test("reference endpoints", async () => {
+  assert.ok((await (await j("/v1/glossary/justification")).json()).definitions.length >= 2);
+  assert.equal((await j("/v1/glossary/nope")).status, 404);
   const writers = await (await j("/v1/writers")).json();
   assert.ok(writers.results.some((w: any) => w.id === "augustine-of-hippo" && w.year === 430));
   const on = await (await j("/v1/writings?ref=John%203:16&limit=3")).json();

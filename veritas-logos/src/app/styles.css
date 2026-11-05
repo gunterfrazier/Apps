@@ -375,3 +375,7 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
 .chapter-links { text-align: center; font-size: .9rem; margin: 1rem 0 .4rem; }
 .chips a.chip { text-decoration: none; }
 .tag-warn { background: var(--warn-soft); color: var(--warn); }
+
+/* Glossary */
+.term-list { display: flex; flex-wrap: wrap; gap: .35rem; }
+.term-list .chip.term-empty { color: var(--ink-3); border-style: dashed; }

@@ -8,6 +8,7 @@ import { ReadPage } from "./pages/read";
 import { BookPage, BooksPage, ExplorePage, LettersPage, LexiconPage, TopicPage, TopicsPage, WordPage } from "./pages/explore";
 import { decodeTopic, GuidePage, GuidesPage, NewGuidePage, SharedGuidePage } from "./pages/guides";
 import { PathsPage, PeoplePage, PersonPage, TreePage } from "./pages/people";
+import { GlossaryPage, TermPage } from "./pages/glossary";
 import { TimelinePage } from "./pages/timeline";
 import { PassageWritersPage, WriterPage, WritersPage } from "./pages/writers";
 import { parseTimelineRoute } from "../core/timeline";
@@ -46,7 +47,9 @@ function pageFor(route: string): { node: ReactNode; tab: string } {
     case "tree": return { node: <TreePage id={tail || undefined} />, tab: "people" };
     case "paths": return { node: <PathsPage />, tab: "people" };
     case "timeline": return { node: <TimelinePage at={parseTimelineRoute(tail)} />, tab: "people" };
-    case "writers": return { node: <WritersPage />, tab: "explore" };
+    case "writers": return { node: <WritersPage key={tail} initialSearch={tail.startsWith("q-") ? decodeURIComponent(tail.slice(2)).replace(/-/g, " ") : undefined} />, tab: "explore" };
+    case "glossary": return { node: <GlossaryPage />, tab: "explore" };
+    case "term": return { node: <TermPage key={tail} id={tail} />, tab: "explore" };
     case "writer": return { node: <WriterPage key={tail} id={tail} />, tab: "explore" };
     case "on": {
       const r = tail ? parseReadParts(tail) : null;
