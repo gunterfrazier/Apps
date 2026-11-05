@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { checkReferences } from "../../core/ai";
 import { lensName, newId } from "../../core/guide";
-import { aiChat, aiResearch, detectAi, friendlyAiError, type AiMode, type Turn } from "../ai-client";
+import { detectAi, type AiMode, type Turn } from "../ai-client";
+import { askChat, markSeen, newChat, stopJob, useChat, useJob } from "../ai-jobs";
 import type { CheckedClaim, ResearchAnswer } from "../../core/research";
 import { saveGuide, setPref, useData, toast, navigate } from "../store";
 import { copyText } from "../files";
@@ -25,47 +26,31 @@ export function AiSetupNote() {
   );
 }
 
+const research0 = (job: { payload: { research?: boolean } }) => Boolean(job.payload?.research);
+
 export function AskPage({ contextRef }: { contextRef?: string }) {
   const { prefs, guides, activeGuideId } = useData();
   const [mode, setMode] = useState<AiMode | null>(null);
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const { turns, checked: checkedRaw, error: chatError } = useChat();
+  const checked = checkedRaw as Record<number, ResearchAnswer>;
+  const job = useJob("chat");
+  const working = job && (job.status === "queued" || job.status === "running" || job.status === "interrupted");
+  const streaming = working ? (job.partial && !research0(job) ? job.partial : "") : null;
+  const error = chatError;
   const [draft, setDraft] = useState("");
-  const [streaming, setStreaming] = useState<string | null>(null);
-  const [error, setError] = useState("");
   const [context, setContext] = useState(contextRef);
   const [research, setResearch] = useState(false);
-  const [checked, setChecked] = useState<Record<number, ResearchAnswer>>({});
-  const ctl = useRef<AbortController | null>(null);
   const end = useRef<HTMLDivElement | null>(null);
-  useEffect(() => { let live = true; detectAi().then((m) => live && setMode(m)); return () => { live = false; ctl.current?.abort(); }; }, []);
+  useEffect(() => { let live = true; detectAi().then((m) => live && setMode(m)); return () => { live = false; }; }, []);
   useEffect(() => { setContext(contextRef); }, [contextRef]);
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [turns.length, streaming]);
+  useEffect(() => { if (job && !working) markSeen(job.id); }, [job?.id, working]);
 
-  const send = async (text: string) => {
+  const send = (text: string) => {
     const question = text.trim();
-    if (!question || streaming !== null) return;
-    const next = [...turns, { role: "user" as const, content: question }];
-    setTurns(next);
+    if (!question || working) return;
     setDraft("");
-    setError("");
-    setStreaming("");
-    ctl.current = new AbortController();
-    try {
-      if (research) {
-        const { raw, answer } = await aiResearch(next, prefs.translation, prefs.lens, context, { signal: ctl.current.signal, onText: () => setStreaming("Finding and checking sources") });
-        const shown = answer ? [answer.summary, ...answer.claims.map((c) => c.text)].filter(Boolean).join("\n\n") : raw;
-        if (answer) setChecked((m) => ({ ...m, [next.length]: answer }));
-        setTurns([...next, { role: "assistant", content: shown }]);
-      } else {
-        const answer = await aiChat(next, prefs.translation, prefs.lens, context, { signal: ctl.current.signal, onText: setStreaming });
-        setTurns([...next, { role: "assistant", content: answer }]);
-      }
-    } catch (e: any) {
-      if (e?.text) setTurns([...next, { role: "assistant", content: e.text }]);
-      setError(friendlyAiError(e));
-    } finally {
-      setStreaming(null);
-    }
+    askChat(question, { translation: prefs.translation, lens: prefs.lens, contextRef: context, research });
   };
   const addAnswer = (content: string, question: string) =>
     addSectionsToGuide([{ id: newId(), kind: "text", heading: question.slice(0, 90), origin: "ai", body: content }], question.slice(0, 60), guides, activeGuideId, prefs.translation, prefs.lens);
@@ -97,13 +82,14 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
                 {t.role === "assistant" ? (checked[i] ? <CheckedAnswer a={checked[i]} onAdd={() => addAnswer(t.content, turns[i - 1]?.content ?? "AI answer")} /> : <Answer text={t.content} onAdd={() => addAnswer(t.content, turns[i - 1]?.content ?? "AI answer")} />) : <p>{t.content}</p>}
               </div>
             ))}
-            {streaming !== null && <div className="bubble assistant">{streaming ? <Prose text={streaming} /> : <Loading label="Thinking" />}<button type="button" className="link-btn" onClick={() => ctl.current?.abort()}>Stop</button></div>}
+            {streaming !== null && <div className="bubble assistant">{streaming ? <Prose text={streaming} /> : <Loading label={job?.progress || "Thinking"} />}<button type="button" className="link-btn" onClick={() => job && stopJob(job.id)}>Stop</button></div>}
             {error && <p className="note warn">{error}</p>}
+            {turns.length > 0 && streaming === null && <button type="button" className="link-btn" onClick={newChat}>Start a new conversation</button>}
             <div ref={end} />
           </div>
           <form className="ask-box" onSubmit={(e) => { e.preventDefault(); send(draft); }}>
             <textarea id="ask-input" className="input" rows={2} placeholder={`Ask about a passage, word or doctrine (${lensName(prefs.lens)})`} aria-label="Your question" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
-            <button type="submit" className="btn primary" disabled={!draft.trim() || streaming !== null}>Send</button>
+            <button type="submit" className="btn primary" disabled={!draft.trim() || Boolean(working)}>Send</button>
           </form>
         </>
       )}

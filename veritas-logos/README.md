@@ -13,6 +13,7 @@ A phone-first Bible study guide builder and reference tool, for personal use. It
 - **AI assistant:** explains passages, answers questions and drafts guide sections. It works from the app's real text, and flags references that don't exist.
 - **Explore and expand:** every guide section, and the reader's insight sections, can be researched further with AI, including a background overview. It searches the app's library, and the app checks each citation word for word. It can't search the live web.
 - **Deep exegesis:** an AI synopsis of a passage from the chosen lens, worked from the Hebrew or Greek. The app checks its references, word studies and quotes, and it stays labeled as a draft.
+- **AI work:** AI requests run on their own, outside any screen, and are saved as they go. Moving around the app doesn't stop them. If the phone pauses a minimized app, they carry on when it returns, and a long exegesis resumes from its last finished step. The AI work page lists everything and has a connection check.
 - **Theological lenses:** Reformed, Covenant / Federal, Arminian, Catholic, Orthodox, Lutheran, Anglican, Baptist, Pentecostal, Messianic and Dispensational.
 - **People:** 3,009 people from BibleData, with family links citing their verses, a family tree, a pathfinder and a timeline.
 - **Church history:** an interactive timeline of 105 councils, schisms, reformations, creeds and theological shifts, each with a checked source.
@@ -91,6 +92,8 @@ Any passage, term, writer, event or creed is one tap from the others:
 - **Go anywhere** (Ctrl K or the search button) opens any verse, term, writer, event, creed or tool. On a wide screen the study panel stays beside the text, and J and K move between verses.
 
 ## Known limits
+
+- A web page can't run while the phone has suspended it. AI work in a minimized app may pause and carries on when the app is opened again.
 
 - There is no sourced data yet for idioms, customs, or the first audience, so those rely on AI drafts. Public-domain works could be added as cited sources.
 - The verse-by-verse confession citations in Insights cover Reformed and Baptist documents, while the Creeds section adds Catholic, Orthodox and other traditions through Schaff (6th ed.), so nothing after about 1930 is there.

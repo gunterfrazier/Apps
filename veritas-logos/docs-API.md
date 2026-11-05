@@ -48,6 +48,6 @@ curl -X POST https://YOUR-SITE/v1/guides -H "Authorization: Bearer $KEY" -d "{\"
 curl -N -X POST https://YOUR-SITE/v1/ai/ask -H "Authorization: Bearer $KEY" -d '{"purpose":"chat","messages":[{"role":"user","content":"How is Psalm 110 used in Hebrews?"}]}'
 ```
 
-The `purpose` can also be `insight`, `draft`, `explore` (a `section` with `heading`, `kind`, `text` and `refs`, plus a `request`) or `exegesis` (a `reference`, and optionally a `lens` and `translation`). `explore` and `exegesis` reply with JSON text.
+The `purpose` can also be `insight`, `draft`, `explore` (a `section` with `heading`, `kind`, `text` and `refs`, plus a `request`) or `exegesis` (a `reference`, and optionally a `lens`, `translation`, `earlier` text and a `stage`: `{"id":"overview"}`, `{"id":"verses","from":0,"to":12}` or `{"id":"theology"}`). `explore` and `exegesis` reply with JSON text.
 
 Show each dataset's credit wherever you display its data. See `DATA-LICENSES.md`.

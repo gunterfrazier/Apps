@@ -21,6 +21,8 @@ import { getGlossary } from "../core/glossary";
 import { getWritingsIndex } from "../core/writings";
 import { getChurchEvents, getCreedIndex } from "../core/scholar";
 import { AskPage } from "./pages/ask";
+import { AiWorkPage, AiWorkPill } from "./pages/ai-work";
+import { initJobs } from "./ai-jobs";
 
 class Boundary extends Component<{ children: ReactNode; route: string }, { failed: boolean }> {
   state = { failed: false };
@@ -84,6 +86,7 @@ function pageFor(route: string): { node: ReactNode; tab: string } {
       const r = tail ? parseReadParts(tail) : null;
       return { node: <AskPage contextRef={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "ask" };
     }
+    case "ai": return { node: <AiWorkPage />, tab: "ask" };
     case "library": return { node: <LibraryPage />, tab: "library" };
     default: return { node: <ReadPage route={null} />, tab: "read" };
   }
@@ -171,11 +174,13 @@ function App() {
       </nav>
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
       <PassagePeek />
+      <AiWorkPill route={route} />
       <Toast />
     </div>
   );
 }
 
+initJobs();
 createRoot(document.getElementById("root")!).render(<App />);
 connectCloud();
 

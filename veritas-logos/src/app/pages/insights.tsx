@@ -4,10 +4,11 @@ import { checkReferences, type AiInsight } from "../../core/ai";
 import type { LensId } from "../../core/content";
 import { lensName, newId, type Guide, type GuideSection } from "../../core/guide";
 import { getInsights } from "../../core/insights";
-import { aiInsight, detectAi, friendlyAiError, type AiMode } from "../ai-client";
+import { detectAi, type AiMode } from "../ai-client";
+import { enqueueJob, insightKey, markSeen, removeJob, useJob } from "../ai-jobs";
 import { saveGuide, setPref, toast, useData } from "../store";
 import { WritersPreview } from "./writers";
-import { ExegesisBlock, ExploreSheet } from "./ai-explore";
+import { ExegesisBlock, ExploreSheet, JobError, JobProgress } from "./ai-explore";
 import { Empty, ErrorNote, Loading, LensSelect, OriginTag, RefLink, RefText, Tag, useAsync } from "../ui";
 
 /** Adds sections to the guide being worked on, starting one if needed. */
@@ -56,7 +57,7 @@ export function InsightsPanel({ reference, translation }: { reference: string; t
       <label className="field-inline" htmlFor="insight-lens">Theological lens <LensSelect id="insight-lens" value={lens} onChange={(l) => setPref("lens", l)} /></label>
       <AiInsightBlock reference={data.reference} translation={translation} lens={lens} />
       <ExegesisBlock compact reference={data.reference} translation={translation} lens={lens} onAdd={(n) => addSectionsToGuide(n, data.reference, guides, activeGuideId, translation, lens)} />
-      {explore && <ExploreSheet context={{ ...explore, refs: [data.reference], lens, translation }} onClose={() => setExplore(null)} onAdd={(n) => { addSectionsToGuide([n], data.reference, guides, activeGuideId, translation, lens); setExplore(null); }} />}
+      {explore && <ExploreSheet where={data.reference} context={{ ...explore, refs: [data.reference], lens, translation }} onClose={() => setExplore(null)} onAdd={(n) => { addSectionsToGuide([n], data.reference, guides, activeGuideId, translation, lens); setExplore(null); }} />}
 
       <section>
         <div className="sec-head"><h3>Quoted and referenced</h3><span className="sec-actions">{linkCount > 0 && <button type="button" className="link-btn" onClick={() => setExplore({ heading: `Quoted and referenced: ${data.reference}`, kind: "crossrefs", text: [...data.quotes, ...data.quotedBy, ...data.parallels, ...data.possibleAllusions].map((q) => q.ref).join("; ") })}>Explore</button>}{linkCount > 0 && <button type="button" className="link-btn" onClick={addLinks}>Add to guide</button>}</span></div>
@@ -100,24 +101,13 @@ export function InsightsPanel({ reference, translation }: { reference: string; t
 
 function AiInsightBlock({ reference, translation, lens }: { reference: string; translation: TranslationId; lens: LensId }) {
   const [mode, setMode] = useState<AiMode | null>(null);
-  const [state, setState] = useState<{ status: "idle" | "working" | "done" | "error"; insight?: AiInsight; message?: string }>({ status: "idle" });
-  const ctl = useRef<AbortController | null>(null);
   const { guides, activeGuideId } = useData();
-  useEffect(() => { let live = true; detectAi().then((m) => live && setMode(m)); return () => { live = false; ctl.current?.abort(); }; }, []);
-  useEffect(() => { setState({ status: "idle" }); }, [reference, lens, translation]);
-
-  const run = async () => {
-    ctl.current?.abort();
-    ctl.current = new AbortController();
-    setState({ status: "working" });
-    try {
-      const insight = await aiInsight(reference, translation, lens, { signal: ctl.current.signal });
-      setState({ status: "done", insight });
-    } catch (e: any) {
-      const message = friendlyAiError(e);
-      setState(message ? { status: "error", message } : { status: "idle" });
-    }
-  };
+  const key = insightKey(reference, translation, lens);
+  const job = useJob(key);
+  const active = job && (job.status === "queued" || job.status === "running" || job.status === "interrupted");
+  useEffect(() => { let live = true; detectAi().then((m) => live && setMode(m)); return () => { live = false; }; }, []);
+  useEffect(() => { if (job?.status === "done") markSeen(job.id); }, [job?.id, job?.status]);
+  const run = () => enqueueJob({ kind: "insight", key, title: `Culture and theology: ${reference}`, payload: { reference, translation, lens } });
 
   if (mode === null) return null;
   if (mode === "none") return <p className="note">Culture, idioms, the first audience and theological readings come from the AI assistant, which isn't available in this copy of the app. The sections below come from cited sources.</p>;
@@ -125,20 +115,20 @@ function AiInsightBlock({ reference, translation, lens }: { reference: string; t
     <section className="ai-block">
       <div className="sec-head">
         <h3>Culture, idioms and theology</h3>
-        {state.status === "idle" && <button type="button" className="btn primary small" onClick={run}>Explain with AI</button>}
-        {state.status === "working" && <button type="button" className="btn small" onClick={() => ctl.current?.abort()}>Stop</button>}
+        {!job && <button type="button" className="btn primary small" onClick={run}>Explain with AI</button>}
+        {job?.status === "done" && <button type="button" className="link-btn" onClick={() => removeJob(job.id)}>Clear</button>}
       </div>
-      {state.status === "idle" && <p className="fine">Drafts how the first audience heard this, idioms a modern reader may miss, how {lens === "all" ? "traditions read" : `the ${lensName(lens)} tradition reads`} it, doctrines it's used to support, and what each claim rests on. The app stores no written notes on these, so this is always a draft to check.{mode === "viewer" ? " It uses your Claude account." : ""}</p>}
-      {state.status === "working" && <Loading label="Thinking. This can take up to a minute" />}
-      {state.status === "error" && <><p className="note warn">{state.message}</p><button type="button" className="btn small" onClick={run}>Try again</button></>}
-      {state.status === "done" && state.insight && <AiInsightView insight={state.insight} reference={reference} onAdd={(sections) => addSectionsToGuide(sections, reference, guides, activeGuideId, translation, lens)} lens={lens} />}
+      {!job && <p className="fine">Drafts how the first audience heard this, idioms a modern reader may miss, how {lens === "all" ? "traditions read" : `the ${lensName(lens)} tradition reads`} it, doctrines it's used to support, and what each claim rests on. The app stores no written notes on these, so this is always a draft to check.{mode === "viewer" ? " It uses your Claude account." : ""}</p>}
+      {active && <JobProgress job={job} />}
+      {job?.status === "error" && <JobError job={job} />}
+      {job?.status === "done" && <AiInsightView insight={job.result} reference={reference} onAdd={(sections) => addSectionsToGuide(sections, reference, guides, activeGuideId, translation, lens)} lens={lens} />}
     </section>
   );
 }
 
 const Basis = ({ text }: { text: string }) => (text ? <span className="basis">Rests on: <RefText text={text} /></span> : null);
 
-function AiInsightView({ insight, reference, onAdd, lens }: { insight: AiInsight; reference: string; onAdd: (s: GuideSection[]) => void; lens: LensId }) {
+export function AiInsightView({ insight, reference, onAdd, lens }: { insight: AiInsight; reference: string; onAdd: (s: GuideSection[]) => void; lens: LensId }) {
   const allText = useMemo(() => JSON.stringify(insight).replace(/\\n/g, " "), [insight]);
   const { data: checks } = useAsync(async () => {
     const text = await checkReferences(allText);

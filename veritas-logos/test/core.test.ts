@@ -15,7 +15,7 @@ import { getGlossary, searchGlossary, termById } from "../src/core/glossary";
 import { creedsCiting, getChurchEvents, getCreed, getCreedIndex, getDeuterocanon, getDisputed, getApostolic, getJosephus, getSynopsis, lxxChapters, lxxPsalms, sameStrong, taggedVerse, verseVariants, vulgateChapters, getChronology, getDoctrine } from "../src/core/scholar";
 import { exportAll, formatCitation, parseSourceLine } from "../src/core/cite";
 import { checkResearch, checkSources } from "../src/core/research";
-import { coerceExegesis, coerceExplore, exegesisPrompt, explorePrompt, insightPrompt, strayWords, aiTools } from "../src/core/ai";
+import { coerceExegesis, coerceExplore, emptyExegesis, exegesisPlan, exegesisStagePrompt, explorePrompt, insightPrompt, mergeExegesis, parseJsonReply, repairJson, strayWords, aiTools } from "../src/core/ai";
 import { lookupDictionary } from "../src/core/scholar";
 import { lensName } from "../src/core/guide";
 import { LENS_IDS } from "../src/core/content";
@@ -425,11 +425,11 @@ test("covenant lens: it's offered, and prompts explain it", async () => {
   assert.equal(guide.lens, "covenant");
   assert.match(JSON.stringify(guide.sections), /Covenant \/ Federal teachers/);
   assert.match(await insightPrompt("Genesis 15:6", "BSB", "covenant"), /federal heads/);
-  assert.match(await exegesisPrompt("Genesis 15:6", "BSB", "covenant"), /federal heads/);
+  assert.match(await exegesisStagePrompt("Genesis 15:6", "BSB", "covenant", { id: "overview", label: "" }), /federal heads/);
 });
 
 test("exegesis: the prompt carries the original language, and replies are checked", async () => {
-  const prompt = await exegesisPrompt("John 1:1", "BSB", "reformed");
+  const prompt = await exegesisStagePrompt("John 1:1", "BSB", "reformed", { id: "verses", label: "", from: 0, to: 1 });
   assert.match(prompt, /\[G3056 /);
   assert.equal(coerceExegesis("nope"), null);
   const e = coerceExegesis({ thesis: "t", verses: [{ ref: "John 1:1", comment: "c" }], words: [{ word: "x", strong: "G3056" }], sources: [] })!;
@@ -438,7 +438,7 @@ test("exegesis: the prompt carries the original language, and replies are checke
 });
 
 test("explore: the prompt holds the section and lens, and sources are checked", async () => {
-  const p = explorePrompt({ heading: "Background to research", kind: "text", text: "Who wrote this?", refs: ["Romans 8"], lens: "covenant", translation: "BSB" }, "Expand");
+  const p = await explorePrompt({ heading: "Background to research", kind: "text", text: "Who wrote this?", refs: ["Romans 8"], lens: "covenant", translation: "BSB" }, "Expand");
   assert.match(p, /Who wrote this/);
   assert.match(p, /lookup_dictionary/);
   assert.equal(coerceExplore({}), null);
@@ -450,4 +450,39 @@ test("explore: the prompt holds the section and lens, and sources are checked", 
   assert.deepEqual(checked.map((c) => c.ok), [true, false, true]);
   const tools = aiTools("BSB").map((t) => t.name);
   for (const t of ["lookup_dictionary", "search_josephus", "book_background"]) assert.ok(tools.includes(t), t);
+});
+
+test("exegesis steps: long passages split up, and parts fold together", async () => {
+  const plan = await exegesisPlan("Romans 8", "BSB");
+  assert.equal(plan[0].id, "overview");
+  assert.equal(plan.at(-1)!.id, "theology");
+  const middle = plan.filter((x) => x.id === "verses");
+  assert.ok(middle.length >= 3);
+  assert.equal(middle.at(-1)!.to, 39);
+  const short = await exegesisPlan("John 3:16", "BSB");
+  assert.equal(short.length, 3);
+  let e = mergeExegesis(emptyExegesis(), { thesis: "t", structure: [{ verses: "1", point: "p" }] });
+  e = mergeExegesis(e, { verses: [{ ref: "John 3:16", comment: "c" }], words: [{ word: "a", strong: "G26" }] });
+  e = mergeExegesis(e, { verses: [{ ref: "John 3:17", comment: "d" }], words: [{ word: "a", strong: "G26" }] });
+  assert.equal(e.thesis, "t");
+  assert.equal(e.verses.length, 2);
+  assert.equal(e.words.length, 1, "a repeated word appears once");
+  assert.doesNotMatch(await exegesisStagePrompt("John 3:16", "BSB", "all", { id: "overview", label: "" }, "", false), /You can look things up/);
+});
+
+test("AI replies: notes from lookups and cut-off replies can still be read", () => {
+  assert.deepEqual(parseJsonReply('I will check that.\n\n{"a":1}'), { a: 1 });
+  assert.deepEqual(parseJsonReply('Looking at {this} first.\n\n{"a":1}'), { a: 1 });
+  assert.deepEqual(parseJsonReply('```json\n{"a":2}\n```'), { a: 2 });
+  assert.deepEqual(repairJson('{"a":"one","b":[{"c":"two"},{"c":"thr'), { a: "one", b: [{ c: "two" }, { c: "thr" }] });
+  assert.deepEqual(repairJson('{"a":"one","b":'), { a: "one" });
+  assert.equal(repairJson("no json here"), null);
+});
+
+test("AI tools stay inside the platform's rules", () => {
+  for (const t of aiTools("BSB")) {
+    assert.match(t.name, /^[A-Za-z0-9_-]{1,128}$/);
+    assert.ok(new TextEncoder().encode(t.description).length <= 1024, t.name);
+    assert.ok(new TextEncoder().encode(JSON.stringify(t.inputSchema ?? {})).length <= 4096, t.name);
+  }
 });

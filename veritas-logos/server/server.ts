@@ -20,7 +20,7 @@ import http from "node:http";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { chatPreamble, checkReferences, exegesisPrompt, explorePrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
+import { chatPreamble, checkReferences, exegesisStagePrompt, explorePrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
 import { getPassage, isTranslationId, searchText, TRANSLATIONS, DEFAULT_TRANSLATION, translationInfo, decodeVerseCode, refOf, getVerse, type TranslationId } from "../src/core/bible";
 import { getTopic, searchTopics } from "../src/core/content";
 import { setLoader } from "../src/core/data";
@@ -353,12 +353,14 @@ export function createServer(opts: ServerOptions = {}) {
         if (typeof body.request !== "string" || !body.request.trim() || typeof c.heading !== "string") throw new HttpError(400, "bad_section", "Send a section and a request.");
         system = "You are the study assistant in Veritas Logos.";
         const refs = Array.isArray(c.refs) ? c.refs.filter((r): r is string => typeof r === "string" && Boolean(parseReference(r))).slice(0, 12) : [];
-        messages = [{ role: "user", content: explorePrompt({ heading: c.heading.slice(0, 200), kind: String(c.kind ?? "text").slice(0, 20), text: String(c.text ?? "").slice(0, 6000), refs, lens, translation, guideTitle: typeof c.guideTitle === "string" ? c.guideTitle.slice(0, 200) : undefined }, body.request.slice(0, 2000)) }];
+        messages = [{ role: "user", content: await explorePrompt({ heading: c.heading.slice(0, 200), kind: String(c.kind ?? "text").slice(0, 20), text: String(c.text ?? "").slice(0, 6000), refs, lens, translation, guideTitle: typeof c.guideTitle === "string" ? c.guideTitle.slice(0, 200) : undefined }, body.request.slice(0, 2000)) }];
         useTools = true;
       } else if (body.purpose === "exegesis") {
         if (typeof body.reference !== "string" || !parseReference(body.reference)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
         system = "You are the study assistant in Veritas Logos.";
-        messages = [{ role: "user", content: await exegesisPrompt(body.reference, translation, lens) }];
+        const st = (body.stage ?? {}) as Record<string, unknown>;
+        const stage = { id: st.id === "verses" || st.id === "theology" ? st.id : "overview", label: "", from: Number(st.from) || 0, to: Number(st.to) || 12 } as const;
+        messages = [{ role: "user", content: await exegesisStagePrompt(body.reference, translation, lens, stage, typeof body.earlier === "string" ? body.earlier.slice(0, 20000) : "") }];
         useTools = true;
       } else throw new HttpError(400, "bad_purpose", "Use purpose insight, chat, draft, explore or exegesis.");
 

@@ -288,10 +288,16 @@ export async function chatPreamble(translation: TranslationId, lens: LensId, con
 
 // ---------- Researching and expanding ----------
 
-const SOURCE_RULES = `Find what you need with your tools before you write: passage_insights, historic_writers, lookup_dictionary, search_josephus, book_background, define_term, church_history, search_creeds, word_study and original_words.
-List what you relied on under "sources", using only things your tools returned:
-{"type":"scripture","ref":"John 1:1"}, {"type":"writer","writer":"name","ref":"the passage it is filed under","quote":"exact words"}, {"type":"creed","doc":"id","quote":"exact words"}, {"type":"term","term":"name","quote":"exact words"}, {"type":"event","event":"id"}, {"type":"dictionary","name":"entry","quote":"exact words"}, {"type":"josephus","quote":"exact words"}.
+const SOURCE_SHAPES = `{"type":"scripture","ref":"John 1:1"}, {"type":"writer","writer":"name","ref":"the passage it is filed under","quote":"exact words"}, {"type":"creed","doc":"id","quote":"exact words"}, {"type":"term","term":"name","quote":"exact words"}, {"type":"event","event":"id"}, {"type":"dictionary","name":"entry","quote":"exact words"}, {"type":"josephus","quote":"exact words"}`;
+
+function sourceRules(hasTools: boolean, toolNames = "lookup_dictionary, search_josephus, book_background, historic_writers, passage_insights, define_term, church_history, search_creeds, word_study"): string {
+  const find = hasTools
+    ? `You can look things up with these tools: ${toolNames}. Make at most three lookups, and only where they add something. Don't narrate them.`
+    : "You have no lookup tools in this view. Work from the data given here.";
+  return `${find}
+List what you relied on under "sources", using only things given here or returned by a tool: ${SOURCE_SHAPES}.
 A quote must be copied exactly and be at least six words. The app checks each one word for word and tells the reader which it couldn't confirm. Where you rely on your general knowledge instead, say so in plain words in the text and name the kind of evidence. Put what can't be settled in "gaps". Don't invent sources.`;
+}
 
 export interface ExploreDraft { heading: string; body: string; items: { label?: string; text: string }[]; sources: unknown[]; gaps: string[] }
 export interface ExploreContext { heading: string; kind: string; text: string; refs: string[]; lens: LensId; translation: TranslationId; guideTitle?: string }
@@ -305,23 +311,25 @@ export const EXPLORE_PRESETS: { id: string; label: string; ask: string; kinds?: 
   { id: "answers", label: "Draft notes for these questions", ask: "For each question, give short notes a leader could use, tied to the text.", kinds: ["questions"] },
 ];
 
-export function explorePrompt(c: ExploreContext, request: string): string {
+export async function explorePrompt(c: ExploreContext, request: string, hasTools = true): Promise<string> {
   const lens = c.lens === "all" ? "Treat traditions evenly." : `The reader chose the ${lensName(c.lens)} lens. Write from inside that reading and briefly note where others differ.${lensGuide(c.lens)}`;
+  const first = c.refs[0] ? await groundingFor(c.refs[0], c.translation).catch(() => "") : "";
   return `${AI_RULES}
 
 The reader is studying${c.guideTitle ? ` "${c.guideTitle}"` : ""} in ${translationInfo(c.translation).name}, and wants to explore one section further. ${lens}
 Passages in view: ${c.refs.join("; ") || "none named"}.
+${first}
 <section heading="${c.heading.replace(/"/g, "'")}" kind="${c.kind}">
 ${clip(c.text, 6000)}
 </section>
 
 Request: ${request}
 
-${SOURCE_RULES}
+${sourceRules(hasTools)}
 
 Reply with only one JSON object in this shape:
 {"heading":"short heading","body":"paragraphs separated by a blank line","items":[{"label":"optional short label","text":"item text"}],"sources":[],"gaps":["what isn't settled"]}
-Use items only where a list reads better. Write plainly, and add only what was asked for.`;
+Keep it under about 600 words. Use items only where a list reads better. Write plainly, and add only what was asked for.`;
 }
 
 export function coerceExplore(raw: unknown): ExploreDraft | null {
@@ -349,40 +357,116 @@ export interface Exegesis {
   sources: unknown[];
 }
 
-/** Everything checked about a passage that the model should start from, verse by verse. */
-export async function exegesisGrounding(reference: string, translation: TranslationId): Promise<string> {
-  const base = await groundingFor(reference, translation);
+/** A long reply is the likeliest thing to fail, so the exegesis is written in steps. Each step is saved as it finishes. */
+export interface ExegesisStage { id: "overview" | "verses" | "theology"; label: string; from?: number; to?: number }
+const VERSES_PER_STEP = 12;
+
+export async function exegesisPlan(reference: string, translation: TranslationId): Promise<ExegesisStage[]> {
   const passage = await getPassage(translation, reference);
   const all = passage?.parts.flatMap((p) => p.verses) ?? [];
-  const verses = all.slice(0, 25);
-  const lines: string[] = [];
-  for (const v of verses) {
-    const w = await getVerseWords(v.book, v.chapter, v.verse);
-    lines.push(`${v.chapter}:${v.verse} ${w.map((x) => `${x[0]} [${x[3]} ${x[2]}; ${decodeMorph(x[4])}]`).join(" ")}`);
+  const stages: ExegesisStage[] = [{ id: "overview", label: "Setting, context and structure" }];
+  const steps = Math.min(6, Math.max(1, Math.ceil(all.length / VERSES_PER_STEP)));
+  const size = Math.ceil(all.length / steps) || 1;
+  for (let i = 0; i < steps; i++) {
+    const from = i * size, to = Math.min(all.length, from + size);
+    const a = all[from], b = all[to - 1];
+    stages.push({ id: "verses", from, to, label: a && b ? `Verses ${a.chapter}:${a.verse}${to - from > 1 ? `\u2013${b.chapter === a.chapter ? "" : `${b.chapter}:`}${b.verse}` : ""}` : "The verses" });
   }
-  const [a, b] = await Promise.all([excerptsForPassage(reference), excerptsForPassage(reference, "comm")]);
-  const writers = varied([...a, ...b], 8).map((e) => ({ writer: e.writer.name, year: e.writer.year, work: e.title, filedUnder: e.reference, text: clip(e.text, 700) }));
-  return `${base}\n<original_language>\n${clip(lines.join("\n"), 22000)}${all.length > verses.length ? `\nThis covers the first ${verses.length} of ${all.length} verses. Use original_words for the rest.` : ""}\n</original_language>\n<historic_writers>\n${clip(JSON.stringify(writers), 8000)}\n</historic_writers>`;
+  stages.push({ id: "theology", label: "Theological reading" });
+  return stages;
 }
 
-export async function exegesisPrompt(reference: string, translation: TranslationId, lens: LensId): Promise<string> {
+async function writersFor(reference: string): Promise<string> {
+  const [a, b] = await Promise.all([excerptsForPassage(reference), excerptsForPassage(reference, "comm")]);
+  const writers = varied([...a, ...b], 8).map((e) => ({ writer: e.writer.name, year: e.writer.year, work: e.title, filedUnder: e.reference, text: clip(e.text, 600) }));
+  return `<historic_writers>\n${clip(JSON.stringify(writers), 7000)}\n</historic_writers>`;
+}
+
+export async function exegesisStagePrompt(reference: string, translation: TranslationId, lens: LensId, stage: ExegesisStage, earlier = "", hasTools = true): Promise<string> {
   const lensText = lens === "all"
-    ? "The reader hasn't chosen one lens. Give the reading most traditions share in lensReading, and let otherReadings carry the differences."
-    : `Interpret from inside the ${lensName(lens)} tradition, as its own careful exegetes would, and say plainly in lensReading how that framework shapes the reading. Keep what the text says apart from what the framework draws from it.${lensGuide(lens)}`;
-  return `${AI_RULES}
+    ? "The reader hasn't chosen one lens, so give the reading most traditions share, and let the differences show."
+    : `Interpret from inside the ${lensName(lens)} tradition, as its own careful exegetes would, keeping what the text says apart from what the framework draws from it.${lensGuide(lens)}`;
+  const head = `${AI_RULES}
 
-Write a deep exegetical synopsis of ${reference}. ${lensText}
-Work from the text outward: the setting, then the literary context and structure, then the verses, then the original-language evidence, then the wider biblical links, and only then the theology. Base grammar notes on the parsing you are given, and don't assert a grammatical point it doesn't support.
-${await exegesisGrounding(reference, translation)}
+You are writing one part of a deep exegetical synopsis of ${reference}. ${lensText}`;
+  if (stage.id === "overview") return `${head}
+This part covers the setting and structure.
+${await groundingFor(reference, translation)}
+${await writersFor(reference)}
 
-${SOURCE_RULES}
+${sourceRules(hasTools, "book_background, lookup_dictionary, search_josephus, historic_writers")}
 
 Reply with only one JSON object in this shape:
-{"thesis":"the passage's main point in one or two sentences","historical":"historical and cultural setting","literary":"place in the book, genre and flow of argument","structure":[{"verses":"vv. 1-3","point":"what this part does"}],"verses":[{"ref":"Romans 8:28","comment":"what this verse says and contributes"}],"words":[{"word":"Greek or Hebrew word as given","strong":"G1234","meaning":"its range of meaning","significance":"why it matters here"}],"grammar":[{"ref":"Romans 8:28","note":"a grammatical point that affects meaning"}],"intertext":[{"ref":"Psalm 110:1","relation":"quotes, alludes to or echoes","note":"how it bears on this passage"}],"lensReading":"how the chosen lens reads the passage, as connected paragraphs","doctrines":[{"name":"doctrine","connection":"how this passage bears on it"}],"otherReadings":[{"tradition":"name","reading":"how they differ, fairly stated"}],"application":"what the lens draws from this for faith and life","uncertain":["what is debated or uncertain"],"sources":[]}
-Comment on each verse, or on small groups of verses if the passage is long. Use empty arrays where there is nothing solid to say.`;
+{"thesis":"the passage's main point in one or two sentences","historical":"historical and cultural setting","literary":"place in the book, genre and flow of argument","structure":[{"verses":"vv. 1-3","point":"what this part does"}],"uncertain":["what is debated"],"sources":[]}
+Keep it under about 500 words.`;
+  if (stage.id === "verses") {
+    const passage = await getPassage(translation, reference);
+    const verses = (passage?.parts.flatMap((p) => p.verses) ?? []).slice(stage.from ?? 0, stage.to ?? VERSES_PER_STEP);
+    const lines: string[] = [];
+    for (const v of verses) {
+      const w = await getVerseWords(v.book, v.chapter, v.verse);
+      lines.push(`${bookName(v.book)} ${v.chapter}:${v.verse} ${v.text}\n${w.map((x) => `${x[0]} [${x[3]} ${x[2]}; ${decodeMorph(x[4])}]`).join(" ")}`);
+    }
+    return `${head}
+This part works through these verses only. Base grammar notes on the parsing given, and don't assert a grammatical point it doesn't support.
+<verses>
+${clip(lines.join("\n"), 30000)}
+</verses>
+${earlier ? `The main point so far: ${clip(earlier, 800)}\n` : ""}
+${sourceRules(hasTools, "word_study, lookup_dictionary, historic_writers")}
+
+Reply with only one JSON object in this shape:
+{"verses":[{"ref":"Romans 8:28","comment":"what this verse says and contributes"}],"words":[{"word":"Greek or Hebrew word as given","strong":"G1234","meaning":"its range of meaning","significance":"why it matters here"}],"grammar":[{"ref":"Romans 8:28","note":"a grammatical point that affects meaning"}],"intertext":[{"ref":"Psalm 110:1","relation":"quotes, alludes to or echoes","note":"how it bears on this passage"}],"sources":[]}
+Give each verse two to five sentences, or group short verses. Choose only the words and grammar that change the meaning. Use empty arrays where there is nothing solid to say.`;
+  }
+  return `${head}
+This part gives the theological reading, built on the exegesis so far.
+<exegesis_so_far>
+${clip(earlier, 14000)}
+</exegesis_so_far>
+${await writersFor(reference)}
+
+${sourceRules(hasTools, "search_creeds, define_term, historic_writers")}
+
+Reply with only one JSON object in this shape:
+{"lensReading":"how the chosen lens reads the passage, as connected paragraphs","doctrines":[{"name":"doctrine","connection":"how this passage bears on it"}],"otherReadings":[{"tradition":"name","reading":"how they differ, fairly stated"}],"application":"what this draws from the passage for faith and life","uncertain":["what is debated or uncertain"],"sources":[]}
+Keep it under about 700 words.`;
 }
 
-export function coerceExegesis(raw: unknown): Exegesis | null {
+const EMPTY_EXEGESIS: Exegesis = { thesis: "", historical: "", literary: "", structure: [], verses: [], words: [], grammar: [], intertext: [], lensReading: "", doctrines: [], otherReadings: [], application: "", uncertain: [], sources: [] };
+export const emptyExegesis = (): Exegesis => ({ ...EMPTY_EXEGESIS });
+
+/** Folds one finished step into what's been written so far. */
+export function mergeExegesis(base: Exegesis, part: unknown): Exegesis {
+  const p = coerceExegesisParts(part);
+  if (!p) return base;
+  const seen = new Set(base.words.map((w) => w.strong || w.word));
+  return {
+    thesis: base.thesis || p.thesis, historical: base.historical || p.historical, literary: base.literary || p.literary,
+    structure: [...base.structure, ...p.structure], verses: [...base.verses, ...p.verses],
+    words: [...base.words, ...p.words.filter((w) => !seen.has(w.strong || w.word))], grammar: [...base.grammar, ...p.grammar], intertext: [...base.intertext, ...p.intertext],
+    lensReading: base.lensReading || p.lensReading, doctrines: [...base.doctrines, ...p.doctrines], otherReadings: [...base.otherReadings, ...p.otherReadings],
+    application: base.application || p.application, uncertain: [...base.uncertain, ...p.uncertain], sources: [...base.sources, ...p.sources],
+  };
+}
+
+export const exegesisSoFar = (e: Exegesis): string => [e.thesis, e.historical, e.literary, ...e.verses.map((v) => `${v.ref}: ${v.comment}`)].filter(Boolean).join("\n");
+
+/** True when a step's reply holds something usable. */
+export function exegesisPartHasContent(part: unknown): boolean {
+  const p = coerceExegesisParts(part);
+  return Boolean(p && (p.thesis || p.verses.length || p.lensReading || p.historical));
+}
+
+/** Word studies in an exegesis must be words that really occur in this passage. */
+export async function strayWords(reference: string, words: { strong: string }[]): Promise<string[]> {
+  const passage = await getPassage(DEFAULT_TRANSLATION, reference);
+  const seen = new Set<string>();
+  for (const v of passage?.parts.flatMap((p) => p.verses) ?? []) for (const w of await getVerseWords(v.book, v.chapter, v.verse)) seen.add(normalizeStrongs(w[3]) ?? "");
+  return words.map((w) => w.strong).filter((s) => s && !seen.has(normalizeStrongs(s) ?? s));
+}
+
+function coerceExegesisParts(raw: unknown): Exegesis | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const list = <T>(v: unknown, n: number, f: (x: Record<string, unknown>) => T): T[] => (Array.isArray(v) ? v.slice(0, n).filter((x) => x && typeof x === "object").map((x) => f(x as Record<string, unknown>)) : []);
@@ -400,15 +484,12 @@ export function coerceExegesis(raw: unknown): Exegesis | null {
     uncertain: Array.isArray(r.uncertain) ? r.uncertain.map((x) => asStr(x, 600)).filter(Boolean).slice(0, 12) : [],
     sources: Array.isArray(r.sources) ? r.sources : [],
   };
-  return out.thesis || out.verses.length ? out : null;
+  return out;
 }
 
-/** Word studies in an exegesis must be words that really occur in this passage. */
-export async function strayWords(reference: string, words: { strong: string }[]): Promise<string[]> {
-  const passage = await getPassage(DEFAULT_TRANSLATION, reference);
-  const seen = new Set<string>();
-  for (const v of passage?.parts.flatMap((p) => p.verses) ?? []) for (const w of await getVerseWords(v.book, v.chapter, v.verse)) seen.add(normalizeStrongs(w[3]) ?? "");
-  return words.map((w) => w.strong).filter((s) => s && !seen.has(normalizeStrongs(s) ?? s));
+export function coerceExegesis(raw: unknown): Exegesis | null {
+  const out = coerceExegesisParts(raw);
+  return out && (out.thesis || out.verses.length) ? out : null;
 }
 
 export const guideRequestPresets = [
@@ -439,6 +520,35 @@ Use kind "questions" for a numbered list of questions and "text" for anything el
 const asStr = (v: unknown, n = 4000) => (typeof v === "string" ? v.slice(0, n) : "");
 
 /** Reads the model's JSON tolerantly. Returns null if no value can be found. */
+/** Closes a reply that was cut off, keeping what's complete. Returns null if nothing can be saved. */
+export function repairJson(text: string): unknown {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  const src = text.slice(start);
+  const stack: string[] = [];
+  let inStr = false, esc = false;
+  let safe = -1, safeStack: string[] = [];
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{" || c === "[") stack.push(c === "{" ? "}" : "]");
+    else if (c === "}" || c === "]") { stack.pop(); safe = i + 1; safeStack = [...stack]; }
+    else if (c === ",") { safe = i; safeStack = [...stack]; }
+  }
+  const close = (st: string[]) => [...st].reverse().join("");
+  const tries = inStr ? [`${src}"${close(stack)}`, `${src.slice(0, safe)}${close(safeStack)}`] : [`${src}${close(stack)}`, `${src.slice(0, safe)}${close(safeStack)}`];
+  for (const t of tries) {
+    try { return JSON.parse(t); } catch { /* try the next */ }
+  }
+  return null;
+}
+
 export function parseJsonReply(text: string): unknown {
   const tryParse = (s: string) => {
     try {
@@ -449,17 +559,26 @@ export function parseJsonReply(text: string): unknown {
   };
   const whole = tryParse(text.trim());
   if (whole !== undefined) return whole;
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fence) {
-    const f = tryParse(fence[1].trim());
+  // With lookups, the reply can hold notes from earlier rounds, so the last fenced block or object wins.
+  const fences = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].reverse();
+  for (const m of fences) {
+    const f = tryParse(m[1].trim());
     if (f !== undefined) return f;
   }
-  const a = text.indexOf("{"), b = text.lastIndexOf("}");
-  if (a >= 0 && b > a) {
-    const f = tryParse(text.slice(a, b + 1));
-    if (f !== undefined) return f;
+  const end = text.lastIndexOf("}");
+  if (end >= 0) {
+    const starts = [...text.matchAll(/(^|\n)\s*\{/g)].map((m) => (m.index ?? 0) + m[0].indexOf("{"));
+    for (const st of starts) {
+      const f = tryParse(text.slice(st, end + 1));
+      if (f !== undefined) return f;
+    }
+    const a = text.indexOf("{");
+    if (a >= 0 && end > a) {
+      const f = tryParse(text.slice(a, end + 1));
+      if (f !== undefined) return f;
+    }
   }
-  return null;
+  return repairJson(text.slice(Math.max(0, text.search(/(^|\n)\s*\{/)))) ?? repairJson(text);
 }
 
 /** Keeps only the expected fields of an AI insight. */

@@ -12,6 +12,8 @@ export interface AiRequest {
   guide?: unknown;
   request?: unknown;
   section?: unknown;
+  stage?: unknown;
+  earlier?: unknown;
 }
 interface RunOptions {
   apiKey: string;

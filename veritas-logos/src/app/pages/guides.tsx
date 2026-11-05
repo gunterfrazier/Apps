@@ -8,7 +8,8 @@ import { aiDraft, detectAi, friendlyAiError, type AiMode } from "../ai-client";
 import { guideToDocx } from "../../core/docx";
 import { StudyNav } from "./notebook";
 import { EXPLORE_PRESETS } from "../../core/ai";
-import { ExegesisBlock, ExploreSheet, sectionText } from "./ai-explore";
+import { ExegesisBlock, ExploreSheet, sectionText, useAiMode } from "./ai-explore";
+import { draftKey, enqueueJob, exploreKey, markSeen, removeJob, useJob } from "../ai-jobs";
 import { appBase, copyText, decodeFromLink, encodeForLink, IS_ARTIFACT, saveFile } from "../files";
 import { deleteGuide, navigate, saveGuide, toast, update, useData } from "../store";
 import { Empty, ErrorNote, LensSelect, Loading, OriginTag, Paras, RefLink, RefText, Sheet, TranslationSelect, useAsync } from "../ui";
@@ -205,6 +206,7 @@ function SectionEditor({ section: s, translation, onChange, onDelete, onMove, co
   const [explore, setExplore] = useState<"" | "open" | "background">("");
   const isBackground = /background to research/i.test(s.heading);
   const passages = guide.sections.flatMap((x) => (x.kind === "passage" && x.ref ? [x.ref] : []));
+  const exploreJob = useJob(exploreKey(`${guide.id}:${s.id}`, s.heading));
   return (
     <article className={`section-card origin-card-${s.origin}`}>
       <div className="section-top">
@@ -238,11 +240,16 @@ function SectionEditor({ section: s, translation, onChange, onDelete, onMove, co
       ))}
       {s.items && (s.kind === "questions" || s.kind === "text") && <button type="button" className="link-btn" onClick={() => onChange({ ...s, items: [...s.items!, { text: "" }] })}>Add a line</button>}
       <div className="section-explore">
-        {isBackground && <button type="button" className="btn small primary" onClick={() => setExplore("background")}>Research this with AI</button>}
-        <button type="button" className="link-btn" onClick={() => setExplore("open")}>Explore and expand</button>
+        {exploreJob?.status === "done" && <button type="button" className="btn small primary" onClick={() => setExplore("open")}>AI draft ready: review</button>}
+        {exploreJob?.status === "error" && <button type="button" className="btn small" onClick={() => setExplore("open")}>AI couldn't finish: see why</button>}
+        {exploreJob && exploreJob.status !== "done" && exploreJob.status !== "error" && <button type="button" className="link-btn" onClick={() => setExplore("open")}>AI is working on this…</button>}
+        {!exploreJob && isBackground && <button type="button" className="btn small primary" onClick={() => setExplore("background")}>Research this with AI</button>}
+        {!exploreJob && <button type="button" className="link-btn" onClick={() => setExplore("open")}>Explore and expand</button>}
       </div>
       {explore && (
         <ExploreSheet
+          where={`${guide.id}:${s.id}`}
+          target={{ guideId: guide.id, sectionId: s.id, canReplace: isBackground || s.kind === "text" }}
           context={{ heading: s.heading, kind: s.kind, text: sectionText(s), refs: s.ref ? [s.ref] : passages, lens: guide.lens, translation, guideTitle: guide.title }}
           initialAsk={explore === "background" ? EXPLORE_PRESETS.find((p) => p.id === "background")!.ask : undefined}
           onClose={() => setExplore("")}
@@ -322,31 +329,39 @@ function GuideExegesis({ guide, onAdd }: { guide: Guide; onAdd: (s: GuideSection
   return (
     <div className="guide-exegesis">
       {refs.length > 1 && <select aria-label="Passage for the exegesis" value={current} onChange={(e) => setPick(e.target.value)}>{refs.map((r) => <option key={r} value={r}>{r}</option>)}</select>}
-      <ExegesisBlock reference={current} translation={guide.translation} lens={guide.lens} onAdd={onAdd} />
+      <ExegesisBlock reference={current} translation={guide.translation} lens={guide.lens} onAdd={onAdd} target={{ guideId: guide.id }} />
     </div>
   );
 }
 
+export function DraftPreview({ sections }: { sections: GuideSection[] }) {
+  return (
+    <>
+      {sections.map((s) => (
+        <div key={s.id} className="doc-section">
+          <h3>{s.heading}</h3>
+          {s.body && <Paras text={s.body} />}
+          {s.items && (s.kind === "questions" ? <ol>{s.items.map((it, i) => <li key={i}><RefText text={it.text} /></li>)}</ol> : <ul>{s.items.map((it, i) => <li key={i}>{it.label && <strong>{it.label}: </strong>}{it.ref && <><RefLink refText={it.ref} /> </>}<RefText text={it.text} /></li>)}</ul>)}
+        </div>
+      ))}
+    </>
+  );
+}
+
 function AiDraftSheet({ guide, onClose, onAccept }: { guide: Guide; onClose: () => void; onAccept: (s: GuideSection[]) => void }) {
-  const [mode, setMode] = useState<AiMode | null>(null);
+  const mode = useAiMode();
   const [custom, setCustom] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState<GuideSection[] | null>(null);
-  const ctl = useRef<AbortController | null>(null);
-  useEffect(() => { detectAi().then(setMode); return () => ctl.current?.abort(); }, []);
-  const run = async (request: string) => {
-    setBusy(true); setError(""); setResult(null);
-    ctl.current = new AbortController();
-    try { setResult(await aiDraft(guide, request, { signal: ctl.current.signal })); }
-    catch (e) { setError(friendlyAiError(e)); }
-    finally { setBusy(false); }
-  };
+  const key = draftKey(guide);
+  const job = useJob(key);
+  const active = job && (job.status === "queued" || job.status === "running" || job.status === "interrupted");
+  useEffect(() => { if (job?.status === "done") markSeen(job.id); }, [job?.id, job?.status]);
+  const run = (request: string) => enqueueJob({ kind: "draft", key, title: `Draft for "${guide.title}"`, payload: { guide, request }, target: { guideId: guide.id } });
+  const result = job?.status === "done" ? (job.result as GuideSection[]) : null;
   return (
     <Sheet title="Draft with AI" onClose={onClose}>
       {mode === null && <Loading />}
       {mode === "none" && <p className="note">The AI assistant isn't set up in this copy of the app. See Library for how to turn it on.</p>}
-      {mode && mode !== "none" && !result && !busy && (
+      {mode && mode !== "none" && !job && (
         <>
           <p className="fine">The AI sees this guide's passages and the app's reference data. Anything it writes is labeled as an AI draft until you mark it checked.</p>
           <div className="tool-list">{guideRequestPresets.map((p) => <button type="button" key={p.id} className="tool-row" onClick={() => run(p.ask)}><strong>{p.label}</strong></button>)}</div>
@@ -355,20 +370,14 @@ function AiDraftSheet({ guide, onClose, onAccept }: { guide: Guide; onClose: () 
           <button type="button" className="btn primary" disabled={!custom.trim()} onClick={() => run(custom)}>Draft it</button>
         </>
       )}
-      {busy && <><Loading label="Drafting. This can take up to a minute" /><button type="button" className="btn small" onClick={() => ctl.current?.abort()}>Stop</button></>}
-      {error && <p className="note warn">{error}</p>}
+      {active && <JobProgress job={job} />}
+      {job?.status === "error" && <JobError job={job} />}
       {result && (
         <>
-          {result.map((s) => (
-            <div key={s.id} className="doc-section">
-              <h3>{s.heading}</h3>
-              {s.body && <Paras text={s.body} />}
-              {s.items && (s.kind === "questions" ? <ol>{s.items.map((it, i) => <li key={i}><RefText text={it.text} /></li>)}</ol> : <ul>{s.items.map((it, i) => <li key={i}>{it.label && <strong>{it.label}: </strong>}<RefText text={it.text} /></li>)}</ul>)}
-            </div>
-          ))}
+          <DraftPreview sections={result} />
           <div className="action-row">
-            <button type="button" className="btn primary" onClick={() => onAccept(result)}>Add to guide</button>
-            <button type="button" className="btn" onClick={() => setResult(null)}>Discard</button>
+            <button type="button" className="btn primary" onClick={() => { removeJob(job!.id); onAccept(result); }}>Add to guide</button>
+            <button type="button" className="btn" onClick={() => removeJob(job!.id)}>Discard</button>
           </div>
         </>
       )}
