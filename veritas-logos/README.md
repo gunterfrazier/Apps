@@ -81,5 +81,5 @@ Sources can still contain errors, and their chronology and family links reflect 
 - Only the 66-book canon is included, so Catholic and Orthodox deuterocanonical books are missing.
 - Hebrew and Greek are shown per verse, not linked word by word to the English.
 - New Testament dates follow one chronology, Ussher's. Old Testament dates follow BibleData's. Scholars date many of these differently.
-- Some theological terms have no definition, because neither the owner's glossary nor the public-domain sources cover them.
+- 77 entries in the owner's glossary were reworded by Claude at his request. They are unsourced editorial work, tagged "Corrected," and each shows the original wording. Four definitions are short quotations from copyrighted dictionaries and need replacing or permission before any public release.
 - CCEL's Fathers and Calvin files came from a third-party copy on GitHub, and only 10 volumes of Calvin's commentaries are in it. See DATA-LICENSES.md.

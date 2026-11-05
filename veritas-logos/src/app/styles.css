@@ -364,6 +364,9 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
 .excerpt { padding: .75rem .85rem; margin: .6rem 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .excerpt header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .5rem; }
 .ex-writer { font-weight: 600; text-decoration: none; }
+.what-changed { margin: .35rem 0; font-size: .88rem; color: var(--ink-2); }
+.what-changed summary { cursor: pointer; color: var(--accent, inherit); }
+.what-changed p { margin: .35rem 0; }
 .ex-on { margin: .1rem 0 .4rem; font-size: .82rem; color: var(--ink-2); }
 .ex-text { font: 1.02rem/1.5 var(--font-serif); overflow-wrap: anywhere; }
 .ex-text p { margin: .4rem 0; }

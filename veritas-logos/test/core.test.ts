@@ -229,7 +229,7 @@ test("writers: citations from CCEL are marked, and objections in the Summa are l
   for (const e of await excerptsForPassage("Hebrews 11:1")) if (/Ante-Nicene|Nicene/.test(e.source)) assert.match(e.source, /vol\. \d+,/);
 });
 
-test("glossary: definitions are quoted with sources, and gaps stay visible", async () => {
+test("glossary: definitions are quoted with sources", async () => {
   const terms = await getGlossary();
   assert.ok(terms.length > 150);
   const just = (await termById("justification"))!;
@@ -240,12 +240,37 @@ test("glossary: definitions are quoted with sources, and gaps stay visible", asy
   assert.equal(peri.defs.length, 0);
   assert.match(peri.own, /mutual indwelling/);
   assert.equal((await termById("circumincession"))!.id, "perichoresis", "other names in a heading find the same entry");
-  assert.ok(terms.some((t) => !t.defs.length && !t.own && !t.see), "gaps stay visible");
+  assert.ok(terms.every((t) => t.defs.length || t.own || t.see), "every term now has text");
   assert.equal((await termById("credobaptism"))!.see, "believers-baptism");
   assert.match((await termById("priest"))!.own, /^As an office of Christ: /);
   assert.equal((await termById("tertullian"))!.writer, "tertullian");
   assert.equal((await searchGlossary("propitiation", 1))[0].id, "propitiation");
   assert.ok(!terms.some((t) => t.defs.some((d) => /Hastings/.test(d.source))), "that file's title page says it's Schaff's dictionary");
+});
+
+test("glossary: corrected entries keep the original wording and the reason", async () => {
+  const terms = await getGlossary();
+  const fixed = terms.filter((t) => t.corrections?.length);
+  assert.ok(fixed.length >= 70);
+  assert.ok(fixed.every((t) => t.corrections!.every((c) => c.original && c.why && /^(inaccurate|contested)$/.test(c.kind))));
+  const tert = (await termById("tertullian"))!;
+  assert.match(tert.own, /first known writer/);
+  assert.match(tert.corrections![0].original, /first coined/);
+  const hell = (await termById("hell"))!;
+  assert.match(hell.own, /annihilation/);
+  assert.equal(hell.corrections![0].kind, "contested");
+  assert.equal((await termById("penal-substitution"))!.corrections!.length, 1);
+  assert.ok(!(await termById("penal-substitution"))!.aliases.includes("Penal obedience"));
+});
+
+test("glossary: terms that had no definition now name a source", async () => {
+  for (const id of ["consubstantiation", "dispensationalism", "doctrine", "ecclesiology", "guilt", "kenosis", "logos", "monarchianism", "monotheism", "obedience", "ordination", "paraclete", "purgatory", "rapture", "remission", "soul", "subordinationism", "theophany"]) {
+    const t = (await termById(id))!;
+    assert.ok(t.defs.length && t.defs.every((d) => d.source && d.text), id);
+  }
+  assert.ok((await termById("rapture"))!.defs[0].modern);
+  assert.match((await termById("purgatory"))!.note!, /Protestant/);
+  assert.match((await termById("logos"))!.defs[0].source, /Easton/);
 });
 
 test("older works: added with dated editions, and the excluded ones stay out", async () => {

@@ -8,12 +8,13 @@ import { addSectionsToGuide } from "./insights";
 export function GlossaryPage() {
   const { data, error } = useAsync(getGlossary, []);
   const [q, setQ] = useState("");
-  const [show, setShow] = useState<"all" | "quoted" | "own" | "none">("all");
+  const [show, setShow] = useState<"all" | "quoted" | "own" | "corrected" | "none">("all");
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
     return (data ?? []).filter((t) => {
       if (show === "quoted" && !t.defs.length) return false;
       if (show === "own" && !t.own) return false;
+      if (show === "corrected" && !t.corrections?.length) return false;
       if (show === "none" && (t.own || t.defs.length || t.see)) return false;
       return !s || termText(t).includes(s);
     });
@@ -28,10 +29,12 @@ export function GlossaryPage() {
   }, [list]);
   const quoted = (data ?? []).filter((t) => t.defs.length).length;
   const own = (data ?? []).filter((t) => t.own).length;
+  const corrected = (data ?? []).filter((t) => t.corrections?.length).length;
+  const none = (data ?? []).filter((t) => !t.own && !t.defs.length && !t.see).length;
   return (
     <div className="page">
       <h1 className="page-title">Theological terms</h1>
-      <p className="sub">Your glossary, alongside definitions quoted from public-domain dictionaries, catechisms and histories.</p>
+      <p className="sub">Your glossary, alongside definitions quoted from named dictionaries, catechisms and histories.</p>
       <ErrorNote error={error} />
       {!data && !error && <Loading />}
       {data && (
@@ -42,7 +45,8 @@ export function GlossaryPage() {
               <option value="all">All {data.length} terms</option>
               <option value="own">In your glossary ({own})</option>
               <option value="quoted">With a quoted source ({quoted})</option>
-              <option value="none">No definition yet</option>
+              <option value="corrected">Corrected ({corrected})</option>
+              {none > 0 && <option value="none">No definition yet ({none})</option>}
             </select>
           </div>
           {groups.map(([letter, terms]) => (
@@ -54,7 +58,7 @@ export function GlossaryPage() {
             </section>
           ))}
           {!list.length && <Empty>No term matches that.</Empty>}
-          <p className="fine">Entries marked “Your glossary” are word for word from your Theological Terms document, which names no sources, so check them as you would your own notes. The quoted sources come mostly from one stream, 1800s Protestant scholarship and Reformed and Baptist catechisms, and other traditions may define a term differently. Entries from Hodge, Schaff and Watson are the opening of a section on the subject, so they may describe the term more than define it. Compare them with the <a href="#writers">Church Fathers and teachers</a>.</p>
+          <p className="fine">Entries marked “Your glossary” come from your Theological Terms document, which names no sources, so check them as you would your own notes. Those marked “Corrected” were reworded by Claude at your request, and each one shows your original wording and the reason. The other entries are word for word. The quoted sources come mostly from one stream, 1800s Protestant scholarship and Reformed and Baptist catechisms, and other traditions may define a term differently. Entries from Hodge, Schaff and Watson are the opening of a section on the subject, so they may describe the term more than define it. Compare them with the <a href="#writers">Church Fathers and teachers</a>.</p>
         </>
       )}
     </div>
@@ -68,7 +72,7 @@ export function TermPage({ id }: { id: string }) {
   if (error) return <div className="page"><ErrorNote error={error} /></div>;
   if (!t) return <div className="page"><p className="empty">That term isn't in the glossary. <a href="#glossary">See all terms</a>.</p></div>;
   const addOwn = () => addSectionsToGuide(
-    [{ id: newId(), kind: "text", heading: `Definition: ${t.term}`, origin: "you", body: t.own }],
+    [{ id: newId(), kind: "text", heading: `Definition: ${t.term}`, origin: t.corrections?.length ? "ai" : "you", body: t.own }],
     t.term, guides, activeGuideId, prefs.translation, prefs.lens,
   );
   const addDef = (d: (typeof t.defs)[number]) => addSectionsToGuide(
@@ -83,15 +87,28 @@ export function TermPage({ id }: { id: string }) {
       {t.see && <p><a className="btn small" href={`#term-${t.see}`}>See the entry for this term</a></p>}
       {t.own && (
         <article className="excerpt">
-          <header><strong>Your glossary</strong> <Tag>No source named</Tag></header>
+          <header><strong>Your glossary</strong> <Tag>No source named</Tag>{t.corrections?.length ? <Tag>Corrected</Tag> : null}</header>
           {t.ownHead && !t.ownHead.toLowerCase().includes(t.term.toLowerCase()) && <p className="ex-on">Under “{t.ownHead}”</p>}
           <div className="ex-text"><Paras text={t.own} /></div>
+          {!!t.corrections?.length && (
+            <details className="what-changed">
+              <summary>What changed</summary>
+              {t.corrections.map((c, i) => (
+                <div key={i}>
+                  <p><strong>{c.kind === "inaccurate" ? "Inaccurate or imprecise" : "Contested view"}:</strong> {c.why}</p>
+                  <p><strong>Your original:</strong> {c.original}</p>
+                  {c.basis && <p><strong>Checked against:</strong> {c.basis}</p>}
+                </div>
+              ))}
+              <p className="fine">Claude reworded this at your request. Your document hasn't changed.</p>
+            </details>
+          )}
           <div className="ex-actions"><button type="button" className="link-btn" onClick={addOwn}>Add to guide</button></div>
         </article>
       )}
       {t.defs.map((d, i) => (
         <article key={i} className="excerpt">
-          <header><strong>{d.short}</strong></header>
+          <header><strong>{d.short}</strong>{d.modern ? <Tag>Modern, copyrighted</Tag> : null}</header>
           {d.head.toLowerCase() !== t.term.toLowerCase() && <p className="ex-on">Under “{d.head}”</p>}
           <div className="ex-text"><Paras text={d.text} /></div>
           <p className="fine ex-source">{d.source}</p>
@@ -101,11 +118,12 @@ export function TermPage({ id }: { id: string }) {
           </div>
         </article>
       ))}
-      {!t.defs.length && !t.own && !t.see && <p className="note">Neither your glossary nor the public-domain sources in this app have an entry for this term, so it has no definition here yet. <a href="#ask">Ask the AI assistant</a> for a draft, and check it against Scripture and the writers below.</p>}
-      {!t.defs.length && t.own && <p className="fine">The public-domain sources in this app have no entry for this term to compare with.</p>}
+      {t.note && <p className="note"><strong>Added by Claude, not from the source:</strong> {t.note}</p>}
+      {!t.defs.length && !t.own && !t.see && <p className="note">Neither your glossary nor the sources in this app have an entry for this term, so it has no definition here yet. <a href="#ask">Ask the AI assistant</a> for a draft, and check it against Scripture and the writers below.</p>}
+      {!t.defs.length && t.own && <p className="fine">The sources in this app have no entry for this term to compare with.</p>}
       {t.refs.length > 0 && (
         <section>
-          <h3>Verses the sources cite</h3>
+          <h3>{t.note ? "Verses" : "Verses the sources cite"}</h3>
           <div className="chips">{t.refs.map((r) => <RefLink key={r} refText={r} />)}</div>
         </section>
       )}

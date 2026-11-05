@@ -67,6 +67,8 @@ const glossary = read("glossary.json").terms;
 for (const t of glossary) {
   for (const d of t.defs) if (!d.source || !d.text) errors.push(`glossary ${t.term}: definition with no source`);
   for (const r of t.refs) if (!exists(r)) errors.push(`glossary ${t.term}: bad reference ${r}`);
+  for (const c of t.corrections ?? []) if (!c.original || !c.why || !c.kind) errors.push(`glossary ${t.term}: correction with no original or reason`);
+  if (!t.defs.length && !t.own && !t.see) errors.push(`glossary ${t.term}: no definition`);
 }
 const byTerm = new Set(glossary.map((t) => t.id));
 for (const t of glossary) if (t.see && !byTerm.has(t.see)) errors.push(`glossary ${t.term}: points to missing ${t.see}`);

@@ -210,6 +210,12 @@ for para in re.findall(r"<w:p[ >].*?</w:p>", xml, re.S):
         own.append((head.strip(), body.strip()))
 print("own glossary entries", len(own))
 
+# Corrections made at the owner's request. The document itself is untouched, and each term keeps the original wording.
+CORR = {c["head"]: c for c in json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "glossary_corrections.json"), encoding="utf-8"))}
+missing_corr = set(CORR) - {h for h, _ in own}
+assert not missing_corr, f"corrections for headings not in the document: {missing_corr}"
+applied = []
+
 def norm_name(n):
     n = re.sub(r"\([^)]*\)", " ", n.lower().replace("’", "'"))
     n = re.sub(r"\bthe\b|,", " ", n)
@@ -231,6 +237,10 @@ see_pending = []
 own_by_key = {}
 merged = own_new = 0
 for head, body in own:
+    fix = CORR.get(head)
+    if fix:
+        original = f"{head}: {body}"
+        head, body = fix.get("newHead", head), fix["text"]
     names = [re.sub(r"\(s\)", "", n).strip() for n in head.split(" / ")]
     keys = [norm_name(n) for n in names]
     found = next((by_norm[k] for k in keys if k in by_norm), None)
@@ -258,6 +268,8 @@ for head, body in own:
     # "Priest (as an office of Christ)" or "Apocrypha (New Testament)" says which sense the text is about, so that stays with the text.
     sense = re.search(r"\((as [^)]*|New Testament|Old Testament)\)", head)
     labelled = f"{sense.group(1)[0].upper()}{sense.group(1)[1:]}: {body}" if sense else body
+    if fix:
+        applied.append({"text": labelled, "original": original, "kind": fix["kind"], "why": fix["why"], "basis": fix.get("basis", "")})
     found["own"] = (found["own"] + "\n\n" + labelled).strip() if found["own"] and labelled not in found["own"] else labelled
     found["ownHead"] = head
     for n, k in zip(names, keys):
@@ -291,11 +303,42 @@ for t, target in see_pending:
         print("see-reference not found:", t["term"], "->", target)
     elif dest is not t:
         t["see"] = dest["id"]
+for c in applied:
+    holders = [t for t in out if c["text"] in t["own"]]
+    assert holders, c["original"]
+    for t in holders:
+        t.setdefault("corrections", []).append({k: c[k] for k in ("original", "kind", "why", "basis")})
+print("corrected entries", len(applied), "on terms", sum(1 for t in out if t.get("corrections")))
+
+# ---------- Definitions found for terms that had none ----------
+# Each is quoted from a named source. Webster's text is checked against the dictionary file at build time.
+FILLED = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "glossary_filled.json"), encoding="utf-8"))
+webster = json.load(open(os.path.join(X, "webster/dictionary.json"), encoding="utf-8"))
+DICT_META = {key: (full, short, url) for key, _, full, short, url in DICTS}
+for name, entry in FILLED.items():
+    t = next((x for x in out if norm_name(x["term"]) == norm_name(name)), None)
+    assert t, name
+    assert not t["own"] and not t["see"], f"{name} already has text"
+    for d in entry["defs"]:
+        if d.get("from") == "webster":
+            assert d["text"] in webster[d["word"]], f"not in Webster: {name}"
+            t["defs"].append({"source": f"Webster's Unabridged Dictionary, “{d['word']}” (Project Gutenberg ebook 29765)", "short": "Webster's Unabridged", "head": d["word"].capitalize(), "text": d["text"], "url": "https://www.gutenberg.org/ebooks/29765"})
+        elif d.get("from"):
+            e = D[d["from"]][d["head"]]
+            full, short, url = DICT_META[d["from"]]
+            t["defs"].append({"source": full, "short": short, "head": e["name"], "text": e["text"], "url": url})
+            t["refs"] += [r for r in e["refs"] if r not in t["refs"]][:8]
+        else:
+            t["defs"].append({k: d[k] for k in ("source", "short", "head", "text", "url", "modern") if k in d})
+    t["refs"] = (t["refs"] + [r for r in entry.get("refs", []) if r not in t["refs"]])[:8]
+    if entry.get("note"):
+        t["note"] = entry["note"]
+
 out.sort(key=lambda x: re.sub(r"^the ", "", x["term"].lower()))
 print("own glossary: matched existing", merged, "new", own_new, "see-references", len(see_pending), "total terms", len(out))
 print("no text at all:", [x["term"] for x in out if not x["defs"] and not x["own"] and not x["see"]])
 
-json.dump({"terms": out, "note": "Definitions are quoted from public-domain works named on each entry."}, open(os.path.join(args.out, "glossary.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+json.dump({"terms": out, "note": "Definitions are quoted from the works named on each entry. Most are public domain; those marked modern are short quotations from copyrighted dictionaries."}, open(os.path.join(args.out, "glossary.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 have = [x for x in out if x["defs"]]
 print("terms", len(out), "with a quoted definition", len(have), "own text", sum(1 for x in out if x["own"]))
 print("no entry found for listed headwords:", missing_heads)

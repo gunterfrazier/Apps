@@ -1,16 +1,21 @@
 import { load } from "./data";
 
-/** A definition quoted from a named public-domain work. Nothing here is written for the app. */
-export interface TermDefinition { source: string; short: string; head: string; text: string; url: string }
+/** A definition quoted from a named work, public domain unless `modern` is set. Nothing here is written for the app. */
+export interface TermDefinition { source: string; short: string; head: string; text: string; url: string; modern?: boolean }
+/** A rewording of the owner's entry, made at the owner's request. The original wording stays with it. */
+export interface TermCorrection { original: string; kind: "inaccurate" | "contested"; why: string; basis: string }
 export interface GlossaryTerm {
   id: string;
   term: string;
-  /** Definitions quoted from named public-domain works. */
+  /** Definitions quoted from named works. */
   defs: TermDefinition[];
   refs: string[];
   topic: string;
-  /** Word for word from the owner's own glossary, which names no sources. */
+  /** From the owner's own glossary, which names no sources. Word for word unless `corrections` is set. */
   own: string;
+  corrections?: TermCorrection[];
+  /** A short note written by Claude, not from any source, shown as such. */
+  note?: string;
   ownHead?: string;
   aliases: string[];
   /** Another term's id, when this one is only a cross-reference. */

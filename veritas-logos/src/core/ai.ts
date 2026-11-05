@@ -124,7 +124,7 @@ export function aiTools(translation: TranslationId): AiTool[] {
       execute: async ({ term }) => {
         const t = (await searchGlossary(String(term), 1))[0];
         if (!t) return { term, definitions: [] };
-        return { term: t.term, alsoCalled: t.aliases, readersOwnGlossary: t.own || undefined, definitions: t.defs.slice(0, 4).map((d) => ({ source: d.source, text: clip(d.text, 900) })), verses: t.refs };
+        return { term: t.term, alsoCalled: t.aliases, readersOwnGlossary: t.own || undefined, readersGlossaryWasCorrected: t.corrections?.length ? true : undefined, note: t.note, definitions: t.defs.slice(0, 4).map((d) => ({ source: d.source, text: clip(d.text, 900) })), verses: t.refs };
       },
     },
     {
