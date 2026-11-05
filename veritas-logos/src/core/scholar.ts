@@ -182,6 +182,21 @@ export interface DateView { label: string; x?: number; who: string; source: stri
 export interface ChronItem { id: string; title: string; match: string; modernX: number; views: DateView[]; refs?: string[] }
 export const getChronology = () => g<{ items: ChronItem[]; books: { book: string; views: DateView[] }[] }>("chronology");
 
+// ---------- Bible dictionaries ----------
+export const DICT_NAMES = { easton: "Easton's Bible Dictionary (1897)", smith: "Smith's Bible Dictionary (1884 ed.)" } as const;
+export type DictKey = keyof typeof DICT_NAMES;
+export const getDictionary = (k: DictKey) => g<Record<string, string>>(`dictionary-${k}`);
+export async function lookupDictionary(name: string): Promise<{ source: string; head: string; text: string }[]> {
+  const q = name.trim().toUpperCase().replace(/[.,:;]+$/, "");
+  const out: { source: string; head: string; text: string }[] = [];
+  for (const k of Object.keys(DICT_NAMES) as DictKey[]) {
+    const d = await getDictionary(k);
+    const head = q in d ? q : Object.keys(d).find((h) => h.startsWith(`${q},`) || h.startsWith(`${q} `));
+    if (head) out.push({ source: DICT_NAMES[k], head, text: d[head] });
+  }
+  return out;
+}
+
 // ---------- Terms through the centuries ----------
 export interface DoctrineEntry { n: Record<string, number>; s: Record<string, [string, number][]> }
 export const getDoctrine = () => g<Record<string, DoctrineEntry>>("doctrine");

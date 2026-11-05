@@ -20,7 +20,7 @@ import http from "node:http";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { chatPreamble, checkReferences, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
+import { chatPreamble, checkReferences, exegesisPrompt, explorePrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
 import { getPassage, isTranslationId, searchText, TRANSLATIONS, DEFAULT_TRANSLATION, translationInfo, decodeVerseCode, refOf, getVerse, type TranslationId } from "../src/core/bible";
 import { getTopic, searchTopics } from "../src/core/content";
 import { setLoader } from "../src/core/data";
@@ -347,7 +347,20 @@ export function createServer(opts: ServerOptions = {}) {
         if (!guide || typeof body.request !== "string" || !body.request.trim()) throw new HttpError(400, "bad_guide", "Send a guide and a request.");
         system = "You are the study assistant in Veritas Logos.";
         messages = [{ role: "user", content: await guideDraftPrompt(guide, body.request.slice(0, 2000)) }];
-      } else throw new HttpError(400, "bad_purpose", "Use purpose insight, chat or draft.");
+      } else if (body.purpose === "explore") {
+        // The server writes the prompt, so this route can't be used as a general-purpose proxy to the model.
+        const c = (body.section ?? {}) as Record<string, unknown>;
+        if (typeof body.request !== "string" || !body.request.trim() || typeof c.heading !== "string") throw new HttpError(400, "bad_section", "Send a section and a request.");
+        system = "You are the study assistant in Veritas Logos.";
+        const refs = Array.isArray(c.refs) ? c.refs.filter((r): r is string => typeof r === "string" && Boolean(parseReference(r))).slice(0, 12) : [];
+        messages = [{ role: "user", content: explorePrompt({ heading: c.heading.slice(0, 200), kind: String(c.kind ?? "text").slice(0, 20), text: String(c.text ?? "").slice(0, 6000), refs, lens, translation, guideTitle: typeof c.guideTitle === "string" ? c.guideTitle.slice(0, 200) : undefined }, body.request.slice(0, 2000)) }];
+        useTools = true;
+      } else if (body.purpose === "exegesis") {
+        if (typeof body.reference !== "string" || !parseReference(body.reference)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
+        system = "You are the study assistant in Veritas Logos.";
+        messages = [{ role: "user", content: await exegesisPrompt(body.reference, translation, lens) }];
+        useTools = true;
+      } else throw new HttpError(400, "bad_purpose", "Use purpose insight, chat, draft, explore or exegesis.");
 
       res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" });
       const ctl = new AbortController();

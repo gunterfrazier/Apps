@@ -72,6 +72,11 @@ for key, fn, *_ in DICTS:
     D[key] = d
     print(key, len(d), "entries")
 
+# The whole of Easton and Smith, so the AI assistant can look up places, customs and people and quote them.
+os.makedirs(os.path.join(args.out, "scholar"), exist_ok=True)
+for _k in ("easton", "smith"):
+    json.dump({h: e["text"] for h, e in D[_k].items() if len(e["text"]) > 40}, open(os.path.join(args.out, f"scholar/dictionary-{_k}.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+
 # Sections of Schaff's History of the Christian Church (vol. 2, public domain in CCEL's file) for movements the dictionaries skip.
 HCC = os.path.join(X, "ccel-copy/references/ccel/authors/schaff/hcc2.xml")
 hcc_raw = open(HCC, encoding="utf-8", errors="replace").read()

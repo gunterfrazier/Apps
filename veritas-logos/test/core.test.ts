@@ -14,7 +14,11 @@ import { ensureFigures, getTimeline, peopleInPassage, versesOfPerson } from "../
 import { getGlossary, searchGlossary, termById } from "../src/core/glossary";
 import { creedsCiting, getChurchEvents, getCreed, getCreedIndex, getDeuterocanon, getDisputed, getApostolic, getJosephus, getSynopsis, lxxChapters, lxxPsalms, sameStrong, taggedVerse, verseVariants, vulgateChapters, getChronology, getDoctrine } from "../src/core/scholar";
 import { exportAll, formatCitation, parseSourceLine } from "../src/core/cite";
-import { checkResearch } from "../src/core/research";
+import { checkResearch, checkSources } from "../src/core/research";
+import { coerceExegesis, coerceExplore, exegesisPrompt, explorePrompt, insightPrompt, strayWords, aiTools } from "../src/core/ai";
+import { lookupDictionary } from "../src/core/scholar";
+import { lensName } from "../src/core/guide";
+import { LENS_IDS } from "../src/core/content";
 import { guideDocumentXml, guideToDocx } from "../src/core/docx";
 import { editionNote, excerptsAt, workCaution, writerTradition, writerById } from "../src/core/writings";
 import { excerptsByWriter, excerptsForPassage, getWritingsIndex, searchWritings, sermonsForPassage } from "../src/core/writings";
@@ -412,4 +416,38 @@ test("dating: disputed items name their sources", async () => {
   assert.equal(ex.views.length, 2);
   assert.ok(ex.views.every((v) => v.source));
   assert.ok(c.books.some((b) => b.book === "Daniel"));
+});
+
+test("covenant lens: it's offered, and prompts explain it", async () => {
+  assert.ok(LENS_IDS.includes("covenant"));
+  assert.equal(lensName("covenant"), "Covenant / Federal");
+  const guide = await generateGuide({ input: "Genesis 15:1-6", format: "exegetical", lens: "covenant" });
+  assert.equal(guide.lens, "covenant");
+  assert.match(JSON.stringify(guide.sections), /Covenant \/ Federal teachers/);
+  assert.match(await insightPrompt("Genesis 15:6", "BSB", "covenant"), /federal heads/);
+  assert.match(await exegesisPrompt("Genesis 15:6", "BSB", "covenant"), /federal heads/);
+});
+
+test("exegesis: the prompt carries the original language, and replies are checked", async () => {
+  const prompt = await exegesisPrompt("John 1:1", "BSB", "reformed");
+  assert.match(prompt, /\[G3056 /);
+  assert.equal(coerceExegesis("nope"), null);
+  const e = coerceExegesis({ thesis: "t", verses: [{ ref: "John 1:1", comment: "c" }], words: [{ word: "x", strong: "G3056" }], sources: [] })!;
+  assert.equal(e.verses.length, 1);
+  assert.deepEqual(await strayWords("John 1:1", [{ strong: "G3056" }, { strong: "G26" }]), ["G26"]);
+});
+
+test("explore: the prompt holds the section and lens, and sources are checked", async () => {
+  const p = explorePrompt({ heading: "Background to research", kind: "text", text: "Who wrote this?", refs: ["Romans 8"], lens: "covenant", translation: "BSB" }, "Expand");
+  assert.match(p, /Who wrote this/);
+  assert.match(p, /lookup_dictionary/);
+  assert.equal(coerceExplore({}), null);
+  assert.equal(coerceExplore({ body: "b", gaps: ["g"] })!.gaps.length, 1);
+  const hits = await lookupDictionary("Pharisees");
+  assert.ok(hits.length >= 1 && hits[0].text.length > 100);
+  const quote = hits[0].text.split(/\s+/).slice(3, 12).join(" ");
+  const checked = await checkSources([{ type: "dictionary", name: "Pharisees", quote }, { type: "dictionary", name: "Pharisees", quote: "these words are not in the entry at all" }, { type: "josephus", quote: "the family from which I am derived is not an ignoble one" }], "BSB");
+  assert.deepEqual(checked.map((c) => c.ok), [true, false, true]);
+  const tools = aiTools("BSB").map((t) => t.name);
+  for (const t of ["lookup_dictionary", "search_josephus", "book_background"]) assert.ok(tools.includes(t), t);
 });

@@ -11,7 +11,8 @@ import { lensName, type Guide, type GuideSection, newId, type SectionItem } from
 import { getInsights } from "./insights";
 import { excerptsForPassage, FLAG_NOTE, varied } from "./writings";
 import { searchGlossary } from "./glossary";
-import { creedText, getChurchEvents, getCreed, getCreedIndex, verseVariants, lxxChapters, vulgateChapters } from "./scholar";
+import { creedText, getChronology, getChurchEvents, getCreed, getCreedIndex, getJosephus, lookupDictionary, verseVariants, lxxChapters, vulgateChapters } from "./scholar";
+import { getBookMeta } from "./content";
 import { decodeMorph, getCrossRefs, getLexEntry, getVerseWords, normalizeStrongs, searchLexicon } from "./lexicon";
 import { ensureFigures, versesOfPerson } from "./people";
 import { bookName, findReferences, parseReference } from "./references";
@@ -129,6 +130,38 @@ export function aiTools(translation: TranslationId): AiTool[] {
       },
     },
     {
+      name: "lookup_dictionary",
+      description: "Looks up a person, place, custom, object or word in Easton's and Smith's Bible dictionaries (public domain, 1800s). Use this for historical and cultural background, and quote what it returns. The entries reflect the scholarship of their time.",
+      inputSchema: { type: "object", properties: { name: { type: "string", description: "A headword, such as Pharisees, Corinth or Passover" } }, required: ["name"] },
+      execute: async ({ name }) => (await lookupDictionary(String(name))).map((h) => ({ source: h.source, entry: h.head, text: clip(h.text, 3500) })),
+    },
+    {
+      name: "search_josephus",
+      description: "Searches Josephus (Whiston's translation) for a word or phrase. Use it for first-century Jewish background.",
+      inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
+      execute: async ({ query }) => {
+        const q = String(query).toLowerCase();
+        const out: unknown[] = [];
+        const { works } = await getJosephus();
+        for (const w of works) for (const b of w.books) for (const c of b.chapters) for (const [n, t] of c.paras) {
+          if (out.length < 8 && t.toLowerCase().includes(q)) out.push({ work: w.name, place: `${b.n}.${c.n}.${n}`, text: clip(t, 900) });
+        }
+        return out;
+      },
+    },
+    {
+      name: "book_background",
+      description: "Returns a Bible book's names, length, and the scholarly views on when it was written, with sources.",
+      inputSchema: { type: "object", properties: { book: { type: "string" } }, required: ["book"] },
+      execute: async ({ book }) => {
+        const s = parseReference(`${book} 1`)?.[0];
+        if (!s) return { error: "That book isn't recognized." };
+        const name = bookName(s.book);
+        const dating = (await getChronology()).books.find((b) => b.book === name);
+        return { book: name, meta: await getBookMeta(s.book), datingViews: dating?.views ?? [] };
+      },
+    },
+    {
       name: "church_history",
       description: "Searches dated church history events (councils, schisms, reformations, creeds, theological shifts) with their sources. Use it for questions about when or why something happened in the church.",
       inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
@@ -230,8 +263,14 @@ async function groundingFor(reference: string, translation: TranslationId): Prom
   return `Passage: ${passage.reference} (${translationInfo(translation).name})\n<passage_text>\n${text}\n</passage_text>\n<app_data>\n${clip(JSON.stringify(data), 24000)}\n</app_data>`;
 }
 
+/** What each lens means here, so the assistant reads from inside it. Only named where a label alone would be unclear. */
+const LENS_GUIDE: Partial<Record<LensId, string>> = {
+  covenant: "Covenant (federal) theology reads Scripture through its covenants: the covenant of redemption within the Trinity (pactum salutis, where its adherents teach it), the covenant of works with Adam, and the one covenant of grace administered through Noah, Abraham, Moses and David and fulfilled in the new covenant. Adam and Christ are federal heads, so it treats representation and imputation as central, and it stresses the continuity of the Testaments and one people of God. Its classic statement is Westminster Confession chapter VII, with writers such as Cocceius, Witsius and Turretin. Note where covenant theologians differ among themselves (paedobaptist and 1689 Baptist forms, for example), and where it parts from Dispensational and New Covenant theology.",
+};
+export const lensGuide = (lens: LensId) => (LENS_GUIDE[lens] ? `\nAbout this lens: ${LENS_GUIDE[lens]}` : "");
+
 export async function insightPrompt(reference: string, translation: TranslationId, lens: LensId): Promise<string> {
-  const lensText = lens === "all" ? "Treat traditions evenly; leave lensReading as a short statement of what is broadly shared across traditions." : `The reader chose the ${lensName(lens)} lens. Put that tradition's reading in lensReading, in its own terms.`;
+  const lensText = lens === "all" ? "Treat traditions evenly; leave lensReading as a short statement of what is broadly shared across traditions." : `${lensGuide(lens)}\nThe reader chose the ${lensName(lens)} lens. Put that tradition's reading in lensReading, in its own terms.`;
   return `${AI_RULES}
 
 Explain this passage for a study guide. ${lensText}
@@ -244,7 +283,132 @@ Use empty arrays where there is nothing solid to say. Do not pad. Name quotation
 
 export async function chatPreamble(translation: TranslationId, lens: LensId, contextRef?: string): Promise<string> {
   const context = contextRef ? `\n\nThe reader is looking at this passage:\n${await groundingFor(contextRef, translation)}` : "";
-  return `${AI_RULES}\n\nThe reader's translation is ${translationInfo(translation).name} and their theological lens is ${lensName(lens)}. Use your tools to look up what you need before answering. Answer in a few short paragraphs unless asked for more.${context}`;
+  return `${AI_RULES}\n\nThe reader's translation is ${translationInfo(translation).name} and their theological lens is ${lensName(lens)}.${lensGuide(lens)} Use your tools to look up what you need before answering. Answer in a few short paragraphs unless asked for more.${context}`;
+}
+
+// ---------- Researching and expanding ----------
+
+const SOURCE_RULES = `Find what you need with your tools before you write: passage_insights, historic_writers, lookup_dictionary, search_josephus, book_background, define_term, church_history, search_creeds, word_study and original_words.
+List what you relied on under "sources", using only things your tools returned:
+{"type":"scripture","ref":"John 1:1"}, {"type":"writer","writer":"name","ref":"the passage it is filed under","quote":"exact words"}, {"type":"creed","doc":"id","quote":"exact words"}, {"type":"term","term":"name","quote":"exact words"}, {"type":"event","event":"id"}, {"type":"dictionary","name":"entry","quote":"exact words"}, {"type":"josephus","quote":"exact words"}.
+A quote must be copied exactly and be at least six words. The app checks each one word for word and tells the reader which it couldn't confirm. Where you rely on your general knowledge instead, say so in plain words in the text and name the kind of evidence. Put what can't be settled in "gaps". Don't invent sources.`;
+
+export interface ExploreDraft { heading: string; body: string; items: { label?: string; text: string }[]; sources: unknown[]; gaps: string[] }
+export interface ExploreContext { heading: string; kind: string; text: string; refs: string[]; lens: LensId; translation: TranslationId; guideTitle?: string }
+
+export const EXPLORE_PRESETS: { id: string; label: string; ask: string; kinds?: string[] }[] = [
+  { id: "background", label: "Research a background overview", ask: "Write a well-organized background overview: who wrote this, to whom, when and where, the situation behind it, how the first hearers would have understood it, and the customs or idioms a modern reader may miss. Note where the date or setting is disputed." },
+  { id: "expand", label: "Expand on this", ask: "Expand on what this section says. Add depth and detail that a serious student would want, without repeating it." },
+  { id: "explain", label: "Explain how these connect", ask: "Explain what ties these items together and what each one adds to the passage.", kinds: ["crossrefs", "words", "people"] },
+  { id: "sources", label: "Find what the sources say", ask: "Search the app's sources and report what the historic writers, dictionaries and creeds say on this, quoting them." },
+  { id: "traditions", label: "Compare how traditions read this", ask: "Compare how major Christian traditions read this, in terms each would recognize, and name the real disagreements." },
+  { id: "answers", label: "Draft notes for these questions", ask: "For each question, give short notes a leader could use, tied to the text.", kinds: ["questions"] },
+];
+
+export function explorePrompt(c: ExploreContext, request: string): string {
+  const lens = c.lens === "all" ? "Treat traditions evenly." : `The reader chose the ${lensName(c.lens)} lens. Write from inside that reading and briefly note where others differ.${lensGuide(c.lens)}`;
+  return `${AI_RULES}
+
+The reader is studying${c.guideTitle ? ` "${c.guideTitle}"` : ""} in ${translationInfo(c.translation).name}, and wants to explore one section further. ${lens}
+Passages in view: ${c.refs.join("; ") || "none named"}.
+<section heading="${c.heading.replace(/"/g, "'")}" kind="${c.kind}">
+${clip(c.text, 6000)}
+</section>
+
+Request: ${request}
+
+${SOURCE_RULES}
+
+Reply with only one JSON object in this shape:
+{"heading":"short heading","body":"paragraphs separated by a blank line","items":[{"label":"optional short label","text":"item text"}],"sources":[],"gaps":["what isn't settled"]}
+Use items only where a list reads better. Write plainly, and add only what was asked for.`;
+}
+
+export function coerceExplore(raw: unknown): ExploreDraft | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const items = Array.isArray(r.items) ? r.items.slice(0, 40).flatMap((it: any) => (it && asStr(it.text) ? [{ text: asStr(it.text), ...(asStr(it.label, 200) ? { label: asStr(it.label, 200) } : {}) }] : [])) : [];
+  const out: ExploreDraft = { heading: asStr(r.heading, 200), body: asStr(r.body, 12000), items, sources: Array.isArray(r.sources) ? r.sources : [], gaps: Array.isArray(r.gaps) ? r.gaps.map((x) => asStr(x, 500)).filter(Boolean).slice(0, 12) : [] };
+  return out.body || out.items.length ? out : null;
+}
+
+export interface Exegesis {
+  thesis: string;
+  historical: string;
+  literary: string;
+  structure: { verses: string; point: string }[];
+  verses: { ref: string; comment: string }[];
+  words: { word: string; strong: string; meaning: string; significance: string }[];
+  grammar: { ref: string; note: string }[];
+  intertext: { ref: string; relation: string; note: string }[];
+  lensReading: string;
+  doctrines: { name: string; connection: string }[];
+  otherReadings: { tradition: string; reading: string }[];
+  application: string;
+  uncertain: string[];
+  sources: unknown[];
+}
+
+/** Everything checked about a passage that the model should start from, verse by verse. */
+export async function exegesisGrounding(reference: string, translation: TranslationId): Promise<string> {
+  const base = await groundingFor(reference, translation);
+  const passage = await getPassage(translation, reference);
+  const all = passage?.parts.flatMap((p) => p.verses) ?? [];
+  const verses = all.slice(0, 25);
+  const lines: string[] = [];
+  for (const v of verses) {
+    const w = await getVerseWords(v.book, v.chapter, v.verse);
+    lines.push(`${v.chapter}:${v.verse} ${w.map((x) => `${x[0]} [${x[3]} ${x[2]}; ${decodeMorph(x[4])}]`).join(" ")}`);
+  }
+  const [a, b] = await Promise.all([excerptsForPassage(reference), excerptsForPassage(reference, "comm")]);
+  const writers = varied([...a, ...b], 8).map((e) => ({ writer: e.writer.name, year: e.writer.year, work: e.title, filedUnder: e.reference, text: clip(e.text, 700) }));
+  return `${base}\n<original_language>\n${clip(lines.join("\n"), 22000)}${all.length > verses.length ? `\nThis covers the first ${verses.length} of ${all.length} verses. Use original_words for the rest.` : ""}\n</original_language>\n<historic_writers>\n${clip(JSON.stringify(writers), 8000)}\n</historic_writers>`;
+}
+
+export async function exegesisPrompt(reference: string, translation: TranslationId, lens: LensId): Promise<string> {
+  const lensText = lens === "all"
+    ? "The reader hasn't chosen one lens. Give the reading most traditions share in lensReading, and let otherReadings carry the differences."
+    : `Interpret from inside the ${lensName(lens)} tradition, as its own careful exegetes would, and say plainly in lensReading how that framework shapes the reading. Keep what the text says apart from what the framework draws from it.${lensGuide(lens)}`;
+  return `${AI_RULES}
+
+Write a deep exegetical synopsis of ${reference}. ${lensText}
+Work from the text outward: the setting, then the literary context and structure, then the verses, then the original-language evidence, then the wider biblical links, and only then the theology. Base grammar notes on the parsing you are given, and don't assert a grammatical point it doesn't support.
+${await exegesisGrounding(reference, translation)}
+
+${SOURCE_RULES}
+
+Reply with only one JSON object in this shape:
+{"thesis":"the passage's main point in one or two sentences","historical":"historical and cultural setting","literary":"place in the book, genre and flow of argument","structure":[{"verses":"vv. 1-3","point":"what this part does"}],"verses":[{"ref":"Romans 8:28","comment":"what this verse says and contributes"}],"words":[{"word":"Greek or Hebrew word as given","strong":"G1234","meaning":"its range of meaning","significance":"why it matters here"}],"grammar":[{"ref":"Romans 8:28","note":"a grammatical point that affects meaning"}],"intertext":[{"ref":"Psalm 110:1","relation":"quotes, alludes to or echoes","note":"how it bears on this passage"}],"lensReading":"how the chosen lens reads the passage, as connected paragraphs","doctrines":[{"name":"doctrine","connection":"how this passage bears on it"}],"otherReadings":[{"tradition":"name","reading":"how they differ, fairly stated"}],"application":"what the lens draws from this for faith and life","uncertain":["what is debated or uncertain"],"sources":[]}
+Comment on each verse, or on small groups of verses if the passage is long. Use empty arrays where there is nothing solid to say.`;
+}
+
+export function coerceExegesis(raw: unknown): Exegesis | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const list = <T>(v: unknown, n: number, f: (x: Record<string, unknown>) => T): T[] => (Array.isArray(v) ? v.slice(0, n).filter((x) => x && typeof x === "object").map((x) => f(x as Record<string, unknown>)) : []);
+  const out: Exegesis = {
+    thesis: asStr(r.thesis), historical: asStr(r.historical, 6000), literary: asStr(r.literary, 6000),
+    structure: list(r.structure, 30, (x) => ({ verses: asStr(x.verses, 60), point: asStr(x.point, 800) })),
+    verses: list(r.verses, 60, (x) => ({ ref: asStr(x.ref, 80), comment: asStr(x.comment, 3000) })),
+    words: list(r.words, 24, (x) => ({ word: asStr(x.word, 80), strong: asStr(x.strong, 12), meaning: asStr(x.meaning, 800), significance: asStr(x.significance, 1500) })),
+    grammar: list(r.grammar, 20, (x) => ({ ref: asStr(x.ref, 80), note: asStr(x.note, 1500) })),
+    intertext: list(r.intertext, 24, (x) => ({ ref: asStr(x.ref, 80), relation: asStr(x.relation, 40), note: asStr(x.note, 1200) })),
+    lensReading: asStr(r.lensReading, 9000),
+    doctrines: list(r.doctrines, 16, (x) => ({ name: asStr(x.name, 120), connection: asStr(x.connection, 1200) })),
+    otherReadings: list(r.otherReadings, 12, (x) => ({ tradition: asStr(x.tradition, 100), reading: asStr(x.reading, 1500) })),
+    application: asStr(r.application, 4000),
+    uncertain: Array.isArray(r.uncertain) ? r.uncertain.map((x) => asStr(x, 600)).filter(Boolean).slice(0, 12) : [],
+    sources: Array.isArray(r.sources) ? r.sources : [],
+  };
+  return out.thesis || out.verses.length ? out : null;
+}
+
+/** Word studies in an exegesis must be words that really occur in this passage. */
+export async function strayWords(reference: string, words: { strong: string }[]): Promise<string[]> {
+  const passage = await getPassage(DEFAULT_TRANSLATION, reference);
+  const seen = new Set<string>();
+  for (const v of passage?.parts.flatMap((p) => p.verses) ?? []) for (const w of await getVerseWords(v.book, v.chapter, v.verse)) seen.add(normalizeStrongs(w[3]) ?? "");
+  return words.map((w) => w.strong).filter((s) => s && !seen.has(normalizeStrongs(s) ?? s));
 }
 
 export const guideRequestPresets = [

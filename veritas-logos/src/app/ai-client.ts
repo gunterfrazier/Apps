@@ -1,8 +1,8 @@
 import type { TranslationId } from "../core/bible";
 import type { LensId } from "../core/content";
-import { aiTools, AI_RULES, chatPreamble, coerceDraftSections, coerceInsight, guideDraftPrompt, insightPrompt, parseJsonReply, type AiInsight } from "../core/ai";
+import { aiTools, AI_RULES, chatPreamble, coerceDraftSections, coerceExegesis, coerceExplore, coerceInsight, exegesisPrompt, explorePrompt, guideDraftPrompt, insightPrompt, parseJsonReply, strayWords, type AiInsight, type Exegesis, type ExploreContext, type ExploreDraft } from "../core/ai";
 import type { Guide, GuideSection } from "../core/guide";
-import { checkResearch, RESEARCH_RULES, type ResearchAnswer } from "../core/research";
+import { checkResearch, checkSources, RESEARCH_RULES, type CheckedSource, type ResearchAnswer } from "../core/research";
 import { getData } from "./store";
 
 export type AiMode = "viewer" | "server" | "none";
@@ -145,6 +145,33 @@ export async function aiResearch(turns: Turn[], translation: TranslationId, lens
   const asked: Turn[] = [...turns.slice(0, -1), { role: "user", content: `${RESEARCH_RULES}\n\nQuestion: ${last.content}` }];
   const raw = await aiChat(asked, translation, lens, contextRef, opts);
   return { raw, answer: await checkResearch(parseJsonReply(raw), translation) };
+}
+
+async function researchReply(prompt: () => string | Promise<string>, body: Record<string, unknown>, translation: TranslationId, opts: AskOpts, tier: "default" | "complex"): Promise<string> {
+  const mode = await detectAi();
+  if (mode === "viewer") {
+    const options: any = { signal: opts.signal, cache: false, modelTier: tier, onText: opts.onText ? ({ text }: { text: string }) => opts.onText!(text) : undefined };
+    if (await viewerHasTools()) options.tools = toolsFor(translation);
+    return (await sampleFn(await prompt(), options)).text;
+  }
+  if (mode === "server") return serverAsk(body, opts);
+  throw { code: "none", userMessage: "The AI assistant isn't set up here." };
+}
+
+/** Explores or expands one section, then checks what it cites. */
+export async function aiExplore(c: ExploreContext, request: string, opts: AskOpts = {}): Promise<{ draft: ExploreDraft; checked: CheckedSource[] }> {
+  const text = await researchReply(() => explorePrompt(c, request), { purpose: "explore", request, translation: c.translation, lens: c.lens, section: { heading: c.heading, kind: c.kind, text: c.text, refs: c.refs, guideTitle: c.guideTitle } }, c.translation, opts, "default");
+  const draft = coerceExplore(parseJsonReply(text));
+  if (!draft) throw { code: "bad_reply", userMessage: "The assistant's reply couldn't be read. Try again." };
+  return { draft, checked: await checkSources(draft.sources, c.translation) };
+}
+
+/** A deep exegetical synopsis from the chosen lens, with its citations and word studies checked. */
+export async function aiExegesis(reference: string, translation: TranslationId, lens: LensId, opts: AskOpts = {}): Promise<{ exegesis: Exegesis; checked: CheckedSource[]; stray: string[] }> {
+  const text = await researchReply(() => exegesisPrompt(reference, translation, lens), { purpose: "exegesis", reference, translation, lens }, translation, opts, "complex");
+  const exegesis = coerceExegesis(parseJsonReply(text));
+  if (!exegesis) throw { code: "bad_reply", userMessage: "The reply couldn't be read, which can happen with a long passage. Try a shorter one." };
+  return { exegesis, checked: await checkSources(exegesis.sources, translation), stray: await strayWords(reference, exegesis.words) };
 }
 
 export { AI_RULES };

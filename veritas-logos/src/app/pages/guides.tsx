@@ -7,6 +7,8 @@ import { peopleInPassage } from "../../core/people";
 import { aiDraft, detectAi, friendlyAiError, type AiMode } from "../ai-client";
 import { guideToDocx } from "../../core/docx";
 import { StudyNav } from "./notebook";
+import { EXPLORE_PRESETS } from "../../core/ai";
+import { ExegesisBlock, ExploreSheet, sectionText } from "./ai-explore";
 import { appBase, copyText, decodeFromLink, encodeForLink, IS_ARTIFACT, saveFile } from "../files";
 import { deleteGuide, navigate, saveGuide, toast, update, useData } from "../store";
 import { Empty, ErrorNote, LensSelect, Loading, OriginTag, Paras, RefLink, RefText, Sheet, TranslationSelect, useAsync } from "../ui";
@@ -169,7 +171,7 @@ function Wizard({ guide, setGuide, step, setStep, onFinish }: { guide: Guide; se
       <h1 className="page-title">{STEPS[step].title}</h1>
       <ol className="stepper" aria-label="Steps">{STEPS.map((s, i) => <li key={s.key} className={i === step ? "on" : i < step ? "done" : ""}><button type="button" onClick={() => setStep(i === 0 ? 1 : i)} aria-label={s.title}>{i + 1}</button></li>)}</ol>
       {sections.length === 0 && <Empty>Nothing was found for this step. Add your own notes, or continue.</Empty>}
-      {sections.map((s) => <SectionEditor key={s.id} section={s} translation={guide.translation} onChange={setSection} onDelete={() => remove(s.id)} compact />)}
+      {sections.map((s) => <SectionEditor key={s.id} guide={guide} onInsert={(after, n) => { const i = guide.sections.findIndex((x) => x.id === after); const list = [...guide.sections]; list.splice(i + 1, 0, n); setGuide({ ...guide, sections: list }); }} section={s} translation={guide.translation} onChange={setSection} onDelete={() => remove(s.id)} compact />)}
       <button type="button" className="btn" onClick={addNote}>Add your own {step === 5 ? "questions" : "notes"}</button>
       <div className="chapter-nav">
         <button type="button" className="btn" onClick={() => setStep(step - 1)} disabled={step <= 1}>Back</button>
@@ -198,8 +200,11 @@ function PassageText({ refText, translation }: { refText: string; translation: T
   );
 }
 
-function SectionEditor({ section: s, translation, onChange, onDelete, onMove, compact }: { section: GuideSection; translation: TranslationId; onChange: (s: GuideSection) => void; onDelete: () => void; onMove?: (d: number) => void; compact?: boolean }) {
+function SectionEditor({ section: s, translation, onChange, onDelete, onMove, compact, guide, onInsert }: { guide: Guide; onInsert: (after: string, s: GuideSection) => void; section: GuideSection; translation: TranslationId; onChange: (s: GuideSection) => void; onDelete: () => void; onMove?: (d: number) => void; compact?: boolean }) {
   const setItem = (i: number, patch: Partial<SectionItem>) => onChange({ ...s, items: s.items!.map((it, j) => (j === i ? { ...it, ...patch } : it)) });
+  const [explore, setExplore] = useState<"" | "open" | "background">("");
+  const isBackground = /background to research/i.test(s.heading);
+  const passages = guide.sections.flatMap((x) => (x.kind === "passage" && x.ref ? [x.ref] : []));
   return (
     <article className={`section-card origin-card-${s.origin}`}>
       <div className="section-top">
@@ -232,6 +237,19 @@ function SectionEditor({ section: s, translation, onChange, onDelete, onMove, co
         </div>
       ))}
       {s.items && (s.kind === "questions" || s.kind === "text") && <button type="button" className="link-btn" onClick={() => onChange({ ...s, items: [...s.items!, { text: "" }] })}>Add a line</button>}
+      <div className="section-explore">
+        {isBackground && <button type="button" className="btn small primary" onClick={() => setExplore("background")}>Research this with AI</button>}
+        <button type="button" className="link-btn" onClick={() => setExplore("open")}>Explore and expand</button>
+      </div>
+      {explore && (
+        <ExploreSheet
+          context={{ heading: s.heading, kind: s.kind, text: sectionText(s), refs: s.ref ? [s.ref] : passages, lens: guide.lens, translation, guideTitle: guide.title }}
+          initialAsk={explore === "background" ? EXPLORE_PRESETS.find((p) => p.id === "background")!.ask : undefined}
+          onClose={() => setExplore("")}
+          onAdd={(n) => { onInsert(s.id, n); setExplore(""); toast("Added below this section"); }}
+          onReplace={isBackground || s.kind === "text" ? (n) => { onChange({ ...s, ...n, id: s.id, heading: isBackground ? n.heading : s.heading }); setExplore(""); toast("Section updated. It's marked as an AI draft."); } : undefined}
+        />
+      )}
     </article>
   );
 }
@@ -274,8 +292,9 @@ export function GuidePage({ id }: { id: string }) {
       {view === "edit" && (
         <>
           <button type="button" className="ai-cta" onClick={() => setAiOpen(true)}><strong>Draft with AI</strong><span>Culture and idioms, theological views, questions, an outline or applications</span></button>
+          <GuideExegesis guide={guide} onAdd={(n) => { const i = guide.sections.findIndex((x) => x.kind === "passage"); const list = [...guide.sections]; list.splice(i + 1, 0, ...n); set({ ...guide, sections: list }); toast("Added after the passage"); }} />
           {guide.sections.length === 0 && <Empty>This guide is empty. Add a passage below, or tap a verse in the reader and choose “Add to guide”.</Empty>}
-          {guide.sections.map((s, i) => <SectionEditor key={s.id} section={s} translation={guide.translation} onChange={setSection} onDelete={() => set({ ...guide, sections: guide.sections.filter((x) => x.id !== s.id) })} onMove={(d) => move(i, d)} />)}
+          {guide.sections.map((s, i) => <SectionEditor key={s.id} guide={guide} onInsert={(after, n) => { const at = guide.sections.findIndex((x) => x.id === after); const list = [...guide.sections]; list.splice(at + 1, 0, n); set({ ...guide, sections: list }); }} section={s} translation={guide.translation} onChange={setSection} onDelete={() => set({ ...guide, sections: guide.sections.filter((x) => x.id !== s.id) })} onMove={(d) => move(i, d)} />)}
           <div className="action-row">
             <button type="button" className="btn small" onClick={() => add("passage")}>Add passage</button>
             <button type="button" className="btn small" onClick={() => add("text")}>Add notes</button>
@@ -291,6 +310,19 @@ export function GuidePage({ id }: { id: string }) {
       {view === "read" && <GuideReader guide={guide} />}
       {view === "share" && <GuideShare guide={guide} />}
       {aiOpen && <AiDraftSheet guide={guide} onClose={() => setAiOpen(false)} onAccept={(sections) => { set({ ...guide, sections: [...guide.sections, ...sections] }); setAiOpen(false); toast("Added to the end of your guide"); }} />}
+    </div>
+  );
+}
+
+function GuideExegesis({ guide, onAdd }: { guide: Guide; onAdd: (s: GuideSection[]) => void }) {
+  const refs = [...new Set(guide.sections.flatMap((x) => (x.kind === "passage" && x.ref ? [x.ref] : [])))];
+  const [pick, setPick] = useState(refs[0] ?? "");
+  const current = refs.includes(pick) ? pick : refs[0];
+  if (!current) return null;
+  return (
+    <div className="guide-exegesis">
+      {refs.length > 1 && <select aria-label="Passage for the exegesis" value={current} onChange={(e) => setPick(e.target.value)}>{refs.map((r) => <option key={r} value={r}>{r}</option>)}</select>}
+      <ExegesisBlock reference={current} translation={guide.translation} lens={guide.lens} onAdd={onAdd} />
     </div>
   );
 }

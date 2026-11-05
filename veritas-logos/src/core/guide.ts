@@ -243,6 +243,7 @@ const ORD = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : `${n.toLocale
 const LENS_NAMES: Record<LensId, string> = {
   all: "All traditions",
   reformed: "Reformed",
+  covenant: "Covenant / Federal",
   arminian: "Arminian / Wesleyan",
   catholic: "Catholic",
   orthodox: "Eastern Orthodox",

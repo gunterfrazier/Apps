@@ -1,8 +1,8 @@
 import { load } from "./data";
 import { BOOKS, type RefSegment } from "./references";
 
-export type LensId = "all" | "reformed" | "arminian" | "catholic" | "orthodox" | "lutheran" | "anglican" | "baptist" | "pentecostal" | "messianic" | "dispensational";
-export const LENS_IDS: LensId[] = ["all", "reformed", "arminian", "catholic", "orthodox", "lutheran", "anglican", "baptist", "pentecostal", "messianic", "dispensational"];
+export type LensId = "all" | "reformed" | "covenant" | "arminian" | "catholic" | "orthodox" | "lutheran" | "anglican" | "baptist" | "pentecostal" | "messianic" | "dispensational";
+export const LENS_IDS: LensId[] = ["all", "reformed", "covenant", "arminian", "catholic", "orthodox", "lutheran", "anglican", "baptist", "pentecostal", "messianic", "dispensational"];
 
 export interface BookMeta { name: string; testament: string; chapters: number; verses: number; hebrew: string; hebrewTranslit: string; hebrewMeaning: string; greek: string; greekTranslit: string; greekMeaning: string }
 export const getBooks = () => load<BookMeta[]>("books.json");

@@ -98,6 +98,7 @@ Built by `scripts/build_scholar.py`. Everything comes from a named source, and t
 
 Built by `scripts/build_glossary.py`. The list of terms and which entry answers each one are chosen by hand. The definitions aren't written for the app; they're quoted from:
 
+- The full text of Easton's and Smith's dictionaries is also kept in `scholar/dictionary-easton.json` and `scholar/dictionary-smith.json`, so the AI assistant can look up background and have its quotes checked word for word.
 - Easton's Bible Dictionary (1897), Schaff's Dictionary of the Bible (American Sunday-School Union, 1880) and Smith's Bible Dictionary (1884 edition), from CCEL's files marked public domain, as held in [bible-dictionary-dataset](https://github.com/neuu-org/bible-dictionary-dataset) (its structure is CC BY 4.0). That dataset calls the Schaff book "Hastings," but the file's own title page identifies it.
 - The Westminster Larger Catechism, Heidelberg Catechism and Baptist Catechism already in the app.
 - Schaff's History of the Christian Church, Hodge's Systematic Theology and Watson's A Body of Divinity, from CCEL's files. These are the opening prose of a section on the subject, so they often describe a term more than define it, and the section's own title is shown.

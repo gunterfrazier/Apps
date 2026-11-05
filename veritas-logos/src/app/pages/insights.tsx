@@ -7,6 +7,7 @@ import { getInsights } from "../../core/insights";
 import { aiInsight, detectAi, friendlyAiError, type AiMode } from "../ai-client";
 import { saveGuide, setPref, toast, useData } from "../store";
 import { WritersPreview } from "./writers";
+import { ExegesisBlock, ExploreSheet } from "./ai-explore";
 import { Empty, ErrorNote, Loading, LensSelect, OriginTag, RefLink, RefText, Tag, useAsync } from "../ui";
 
 /** Adds sections to the guide being worked on, starting one if needed. */
@@ -33,6 +34,7 @@ function LinkList({ items }: { items: { ref: string; shared?: string }[] }) {
 export function InsightsPanel({ reference, translation }: { reference: string; translation: TranslationId }) {
   const { prefs, guides, activeGuideId } = useData();
   const lens = prefs.lens;
+  const [explore, setExplore] = useState<{ heading: string; kind: string; text: string } | null>(null);
   const { data, loading, error } = useAsync(() => getInsights(reference), [reference]);
   if (loading) return <Loading label="Gathering insights" />;
   if (error || !data) return <ErrorNote error={error} />;
@@ -53,9 +55,11 @@ export function InsightsPanel({ reference, translation }: { reference: string; t
     <div className="insights">
       <label className="field-inline" htmlFor="insight-lens">Theological lens <LensSelect id="insight-lens" value={lens} onChange={(l) => setPref("lens", l)} /></label>
       <AiInsightBlock reference={data.reference} translation={translation} lens={lens} />
+      <ExegesisBlock compact reference={data.reference} translation={translation} lens={lens} onAdd={(n) => addSectionsToGuide(n, data.reference, guides, activeGuideId, translation, lens)} />
+      {explore && <ExploreSheet context={{ ...explore, refs: [data.reference], lens, translation }} onClose={() => setExplore(null)} onAdd={(n) => { addSectionsToGuide([n], data.reference, guides, activeGuideId, translation, lens); setExplore(null); }} />}
 
       <section>
-        <div className="sec-head"><h3>Quoted and referenced</h3>{linkCount > 0 && <button type="button" className="link-btn" onClick={addLinks}>Add to guide</button>}</div>
+        <div className="sec-head"><h3>Quoted and referenced</h3><span className="sec-actions">{linkCount > 0 && <button type="button" className="link-btn" onClick={() => setExplore({ heading: `Quoted and referenced: ${data.reference}`, kind: "crossrefs", text: [...data.quotes, ...data.quotedBy, ...data.parallels, ...data.possibleAllusions].map((q) => q.ref).join("; ") })}>Explore</button>}{linkCount > 0 && <button type="button" className="link-btn" onClick={addLinks}>Add to guide</button>}</span></div>
         {data.quotes.length > 0 && <><h4>This passage quotes</h4><LinkList items={data.quotes} /></>}
         {data.quotedBy.length > 0 && <><h4>Quoted in</h4><LinkList items={data.quotedBy} /></>}
         {data.parallels.length > 0 && <><h4>Parallel wording</h4><LinkList items={data.parallels} /></>}
@@ -71,7 +75,7 @@ export function InsightsPanel({ reference, translation }: { reference: string; t
       </section>
 
       <section>
-        <div className="sec-head"><h3>Cited in historic confessions</h3>{data.confessions.length > 0 && <button type="button" className="link-btn" onClick={addConfessions}>Add to guide</button>}</div>
+        <div className="sec-head"><h3>Cited in historic confessions</h3><span className="sec-actions">{data.confessions.length > 0 && <button type="button" className="link-btn" onClick={() => setExplore({ heading: `Confessions on ${data.reference}`, kind: "views", text: data.confessions.map((c) => `${c.docName} ${c.label}: ${c.text}`).join("\n") })}>Explore</button>}{data.confessions.length > 0 && <button type="button" className="link-btn" onClick={addConfessions}>Add to guide</button>}</span></div>
         {data.confessions.map((c, i) => (
           <details key={i} className="doctrine">
             <summary>{c.docName} {c.label}{c.title ? `: ${c.title}` : ""}</summary>
@@ -86,7 +90,7 @@ export function InsightsPanel({ reference, translation }: { reference: string; t
       <WritersPreview reference={data.reference} />
 
       <section>
-        <h3>Topics citing this passage</h3>
+        <div className="sec-head"><h3>Topics citing this passage</h3>{data.topics.length > 0 && <button type="button" className="link-btn" onClick={() => setExplore({ heading: `Topics in ${data.reference}`, kind: "text", text: data.topics.map((t) => t.name).join(", ") })}>Explore</button>}</div>
         {data.topics.length ? <div className="chips">{data.topics.map((t) => <a key={t.slug} className="chip" href={`#topic-${t.slug}`}>{t.name}</a>)}</div> : <Empty>Nave's Topical Bible doesn't cite this passage directly.</Empty>}
         <p className="fine">From Nave's Topical Bible (1896).</p>
       </section>

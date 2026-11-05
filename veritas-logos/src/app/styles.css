@@ -478,3 +478,11 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
   .sheet { border-radius: 16px; }
 }
 @media print { .find-btn, .back-btn { display: none !important; } .app { padding-left: 0; } }
+
+.section-explore { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-top: .4rem; padding-top: .4rem; border-top: 1px dashed var(--line); }
+.sec-actions { display: inline-flex; gap: .8rem; flex-wrap: wrap; }
+.guide-exegesis { margin: .7rem 0; }
+.guide-exegesis select { margin-bottom: .4rem; }
+.ex-thesis { font: 600 1.05rem/1.5 var(--font-serif); }
+.fine-list.big { font-size: .95rem; }
+.exegesis h4 { margin-top: 1.1rem; }
