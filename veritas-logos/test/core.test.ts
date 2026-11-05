@@ -16,6 +16,9 @@ import { creedsCiting, getChurchEvents, getCreed, getCreedIndex, getDeuterocanon
 import { exportAll, formatCitation, parseSourceLine } from "../src/core/cite";
 import { checkResearch, checkSources } from "../src/core/research";
 import { searchPassage, queryPattern } from "../src/core/passage-search";
+import { echoCompare, findEchoes } from "../src/core/echoes";
+import { styleProfile } from "../src/core/style";
+import { coerceGenre, coerceSymbols, genrePrompt, gradeSymbols, symbolPrompt } from "../src/core/ai";
 import { coerceTopicReading, topicPrompt, versesOutside, coerceExegesis, coerceExplore, emptyExegesis, exegesisPlan, exegesisStagePrompt, explorePrompt, insightPrompt, mergeExegesis, parseJsonReply, repairJson, strayWords, aiTools } from "../src/core/ai";
 import { lookupDictionary } from "../src/core/scholar";
 import { lensName } from "../src/core/guide";
@@ -538,4 +541,81 @@ test("topic reading: replies are shaped, and verses outside the selection are ca
   const r = coerceTopicReading({ definition: "d", occurrences: [{ ref: "John 1:1", word: "w" }], debated: ["x"] })!;
   assert.equal(r.occurrences.length, 1);
   assert.deepEqual(await versesOutside("John 1:1-5", "BSB", ["John 1:2", "John 3:16"]), ["John 3:16"]);
+});
+
+test("echoes: Hebrew and Greek links come out of the data", async () => {
+  const b = JSON.parse(await fs.promises.readFile("public/data/scholar/echo-bridge.json", "utf8")).b;
+  const top = (id: string) => b[id].map((x: [string, number, number]) => x[0]);
+  assert.ok(top("G4501").includes("H2719"), "rhomphaia renders the word for sword");
+  assert.ok(top("G3042").includes("H7458"), "limos renders the word for famine");
+  assert.ok(top("G2288").includes("H1698"), "thanatos often renders the word for plague");
+  assert.ok(top("H1285").includes("G1242"), "berit is rendered diathēkē");
+});
+
+test("echoes: Revelation 6 finds its Old Testament background", async () => {
+  const all = (await findEchoes("Revelation 6:1-8"))!;
+  const ot = all.results.filter((r) => r.book <= 39);
+  const rank = (label: string) => ot.findIndex((r) => r.label === label) + 1;
+  for (const l of ["Zechariah 6", "Ezekiel 14", "Ezekiel 5"]) assert.ok(rank(l) >= 1 && rank(l) <= 8, `${l} ranks ${rank(l)}`);
+  for (const l of ["Deuteronomy 32", "Deuteronomy 28", "Leviticus 26", "Zechariah 1", "Jeremiah 15"]) assert.ok(rank(l) >= 1, `${l} is found`);
+  const one = (await findEchoes("Revelation 6:8"))!;
+  const firsts = one.results.filter((r) => r.book <= 39).slice(0, 5).map((r) => r.label);
+  assert.ok(firsts.includes("Ezekiel 14") && firsts.includes("Ezekiel 5"), firsts.join());
+  const ez = one.results.find((r) => r.label === "Ezekiel 14")!;
+  assert.equal(ez.fromVerse?.count, 4);
+  assert.ok(ez.xrefs.some((x) => x.to.startsWith("Ezekiel 14")));
+});
+
+test("echoes: other passages find the links people expect", async () => {
+  assert.equal((await findEchoes("Revelation 13:1-4"))!.results.find((r) => r.book <= 39)!.label, "Daniel 7");
+  assert.equal((await findEchoes("Hebrews 8:6-13"))!.results.find((r) => r.book <= 39)!.label, "Jeremiah 31");
+  assert.equal((await findEchoes("Isaiah 53:1-12"))!.results[0].label, "Acts 8");
+  const without = (await findEchoes("Revelation 6:8", ["G4501"]))!;
+  assert.ok(!without.results.find((r) => r.label === "Ezekiel 14")!.terms.includes("sword"), "a word left out isn't counted");
+  assert.equal(await findEchoes("Nothing 1:1"), null);
+});
+
+test("echoes: side by side shows where the Greek and Hebrew differ", async () => {
+  const s = (await findEchoes("Revelation 6:8"))!;
+  const c = await echoCompare("Revelation 6:8", s.results.find((r) => r.label === "Ezekiel 14")!, "BSB");
+  assert.ok(c.source.length === 1);
+  assert.ok(c.target.some((v) => v.greek?.some((w) => w.on)));
+  assert.ok(c.renderings.some((x) => x.ref === "Ezekiel 14:21" && x.id === "H1698"), JSON.stringify(c.renderings));
+  assert.ok(!c.renderings.some((x) => x.id === "H7458"), "famine and hunger are the same sense, so no note");
+});
+
+test("style counts: features are counted, not judged", async () => {
+  const s = (await styleProfile("Revelation 6:1-8", "BSB"))!;
+  assert.equal(s.verseCount, 8);
+  assert.ok(s.numbers.some((n) => n.word === "fourth"));
+  assert.ok(s.colors.some((n) => n.word === "white") && s.colors.some((n) => n.word === "black"));
+  assert.ok(s.formulas.some((f) => /I looked/.test(f.label) && f.count >= 2));
+  assert.ok(s.phrases.length > 0);
+  const p = await genrePrompt("Revelation 6:1-8", "BSB");
+  assert.match(p, /style_counts/);
+  assert.equal(coerceGenre({}), null);
+  assert.equal(coerceGenre({ primary: "Apocalyptic vision", signals: [{ ref: "Revelation 6:1" }] })!.signals.length, 1);
+});
+
+test("symbol grades: the app decides what counts as checked", async () => {
+  const echoes = await findEchoes("Revelation 6:1-8");
+  const raw = coerceSymbols({ symbols: [{ symbol: "pale horse", ref: "Revelation 6:8", drawsOn: [
+    { ref: "Ezekiel 14:21", grade: "theme", note: "n" }, { ref: "Ruth 1:1", grade: "wording", note: "claimed" }, { ref: "Ruth 2:1", grade: "tradition", note: "t" }, { ref: "Ruth 3:1", grade: "nonsense", note: "x" },
+  ] }] })!;
+  const g = gradeSymbols(raw, echoes).symbols[0].drawsOn;
+  const by = (ref: string) => g.find((d) => d.ref === ref)!;
+  assert.equal(by("Ezekiel 14:21").grade, "wording", "evidence raises the grade");
+  assert.ok(by("Ezekiel 14:21").evidence!.length > 0);
+  assert.equal(by("Ruth 1:1").grade, "theme", "a claim without evidence is lowered");
+  assert.equal(by("Ruth 1:1").downgraded, true);
+  assert.equal(by("Ruth 2:1").grade, "tradition");
+  const doubted = gradeSymbols(coerceSymbols({ symbols: [{ symbol: "x", drawsOn: [{ ref: "Ezekiel 14:21", grade: "speculative", note: "n" }] }] })!, echoes).symbols[0].drawsOn[0];
+  assert.equal(doubted.grade, "wording");
+  assert.equal(doubted.aiGrade, "speculative", "the AI's doubt stays visible");
+  assert.equal(by("Ruth 3:1").grade, "theme");
+  const p = await symbolPrompt("Revelation 6:1-8", "BSB", "covenant");
+  assert.match(p, /preterist, historicist, futurist and idealist/);
+  assert.match(p, /federal heads/);
+  assert.match(p, /Ezekiel 14/);
+  assert.doesNotMatch(await symbolPrompt("Isaiah 53:1-3", "BSB", "all"), /preterist/);
 });

@@ -1,8 +1,9 @@
 import type { TranslationId } from "../core/bible";
 import type { LensId } from "../core/content";
-import { aiTools, AI_RULES, chatPreamble, coerceDraftSections, coerceExplore, coerceInsight, coerceTopicReading, topicPrompt, versesOutside, type TopicReading, exegesisStagePrompt, explorePrompt, guideDraftPrompt, insightPrompt, parseJsonReply, type AiInsight, type ExegesisStage, type ExploreContext, type ExploreDraft } from "../core/ai";
+import { aiTools, AI_RULES, chatPreamble, coerceDraftSections, coerceExplore, coerceInsight, coerceTopicReading, topicPrompt, versesOutside, type TopicReading, coerceGenre, coerceSymbols, genrePrompt, gradeSymbols, symbolPrompt, type GenreReading, type SymbolReading, exegesisStagePrompt, explorePrompt, guideDraftPrompt, insightPrompt, parseJsonReply, type AiInsight, type ExegesisStage, type ExploreContext, type ExploreDraft } from "../core/ai";
 import type { Guide, GuideSection } from "../core/guide";
 import { checkResearch, checkSources, RESEARCH_RULES, type CheckedSource, type ResearchAnswer } from "../core/research";
+import { findEchoes } from "../core/echoes";
 import { getData } from "./store";
 
 export type AiMode = "viewer" | "server" | "none";
@@ -112,6 +113,8 @@ export const TOOLSETS = {
   verses: ["word_study", "lookup_dictionary", "historic_writers"],
   theology: ["search_creeds", "define_term", "historic_writers"],
   topic: ["word_study", "define_term", "search_creeds", "historic_writers", "lookup_dictionary"],
+  genre: ["book_background", "lookup_dictionary", "historic_writers"],
+  symbols: ["lookup_dictionary", "historic_writers", "word_study", "search_creeds"],
 };
 
 const toolsFor = (translation: TranslationId, names: string[], opts: AskOpts) => {
@@ -251,6 +254,22 @@ export async function aiTopicReading(reference: string, query: string, translati
   const reading = coerceTopicReading(raw);
   if (!reading) throw { code: "bad_reply", userMessage: "The assistant's reply couldn't be read. Try again." };
   return { reading, checked: await checkSources(reading.sources, translation), outside: await versesOutside(reference, translation, reading.occurrences.map((o) => o.ref)) };
+}
+
+/** A labeled draft of the passage's genre, built on the app's counts of its features. */
+export async function aiGenre(reference: string, translation: TranslationId, opts: AskOpts = {}): Promise<{ reading: GenreReading; checked: CheckedSource[]; outside: string[] }> {
+  const raw = await askJson(() => genrePrompt(reference, translation), { purpose: "genre", reference, translation }, translation, opts, { toolNames: TOOLSETS.genre });
+  const reading = coerceGenre(raw);
+  if (!reading) throw { code: "bad_reply", userMessage: "The assistant's reply couldn't be read. Try again." };
+  return { reading, checked: await checkSources(reading.sources, translation), outside: await versesOutside(reference, translation, reading.signals.map((x) => x.ref)) };
+}
+
+/** What each symbol may draw on. The app sets the checked grades itself, from its own search. */
+export async function aiSymbols(reference: string, translation: TranslationId, lens: LensId, off: string[], opts: AskOpts = {}): Promise<{ reading: SymbolReading; checked: CheckedSource[]; outside: string[] }> {
+  const raw = await askJson(() => symbolPrompt(reference, translation, lens, off), { purpose: "symbols", reference, translation, lens, off }, translation, opts, { tier: "complex", toolNames: TOOLSETS.symbols });
+  const reading = coerceSymbols(raw);
+  if (!reading) throw { code: "bad_reply", userMessage: "The assistant's reply couldn't be read. Try again." };
+  return { reading: gradeSymbols(reading, await findEchoes(reference, off)), checked: await checkSources(reading.sources, translation), outside: await versesOutside(reference, translation, reading.symbols.map((x) => x.ref)) };
 }
 
 /** What the viewer can do, without spending anything. */

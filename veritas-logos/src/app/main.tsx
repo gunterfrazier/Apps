@@ -22,6 +22,7 @@ import { getWritingsIndex } from "../core/writings";
 import { getChurchEvents, getCreedIndex } from "../core/scholar";
 import { AskPage } from "./pages/ask";
 import { AiWorkPage, AiWorkPill } from "./pages/ai-work";
+import { SymbolsPage } from "./pages/symbols";
 import { initJobs } from "./ai-jobs";
 
 class Boundary extends Component<{ children: ReactNode; route: string }, { failed: boolean }> {
@@ -87,6 +88,10 @@ function pageFor(route: string): { node: ReactNode; tab: string } {
       return { node: <AskPage contextRef={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "ask" };
     }
     case "ai": return { node: <AiWorkPage />, tab: "ask" };
+    case "symbols": {
+      const r = tail ? parseReadParts(tail) : null;
+      return { node: <SymbolsPage key={tail} initial={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "explore" };
+    }
     case "library": return { node: <LibraryPage />, tab: "library" };
     default: return { node: <ReadPage route={null} />, tab: "read" };
   }
@@ -106,7 +111,7 @@ const labelFor = (route: string) => {
   const [head, ...rest] = route.split("-");
   if (LABELS[route]) return LABELS[route];
   const tail = rest.join(" ").replace(/\b\w/g, (c) => c.toUpperCase());
-  const prefix: Record<string, string> = { read: "", term: "Term: ", writer: "", creed: "", event: "", person: "", on: "On ", note: "Note", compare: "Compare ", topic: "Topic: " };
+  const prefix: Record<string, string> = { symbols: "Symbols: ", read: "", term: "Term: ", writer: "", creed: "", event: "", person: "", on: "On ", note: "Note", compare: "Compare ", topic: "Topic: " };
   return head in prefix ? `${prefix[head]}${head === "note" ? "" : tail}` : "";
 };
 

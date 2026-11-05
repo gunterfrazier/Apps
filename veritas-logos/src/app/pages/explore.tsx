@@ -21,6 +21,7 @@ const TOOLS: [string, { hash: string; title: string; text: string }[]][] = [
     { hash: "letters", title: "Letter value calculator", text: "Standard Hebrew and Greek letter values for any word" },
   ]],
   ["The text", [
+    { hash: "symbols", title: "Genre and symbols", text: "A passage's style, the passages it echoes in Hebrew and Greek, and what its images may draw on" },
     { hash: "compare", title: "Compare texts", text: "Hebrew, Septuagint, Greek, Vulgate and English, with quotations side by side" },
     { hash: "synopsis", title: "Gospel synopsis", text: "366 sections of Matthew, Mark, Luke and John in parallel" },
     { hash: "textual", title: "Textual notes", text: "Disputed passages, and what each Greek edition prints" },

@@ -8,6 +8,7 @@ import { ExegesisView, ExploreResult, JobProgress, draftToSection, placeInGuide 
 import { DraftPreview } from "./guides";
 import { addSectionsToGuide, AiInsightView } from "./insights";
 import { TopicReadingView } from "./passage-search";
+import { GenreView, genreToSections, SymbolReadingView } from "./symbols";
 
 const activeJob = (j: AiJob) => j.status === "queued" || j.status === "running" || j.status === "interrupted";
 
@@ -48,6 +49,8 @@ function JobResult({ job }: { job: AiJob }) {
     const r = job.result;
     return <ExegesisView e={r.exegesis} checked={r.checked} stray={r.stray} thin={r.thin} reference={job.payload.reference} lens={job.payload.lens} onAdd={(s) => { addAnywhere(s, job.payload.reference, job); done(); }} />;
   }
+  if (job.kind === "genre") return <GenreView r={job.result} onAdd={() => { addAnywhere(genreToSections(job.result, job.payload.reference), job.payload.reference, job); done(); }} />;
+  if (job.kind === "symbols") return <SymbolReadingView r={job.result} reference={job.payload.reference} lens={job.payload.lens} onAdd={(s) => { addAnywhere(s, job.payload.reference, job); done(); }} />;
   if (job.kind === "topic") {
     const r = job.result;
     return <TopicReadingView r={r} query={job.payload.query} reference={job.payload.reference} lens={job.payload.lens} onAdd={(s) => { addAnywhere(s, job.payload.reference, job); done(); }} />;

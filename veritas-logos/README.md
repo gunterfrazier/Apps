@@ -14,6 +14,7 @@ A phone-first Bible study guide builder and reference tool, for personal use. It
 - **Explore and expand:** every guide section, and the reader's insight sections, can be researched further with AI, including a background overview. It searches the app's library, and the app checks each citation word for word. It can't search the live web.
 - **Deep exegesis:** an AI synopsis of a passage from the chosen lens, worked from the Hebrew or Greek. The app checks its references, word studies and quotes, and it stays labeled as a draft.
 - **Search this passage:** looks for a word or topic in selected verses, including the Hebrew or Greek behind it, the topics, glossary, confessions and writers. This part is all checked data and needs no AI. An optional AI reading then shows how the chosen lens understands it, keeping what the text says apart from what the tradition brings.
+- **Genre and symbols:** counts a passage's literary features, finds passages that echo its key words across Hebrew, Greek and the Septuagint, and lines them up side by side. Optional AI drafts assess the genre and read the symbols through the chosen lens. The app sets the grades for shared wording and recorded links itself, so the AI can't claim them.
 - **AI work:** AI requests run on their own, outside any screen, and are saved as they go. Moving around the app doesn't stop them. If the phone pauses a minimized app, they carry on when it returns, and a long exegesis resumes from its last finished step. The AI work page lists everything and has a connection check.
 - **Theological lenses:** Reformed, Covenant / Federal, Arminian, Catholic, Orthodox, Lutheran, Anglican, Baptist, Pentecostal, Messianic and Dispensational.
 - **People:** 3,009 people from BibleData, with family links citing their verses, a family tree, a pathfinder and a timeline.
@@ -93,6 +94,8 @@ Any passage, term, writer, event or creed is one tap from the others:
 - **Go anywhere** (Ctrl K or the search button) opens any verse, term, writer, event, creed or tool. On a wide screen the study panel stays beside the text, and J and K move between verses.
 
 ## Known limits
+
+- Echoes show shared words, not intent. The Septuagint here isn't tagged, so it's matched by word stems, and Psalms and Jeremiah aren't matched because their Greek numbering differs. Aramaic parts of Daniel and Ezra have fewer links.
 
 - A web page can't run while the phone has suspended it. AI work in a minimized app may pause and carries on when the app is opened again.
 

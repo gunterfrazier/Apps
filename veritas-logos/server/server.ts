@@ -20,7 +20,7 @@ import http from "node:http";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { chatPreamble, checkReferences, exegesisStagePrompt, explorePrompt, topicPrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
+import { chatPreamble, checkReferences, exegesisStagePrompt, explorePrompt, genrePrompt, symbolPrompt, topicPrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
 import { getPassage, isTranslationId, searchText, TRANSLATIONS, DEFAULT_TRANSLATION, translationInfo, decodeVerseCode, refOf, getVerse, type TranslationId } from "../src/core/bible";
 import { getTopic, searchTopics } from "../src/core/content";
 import { setLoader } from "../src/core/data";
@@ -368,7 +368,13 @@ export function createServer(opts: ServerOptions = {}) {
         system = "You are the study assistant in Veritas Logos.";
         messages = [{ role: "user", content: await topicPrompt(body.reference, body.query, translation, lens) }];
         useTools = true;
-      } else throw new HttpError(400, "bad_purpose", "Use purpose insight, chat, draft, explore, exegesis or topic.");
+      } else if (body.purpose === "genre" || body.purpose === "symbols") {
+        if (typeof body.reference !== "string" || !parseReference(body.reference)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
+        system = "You are the study assistant in Veritas Logos.";
+        const off = Array.isArray(body.off) ? body.off.filter((x): x is string => typeof x === "string").slice(0, 60) : [];
+        messages = [{ role: "user", content: body.purpose === "genre" ? await genrePrompt(body.reference, translation) : await symbolPrompt(body.reference, translation, lens, off) }];
+        useTools = true;
+      } else throw new HttpError(400, "bad_purpose", "Use purpose insight, chat, draft, explore, exegesis, topic, genre or symbols.");
 
       res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" });
       const ctl = new AbortController();

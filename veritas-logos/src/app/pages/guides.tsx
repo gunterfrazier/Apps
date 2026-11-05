@@ -10,6 +10,7 @@ import { StudyNav } from "./notebook";
 import { EXPLORE_PRESETS } from "../../core/ai";
 import { ExegesisBlock, ExploreSheet, sectionText, useAiMode } from "./ai-explore";
 import { PassageSearchBlock } from "./passage-search";
+import { symbolsHash } from "./symbols-link";
 import { draftKey, enqueueJob, exploreKey, markSeen, removeJob, useJob } from "../ai-jobs";
 import { appBase, copyText, decodeFromLink, encodeForLink, IS_ARTIFACT, saveFile } from "../files";
 import { deleteGuide, navigate, saveGuide, toast, update, useData } from "../store";
@@ -248,6 +249,7 @@ function SectionEditor({ section: s, translation, onChange, onDelete, onMove, co
         {!exploreJob && isBackground && <button type="button" className="btn small primary" onClick={() => setExplore("background")}>Research this with AI</button>}
         {!exploreJob && <button type="button" className="link-btn" onClick={() => setExplore("open")}>Explore and expand</button>}
         {s.kind === "passage" && s.ref && <button type="button" className="link-btn" onClick={() => setSearching(true)}>Search this passage</button>}
+        {s.kind === "passage" && s.ref && <a className="link-btn" href={`#${symbolsHash(s.ref)}`}>Genre and symbols</a>}
       </div>
       {searching && s.ref && (
         <Sheet wide title={`Search ${s.ref}`} onClose={() => setSearching(false)}>

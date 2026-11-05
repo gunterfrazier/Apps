@@ -40,7 +40,7 @@ before(async () => {
     res.end();
   });
   const up = await listen(upstream);
-  const made = createServer({ dataDir: "public/data", staticDir: "", dbPath: path.join(dir, "t.db"), adminToken: ADMIN, rateLimitPerMin: 100000, aiDailyLimit: 9, anthropicKey: "test-key", anthropicBase: `http://127.0.0.1:${up}`, aiModel: "test-model" });
+  const made = createServer({ dataDir: "public/data", staticDir: "", dbPath: path.join(dir, "t.db"), adminToken: ADMIN, rateLimitPerMin: 100000, aiDailyLimit: 11, anthropicKey: "test-key", anthropicBase: `http://127.0.0.1:${up}`, aiModel: "test-model" });
   srv = made.server; db = made.db;
   base = `http://127.0.0.1:${await listen(srv)}`;
 });
@@ -144,6 +144,11 @@ test("AI: needs a key, runs tools, flags bad references, enforces the daily limi
   const explore = await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "explore", request: "Expand", lens: "covenant", section: { heading: "Background to research", kind: "text", text: "Who wrote this?", refs: ["Genesis 15"] } }) });
   await explore.text();
   assert.match(JSON.stringify(upstreamBodies.at(-1)), /Who wrote this/);
+  for (const purpose of ["genre", "symbols"]) {
+    const r = await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose, reference: "Revelation 6:8", lens: "covenant" }) });
+    await r.text();
+    assert.match(JSON.stringify(upstreamBodies.at(-1)), purpose === "genre" ? /style_counts/ : /found_links/);
+  }
   const topic = await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "topic", reference: "Romans 3:21-26", query: "righteousness", lens: "covenant" }) });
   await topic.text();
   assert.match(JSON.stringify(upstreamBodies.at(-1)), /federal heads/);

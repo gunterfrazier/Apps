@@ -45,7 +45,7 @@ export const OPENAPI = {
       delete: { summary: "Delete your guide", security: secured, parameters: [path1("id", "Guide id")], responses: ok },
     },
     "/v1/ai/status": { get: { summary: "Whether AI is available to this caller", responses: ok } },
-    "/v1/ai/ask": { post: { summary: "Ask the AI assistant. Streams server-sent events: {text}, then {done, references}", security: secured, requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["purpose"], properties: { purpose: { enum: ["insight", "chat", "draft", "explore", "exegesis", "topic"] }, query: { type: "string" }, reference: { type: "string" }, messages: { type: "array" }, translation: { type: "string" }, lens: { type: "string" }, contextRef: { type: "string" }, guide: { type: "object" }, section: { type: "object" }, request: { type: "string" } } } } } }, responses: ok } },
+    "/v1/ai/ask": { post: { summary: "Ask the AI assistant. Streams server-sent events: {text}, then {done, references}", security: secured, requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["purpose"], properties: { purpose: { enum: ["insight", "chat", "draft", "explore", "exegesis", "topic", "genre", "symbols"] }, query: { type: "string" }, reference: { type: "string" }, messages: { type: "array" }, translation: { type: "string" }, lens: { type: "string" }, contextRef: { type: "string" }, guide: { type: "object" }, section: { type: "object" }, request: { type: "string" } } } } } }, responses: ok } },
     "/v1/keys": { post: { summary: "Create an API key (administrator only)", security: secured, responses: { "201": { description: "Created" } } } },
   },
 };

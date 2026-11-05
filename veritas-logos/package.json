@@ -12,6 +12,7 @@
     "data:build": "node --no-warnings scripts/build-data.mjs",
     "data:writings": "python3 -I scripts/build_writings.py --out public/data",
     "data:glossary": "python3 -I scripts/build_glossary.py --out public/data",
+    "data:echo": "python3 -I scripts/build_echo.py --out public/data",
     "data:check": "node --no-warnings scripts/check-data.mjs",
     "api": "node --no-warnings dist-server/server.js"
   },

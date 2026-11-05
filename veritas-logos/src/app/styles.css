@@ -518,3 +518,29 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
 .ps-group h4 { margin: 0 0 .25rem; }
 .ps-ai { margin-top: .9rem; }
 .lens-tag { font-size: .72rem; font-weight: 600; color: var(--accent-strong); margin-left: .35rem; white-space: nowrap; }
+
+.symbols h2 { font-size: 1.15rem; margin: 0; }
+.sym-ref { margin: .9rem 0 .3rem !important; }
+.sym-link { margin: .3rem 0 .7rem; }
+.style-row { margin-top: .7rem; }
+.style-row h4 { margin: 0 0 .2rem; }
+.chip-line { display: flex; flex-wrap: wrap; gap: .35rem; margin: .2rem 0; }
+.chip.off { opacity: .55; text-decoration: line-through; }
+.grade { display: inline-block; font-size: .72rem; font-weight: 600; padding: .08rem .45rem; border-radius: 999px; white-space: normal; vertical-align: middle; }
+.grade-strong { background: color-mix(in srgb, var(--tl-creed) 18%, transparent); color: var(--tl-creed); }
+.grade-mid { background: color-mix(in srgb, var(--accent-strong) 15%, transparent); color: var(--accent-strong); }
+.grade-low { background: color-mix(in srgb, var(--ink-3) 18%, transparent); color: var(--ink-2); }
+.echo-card { padding: .65rem 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.echo-card.hilite { background: color-mix(in srgb, var(--accent-strong) 8%, transparent); padding: .65rem; border-radius: 10px; border: 1px solid var(--line); }
+.echo-head { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.echo-line { margin: .3rem 0 .1rem; font-size: .92rem; }
+.echo-possible { color: var(--ink-3); }
+.echo-card p { margin: .2rem 0; }
+.cmp-verse { padding: .35rem 0; border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.cmp-orig { margin: .15rem 0; font-size: 1rem; overflow-wrap: anywhere; }
+.cmp-orig.heb { font-family: "Noto Serif Hebrew", var(--font-serif); text-align: right; }
+.cmp-orig.grk { font-family: "Noto Serif", var(--font-serif); }
+.cmp-orig mark, .cmp-verse mark { background: color-mix(in srgb, var(--accent-strong) 28%, transparent); color: inherit; border-radius: 2px; padding: 0 .08em; }
+.symbol-card { padding: .6rem 0; border-top: 1px solid var(--line); }
+.symbol-card h4 { margin: 0 0 .25rem; color: var(--ink); }
+.segmented.small button { min-height: 36px; font-size: .85rem; }

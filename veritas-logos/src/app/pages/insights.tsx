@@ -10,6 +10,7 @@ import { saveGuide, setPref, toast, useData } from "../store";
 import { WritersPreview } from "./writers";
 import { ExegesisBlock, ExploreSheet, JobError, JobProgress } from "./ai-explore";
 import { PassageSearchBlock } from "./passage-search";
+import { symbolsHash } from "./symbols-link";
 import { Empty, ErrorNote, Loading, LensSelect, OriginTag, RefLink, RefText, Tag, useAsync } from "../ui";
 
 /** Adds sections to the guide being worked on, starting one if needed. */
@@ -57,6 +58,7 @@ export function InsightsPanel({ reference, translation }: { reference: string; t
     <div className="insights">
       <label className="field-inline" htmlFor="insight-lens">Theological lens <LensSelect id="insight-lens" value={lens} onChange={(l) => setPref("lens", l)} /></label>
       <PassageSearchBlock reference={data.reference} translation={translation} lens={lens} onAdd={(n) => addSectionsToGuide(n, data.reference, guides, activeGuideId, translation, lens)} />
+      <a className="tool-row sym-link" href={`#${symbolsHash(data.reference)}`}><strong>Genre, symbols and echoes</strong><span>How {data.reference} is written, and which passages it echoes</span></a>
       <AiInsightBlock reference={data.reference} translation={translation} lens={lens} />
       <ExegesisBlock compact reference={data.reference} translation={translation} lens={lens} onAdd={(n) => addSectionsToGuide(n, data.reference, guides, activeGuideId, translation, lens)} />
       {explore && <ExploreSheet where={data.reference} context={{ ...explore, refs: [data.reference], lens, translation }} onClose={() => setExplore(null)} onAdd={(n) => { addSectionsToGuide([n], data.reference, guides, activeGuideId, translation, lens); setExplore(null); }} />}

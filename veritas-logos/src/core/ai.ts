@@ -14,6 +14,8 @@ import { searchGlossary } from "./glossary";
 import { creedText, getChronology, getChurchEvents, getCreed, getCreedIndex, getJosephus, lookupDictionary, verseVariants, lxxChapters, vulgateChapters } from "./scholar";
 import { getBookMeta } from "./content";
 import { searchPassage, searchSummary } from "./passage-search";
+import { echoSummary, findEchoes, type EchoSearch } from "./echoes";
+import { styleProfile, styleSummary } from "./style";
 import { decodeMorph, getCrossRefs, getLexEntry, getVerseWords, normalizeStrongs, searchLexicon } from "./lexicon";
 import { ensureFigures, versesOfPerson } from "./people";
 import { bookName, findReferences, parseReference } from "./references";
@@ -559,6 +561,139 @@ export async function versesOutside(reference: string, translation: TranslationI
     const s = parseReference(r)?.[0];
     return !s || !inside.has(`${s.book}:${s.chapter}:${s.verseStart ?? 1}`);
   });
+}
+
+// ---------- Genre and symbols ----------
+export interface GenreReading {
+  primary: string;
+  confidence: string;
+  mixed: { form: string; verses: string; why: string }[];
+  signals: { ref: string; signal: string; meaning: string }[];
+  howToRead: string;
+  cautions: string[];
+  disputed: string;
+  sources: unknown[];
+}
+
+export async function genrePrompt(reference: string, translation: TranslationId): Promise<string> {
+  const style = await styleProfile(reference, translation);
+  if (!style) throw { code: "bad_reference", userMessage: "That passage can't be read." };
+  return `${AI_RULES}
+
+Assess the literary genre and style of ${reference}. Judge these verses, not the whole book, and allow for mixed forms: Revelation, for example, is also a letter and a prophecy.
+Use the labels scholars use, such as apocalyptic vision, prophetic oracle, covenant lawsuit, covenant curse, lament, wisdom saying, parable, epistle or narrative. A label is a judgment, so say how sure it is and what it rests on.
+The app counted these features of the text. Use them as evidence, and don't claim any feature that isn't here or in the verses:
+<style_counts>
+${clip(styleSummary(style), 8000)}
+</style_counts>
+${await groundingFor(reference, translation)}
+
+${sourceRules(true, "book_background, lookup_dictionary, historic_writers")}
+
+Reply with only one JSON object in this shape:
+{"primary":"the main form","confidence":"high, medium or low","mixed":[{"form":"another form present","verses":"vv. 1-2","why":"why"}],"signals":[{"ref":"Revelation 6:1","signal":"a feature of the text","meaning":"what it usually signals in this kind of writing"}],"howToRead":"how this form is usually read: what is likely literal, figurative or stock imagery, and what a modern reader tends to get wrong","cautions":["what this form does not license"],"disputed":"what scholars dispute about the genre here","sources":[]}
+Keep it under about 500 words.`;
+}
+
+export function coerceGenre(raw: unknown): GenreReading | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const list = <T>(v: unknown, n: number, f: (x: Record<string, unknown>) => T): T[] => (Array.isArray(v) ? v.slice(0, n).filter((x) => x && typeof x === "object").map((x) => f(x as Record<string, unknown>)) : []);
+  const out: GenreReading = {
+    primary: asStr(r.primary, 200), confidence: asStr(r.confidence, 20),
+    mixed: list(r.mixed, 8, (x) => ({ form: asStr(x.form, 120), verses: asStr(x.verses, 60), why: asStr(x.why, 600) })),
+    signals: list(r.signals, 14, (x) => ({ ref: asStr(x.ref, 80), signal: asStr(x.signal, 300), meaning: asStr(x.meaning, 600) })),
+    howToRead: asStr(r.howToRead, 3000), cautions: Array.isArray(r.cautions) ? r.cautions.map((x) => asStr(x, 500)).filter(Boolean).slice(0, 8) : [], disputed: asStr(r.disputed, 1500),
+    sources: Array.isArray(r.sources) ? r.sources : [],
+  };
+  return out.primary ? out : null;
+}
+
+export type SymbolGrade = "wording" | "crossref" | "theme" | "tradition" | "speculative";
+export interface SymbolLink { ref: string; grade: SymbolGrade; note: string; downgraded?: boolean; evidence?: string[]; aiGrade?: SymbolGrade }
+export interface SymbolEntry { symbol: string; ref: string; meaning: string; drawsOn: SymbolLink[]; lensReading: string; weakens: string }
+export interface SymbolReading { symbols: SymbolEntry[]; schools: { school: string; reading: string }[]; otherReadings: { tradition: string; reading: string }[]; cautions: string[]; sources: unknown[] }
+
+export async function symbolPrompt(reference: string, translation: TranslationId, lens: LensId, off: string[] = []): Promise<string> {
+  const echoes = await findEchoes(reference, off);
+  if (!echoes) throw { code: "bad_reference", userMessage: "That passage can't be read." };
+  const book = parseReference(reference)?.[0]?.book;
+  const other = echoes.results.filter((r) => (book && book > 39 ? r.book <= 39 : r.book !== book));
+  const lensText = lens === "all" ? "The reader hasn't chosen one lens, so give the reading most traditions share, and show differences under otherReadings." : `Read from inside the ${lensName(lens)} tradition, in terms its teachers would recognize, without declaring it right or wrong.${lensGuide(lens)}`;
+  const schools = book === 66
+    ? 'Also fill "schools" with how the preterist, historicist, futurist and idealist approaches each read these verses.'
+    : 'If named schools of reading exist for this passage, fill "schools". Otherwise leave it empty.';
+  return `${AI_RULES}
+
+Identify the symbols and images in ${reference}, and what each may draw on. ${lensText}
+${schools}
+Be careful: don't present any symbolic meaning as hidden knowledge or as certain. Ask what first readers could have recognized. A shared word is not proof of an intended link. Numbers may be symbolic, but treat numerology and gematria as speculative.
+For each link, give a grade:
+- "wording": the passages share distinctive words. The app decides this from its own search, so use it only for passages listed below.
+- "crossref": a recorded cross-reference. The app decides this too.
+- "theme": a shared idea, in your judgment.
+- "tradition": a reading a named tradition holds.
+- "speculative": possible, but thinly supported.
+The app searched for passages that share this passage's key words. "chapter" is where, "closest" is the tightest match:
+<found_links>
+${clip(echoSummary({ ...echoes, results: [...other.slice(0, 14), ...echoes.results.filter((r) => !other.includes(r)).slice(0, 4)] }, 18), 9000)}
+</found_links>
+${await groundingFor(reference, translation)}
+
+${sourceRules(true, "lookup_dictionary, historic_writers, word_study, search_creeds")}
+
+Reply with only one JSON object in this shape:
+{"symbols":[{"symbol":"the image","ref":"Revelation 6:8","meaning":"what it most plausibly signifies, with how sure that is","drawsOn":[{"ref":"Ezekiel 14:21","grade":"wording","note":"how it bears on this image"}],"lensReading":"how the lens reads this symbol","weakens":"what would weaken this reading"}],"schools":[{"school":"name","reading":"how it reads these verses"}],"otherReadings":[{"tradition":"name","reading":"how they differ"}],"cautions":["limits on what can be concluded"],"sources":[]}
+Take the main symbols only, at most eight. Only list symbols that are in ${reference}. Keep it under about 900 words.`;
+}
+
+export function coerceSymbols(raw: unknown): SymbolReading | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const list = <T>(v: unknown, n: number, f: (x: Record<string, unknown>) => T): T[] => (Array.isArray(v) ? v.slice(0, n).filter((x) => x && typeof x === "object").map((x) => f(x as Record<string, unknown>)) : []);
+  const grades: SymbolGrade[] = ["wording", "crossref", "theme", "tradition", "speculative"];
+  const out: SymbolReading = {
+    symbols: list(r.symbols, 12, (x) => ({
+      symbol: asStr(x.symbol, 160), ref: asStr(x.ref, 80), meaning: asStr(x.meaning, 2000), lensReading: asStr(x.lensReading, 2000), weakens: asStr(x.weakens, 800),
+      drawsOn: list(x.drawsOn, 10, (d) => ({ ref: asStr(d.ref, 80), grade: grades.includes(d.grade as SymbolGrade) ? (d.grade as SymbolGrade) : "theme", note: asStr(d.note, 800) })),
+    })),
+    schools: list(r.schools, 6, (x) => ({ school: asStr(x.school, 80), reading: asStr(x.reading, 1500) })),
+    otherReadings: list(r.otherReadings, 10, (x) => ({ tradition: asStr(x.tradition, 100), reading: asStr(x.reading, 1500) })),
+    cautions: Array.isArray(r.cautions) ? r.cautions.map((x) => asStr(x, 500)).filter(Boolean).slice(0, 8) : [],
+    sources: Array.isArray(r.sources) ? r.sources : [],
+  };
+  return out.symbols.length ? out : null;
+}
+
+/** The AI's word isn't enough for a checked grade: the app sets those from its own search. */
+export function gradeSymbols(reading: SymbolReading, echoes: EchoSearch | null): SymbolReading {
+  const found = new Map((echoes?.results ?? []).map((r) => [r.book * 1000 + r.chapter, r]));
+  /** At least two key words must sit within a couple of verses of the place cited. A chapter that merely holds them somewhere doesn't count. */
+  const wordsNear = (ref: string): string[] => {
+    const seg = parseReference(ref)?.[0];
+    const hit = seg ? found.get(seg.book * 1000 + seg.chapter) : undefined;
+    if (!seg || !hit) return [];
+    if (seg.verseStart === undefined) return hit.close.groups >= 2 ? hit.close.terms : [];
+    const from = seg.verseStart - 2, to = (seg.verseEnd ?? seg.verseStart) + 2;
+    const near = new Set(hit.verses.filter((v) => v.code % 1000 >= from && v.code % 1000 <= to).flatMap((v) => v.hits.map((h) => h.term)));
+    return near.size >= 2 ? [...near] : [];
+  };
+  const recorded = (ref: string) => { const seg = parseReference(ref)?.[0]; const hit = seg ? found.get(seg.book * 1000 + seg.chapter) : undefined; return Boolean(hit && (hit.xrefs.length || hit.quotes.length)); };
+  return {
+    ...reading,
+    symbols: reading.symbols.map((sym) => ({
+      ...sym,
+      drawsOn: sym.drawsOn.map((d): SymbolLink => {
+        const words = wordsNear(d.ref);
+        // Shared words don't settle whether the link is real, so the AI's doubt stays visible.
+        const doubt = d.grade === "speculative" || d.grade === "tradition" ? { aiGrade: d.grade } : {};
+        if (words.length) return { ...d, ...doubt, grade: "wording", evidence: words.slice(0, 8) };
+        if (recorded(d.ref)) return { ...d, ...doubt, grade: "crossref" };
+        if (d.grade === "wording" || d.grade === "crossref") return { ...d, grade: "theme", downgraded: true };
+        return d;
+      }).sort((a, b) => ["wording", "crossref", "theme", "tradition", "speculative"].indexOf(a.grade) - ["wording", "crossref", "theme", "tradition", "speculative"].indexOf(b.grade)),
+    })),
+  };
 }
 
 export const guideRequestPresets = [
