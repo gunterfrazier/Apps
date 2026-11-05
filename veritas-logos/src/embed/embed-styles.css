@@ -1,0 +1,4 @@
+body { background: var(--bg); overflow: hidden; }
+.embed { padding: 8px 12px 12px; max-width: 100%; }
+.e-title { font: 600 1.2rem var(--font-serif); margin: .2rem 0 .3rem; }
+.e-credit { margin-top: .6rem; }

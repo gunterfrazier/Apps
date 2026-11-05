@@ -1,0 +1,30 @@
+{
+  "name": "veritas-logos",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Veritas Logos: a phone-first Bible study guide builder with reference tools, BibliaTree people tools, embeds and a public API.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/test.mjs",
+    "data:build": "node --no-warnings scripts/build-data.mjs",
+    "data:check": "node --no-warnings scripts/check-data.mjs",
+    "api": "node --no-warnings dist-server/server.js"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "esbuild": "0.28.2",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}
