@@ -266,8 +266,16 @@ export const deleteSource = (id: string) => update((d) => ({ ...d, sources: d.so
 
 // ---------- Hash routes ----------
 // Routes use letters, digits and hyphens only, so links survive every host.
+let ownNavigation = -Infinity;
+const leaving: (() => void)[] = [];
+/** Runs just before the app moves to another route, while the old page is still on screen. */
+export const onLeave = (f: () => void) => { leaving.push(f); return () => { leaving.splice(leaving.indexOf(f), 1); }; };
+/** Marks a move the app or a link made, so it isn't mistaken for the Back button. Browsers report both as popstate. */
+export function noteNavigation() { ownNavigation = performance.now(); for (const f of leaving) f(); }
+export const isOwnNavigation = () => performance.now() - ownNavigation < 600;
 export function navigate(hash: string) {
   if (location.hash.slice(1) === hash) return;
+  noteNavigation();
   location.hash = hash;
 }
 export function useRoute(): string {

@@ -309,45 +309,43 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
 .tl-matches button { display: flex; justify-content: space-between; gap: .6rem; width: 100%; padding: .5rem; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 6px; }
 .tl-matches button:hover { background: var(--surface-2); }
 .tl-matches span { color: var(--ink-3); font-size: .8rem; white-space: nowrap; }
-.tl-controls { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; flex-wrap: wrap; }
-.tl-controls input[type="range"] { flex: 1 1 120px; min-width: 100px; accent-color: var(--accent); }
-.tl-controls .icon-btn { width: 36px; height: 36px; font-size: 1.2rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; }
-.tl-range { font-size: .8rem; color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.tl-eras { display: flex; gap: .35rem; overflow-x: auto; padding: 2px 0 .5rem; scrollbar-width: none; }
-.tl-eras .chip { flex: none; cursor: pointer; }
 .tl-chart { position: relative; overflow: clip; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab; }
 .tl-chart.dragging { cursor: grabbing; }
-.tl-axis { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 52px); z-index: 4; height: 26px; overflow: hidden; background: var(--surface-2); border-bottom: 1px solid var(--line); }
-.tl-axis span { position: absolute; left: 0; top: 5px; padding-left: 4px; font-size: .68rem; color: var(--ink-2); white-space: nowrap; border-left: 1px solid var(--ink-3); will-change: transform; font-variant-numeric: tabular-nums; }
-.tl-plot { position: relative; overflow: hidden; }
+/* The period controls and the years stay pinned under the app bar while the rows scroll past. */
+.tl-top { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 52px); z-index: 4; background: var(--surface-2); border-bottom: 1px solid var(--line); border-radius: 12px 12px 0 0; }
+.tl-bar { display: flex; align-items: center; gap: .3rem; padding: .35rem .4rem .3rem; cursor: default; }
+.tl-bar select { flex: 1 1 auto; min-width: 0; height: 36px; padding: 0 .5rem; font: inherit; font-size: .88rem; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.tl-bar .icon-btn { width: 36px; height: 36px; font-size: 1.25rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.tl-bar .icon-btn:disabled { opacity: .35; cursor: default; }
+.tl-zoom { display: flex; gap: .3rem; margin-left: .35rem; }
+.tl-axis { position: relative; height: 24px; overflow: hidden; border-top: 1px solid var(--line); }
+.tl-axis span { position: absolute; left: 0; top: 4px; padding-left: 4px; font-size: .68rem; color: var(--ink-2); white-space: nowrap; border-left: 1px solid var(--ink-3); will-change: transform; font-variant-numeric: tabular-nums; }
+.tl-plot { position: relative; overflow: hidden; transition: height .25s ease; }
 .tl-grid i { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: color-mix(in srgb, var(--line) 60%, transparent); }
 .tl-layer { position: absolute; inset: 0 auto 0 0; width: 0; will-change: transform; }
-.tl-head { position: absolute; left: 8px; z-index: 2; display: inline-flex; align-items: center; gap: .35rem; height: 20px; padding: 0 .4rem 0 .3rem; font-size: .72rem; font-weight: 600; color: var(--ink-2); background: color-mix(in srgb, var(--surface) 88%, transparent); border-radius: 5px; pointer-events: none; }
+.tl-head { position: absolute; left: 8px; z-index: 2; display: inline-flex; align-items: center; gap: .35rem; height: 20px; padding: 0 .4rem 0 .3rem; font-size: .72rem; font-weight: 600; color: var(--ink-2); background: color-mix(in srgb, var(--surface) 88%, transparent); border-radius: 5px; pointer-events: none; transition: top .25s ease; }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .band-milestone { --c: var(--ink-2); } .band-life { --c: var(--tl-life); } .band-rule { --c: var(--tl-rule); } .band-prophet { --c: var(--tl-prophet); } .band-period { --c: var(--tl-period); }
 .band-event { --c: var(--tl-event); } .band-nt { --c: var(--tl-nt); } .band-writer { --c: var(--tl-writer); } .band-confession { --c: var(--tl-confession); }
 .swatch { background: var(--c); }
-.tl-item { position: absolute; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding: 0; border: 0; background: none; color: var(--ink); text-align: left; cursor: pointer; white-space: nowrap; }
-.tl-item.labelled { height: 28px; }
-.tl-item.point.labelled { height: 22px; }
-.tl-label { will-change: transform; }
-.tl-item.bare { height: 12px; }
-.tl-item::before { content: ""; position: absolute; inset: -3px -2px; }
-.tl-mark { display: block; background: var(--c); }
-.tl-item.span .tl-mark { height: 7px; border-radius: 4px; box-shadow: 0 0 0 1px var(--surface); }
-.tl-item.span.labelled .tl-mark { position: absolute; left: 0; bottom: 3px; }
-.tl-item.span.bare .tl-mark { height: 9px; margin-top: 1px; }
-.tl-item.point .tl-mark { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
-.tl-item.point.bare .tl-mark { box-shadow: 0 0 0 1px var(--surface); }
-.tl-item.point.bare .tl-mark { margin-top: 1px; }
-.tl-item.point.labelled .tl-mark { position: absolute; left: 0; top: 6px; }
-.tl-label { display: block; font-size: .72rem; line-height: 16px; color: var(--ink); }
-.tl-item.span.labelled .tl-label { padding-left: 1px; }
-.tl-item.point.labelled .tl-label { padding: 3px 0 0 14px; }
+/* Every lane is the same: a name on top, its mark underneath. The whole lane height can be tapped. */
+.tl-item { position: absolute; height: 26px; padding: 0; border: 0; background: none; color: var(--ink); cursor: pointer; transition: top .25s ease; }
+.tl-item::before { content: ""; position: absolute; inset: 0 -4px; }
+.tl-label { position: absolute; top: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .72rem; line-height: 15px; color: var(--ink); text-align: left; pointer-events: none; }
+.tl-mark { position: absolute; left: 0; display: block; background: var(--c); }
+.tl-item.span .tl-mark { top: 17px; height: 7px; border-radius: 4px; box-shadow: 0 0 0 1px var(--surface); }
+.tl-item.point .tl-mark { top: 16px; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
+.tl-item.tight { height: 12px; }
+.tl-item.tight.span .tl-mark { top: 2px; }
+.tl-item.tight.point .tl-mark { top: 1px; box-shadow: 0 0 0 1px var(--surface); }
+.tl-item.tighter.span .tl-mark { top: 1px; height: 5px; }
+.tl-item.tighter.point .tl-mark { top: 0; width: 6px; height: 6px; box-shadow: none; }
 .tl-item.estimated .tl-mark, .estimated-key { background-image: repeating-linear-gradient(135deg, transparent 0 2px, color-mix(in srgb, var(--surface) 55%, transparent) 2px 4px); }
 .tl-item.point.estimated .tl-mark { background-image: none; }
 .tl-item.on .tl-mark, .tl-item:hover .tl-mark { outline: 2px solid var(--ink); outline-offset: 1px; }
+.tl-item.on .tl-label { font-weight: 600; }
 .tl-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { .tl-plot, .tl-head, .tl-item { transition: none; } }
 .tl-tip { position: absolute; z-index: 5; display: flex; flex-direction: column; max-width: 240px; padding: .35rem .5rem; font-size: .75rem; background: var(--chrome); color: var(--on-chrome); border-radius: 6px; pointer-events: none; box-shadow: 0 4px 14px #0004; }
 .tl-legend { display: flex; flex-wrap: wrap; gap: .3rem .35rem; margin: .6rem 0 .3rem; align-items: center; }
 .tl-toggle { display: inline-flex; align-items: center; gap: .35rem; min-height: 32px; padding: .2rem .55rem; font-size: .78rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-3); cursor: pointer; }
@@ -355,6 +353,7 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
 .tl-toggle:not(.on) { text-decoration: line-through; }
 .tl-toggle:not(.on) .swatch { opacity: .35; }
 .tl-key { display: inline-flex; align-items: center; gap: .35rem; font-size: .75rem; color: var(--ink-2); margin-left: .3rem; }
+.tl-key .tl-mark { position: static; width: 18px; height: 7px; border-radius: 4px; background-color: var(--ink-3); }
 .estimated-key { display: inline-block; width: 22px; height: 7px; border-radius: 4px; background-color: var(--ink-3); }
 .tl-date { font: 600 1.05rem var(--font-serif); margin: 0 0 .3rem; }
 .tl-list { list-style: none; padding: 0; columns: 2 280px; font-size: .85rem; }

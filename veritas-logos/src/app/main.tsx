@@ -1,6 +1,6 @@
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { connectCloud, navigate, useData, useRoute } from "./store";
+import { connectCloud, isOwnNavigation, navigate, noteNavigation, onLeave, useData, useRoute } from "./store";
 import { PassagePeek, Toast } from "./ui";
 import { hashForReference, parseReadParts, readHash } from "./routes";
 import { refOf } from "../core/bible";
@@ -106,6 +106,8 @@ const TABS: { id: string; hash: string; label: string; icon: ReactNode }[] = [
 ];
 
 const ROOTS = new Set(["", "read", "explore", "history", "guides", "ask", "library"]);
+/** Routes that show the same page stay mounted, so opening a church event keeps the chart as it was. */
+const pageKey = (route: string) => { const head = route.split("-")[0]; return head === "event" ? "church" : head; };
 const LABELS: Record<string, string> = { church: "Church history", timeline: "Bible timeline", creeds: "Creeds", writers: "Writers", glossary: "Theological terms", notebook: "Notebook", compare: "Compare texts", synopsis: "Gospel synopsis", dc: "Deuterocanon", morph: "Search by grammar", textual: "Textual notes", originals: "Primary texts", people: "People" };
 const labelFor = (route: string) => {
   const [head, ...rest] = route.split("-");
@@ -123,24 +125,41 @@ function App() {
   const lastRoute = useRef(route);
   const wasPop = useRef(false);
   useEffect(() => {
-    const onPop = () => { wasPop.current = true; };
+    // Where you were is saved just before leaving, while the page is still there. Saved any later, the next
+    // page has already replaced it and the browser has cut the position short.
+    const save = () => { if (location.hash.slice(1) === lastRoute.current) places.current.set(lastRoute.current, window.scrollY); };
+    const stopLeave = onLeave(save);
+    // A link tap or navigate() also fires popstate, so only a move the app didn't make counts as Back or Forward.
+    const onPop = () => { const own = isOwnNavigation(); wasPop.current = !own; if (!own) places.current.set(lastRoute.current, window.scrollY); };
+    const onClick = (e: MouseEvent) => { if ((e.target as Element | null)?.closest?.('a[href^="#"]')) { noteNavigation(); wasPop.current = false; } };
     window.addEventListener("popstate", onPop);
+    document.addEventListener("click", onClick, true);
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((p) => !p); }
       else if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement).tagName)) { e.preventDefault(); setPalette(true); }
     };
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("popstate", onPop); window.removeEventListener("keydown", onKey); };
+    return () => { stopLeave(); window.removeEventListener("popstate", onPop); document.removeEventListener("click", onClick, true); window.removeEventListener("keydown", onKey); };
   }, []);
   useEffect(() => {
     if (route === lastRoute.current) return;
-    places.current.set(lastRoute.current, window.scrollY);
+    const was = lastRoute.current;
     lastRoute.current = route;
     if (wasPop.current) {
       wasPop.current = false;
       const y = places.current.get(route) ?? 0;
-      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
-    } else if (!route.startsWith("event-") && !/^read-.*-\d+-\d+/.test(route)) {
+      // A page that loads its data or measures itself first is short at the start, so keep trying for a moment,
+      // and stop as soon as you scroll or touch the screen yourself.
+      let stop = false;
+      const halt = () => { stop = true; };
+      for (const ev of ["wheel", "touchstart", "keydown", "pointerdown"]) window.addEventListener(ev, halt, { once: true, passive: true });
+      const restore = (tries: number) => {
+        if (stop) return;
+        window.scrollTo(0, y);
+        if (Math.abs(window.scrollY - y) > 2 && tries < 40) requestAnimationFrame(() => restore(tries + 1));
+      };
+      requestAnimationFrame(() => requestAnimationFrame(() => restore(0)));
+    } else if (!route.startsWith("event-") && !/^read-.*-\d+-\d+/.test(route) && pageKey(route) !== pageKey(was)) {
       window.scrollTo(0, 0);
     }
     const label = labelFor(route);
@@ -168,7 +187,7 @@ function App() {
           <a href="#library" className={`lib-link ${tab === "library" ? "on" : ""}`}>Library</a>
         </div>
       </header>
-      <main key={route.split("-")[0]} className="route-fade"><Boundary route={route}>{node}</Boundary></main>
+      <main key={pageKey(route)} className="route-fade"><Boundary route={route}>{node}</Boundary></main>
       <nav className="tabbar" aria-label="Main">
         {TABS.map((t) => (
           <a key={t.id} href={`#${t.hash}`} className={tab === t.id ? "on" : ""} aria-current={tab === t.id ? "page" : undefined}>

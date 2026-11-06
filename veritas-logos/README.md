@@ -18,8 +18,9 @@ A phone-first Bible study guide builder and reference tool, for personal use. It
 - **Genre and symbols:** counts a passage's literary features, finds passages that echo its key words across Hebrew, Greek and the Septuagint, and lines them up side by side. Optional AI drafts assess the genre and read the symbols through the chosen lens. The app sets the grades for shared wording and recorded links itself, so the AI can't claim them.
 - **AI work:** AI requests run on their own, outside any screen, and are saved as they go. Moving around the app doesn't stop them. If the phone pauses a minimized app, they carry on when it returns, and a long exegesis resumes from its last finished step. The AI work page lists everything and has a connection check.
 - **Theological lenses:** Reformed, Covenant / Federal, Arminian, Catholic, Orthodox, Lutheran, Anglican, Baptist, Pentecostal, Messianic and Dispensational.
-- **People:** 3,009 people from BibleData, with family links citing their verses, a family tree, a pathfinder and a timeline.
+- **People:** 3,129 people, with family links citing their verses, a family tree, a pathfinder and a timeline.
 - **Church history:** an interactive timeline of 105 councils, schisms, reformations, creeds and theological shifts, each with a checked source.
+- **Timelines:** both charts keep every item on a fixed lane, so nothing jumps while you drag or pinch. A pinned bar steps through periods and zooms, and each chart remembers its view when you come back to it.
 - **Scholar tools:** citations in five formats, a word-by-word interlinear, grammar search, the Septuagint and Vulgate side by side, Greek edition differences, a Gospel synopsis, 45 creeds across traditions, the deuterocanon, the Apostolic Fathers in Greek and English, Josephus, how a verse was read century by century, disputed dates, a notebook with backlinks, a bibliography with PDFs, advanced search and an AI research mode that checks its quotes.
 - **Connections:** links, embeds and a REST API. See `docs-API.md`.
 
