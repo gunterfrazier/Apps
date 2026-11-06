@@ -1,6 +1,6 @@
 import { decodeVerseCode, refOf } from "./bible";
 import { load, pad2 } from "./data";
-import { getFigure, initFigures } from "./figure-graph";
+import { getFigure, initFigures, setFigureAliases } from "./figure-graph";
 import type { Figure } from "./figure-types";
 import { parseReference } from "./references";
 import { getVerseCounts } from "./bible";
@@ -9,7 +9,7 @@ let ready: Promise<void> | null = null;
 
 /** Loads the people data once. */
 export function ensureFigures(): Promise<void> {
-  ready ??= load<Figure[]>("figures.json").then(initFigures);
+  ready ??= Promise.all([load<Figure[]>("figures.json"), load<Record<string, string>>("person-aliases.json").catch(() => ({}))]).then(([list, a]) => { setFigureAliases(a); initFigures(list); });
   return ready;
 }
 

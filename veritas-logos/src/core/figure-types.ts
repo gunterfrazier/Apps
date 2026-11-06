@@ -9,7 +9,7 @@ export interface ParentLink {
   explicit?: boolean;
 }
 
-/** One person from BibleData. Every family link cites the verse it comes from. */
+/** One person. Every family link was tested against the tagged Hebrew and Greek, and cites the verse it comes from. */
 export interface Figure {
   id: string;
   name: string;
@@ -28,4 +28,17 @@ export interface Figure {
   associates?: string[];
   unrecordedGenealogy?: boolean;
   messianic?: boolean;
+  era?: string;
+  roles?: string[];
+  /** STEPBible's summary. It's secondary, so the family links and verses take priority over it. */
+  bio?: string;
+  /** Read directly from the text, each with its verse. */
+  facts?: string[];
+  lifespan?: string;
+  /** Years on one named chronology. Scripture itself gives no BC dates. */
+  dates?: { from: number; to: number; kind: string; approx?: boolean };
+  am?: { from: number; to: number };
+  unnamed?: boolean;
+  places?: string[];
+  scriptures?: { ref: string; note?: string }[];
 }

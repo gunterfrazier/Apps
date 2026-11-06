@@ -10,7 +10,12 @@ Everything stored in the app comes from these sources. Keep these credits wherev
 | Cross-references | OpenBible.info, via scrollmapper | CC BY |
 | Nave's Topical Bible | Public domain, via [BibleData](https://github.com/BradyStephenson/bible-data) | CC BY 4.0 for the BibleData edition |
 | Confession texts and proof lists (Westminster Confession and Larger Catechism, Heidelberg Catechism, Baptist Catechism) | [Creeds.json](https://github.com/NonlinearFruit/Creeds.json) | Each document used is marked public domain there. The build refuses any that isn't |
-| People, family links, verse index, name meanings, book names, chronology | [BibleData](https://github.com/BradyStephenson/bible-data) by Brady Stephenson and contributors | CC BY 4.0 |
+| People, individual verse tags, summaries | [TIPNR](https://github.com/STEPBible/STEPBible-Data) by STEPBible.org, based on work at Tyndale House Cambridge | CC BY 4.0 |
+| More people and family claims, name meanings, book names, chronology | [BibleData](https://github.com/BradyStephenson/bible-data) by Brady Stephenson and contributors | CC BY 4.0 |
+| Cross-checks of family claims, and calendar dates | [Theographic Bible Metadata](https://github.com/robertrouse/theographic-bible-metadata) by Robert Rouse | CC BY-SA 4.0 |
+| Cross-checks of family claims | [ACAI](https://github.com/BibleAquifer/ACAI) by Mission Mutual | CC BY-SA 4.0 |
+
+**How the people data is built:** `scripts/build_people.py` gathers every family claim from TIPNR, BibleData, Theographic, ACAI and the original BibliaTree file, then tests each one against the tagged Hebrew and Greek. The Bible decides: what it states is kept with its verse, what it contradicts is dropped and logged, and what it doesn't address is kept only if open sources support it, and is marked. The app's "How this was checked" page lists these decisions. Summaries come from TIPNR and are secondary. A family statement in one that the verses don't support is removed. Calendar dates come from Theographic's chronology, because Scripture gives none. Theographic and ACAI are share-alike, so a public release that includes their data must share that part under the same license.
 
 **Changes made to BibleData:** family links that don't name both people in the cited chapter are dropped. Noah's lifespan row is dropped because it disagrees with Genesis 9:29. BibleData files Jesus under its YHVH record. The app lists him as a person, using that record's Jesus labels and two links anyone can read in the verses: Matthew 1:16 and Luke 3:23.
 

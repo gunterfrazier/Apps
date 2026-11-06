@@ -392,7 +392,7 @@ export async function generateGuide(opts: GenerateOptions): Promise<Guide> {
   const uniquePeople = people.filter((p, i) => people.findIndex((x) => x.id === p.id) === i).slice(0, 6);
   const peopleSec = uniquePeople.length
     ? sec("people", "People in this passage", "assembled", {
-        body: "From the BibleData index of people named in each verse. Open a person to see their family line.",
+        body: "From the index of people named in each verse (TIPNR, with BibleData). Open a person to see their family line.",
         items: uniquePeople.map((p) => ({ label: p.name, personId: p.id, text: p.title })),
       })
     : null;
@@ -509,7 +509,7 @@ export interface ResolvedGuide extends Omit<Guide, "sections"> {
 }
 
 const DATA_CREDIT =
-  `Hebrew and Greek data from STEP Bible (Tyndale House, CC BY 4.0). Strong's dictionaries via Open Scriptures (CC BY-SA). Cross-references from OpenBible.info (CC BY). Topics from Nave's Topical Bible. People from BibleData (CC BY 4.0). ${writingsCredit}`;
+  `Hebrew and Greek data and people from STEP Bible (Tyndale House, CC BY 4.0). Strong's dictionaries via Open Scriptures (CC BY-SA). Cross-references from OpenBible.info (CC BY). Topics from Nave's Topical Bible. People from BibleData (CC BY 4.0). ${writingsCredit}`;
 
 /** Fills in the verse text from the guide's translation. */
 export async function resolveGuide(guide: Guide): Promise<ResolvedGuide> {

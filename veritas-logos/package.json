@@ -13,6 +13,7 @@
     "data:writings": "python3 -I scripts/build_writings.py --out public/data",
     "data:glossary": "python3 -I scripts/build_glossary.py --out public/data",
     "data:echo": "python3 -I scripts/build_echo.py --out public/data",
+    "data:people": "python3 -I scripts/build_people.py --out build/people && python3 -I scripts/export_people.py --people build/people --data public/data",
     "data:check": "node --no-warnings scripts/check-data.mjs",
     "api": "node --no-warnings dist-server/server.js"
   },

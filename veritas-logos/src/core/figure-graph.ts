@@ -45,14 +45,18 @@ export function initFigures(source: Figure[]): void {
   adamPathCache.clear();
 }
 
-export const DEFAULT_FIGURE_ID = "david";
+export const DEFAULT_FIGURE_ID = "david-1";
+
+/** Records that turned out to be one person point to the record that remains, so saved guides still resolve. */
+let aliases: Record<string, string> = {};
+export const setFigureAliases = (a: Record<string, string>) => { aliases = a; };
 
 export function getFigure(id: string | undefined | null): Figure | undefined {
-  return id ? graph.map.get(id) : undefined;
+  return id ? graph.map.get(id) ?? graph.map.get(aliases[id]) : undefined;
 }
 
 export function hasFigure(id: string): boolean {
-  return graph.map.has(id);
+  return graph.map.has(id) || graph.map.has(aliases[id]);
 }
 
 /** Resolves ids to figures, silently skipping ids with no record. */
@@ -234,7 +238,7 @@ const adamPathCache = new Map<string, string[] | null>();
 
 /** Line of descent from Adam to this person, parent to child only (memoised: the graph never changes). */
 export function lineageFromAdam(personId: string): string[] | null {
-  if (!adamPathCache.has(personId)) adamPathCache.set(personId, findShortestPath("adam", personId, { descentOnly: true }));
+  if (!adamPathCache.has(personId)) adamPathCache.set(personId, findShortestPath("adam-1", personId, { descentOnly: true }));
   return adamPathCache.get(personId) ?? null;
 }
 

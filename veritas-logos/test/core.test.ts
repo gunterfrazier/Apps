@@ -619,3 +619,110 @@ test("symbol grades: the app decides what counts as checked", async () => {
   assert.match(p, /Ezekiel 14/);
   assert.doesNotMatch(await symbolPrompt("Isaiah 53:1-3", "BSB", "all"), /preterist/);
 });
+
+// ---------- The people database, checked against lists copied from Scripture rather than from the build ----------
+const peopleFile = () => JSON.parse(fs.readFileSync("public/data/figures.json", "utf8")) as any[];
+function peopleIndex() {
+  const list = peopleFile();
+  const byId = new Map(list.map((f) => [f.id, f]));
+  const namesOf = (f: any) => new Set([f.name, ...(f.altNames ? f.altNames.split(", ") : [])].map((n: string) => n.toLowerCase()));
+  const named = (n: string) => list.filter((f) => namesOf(f).has(n.toLowerCase()));
+  const walk = (chain: string[], step: "children" | "parents", start?: any) => {
+    let best = 0;
+    for (const first of start ? [start] : named(chain[0])) {
+      let cur = first, n = 0;
+      for (const nm of chain.slice(start ? 0 : 1)) {
+        const nx = cur[step].map((c: string) => byId.get(c)).find((f: any) => f && namesOf(f).has(nm.toLowerCase()));
+        if (!nx) break;
+        cur = nx; n++;
+      }
+      best = Math.max(best, n);
+    }
+    return best;
+  };
+  return { list, byId, named, walk };
+}
+
+test("people: genealogies copied from Scripture walk through unbroken", () => {
+  const { walk } = peopleIndex();
+  const lines: [string, string][] = [
+    ["Genesis 5", "Adam Seth Enosh Kenan Mahalalel Jared Enoch Methuselah Lamech Noah Shem"],
+    ["Genesis 11 and 25", "Shem Arphaxad Shelah Eber Peleg Reu Serug Nahor Terah Abraham Isaac Jacob Judah"],
+    ["Ruth 4:18-22", "Judah Perez Hezron Ram Amminadab Nahshon Salmon Boaz Obed Jesse David"],
+    ["1 Chronicles 3:10-16", "David Solomon Rehoboam Abijah Asa Jehoshaphat Jehoram Ahaziah Joash Amaziah Uzziah Jotham Ahaz Hezekiah Manasseh Amon Josiah Jehoiakim Jehoiachin"],
+    ["Matthew 1", "Abraham Isaac Jacob Judah Perez Hezron Ram Amminadab Nahshon Salmon Boaz Obed Jesse David Solomon Rehoboam Abijah Asa Jehoshaphat Joram Uzziah Jotham Ahaz Hezekiah Manasseh Amon Josiah Jeconiah Shealtiel Zerubbabel Abiud Eliakim Azor Zadok Achim Eliud Eleazar Matthan Jacob Joseph Jesus"],
+  ];
+  for (const [src, line] of lines) {
+    const names = line.split(" ");
+    assert.equal(walk(names, "children"), names.length - 1, src);
+  }
+});
+
+test("people: Luke 3 walks from Joseph to Adam", () => {
+  const { walk, named } = peopleIndex();
+  const joseph = named("Joseph").find((f) => f.children.includes("jesus-christ"));
+  const line = "Heli Matthat Levi Melchi Jannai Joseph Mattathias Amos Nahum Esli Naggai Maath Mattathias Semein Josech Joda Joanan Rhesa Zerubbabel Shealtiel Neri Melchi Addi Cosam Elmadam Er Joshua Eliezer Jorim Matthat Levi Simeon Judah Joseph Jonam Eliakim Melea Menna Mattatha Nathan David Jesse Obed Boaz Sala Nahshon Amminadab Ram Hezron Perez Judah Jacob Isaac Abraham Terah Nahor Serug Reu Peleg Eber Shelah Cainan Arphaxad Shem Noah Lamech Methuselah Enoch Jared Mahalalel Cainan Enosh Seth Adam".split(" ");
+  assert.equal(walk(line, "parents", joseph), line.length);
+});
+
+test("people: parents and spouses match the verses", () => {
+  const { byId, named } = peopleIndex();
+  const parentsOf = (name: string, ids?: string) => {
+    const f = ids ? byId.get(ids) : named(name).sort((a, b) => b.parents.length - a.parents.length)[0];
+    return f.parents.map((p: string) => byId.get(p).name);
+  };
+  const expects: [string, string[]][] = [["Moses", ["Amram", "Jochebed"]], ["Isaac", ["Abraham", "Sarah"]], ["Ishmael", ["Abraham", "Hagar"]], ["Samuel", ["Elkanah", "Hannah"]], ["Solomon", ["David", "Bathsheba"]], ["Rehoboam", ["Solomon", "Naamah"]], ["Hezekiah", ["Ahaz", "Abi"]], ["Absalom", ["David", "Maacah"]]];
+  for (const [who, want] of expects) for (const w of want) assert.ok(parentsOf(who).includes(w), `${who} and ${w}: ${parentsOf(who)}`);
+  for (const [mother, kids] of [["Leah", "Reuben Simeon Levi Judah Issachar Zebulun Dinah"], ["Rachel", "Joseph Benjamin"], ["Bilhah", "Dan Naphtali"], ["Zilpah", "Gad Asher"]] as const) {
+    const m = named(mother).sort((a, b) => b.children.length - a.children.length)[0];
+    const have = m.children.map((c: string) => byId.get(c).name);
+    for (const k of kids.split(" ")) assert.ok(have.includes(k), `${mother}: ${k}`);
+  }
+  const david = byId.get("david-1");
+  assert.ok(!david.parents.some((p: string) => byId.get(p).name === "Nahash"), "Scripture doesn't name David's mother");
+  const wives = david.spouses.map((s: string) => byId.get(s).name);
+  for (const w of "Michal Abigail Ahinoam Maacah Haggith Abital Eglah Bathsheba".split(" ")) assert.ok(wives.includes(w), w);
+});
+
+test("people: Scripture's own differences stay visible, and verse-stated years win", () => {
+  const { byId, named } = peopleIndex();
+  const jesus = byId.get("jesus-christ");
+  const joseph = jesus.parents.map((p: string) => byId.get(p)).find((f: any) => f.name === "Joseph");
+  assert.equal(jesus.parentLinks[joseph.id].kind, "legal");
+  const fathers = joseph.parents.map((p: string) => byId.get(p).name).sort();
+  assert.deepEqual(fathers, ["Heli", "Jacob"]);
+  assert.match(joseph.parentLinks[joseph.parents[0]].note, /more than one father/);
+  const noah = named("Noah").find((f) => f.lifespan);
+  assert.match(noah.lifespan, /^950 years \(Genesis 9:29\)/);
+  assert.equal(noah.am.to - noah.am.from, 950);
+  for (const [n, y] of [["Adam", 930], ["Methuselah", 969], ["Abraham", 175], ["Isaac", 180], ["Moses", 120]] as const) {
+    assert.ok(named(n).some((f) => f.lifespan?.startsWith(`${y} years`)), n);
+  }
+});
+
+test("people: every record is sound, and old saved ids still work", () => {
+  const { list, byId } = peopleIndex();
+  assert.ok(list.length > 3000);
+  assert.equal(new Set(list.map((f) => f.id)).size, list.length);
+  const aliases = JSON.parse(fs.readFileSync("public/data/person-aliases.json", "utf8"));
+  for (const target of Object.values(aliases)) assert.ok(byId.has(target as string), String(target));
+  for (const f of list) {
+    for (const k of ["parents", "spouses", "children", "siblings"]) for (const id of f[k]) assert.ok(byId.has(id), `${f.id} ${k} ${id}`);
+    for (const p of f.parents) assert.ok(byId.get(p).children.includes(f.id), `${f.id} and ${p}`);
+    for (const s of f.spouses) assert.ok(byId.get(s).spouses.includes(f.id), `${f.id} and ${s}`);
+    for (const l of Object.values(f.parentLinks) as any[]) if (l.explicit) assert.ok(l.refs.length > 0, f.id);
+  }
+  // No one is their own ancestor.
+  const seen = new Map<string, number>();
+  const visit = (id: string): void => {
+    seen.set(id, 1);
+    const f = byId.get(id);
+    for (const p of f.parents) {
+      if (f.parentLinks[p]?.kind === "descendant") continue;
+      assert.notEqual(seen.get(p), 1, `cycle at ${f.id}`);
+      if (!seen.has(p)) visit(p);
+    }
+    seen.set(id, 2);
+  };
+  for (const f of list) if (!seen.has(f.id)) visit(f.id);
+});

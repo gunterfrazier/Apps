@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { newId } from "../../core/guide";
 import { buildSubgraph, describeRelationshipStep, findShortestPath, formatGenerations, getFigure, getSiblings, lineageFromAdam, parentLink, resolveFigures, stepLink, summarizePath } from "../../core/figure-graph";
-import type { Figure } from "../../core/figure-types";
+import type { Figure, ParentLink } from "../../core/figure-types";
+import { load } from "../../core/data";
 import { GROUP_FILTERS, searchFigures, type GroupFilter } from "../../core/figure-search";
 import { ensureFigures, versesOfPerson } from "../../core/people";
 import { layoutTree, type LayoutDims } from "../../core/tree-layout";
 import { navigate, update, useData } from "../store";
-import { Empty, Loading, RefLink, RefText, useAsync } from "../ui";
+import { Empty, Loading, Paras, RefLink, RefText, useAsync } from "../ui";
 import { addSectionsToGuide } from "./insights";
 
 const DEFAULT_ID = "david-1";
-const CREDIT = "People and family links from BibleData (CC BY 4.0). A link is shown only if both people are named in the chapter it cites.";
+const CREDIT = "People and summaries from STEPBible's TIPNR (CC BY 4.0), with BibleData (CC BY 4.0). Family claims from these, Theographic and ACAI (CC BY-SA 4.0) were tested against the tagged Hebrew and Greek, and the Bible decides.";
 
 const Ready = ({ children }: { children: () => ReactNode }) => {
   const { data, loading, error } = useAsync(async () => { await ensureFigures(); return true; }, []);
@@ -66,18 +67,70 @@ function PeopleList() {
       </div>
       {list.length > 80 && <p className="fine">Showing the first 80. Search to narrow the list.</p>}
       {!list.length && <Empty>No one matches. Try a shorter search.</Empty>}
+      <p className="fine">{CREDIT} <a href="#people-data">How this was checked</a></p>
+    </div>
+  );
+}
+
+/** Shows what the people database kept, changed and dropped, and why. */
+export function PeopleDataPage() {
+  const { data } = useAsync(() => load<PeopleReport>("people-report.json"), []);
+  if (!data) return <div className="page"><Loading /></div>;
+  const c = data.counts;
+  const List = ({ title, intro, rows }: { title: string; intro: string; rows: { key: string; main: string; sub?: string }[] }) => (
+    <details className="doctrine">
+      <summary>{title} ({rows.length.toLocaleString()})</summary>
+      <p className="fine">{intro}</p>
+      <ul className="fine-list">{rows.slice(0, 400).map((r) => <li key={r.key}><RefText text={r.main} />{r.sub && <span className="fine"> {r.sub}</span>}</li>)}</ul>
+      {rows.length > 400 && <p className="fine">Showing the first 400.</p>}
+    </details>
+  );
+  return (
+    <div className="page prose">
+      <a className="back" href="#people">‹ People</a>
+      <h1 className="page-title">How the people data was checked</h1>
+      <p>Every family claim was tested against the Hebrew and Greek text, where each person is tagged word by word. The Bible decides: a claim Scripture states is kept with its verse, one Scripture contradicts is dropped, and one Scripture doesn't address is kept only if open sources support it, and is marked.</p>
+      <dl className="facts">
+        <dt>People</dt><dd>{c.people_final.toLocaleString()}</dd>
+        <dt>Parent links kept</dt><dd>{c.kept.parent.toLocaleString()}, tested from {c.parent_claims.toLocaleString()} claims</dd>
+        <dt>Marriages kept</dt><dd>{c.kept.spouse.toLocaleString()}</dd>
+      </dl>
+      <List title="Where Scripture overrode a source" intro="The source's claim was dropped because the text says otherwise. A few may reflect the sources counting one person as two, so the verse is given to check." rows={data.overridden.map((x, i) => ({ key: String(i), main: x.claim, sub: `${x.scripture}. Source: ${x.sources.join(", ")}.` }))} />
+      <List title="Where Scripture itself names two fathers" intro="Both are kept and shown, with no attempt to settle the difference." rows={data.scripture_differs.map((x, i) => ({ key: String(i), main: `${x.person}: ${x.fathers.map((f) => `${f.name} (${f.ref})`).join(" and ")}` }))} />
+      <List title="Dates corrected to Scripture" intro="A source's dates disagreed with the years a verse gives." rows={(data.dates_overridden ?? []).map((x, i) => ({ key: String(i), main: x.person, sub: `${x.source}. ${x.scripture}.` }))} />
+      <List title="Kept, but not stated word for word" intro="Scripture doesn't contradict these and open sources support them. They're marked wherever they appear." rows={data.secondary.map((x, i) => ({ key: String(i), main: x.claim, sub: `${x.basis}. Source: ${x.sources.join(", ")}.` }))} />
+      <List title="Dropped for lack of support" intro="One source alone, or a source's own doubt, with nothing in the text to back it." rows={data.unsupported.map((x, i) => ({ key: String(i), main: x.claim, sub: `${x.why}. Source: ${x.sources.join(", ")}.` }))} />
+      <List title="Summary sentences removed" intro="These sentences in a summary gave a person a family that the verses don't show." rows={data.bio_removed.map((x, i) => ({ key: String(i), main: x.sentence, sub: x.person }))} />
       <p className="fine">{CREDIT}</p>
     </div>
   );
 }
 
-const Links = ({ title, list, refFor }: { title: string; list: Figure[]; refFor?: (f: Figure) => string | undefined }) =>
+interface PeopleReport {
+  counts: { people_final: number; kept: { parent: number; spouse: number; sibling: number }; parent_claims: number };
+  overridden: { claim: string; sources: string[]; scripture: string }[];
+  scripture_differs: { person: string; fathers: { name: string; ref: string }[] }[];
+  dates_overridden?: { person: string; source: string; scripture: string }[];
+  secondary: { claim: string; sources: string[]; basis: string }[];
+  unsupported: { claim: string; sources: string[]; why: string }[];
+  bio_removed: { person: string; sentence: string }[];
+}
+
+const Links = ({ title, list, refFor, noteFor }: { title: string; list: Figure[]; refFor?: (f: Figure) => string | undefined; noteFor?: (f: Figure) => string | undefined }) =>
   list.length ? (
     <div className="family">
       <span className="fine">{title}</span>
-      <span>{list.map((f, i) => { const r = refFor?.(f); return <span key={f.id}>{i > 0 && ", "}<a href={`#person-${f.id}`}>{f.name}</a>{r && <> (<RefLink refText={r} />)</>}</span>; })}</span>
+      <span>{list.map((f, i) => { const r = refFor?.(f); const n = noteFor?.(f); return <span key={f.id}>{i > 0 && ", "}<a href={`#person-${f.id}`}>{f.name}</a>{r && <> (<RefLink refText={r} />)</>}{n && <span className="fine link-note"> {n}</span>}</span>; })}</span>
     </div>
   ) : null;
+
+const linkNote = (l?: ParentLink) => {
+  if (!l) return undefined;
+  if (l.kind === "descendant") return l.generations ? `Ancestor, ${l.generations} generations back${l.via?.length ? ` through ${l.via.join(", ")}` : ""}.` : "Ancestor, with generations skipped.";
+  return l.note;
+};
+
+const yearText = (y: number) => (y < 0 ? `${-y} BC` : `AD ${y}`);
 
 export const PersonPage = ({ id }: { id: string }) => <Ready>{() => <Person id={id} />}</Ready>;
 function Person({ id }: { id: string }) {
@@ -106,14 +159,19 @@ function Person({ id }: { id: string }) {
       <dl className="facts">
         {f.altNames && <><dt>Also called</dt><dd>{f.altNames}</dd></>}
         {f.meaning && <><dt>Name means</dt><dd>{f.meaning}</dd></>}
+        {f.era && <><dt>Period</dt><dd>{f.era}</dd></>}
+        {f.places?.length ? <><dt>Places</dt><dd>{f.places.join(", ")}</dd></> : null}
+        {f.dates && <><dt>{f.dates.kind === "active" ? "Active" : "Lived"}</dt><dd>About {yearText(f.dates.from)} to {yearText(f.dates.to)}. <span className="fine">Scripture gives no calendar dates. This is one traditional chronology (Floyd Nolen Jones, via Theographic).</span></dd></>}
       </dl>
+      {f.facts && f.facts.length > 0 && <><h3>Stated in Scripture</h3><ul className="fine-list">{f.facts.map((x, i) => <li key={i}><RefText text={x} /></li>)}</ul></>}
+      {f.bio && <details className="doctrine" open><summary>Summary</summary><Paras text={f.bio} /><p className="fine">Written by STEPBible (TIPNR), and secondary. The family links and verses on this page take priority over it.</p></details>}
       <h3>Family</h3>
-      <Links title="Parents" list={resolveFigures(f.parents)} refFor={(p) => parentLink(f.id, p.id)?.refs?.[0]} />
+      <Links title="Parents" list={resolveFigures(f.parents)} refFor={(p) => parentLink(f.id, p.id)?.refs?.[0]} noteFor={(p) => linkNote(parentLink(f.id, p.id))} />
       <Links title="Spouses" list={resolveFigures(f.spouses)} refFor={(s) => f.spouseRefs?.[s.id]} />
-      <Links title="Children" list={resolveFigures(f.children)} refFor={(c) => parentLink(c.id, f.id)?.refs?.[0]} />
+      <Links title="Children" list={resolveFigures(f.children)} refFor={(c) => parentLink(c.id, f.id)?.refs?.[0]} noteFor={(c) => linkNote(parentLink(c.id, f.id))} />
       <Links title="Siblings" list={resolveFigures(getSiblings(f.id))} />
       {!f.parents.length && !f.spouses.length && !f.children.length && <Empty>No family link is recorded for this person.</Empty>}
-      {f.parentLinks && Object.values(f.parentLinks).some((l) => l.kind === "legal") && <p className="fine">Joseph is shown as a legal parent: Luke 3:23 says Jesus “was the son, so it was thought, of Joseph”.</p>}
+      {f.parentLinks && Object.values(f.parentLinks).some((l) => l.kind === "legal") && f.id === "jesus-christ" && <p className="fine">Joseph is shown as a legal parent: Luke 3:23 says Jesus “was the son, so it was thought, of Joseph”.</p>}
       {line && line.length > 1 && <p className="fine">{formatGenerations(summarizePath(line))} from Adam through these links. <a href={`#tree-${f.id}`}>See the tree</a></p>}
       <h3>Verses naming {f.name}{verses ? ` (${verses.length.toLocaleString()})` : ""}</h3>
       {verses && !verses.length && <Empty>No verses are indexed for this person.</Empty>}

@@ -7,7 +7,7 @@ import { refOf } from "../core/bible";
 import { ReadPage } from "./pages/read";
 import { BookPage, BooksPage, ExplorePage, LettersPage, LexiconPage, TopicPage, TopicsPage, WordPage } from "./pages/explore";
 import { decodeTopic, GuidePage, GuidesPage, NewGuidePage, SharedGuidePage } from "./pages/guides";
-import { PathsPage, PeoplePage, PersonPage, TreePage } from "./pages/people";
+import { PathsPage, PeopleDataPage, PeoplePage, PersonPage, TreePage } from "./pages/people";
 import { GlossaryPage, TermPage } from "./pages/glossary";
 import { ChurchHistoryPage, DatingPage, TimelinePage } from "./pages/timeline";
 import { ApostolicPage, ComparePage, DcPage, JosephusPage, MorphPage, OriginalsPage, SynopsisPage, TextualPage } from "./pages/texts";
@@ -70,7 +70,7 @@ function pageFor(route: string): { node: ReactNode; tab: string } {
     case "new": return { node: <NewGuidePage key={tail} initial={tail ? decodeTopic(tail) : undefined} />, tab: "guides" };
     case "guide": return { node: <GuidePage key={tail} id={tail} />, tab: "guides" };
     case "shared": return { node: <SharedGuidePage code={tail} />, tab: "guides" };
-    case "people": return { node: <PeoplePage />, tab: "history" };
+    case "people": return { node: tail === "data" ? <PeopleDataPage /> : <PeoplePage />, tab: "history" };
     case "person": return { node: <PersonPage key={tail} id={tail} />, tab: "history" };
     case "tree": return { node: <TreePage id={tail || undefined} />, tab: "history" };
     case "paths": return { node: <PathsPage />, tab: "history" };

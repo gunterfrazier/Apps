@@ -14,6 +14,7 @@ A phone-first Bible study guide builder and reference tool, for personal use. It
 - **Explore and expand:** every guide section, and the reader's insight sections, can be researched further with AI, including a background overview. It searches the app's library, and the app checks each citation word for word. It can't search the live web.
 - **Deep exegesis:** an AI synopsis of a passage from the chosen lens, worked from the Hebrew or Greek. The app checks its references, word studies and quotes, and it stays labeled as a draft.
 - **Search this passage:** looks for a word or topic in selected verses, including the Hebrew or Greek behind it, the topics, glossary, confessions and writers. This part is all checked data and needs no AI. An optional AI reading then shows how the chosen lens understands it, keeping what the text says apart from what the tradition brings.
+- **People:** 3,172 people, rebuilt with the Bible as the final authority. Every family claim from TIPNR, BibleData, Theographic, ACAI and the original BibliaTree file is tested against the tagged Hebrew and Greek, and the app's "How this was checked" page lists what was kept, changed and dropped.
 - **Genre and symbols:** counts a passage's literary features, finds passages that echo its key words across Hebrew, Greek and the Septuagint, and lines them up side by side. Optional AI drafts assess the genre and read the symbols through the chosen lens. The app sets the grades for shared wording and recorded links itself, so the AI can't claim them.
 - **AI work:** AI requests run on their own, outside any screen, and are saved as they go. Moving around the app doesn't stop them. If the phone pauses a minimized app, they carry on when it returns, and a long exegesis resumes from its last finished step. The AI work page lists everything and has a connection check.
 - **Theological lenses:** Reformed, Covenant / Federal, Arminian, Catholic, Orthodox, Lutheran, Anglican, Baptist, Pentecostal, Messianic and Dispensational.
@@ -76,11 +77,12 @@ test/          Automated tests
 
 `npm run data:check` tests the data against the Bible text:
 
-- A family link is kept only if both people are named in the chapter it cites. The build dropped 84 that failed.
-- A lifespan must match the verse where the verse gives a total. Noah is left off the timeline because BibleData counts 951 years and Genesis 9:29 says 950.
+- Every family claim is tested against the tagged Hebrew and Greek by `scripts/build_people.py`. The Bible decides, and the app's "How this was checked" page lists the results.
+- A lifespan must match the verse where the verse gives a total. BibleData counts 951 years for Noah, and Genesis 9:29 says 950, so the verse is used.
+- `npm test` walks genealogies copied from Scripture (Genesis 5 and 11, Ruth 4, 1 Chronicles 3, Matthew 1, Luke 3) through the data.
 - Quotations and parallels must share a run of wording, which is shown with each one.
 
-Sources can still contain errors, and their chronology and family links reflect their editors' judgment. To rebuild, run `npm run data:build -- --sources ../sources`, then `npm run data:writings -- --sources ../sources` and `npm run data:glossary -- --sources ../sources` (they need Python 3.11 or later and run after the first step because it clears `public/data`), which needs local copies of the sources listed in `DATA-LICENSES.md`.
+Sources can still contain errors, and their chronology and family links reflect their editors' judgment. To rebuild, finish with `npm run data:echo` and `npm run data:people`, after `npm run data:build -- --sources ../sources`, `npm run data:writings -- --sources ../sources` and `npm run data:glossary -- --sources ../sources` (they need Python 3.11 or later and run after the first step because it clears `public/data`), which needs local copies of the sources listed in `DATA-LICENSES.md`.
 
 ## How the features connect
 
