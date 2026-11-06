@@ -11,7 +11,7 @@ import { Empty, Loading, Paras, RefLink, RefText, useAsync } from "../ui";
 import { addSectionsToGuide } from "./insights";
 
 const DEFAULT_ID = "david-1";
-const CREDIT = "People and summaries from STEPBible's TIPNR (CC BY 4.0), with BibleData (CC BY 4.0). Family claims from these, Theographic and ACAI (CC BY-SA 4.0) were tested against the tagged Hebrew and Greek, and the Bible decides.";
+const CREDIT = "People and summaries from STEPBible's TIPNR (CC BY 4.0), with BibleData (CC BY 4.0). Family claims from these, Theographic and ACAI (CC BY-SA 4.0) were tested against the tagged Hebrew and Greek, and the Bible decides. The people data is shared under CC BY-SA 4.0.";
 
 const Ready = ({ children }: { children: () => ReactNode }) => {
   const { data, loading, error } = useAsync(async () => { await ensureFigures(); return true; }, []);
@@ -101,6 +101,9 @@ export function PeopleDataPage() {
       <List title="Kept, but not stated word for word" intro="Scripture doesn't contradict these and open sources support them. They're marked wherever they appear." rows={data.secondary.map((x, i) => ({ key: String(i), main: x.claim, sub: `${x.basis}. Source: ${x.sources.join(", ")}.` }))} />
       <List title="Dropped for lack of support" intro="One source alone, or a source's own doubt, with nothing in the text to back it." rows={data.unsupported.map((x, i) => ({ key: String(i), main: x.claim, sub: `${x.why}. Source: ${x.sources.join(", ")}.` }))} />
       <List title="Summary sentences removed" intro="These sentences in a summary gave a person a family that the verses don't show." rows={data.bio_removed.map((x, i) => ({ key: String(i), main: x.sentence, sub: x.person }))} />
+      <List title="People left out" intro="A source listed someone the verses don't support: a person a source added to fill out a count, or one inferred from a verse that doesn't refer to them." rows={(data.people_dropped ?? []).map((x, i) => ({ key: String(i), main: x.person, sub: `${x.why}.` }))} />
+      <List title="Duplicates joined" intro="One person listed twice under different spellings. Links to either one lead to the same page." rows={(data.merged ?? []).map((x, i) => ({ key: String(i), main: x.person, sub: `Now part of ${x.into}.` }))} />
+      <List title="Names changed to the Bible's" intro="The source filed these under a name that none of the bundled translations uses in their verses." rows={(data.renamed ?? []).map((x, i) => ({ key: String(i), main: x.name, sub: `${x.why}.` }))} />
       <p className="fine">{CREDIT}</p>
     </div>
   );
@@ -114,6 +117,9 @@ interface PeopleReport {
   secondary: { claim: string; sources: string[]; basis: string }[];
   unsupported: { claim: string; sources: string[]; why: string }[];
   bio_removed: { person: string; sentence: string }[];
+  people_dropped?: { person: string; why: string }[];
+  merged?: { person: string; into: string }[];
+  renamed?: { person: string; name: string; why: string }[];
 }
 
 const Links = ({ title, list, refFor, noteFor }: { title: string; list: Figure[]; refFor?: (f: Figure) => string | undefined; noteFor?: (f: Figure) => string | undefined }) =>
@@ -126,7 +132,10 @@ const Links = ({ title, list, refFor, noteFor }: { title: string; list: Figure[]
 
 const linkNote = (l?: ParentLink) => {
   if (!l) return undefined;
-  if (l.kind === "descendant") return l.generations ? `Ancestor, ${l.generations} generations back${l.via?.length ? ` through ${l.via.join(", ")}` : ""}.` : "Ancestor, with generations skipped.";
+  if (l.kind === "descendant") {
+    if (l.note) return `${l.generations ? `Ancestor, ${l.generations} generations back.` : "Ancestor."} ${l.note}`;
+    return l.generations ? `Ancestor, ${l.generations} generations back${l.via?.length ? ` through ${l.via.join(", ")}` : ""}.` : "Ancestor, with generations skipped.";
+  }
   return l.note;
 };
 

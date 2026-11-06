@@ -13,7 +13,7 @@ import argparse, collections, glob, json, os, re, sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "people"))
 from sources import Bible, NAMES, code, csv_rows, load_acai, load_bibledata, load_theographic, load_tipnr, nice, osis, sid
-from resolve import match, similar
+from resolve import lev, match, similar
 from evidence import Evidence, english_confirms
 
 ap = argparse.ArgumentParser()
@@ -21,6 +21,7 @@ ap.add_argument("--sources", default="/home/claude/sources")
 ap.add_argument("--data", default="public/data")
 ap.add_argument("--old", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "people", "old-bibliatree-figures.json"))
 ap.add_argument("--out", default="build/people")
+ap.add_argument("--previous", default="", help="An earlier people.json, so ids that changed since keep working")
 args = ap.parse_args()
 os.makedirs(args.out, exist_ok=True)
 S = args.sources
@@ -36,6 +37,49 @@ old = json.load(open(args.old, encoding="utf-8"))  # The hand-entered file from 
 
 for p in tip.values():
     p["unnamed"] = bool(re.search(r"_of_|^(a|an|the|unnamed)_", p["name"].replace(" ", "_"), re.I)) or p["name"][:1].islower()
+    # TIPNR notes the verse an unnamed person is inferred from, such as Lot's daughters at Genesis 19:30.
+    m = re.search(r"inferred at ([1-3]?[A-Z][a-z]{1,2}\.\d+\.\d+)", p["summary"])
+    if p["unnamed"] and m and osis(m[1]):
+        p["verses"].add(osis(m[1]))
+
+# TIPNR adds some people Scripture never mentions, to fill out a count: nine generations between Matthan and Jacob
+# "inferred from the number of generations in Luke 3", though Matthew 1:15 says Matthan fathered Jacob. They are left out.
+report_dropped = [{"person": p["name"], "key": k, "why": re.sub(r"<[^>]+>", "", p["summary"]).split(";")[0]} for k, p in tip.items() if re.search(r"\binferred from\b", p["summary"])]
+report_dropped += [{"person": p["name"], "key": k, "why": "No verse names this person once other people's verses are set aside"} for k, p in tip.items() if not p["verses"] and k not in {d["key"] for d in report_dropped}]
+for d in report_dropped:
+    del tip[d["key"]]
+
+# An unnamed person stays only if the verse TIPNR infers them from refers to them: "the father of Timothy" from
+# "his father was a Greek" (Acts 16:1). A "father of Lazarus" inferred from "She had a sister named Mary" (Luke 10:39)
+# isn't in the text, so he is left out with his links.
+REL_WORDS = {"father": r"\bfathers?\b", "mother": r"\bmothers?\b", "wife": r"\bwi(fe|ves)\b|\bmother-in-law\b|\bfather-in-law\b|\bconcubines?\b",
+             "husband": r"\bhusbands?\b", "daughter": r"\bdaughters?\b|\bson-in-law\b|\bfather-in-law\b", "son": r"\bsons?\b",
+             "sister": r"\bsisters?\b", "brother": r"\bbrothers?\b", "motherinlaw": r"\bmother-in-law\b"}
+
+
+def chapter_text(c):
+    out, v = [], 1
+    while v < 200:
+        t = bible.verse(c - c % 1000 + v) + " " + bible.verse(c - c % 1000 + v, "KJV")
+        if not t.strip():
+            break
+        out.append(t)
+        v += 1
+    return " ".join(out)
+
+
+KEEP_UNNAMED = {"husband_of_Zeruiah@1Sa.26.6"}  # 2 Samuel 2:32: Asahel was buried "in his father's tomb".
+for k, p in list(tip.items()):
+    m = re.match(r"^(?:a_|an_|the_)?([A-Za-z]+?)\d*_of_([A-Z][A-Za-z-]+)", k)
+    if not m or k in KEEP_UNNAMED or m[1].lower() not in REL_WORDS:
+        continue
+    c = osis(k.split("@")[1].split("-")[0])
+    if not c:
+        continue
+    text = bible.verse(c) + " " + bible.verse(c, "KJV")
+    if not re.search(REL_WORDS[m[1].lower()], text, re.I) or not re.search(rf"\b{re.escape(m[2])}", chapter_text(c)):
+        report_dropped.append({"person": p["name"], "key": k, "why": f"TIPNR infers this person at {nice(c)}, but the verse doesn't refer to them"})
+        del tip[k]
 
 # Jesus is listed from Isaiah 7:14 in TIPNR. Applying Old Testament verses to him is an interpretation, so his verse list starts in the Gospels.
 JESUS = "Jesus@Isa.7.14-Rev"
@@ -128,7 +172,7 @@ old_map = old_match()
 old_map.update({"jesus": JESUS, "lots_wife": "a_wife_of_Lot@Gen.19.15-", "mary_magdalene": "Mary_Magdalene@Mat.27.56-Jhn", "mary_clopas": "Mary@Mat.27.56-Jhn", "obadiah_prophet": "Obadiah@Oba.1.1", "micah": "Micah@Jer.26.18-Mic", "habakkuk": "Habakkuk@Hab.1.1-", "jeremiah": "Jeremiah@2Ch.35.25-Mat", "herod_agrippa2": "Agrippa@Act.25.13-"})
 old_map = {k: v for k, v in old_map.items() if v in tip}
 
-report = {"counts": {}, "overridden": [], "scripture_differs": [], "secondary": [], "unsupported": [], "identity": [], "bio_removed": [], "old_changes": []}
+report = {"counts": {}, "overridden": [], "scripture_differs": [], "secondary": [], "unsupported": [], "identity": [], "bio_removed": [], "old_changes": [], "people_dropped": report_dropped}
 
 # ---------- Gather every claim ----------
 claims = collections.defaultdict(lambda: collections.defaultdict(set))  # (kind, a, b) -> source -> set of notes
@@ -227,7 +271,9 @@ report["counts_text_found"] = sum(1 for k, v in claims.items() if set(v) == {"Bi
 tested = {}
 for key in claims:
     kind, a, b = key
-    tested[key] = E.parent(tip[a], tip[b]) if kind == "parent" else E.spouse(tip[a], tip[b]) if kind == "spouse" else E.sibling(tip[a], tip[b])
+    # A tribe link from the old file ("Kish, a Benjamite", 1 Samuel 9:1) cites the first verse that ties them, as it was.
+    tribal = kind == "parent" and any(n in ("descendant", "a") for notes in claims[key].values() for n in notes)
+    tested[key] = E.parent(tip[a], tip[b], prefer=not tribal, tribe=tribal) if kind == "parent" else E.spouse(tip[a], tip[b]) if kind == "spouse" else E.sibling(tip[a], tip[b])
 
 # 1 Kings 11:20: "the sister of Tahpenes bore Hadad a son named Genubath. Tahpenes herself weaned him." Naming Tahpenes beside the verb doesn't make her the mother.
 for key in [k for k in tested if k[0] == "parent" and k[1].startswith("Genubath@") and k[2].startswith("Tahpenes@")]:
@@ -253,16 +299,116 @@ def verse_label(c, how):
         end = int(how[5:])
         if end != c % 1000:
             return f"{nice(c)}-{end}"
+    # Luke 3:37-38: "the son of Cainan, / the son of Enosh" puts the child at the end of one verse and the parent in the next.
+    if how.startswith(("luke:", "span:")):
+        start = int(how[5:])
+        if start != c % 1000:
+            return f"{nice(c - c % 1000 + start)}-{c % 1000}"
     return nice(c)
 stated_parents = collections.defaultdict(list)
+anon_parents = collections.defaultdict(list)  # TIPNR's readings that aren't word for word, such as "son of Joiada" (Nehemiah 13:28), who has no name
 for (kind, a, b), (lvl, c, how) in list(tested.items()):
     if kind == "parent" and lvl == "stated":
         stated_parents[a].append(b)
+    elif kind == "parent" and lvl == "implied" and "TIPNR" in claims[(kind, a, b)]:
+        anon_parents[a].append(b)
 
 
 def label(p):
     ref = p["key"].split("@")[1]
     return f"{p['name']} ({ref})"
+
+
+def named_as(p, n):
+    return n == p["name"] or n in p["forms"]
+
+
+def records(n, keys=None):
+    """The records whose main name is n, or failing that, those that use n as another name. TIPNR files the Ner of
+    1 Chronicles 8:33 under Abiel, so "Ner" alone must mean Abner's father, not Abiel."""
+    keys = list(tip) if keys is None else keys
+    main = [k for k in keys if tip[k]["name"].lower() == n.lower()]
+    return main or [k for k in keys if named_as(tip[k], n)]
+
+
+def ref_code(ref):
+    m = re.match(r"^((?:[1-3] )?[A-Z][a-z]+(?: of [A-Z][a-z]+)?) (\d+):(\d+)", ref)
+    return code(NAMES.index(m[1]) + 1, int(m[2]), int(m[3]))
+
+
+# Claims checked by hand against their verses and found wrong, which the general rules don't catch.
+# Each is (child, parent, a verse naming the child, why). Names pick the record; the verse makes sure it's the right one.
+DROP = [
+    ("Malchiah", "Zedekiah", "Jeremiah 38:6", "Jeremiah 38:6 calls Malchiah \"the king's son\" without naming the king, and Jeremiah 21:1 names Malchijah only as Pashhur's father"),
+    ("Zechariah", "Aaron", "Luke 1:5", "Luke 1:5 calls Elizabeth, not Zechariah, a daughter of Aaron"),
+    ("Mattaniah", "Levi", "Nehemiah 13:13", "Nehemiah 13:13 names Mattaniah as Zaccur's father, with the Levites, not as a son of Levi"),
+    ("Manasseh", "Gershom", "Judges 18:30", "Judges 18:30 names Jonathan as Gershom's son; Manasseh isn't Gershom's son"),
+    ("Rekem", "Korah", "1 Chronicles 2:43", "1 Chronicles 2:43 lists Rekem with Korah, as sons of Hebron"),
+    ("Shema", "Korah", "1 Chronicles 2:43", "1 Chronicles 2:43 lists Shema with Korah, as sons of Hebron"),
+    ("Tappuah", "Korah", "1 Chronicles 2:43", "1 Chronicles 2:43 lists Tappuah with Korah, as sons of Hebron"),
+    ("Jashen", "Eliahba", "2 Samuel 23:32", "2 Samuel 23:32 lists Eliahba and the sons of Jashen as different men"),
+    ("Jonathan", "Eliahba", "2 Samuel 23:32", "2 Samuel 23:32 lists Eliahba and the sons of Jashen as different men"),
+    ("Salu", "Simeon", "Numbers 25:14", "Numbers 25:14 says Salu led a Simeonite family, not that Simeon was his father"),
+    ("Er", "Shua", "1 Chronicles 2:3", "Shua was the father of Judah's wife (Genesis 38:2). 1 Chronicles 2:3 names Bath-shua as the mother"),
+    ("Onan", "Shua", "1 Chronicles 2:3", "Shua was the father of Judah's wife (Genesis 38:2). 1 Chronicles 2:3 names Bath-shua as the mother"),
+    ("Shelah", "Shua", "1 Chronicles 2:3", "Shua was the father of Judah's wife (Genesis 38:2). 1 Chronicles 2:3 names Bath-shua as the mother"),
+    ("Mareshah", "Ziph", "1 Chronicles 2:42", "1 Chronicles 2:42 names Ziph as Mesha's son, not as Mareshah's father"),
+    ("Kish", "Ner", "1 Samuel 14:51", "1 Samuel 14:51 says Saul's father Kish and Abner's father Ner were both sons of Abiel"),
+    *[(who, "Jerioth", "1 Chronicles 2:18", "1 Chronicles 2:18 names them as the sons of Azubah. The Hebrew is hard to follow here, but it doesn't make them Jerioth's") for who in ("Jesher", "Shobab", "Ardon")],
+]
+# Notes for links whose verses need a word of explanation.
+LINK_NOTES = [
+    ("Kish", "Abiel", "1 Samuel 9:1", "1 Chronicles 8:33 and 9:39 say Ner fathered Kish. TIPNR reads that Ner as another name for Abiel, because 1 Samuel 14:51 makes Kish and Abner's father Ner brothers."),
+]
+drop_set = {}
+for child, parent, ref, why in DROP:
+    for k in records(child, by_verse.get(ref_code(ref), [])):
+        for q in records(parent):
+            if ("parent", k, q) in claims:
+                drop_set[(k, q)] = why
+
+link_notes = {}
+for child, parent, ref, note in LINK_NOTES:
+    for k in records(child, by_verse.get(ref_code(ref), [])):
+        for q in records(parent):
+            if ("parent", k, q) in claims:
+                link_notes[(k, q)] = note
+
+# Readings fixed by hand from the verse. kind "descendant" keeps a link from being taken as father and son.
+PIN = [
+    ("Moab", "Lot", "Genesis 19:36-37", {"note": "Genesis 19:36-37: both of Lot's daughters became pregnant by their father, and the older bore Moab."}),
+    ("Ben-ammi", "Lot", "Genesis 19:36-38", {"note": "Genesis 19:36-38: both of Lot's daughters became pregnant by their father, and the younger bore Ben-ammi."}),
+    ("Asahel", "husband of Zeruiah", "2 Samuel 2:32", {"note": "2 Samuel 2:32: Asahel was buried in his father's tomb in Bethlehem. Scripture doesn't name his father."}),
+    # Genesis 11:12 says Arphaxad fathered Shelah. Luke 3:35-36 has Cainan between them. Both are kept as Scripture gives them.
+    ("Shelah", "Arphaxad", "Genesis 11:12", {}),
+    ("Moab", "daughter1 of Lot", "Genesis 19:37", {"note": "Genesis 19:37: \"The older daughter gave birth to a son and named him Moab.\""}),
+    ("Ben-ammi", "daughter2 of Lot", "Genesis 19:38", {"note": "Genesis 19:38: \"The younger daughter also gave birth to a son, and she named him Ben-ammi.\""}),
+    ("Salome", "Philip", "Matthew 14:3-6", {"level": "together", "secondary": True, "note": "Matthew 14:3 calls Herodias the wife of Herod's brother Philip, and 14:6 speaks of her daughter. Scripture doesn't say who the daughter's father was."}),
+    ("daughter1 of Lot", "a wife of Lot", "Genesis 19:15", {"level": "implied", "note": "Genesis 19:15 speaks of Lot's \"wife and two daughters\"."}),
+    ("daughter2 of Lot", "a wife of Lot", "Genesis 19:15", {"level": "implied", "note": "Genesis 19:15 speaks of Lot's \"wife and two daughters\"."}),
+]
+for who in ("Ram", "Bunah", "Oren", "Ozem", "Ahijah"):
+    PIN.append((who, "a wife of Jerahmeel", "1 Chronicles 2:26", {"level": "implied", "note": "1 Chronicles 2:26 says Jerahmeel had \"another wife\", so the sons in 2:25 were born to a first wife Scripture doesn't name."}))
+for who, start in (("Ishbi-benob", 16), ("Saph", 18), ("Goliath", 19), ("huge man", 20)):
+    PIN.append((who, "Rapha", f"2 Samuel 21:{start}-22", {"kind": "descendant", "note": "2 Samuel 21:22: \"These four were descended from Rapha in Gath.\""}))
+PIN.append(("Lahmi", "Rapha", "1 Chronicles 20:5-8", {"kind": "descendant", "note": "1 Chronicles 20:8: \"These were descended from Rapha in Gath.\""}))
+pins = {}
+for child, parent, ref, extra in PIN:
+    for k in records(child):
+        for q in records(parent):
+            if ("parent", k, q) in claims:
+                if child in ("Shelah",) and not (ref_code(ref) in tip[k]["verses"] or any(ref_code(ref) // 1000 == c // 1000 for c in tip[k]["verses"])):
+                    continue
+                pins[(k, q)] = {"level": "stated", "ref": ref, "code": ref_code(ref), "how": "pin", "pin": True, **extra}
+
+# Who a verse names as a child's parent, so a looser reading of the same verse can be checked against it.
+def named_parent_in_verse(a, b, c):
+    for q in by_verse.get(c, []):
+        if q in (a, b) or tip[q]["type"] != tip[b]["type"] or tip[q]["name"] == tip[b]["name"]:
+            continue
+        if E.stated_in_verse(E.at(tip[a], c), E.at(tip[q], c), c) and (reads_as_child(tip[a], tip[q], c) or english_confirms(bible, tip[a], tip[q], c)):
+            return q
+    return None
 
 
 links = {"parent": {}, "spouse": {}, "sibling": {}}
@@ -276,13 +422,31 @@ for key, sources in claims.items():
     anon = tip[a].get("unnamed") or tip[b].get("unnamed")
     if kind == "parent":
         text = f"{label(tip[b])} is a parent of {label(tip[a])}"
+        if (a, b) in drop_set:
+            report["overridden"].append({"claim": text, "sources": src, "scripture": drop_set[(a, b)]})
+            continue
+        if (a, b) in pins:
+            links["parent"][(a, b)] = {**rec, **pins[(a, b)], "sources": src}
+            continue
         if flags & {"d", "f"} and lvl != "stated":
             continue
+        # TIPNR reads the Hebrew and Greek person by person. A looser claim from the other datasets is checked against
+        # what the verse itself says: "The sons of Zibeon: Aiah and Anah" (1 Chronicles 1:40) rules out Shobal as Aiah's father.
+        if lvl == "implied" and not anon and "TIPNR" not in src and not ("a" in flags or "descendant" in flags):
+            q = named_parent_in_verse(a, b, c)
+            if q and tested.get(("parent", q, b), ("none",))[0] not in ("stated", "implied"):
+                report["overridden"].append({"claim": text, "sources": src, "scripture": f"{nice(c)} names {tip[q]['name']} as the parent"})
+                continue
+            # One source alone, and the English doesn't read as this relationship: it's only a shared verse.
+            if independent(src) <= 1 and "Bible" not in src and not english_confirms(bible, tip[a], tip[b], c):
+                lvl = "together"
+                rec["level"] = lvl
+                rec["how"] = "same verse"
         # An in-law isn't a parent, whatever the record's field says.
         if re.search(r"in.?law", tip[b]["name"], re.I):
             continue
         # A claim made by only one source needs the English to agree before it counts as stated.
-        if lvl == "stated" and not {"TIPNR", "BibleData"} & set(src) and how != "Luke's line" and not english_confirms(bible, tip[a], tip[b], c):
+        if lvl == "stated" and not {"TIPNR", "BibleData"} & set(src) and not how.startswith("luke") and not english_confirms(bible, tip[a], tip[b], c):
             lvl = "together"
             rec["level"] = lvl
             rec["how"] = "same verse"
@@ -292,10 +456,16 @@ for key, sources in claims.items():
         if reversed_[0] == "stated" and lvl != "stated" and reads_as_child(tip[b], tip[a], reversed_[1]):
             report["overridden"].append({"claim": text, "sources": src, "scripture": f"Scripture has it the other way round ({nice(reversed_[1])})"})
             continue
+        if (a, b) in link_notes:
+            rec["note"] = link_notes[(a, b)]
         if lvl in ("stated", "implied"):
             links["parent"][(a, b)] = rec
             continue
-        others = [x for x in stated_parents[a] if x != b and tip[x]["type"] == tip[b]["type"]]
+        # An unnamed person has no name to find in a verse, so a link to one needs a verse that refers to both.
+        if anon:
+            report["unsupported"].append({"claim": text, "sources": src, "level": lvl, "why": "No verse refers to both of them"})
+            continue
+        others = [x for x in stated_parents[a] + anon_parents[a] if x != b and tip[x]["type"] == tip[b]["type"]]
         if others and not rec.get("ancestor"):
             who = others[0]
             luke_same = any(tip[x]["name"] == tip[a]["name"] and y == b for x, y in E.luke)
@@ -351,7 +521,7 @@ for sib_key, _ in all_tip[JESUS]["siblings"]:
         links["sibling"][tuple(sorted((JESUS, sib_key)))] = {"level": "stated", "ref": "Matthew 13:55", "how": "named", "sources": ["Bible", "TIPNR"]}
 
 # Jesus: the Gospels are careful here, so the link to Joseph is marked as they mark it.
-PINS = {(JESUS, k): {"kind": "legal", "note": "Matthew 1:16 calls Joseph the husband of Mary, of whom Jesus was born, and Luke 3:23 says he was \"as was supposed\" the son of Joseph."} for k in tip if k.startswith("Joseph@Mat.1.16")}
+PINS = {(JESUS, k): {"kind": "legal", "ref": "Luke 3:23", "code": code(42, 3, 23), "note": "Matthew 1:16 calls Joseph the husband of Mary, of whom Jesus was born, and Luke 3:23 says he was \"as was supposed\" the son of Joseph."} for k in tip if k.startswith("Joseph@Mat.1.16")}
 for pair, pin in PINS.items():
     if pair in links["parent"]:
         links["parent"][pair].update(pin)
@@ -404,11 +574,21 @@ def path_up(start, target, skip_edge):
 
 
 for (c, p), rec in links["parent"].items():
+    if rec.get("pin"):
+        continue
     line = path_up(c, p, (c, p))
     if line:
         rec["kind"] = rec.get("kind") if rec.get("kind") == "legal" else "descendant"
         rec["generations"] = len(line)
         rec["via"] = [tip[x]["name"] for x in reversed(line[1:])]
+        # The verses for each step in between, so every name in the line can be checked.
+        steps = list(zip(line, line[1:] + [p]))
+        rec["chain"] = [links["parent"][e]["ref"] for e in steps if links["parent"].get(e, {}).get("ref")]
+        if rec["level"] == "stated" and not rec.get("note"):
+            if all(links["parent"][e]["level"] in ("stated", "implied") for e in steps):
+                rec["note"] = f"{rec['ref']} says this directly. Other verses name {', '.join(rec['via'])} in between, so it's shown as a line of descent."
+            else:
+                rec["note"] = f"{rec['ref']} says this directly. The sources put {', '.join(rec['via'])} in between, which Scripture doesn't state, and the tree follows them."
     elif rec.get("ancestor"):
         rec["kind"] = "descendant"
 
@@ -681,6 +861,11 @@ for r in csv_rows(f"{S}/bible-data/BibleData-Epoch.csv"):
     if t and r["epoch_type"] in ("Life", "Reign") and r["start_year_ah"]:
         epochs[t].append(r)
 
+# Names Scripture doesn't give. Matthew 14:6 says only "the daughter of Herodias"; Salome is Josephus's name for her.
+DISPLAY = {"Salome@Mat.14.6": ("Daughter of Herodias", ["Salome (a name from outside the Bible)"])}
+DISPLAY_NAMES = {"daughter1 of lot": "Lot's older daughter", "daughter2 of lot": "Lot's younger daughter", "motherinlaw of peter": "Peter's mother-in-law",
+                 "huge man": "Man of great stature", "hammelech": "Hammelech (\"the king\")"}
+
 people = {}
 for k, p in tip.items():
     up = direct_parents[k]
@@ -719,26 +904,55 @@ for k, p in tip.items():
             break
     gender = "female" if p["type"] == "Female" else "male"
     display = p["name"]
+    alt = [x for x in p["forms"] if x != p["name"]]
     if re.match(r"unnamed", display, re.I):
         display = p["brief"] or "Unnamed person"
     elif p["unnamed"]:
-        display = re.sub(r"^a ", "", display, flags=re.I)
+        display = re.sub(r"^(a|an) ", "", display, flags=re.I)
         display = display[0].upper() + display[1:]
+    shown = sorted(p["verses"] - p.get("group_verses", set()))
+    texts = [bible.verse(c) + " " + bible.verse(c, "KJV") for c in shown]
+    found = lambda n: [i for i, t in enumerate(texts) if re.search(rf"\b{re.escape(n)}\b", t)]
+    in_any = lambda n: any(re.search(rf"\b{re.escape(n)}\b", bible.verse(c, t)) for c in shown for t in ("BSB", "KJV", "ASV", "NHEB", "YLT"))
+    if not p["unnamed"] and not in_any(p["name"]):
+        # TIPNR files Mizraim under "Egypt", the ESV's word. Use the name the verses themselves give.
+        best = max(((len(found(n)), n) for n in p["forms"] if n != p["name"]), default=(0, ""))
+        if best[0]:
+            display = best[1]
+            alt = [x for x in [p["name"], *p["forms"]] if x != display]
+            report.setdefault("renamed", []).append({"person": label(p), "name": display, "why": f"{p['name']} isn't the name in these verses"})
+    if k in DISPLAY:
+        display, extra = DISPLAY[k]
+        alt = [*alt, *extra]
+    elif display.lower() in DISPLAY_NAMES:
+        display = DISPLAY_NAMES[display.lower()]
+    # The first verse that names them, for a named person, rather than one that only refers to them.
+    first = next((shown[i] for i, t in enumerate(texts) if any(re.search(rf"\b{re.escape(n)}\b", t) for n in [display, p["name"], *p["forms"]])), None) if not p["unnamed"] else None
     parents = []
     for par in up:
         r = links["parent"][(k, par)]
         item = {"key": par, "level": r["level"], "ref": r["ref"], "sources": r["sources"]}
-        for f in ("kind", "generations", "via", "note", "secondary"):
+        for f in ("kind", "generations", "via", "note", "secondary", "chain"):
             if r.get(f):
                 item[f] = r[f]
         parents.append(item)
     people[k] = {
-        "key": k, "veritas": vid(k), "mobile": mobile_id.get(k) or vid(k), "name": display, "unnamed": p["unnamed"], "alt": [x for x in p["forms"] if x != p["name"]],
+        "key": k, "veritas": vid(k), "mobile": mobile_id.get(k) or vid(k), "name": display, "unnamed": p["unnamed"] or k in DISPLAY, "alt": alt, "first": first,
         "title": p["brief"] or p["desc"], "gender": gender, "era": era_of(p, up), "tribe": p["tribe"], "meaning": meaning.get(k, ""), "roles": roles_of(p), "messianic": k in line,
         "bio": clean_bio(p, fam), "facts": facts, "lifespan": f"{lifespan['years']} years ({lifespan['ref']})" if lifespan else "", "am": am, "dates": dates, "parents": parents,
         "spouses": [{"key": s, "level": links["spouse"].get(tuple(sorted((k, s))), {}).get("level"), "ref": links["spouse"].get(tuple(sorted((k, s))), {}).get("ref"), "secondary": links["spouse"].get(tuple(sorted((k, s))), {}).get("secondary", False)} for s in spouses_of[k]],
-        "children": kids[k], "verses": sorted(p["verses"]),
+        "children": kids[k], "verses": shown,
     }
+
+# A spelling one translation uses can be another, better-known person's name: the KJV calls Joshua "Jesus" in Hebrews 4:8
+# and Shaul "Saul" in Genesis 46:10. Unless the BSB uses it too, such a name stays out of the list of other names, so a
+# search for Jesus or Saul doesn't land on them. It still counts when reading the verses.
+best_known = collections.defaultdict(int)
+for p_ in people.values():
+    best_known[p_["name"]] = max(best_known[p_["name"]], len(p_["verses"]))
+for p_ in people.values():
+    bsb = " ".join(bible.verse(c) for c in p_["verses"])
+    p_["alt"] = [x for x in p_["alt"] if best_known.get(x, 0) <= len(p_["verses"]) or re.search(rf"\b{re.escape(x)}\b", bsb)]
 
 # Siblings: two people who share a parent are siblings, and Scripture's explicit statements add the rest.
 sib = collections.defaultdict(set)
@@ -795,9 +1009,43 @@ def pretty_refs(text):
 
 SKIP_BD = re.compile(r"angel|captain of the host|YHVH", re.I)
 extra_keys = {}
+STOP_BD = {"king", "of", "the", "son", "daughter", "wife", "and", "older", "firstborn"}
+# BibleData people who are someone already listed. Matthew 1:23 gives the name Immanuel to Jesus.
+BD_SAME = {"Younger of Lot_1": "daughter2_of_Lot@Gen.19.38", "Firstborn of Lot_1": "daughter1_of_Lot@Gen.19.37", "Immanuel_1": JESUS}
+by_verse_all = collections.defaultdict(list)
+for k_, p_ in tip.items():
+    for c in p_["verses"]:
+        by_verse_all[c].append(k_)
 for k, r in bd.items():
     if k in bd_map or not r["verses"] or SKIP_BD.search(k):
         continue
+    words = {w for n in [r["name"], *r["labels"]] for w in re.findall(r"[A-Za-z][A-Za-z'-]+", n) if w.lower() not in STOP_BD and len(w) > 2}
+    # Letters only, so "Bethzur" finds "Beth-zur".
+    has = lambda c: any(re.sub(r"[^a-z]", "", w.lower()) in re.sub(r"[^a-z]", "", " ".join(bible.verse(c, t) for t in ("BSB", "KJV", "ASV", "NHEB", "YLT")).lower()) for w in words)
+    around = lambda cs: {c + d for c in cs for d in (-1, 0, 1) if c % 1000 + d > 0}
+    # BibleData's verse list for some of these is off (King of Hormah at Joshua 12:13, which names Debir and Geder).
+    # A verse stays only if it has the person's name, looking one verse either side, then at the verses in
+    # BibleData's own description of the person.
+    from sources import _bd_ref
+    titled = {c for c in (_bd_ref(m) for m in re.findall(r"\b[1-3]?[A-Z]{2,3} \d+:\d+", r["title"] or "")) if c}
+    vs = {c for c in r["verses"] if has(c)} or {c for c in around(r["verses"]) if has(c)} or {c for c in around(titled) if has(c)}
+    # The same person may already be here under another spelling: Bithia is TIPNR's Bithiah, BibleData's "Eli" in
+    # Luke 3:23 is TIPNR's Heli.
+    def same_name(n, x):
+        a, b = re.sub(r"[^a-z]", "", n.lower()), re.sub(r"[^a-z]", "", x.lower())
+        return similar(n, x) or (len(a) >= 3 and len(b) >= 3 and lev(a, b) <= 1)
+    dup = BD_SAME.get(k)
+    if not dup and k not in BD_SAME:
+        dup = next((t for c in sorted(around(vs | r["verses"])) for t in by_verse_all.get(c, []) if any(same_name(n, x) for n in [r["name"], *r["labels"]] if n and n[0].isupper() and n.lower() not in STOP_BD for x in [tip[t]["name"], *tip[t]["forms"]])), None)
+    if not vs and not dup:
+        report.setdefault("people_dropped", []).append({"person": r["name"], "key": f"BibleData {k}", "why": "None of BibleData's verses for this person names them"})
+        continue
+    if dup:
+        aliases[slug(k)] = vid(dup)
+        mobile_aliases[slug(k)] = people[dup]["mobile"]
+        report.setdefault("merged", []).append({"person": r["name"], "into": label(tip[dup])})
+        continue
+    r["verses"] = vs
     key = f"bd:{k}"
     extra_keys[k] = key
     vid_ = slug(k)
@@ -820,6 +1068,11 @@ for r in bd_rels:
         continue
     if r["type"] in ("father", "mother", "son", "daughter"):
         parent, child = (a, b) if r["type"] in ("father", "mother") else (b, a)
+        # The verse's English has to read as this relationship: 1 Chronicles 2:42 makes Mesha, not Mareshah, Ziph's father.
+        # Peoples named after a founder count too: "Mizraim was the father of the Ludites" (Genesis 10:13).
+        rec_ = lambda x: {"name": people[x]["name"], "forms": [*people[x]["alt"], *(n + suf for n in [people[x]["name"], *people[x]["alt"]] for suf in ("ites", "im", "ims"))]}
+        if not english_confirms(bible, rec_(child), rec_(parent), r["ref"]):
+            continue
         if not any(x["key"] == parent for x in people[child]["parents"]):
             people[child]["parents"].append({"key": parent, "level": "implied", "ref": nice(r["ref"]), "sources": ["BibleData"]})
             people[parent]["children"].append(child)
@@ -836,15 +1089,31 @@ UNNAMED = [
     ("shunammite", "The Shunammite woman", "female", "Kings of Judah & Exile", "Woman of Shunem who hosted Elisha, and whose son he raised (2 Kings 4:8-37)", span(12, 4, 8, 37) + span(12, 8, 1, 6), None),
     ("widow-of-nain", "The widow of Nain", "female", "New Testament", "Widow whose son Jesus raised at Nain (Luke 7:11-15)", span(42, 7, 11, 15), None),
     ("daughter-of-jairus", "Daughter of Jairus", "female", "New Testament", "Twelve-year-old girl Jesus raised (Mark 5:22-43)", span(40, 9, 18, 25) + span(41, 5, 22, 43) + span(42, 8, 41, 56), "Jairus@Mrk.5.22-Luk"),
+    ("woman-healed-of-bleeding", "The woman healed of bleeding", "female", "New Testament", "Woman who had bled for twelve years and was healed when she touched Jesus's cloak; he called her \"daughter\" (Mark 5:25-34)", span(40, 9, 20, 22) + span(41, 5, 25, 34) + span(42, 8, 43, 48), None),
 ]
+aliases["daughter-1"] = "woman-healed-of-bleeding"
+mobile_aliases["daughter-1"] = "woman-healed-of-bleeding"
 for sid_, name_, sex, era, title, vs, parent in UNNAMED:
     key = f"bible:{sid_}"
     people[key] = {"key": key, "veritas": sid_, "mobile": sid_, "name": name_, "unnamed": True, "alt": [], "title": title, "gender": sex, "era": era, "tribe": "", "meaning": "", "roles": [], "messianic": False, "bio": "", "facts": [], "lifespan": "", "am": None, "dates": None, "parents": [], "spouses": [], "children": [], "verses": sorted(vs), "siblings": []}
     if parent:
         match_ = parent if parent in people else next((k for k in people if k.startswith(parent.split("@")[0] + "@")), None)
         if match_:
-            people[key]["parents"].append({"key": match_, "level": "stated", "ref": "Mark 5:23", "sources": ["Bible"]})
+            people[key]["parents"].append({"key": match_, "level": "stated", "ref": "Mark 5:22-23", "sources": ["Bible"]})
             people[match_]["children"].append(key)
+
+# Ids that changed since the previous build still lead to the same person.
+if args.previous and os.path.exists(args.previous):
+    prev = json.load(open(args.previous, encoding="utf-8"))["people"]
+    for k, was in prev.items():
+        now = people.get(k)
+        if now and was["veritas"] != now["veritas"] and was["veritas"] not in {x["veritas"] for x in people.values()}:
+            aliases[was["veritas"]] = now["veritas"]
+        if now and was["mobile"] != now["mobile"] and was["mobile"] not in {x["mobile"] for x in people.values()}:
+            mobile_aliases[was["mobile"]] = now["mobile"]
+    for a_, t_ in list(prev and json.load(open(args.previous, encoding="utf-8")).get("aliases", {}).items()):
+        aliases.setdefault(a_, t_)
+    report["counts"]["ids_kept_from_previous"] = True
 
 report["counts"]["people_final"] = len(people)
 report["counts"]["kept"] = {k: len(v) for k, v in links.items()}

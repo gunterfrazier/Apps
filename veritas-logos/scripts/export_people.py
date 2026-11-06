@@ -24,7 +24,10 @@ def scriptures(p):
             seen.add(ref)
             out.append({"ref": ref, "note": note})
     if p["verses"]:
-        add(nice(p["verses"][0]), "First named")
+        if p.get("first"):
+            add(nice(p["first"]), "First named")
+        else:
+            add(nice(p["verses"][0]), "First referred to" if p["unnamed"] else "First named")
     for x in p["parents"]:
         if x.get("ref") and x["level"] == "stated":
             add(x["ref"], f"Parent: {P[x['key']]['name']}")
@@ -34,7 +37,7 @@ def scriptures(p):
     for ch, n in sorted(chap.most_common(8), key=lambda kv: kv[0]):
         if n >= 2:
             from sources import NAMES
-            add(f"{NAMES[ch // 1000 - 1]} {ch % 1000}", f"Named in {n} verses")
+            add(f"{NAMES[ch // 1000 - 1]} {ch % 1000}", f"{'Referred to' if p['unnamed'] else 'Named'} in {n} verses")
     return out
 
 
@@ -61,7 +64,12 @@ def figure(p, idk):
     id_of = lambda k: P[k][idk]
     links = {}
     for x in p["parents"]:
-        link = {"refs": [x["ref"]] if x.get("ref") else []}
+        # A line of descent cites each step's verse after the verse for the link itself.
+        refs = [x["ref"]] if x.get("ref") else []
+        for r in x.get("chain") or []:
+            if r not in refs:
+                refs.append(r)
+        link = {"refs": refs}
         if x.get("kind"):
             link["kind"] = x["kind"]
         if x.get("generations"):
@@ -111,7 +119,21 @@ ids = [f["id"] for f in figures]
 assert len(ids) == len(set(ids)), [i for i, n in collections.Counter(ids).items() if n > 1][:9]
 D = args.data
 json.dump(figures, open(f"{D}/figures.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-json.dump({k: v for k, v in aliases.items() if k != v}, open(f"{D}/person-aliases.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+def settle(table, known):
+    """Follows chains of old ids to the current one, and drops any whose person is gone."""
+    out = {}
+    for k, v in table.items():
+        seen = set()
+        while v in table and v not in known and v not in seen:
+            seen.add(v)
+            v = table[v]
+        if v in known and k != v and k not in known:
+            out[k] = v
+    return out
+
+
+settled = settle(aliases, set(ids))
+json.dump(settled, open(f"{D}/person-aliases.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 
 verses = {}
 for p in order:
@@ -131,13 +153,13 @@ for b in range(1, 67):
 tl = json.load(open(f"{D}/timeline.json", encoding="utf-8"))
 known = set(ids)
 for row in tl["rows"]:
-    if row.get("id") in aliases:
-        row["id"] = aliases[row["id"]]
+    if row.get("id") in settled:
+        row["id"] = settled[row["id"]]
 tl["rows"] = [r for r in tl["rows"] if r.get("id") in known or r.get("kind") == "period" or not r.get("id")]
 json.dump(tl, open(f"{D}/timeline.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 
 name = lambda s: s
-short = {k: report[k] for k in ("counts", "overridden", "scripture_differs", "identity", "dates_overridden", "bio_removed") if k in report}
+short = {k: report[k] for k in ("counts", "overridden", "scripture_differs", "identity", "dates_overridden", "bio_removed", "people_dropped", "renamed", "merged") if k in report}
 short["secondary_count"] = len(report["secondary"])
 short["secondary"] = report["secondary"]
 short["unsupported"] = report["unsupported"]
@@ -150,6 +172,6 @@ if args.mobile:
     ids = [f["id"] for f in out]
     assert len(ids) == len(set(ids)), [i for i, n in collections.Counter(ids).items() if n > 1][:9]
     json.dump(out, open(f"{args.mobile}/src/data/figures.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    json.dump(d["mobile_aliases"], open(f"{args.mobile}/src/data/figure-aliases.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    json.dump(settle(d["mobile_aliases"], set(ids)), open(f"{args.mobile}/src/data/figure-aliases.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     json.dump(short, open(f"{args.mobile}/reference/people-report.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print("mobile", len(out), "people;", os.path.getsize(f"{args.mobile}/src/data/figures.json") // 1024, "KB; aliases", len(d["mobile_aliases"]))

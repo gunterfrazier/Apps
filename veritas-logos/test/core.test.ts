@@ -700,6 +700,46 @@ test("people: Scripture's own differences stay visible, and verse-stated years w
   }
 });
 
+test("people: errors found in the warning review stay fixed", () => {
+  const { list, byId, named } = peopleIndex();
+  const parentsOf = (f: any) => f.parents.map((p: string) => byId.get(p));
+  // Matthew 1:15 says Matthan fathered Jacob. TIPNR's nine inferred generations between them are gone.
+  const joseph = named("Joseph").find((f) => f.children.includes("jesus-christ"));
+  const jacob = parentsOf(joseph).find((f: any) => f.name === "Jacob");
+  const matthan = parentsOf(jacob).find((f: any) => f.name === "Matthan");
+  assert.ok(matthan && !jacob.parentLinks[matthan.id].kind, "Matthan is Jacob's father");
+  assert.ok(!list.some((f) => /^(Ancestor of Joseph|A descendant of Ithamar)/.test(f.name)), "no inferred people");
+  // People inferred from verses that don't refer to them are gone.
+  for (const n of ["Father of Lazarus", "Wife of Heli", "Father of Barnabas"]) assert.ok(!named(n).length, n);
+  // Genesis 11:12 and Luke 3:35-36 differ, and both stay.
+  const shelah = named("Shelah").find((f) => parentsOf(f).some((p: any) => p.name === "Cainan"));
+  assert.match(shelah.parentLinks[shelah.parents[0]].note, /more than one father/);
+  assert.equal(shelah.parents.length, 2);
+  // Genesis 19:36: Lot was Moab's father as well as his grandfather.
+  const moab = named("Moab")[0];
+  const lot = parentsOf(moab).find((f: any) => f.name === "Lot");
+  assert.ok(lot && moab.parentLinks[lot.id].explicit && !moab.parentLinks[lot.id].kind);
+  // 1 Samuel 14:51 makes Ner Kish's brother. Luke 1:5 makes Elizabeth, not Zechariah, a daughter of Aaron.
+  const kish = named("Kish").find((f) => f.children.some((c: string) => byId.get(c).name === "Saul"));
+  assert.ok(!parentsOf(kish).some((p: any) => p.name === "Ner"));
+  for (const z of named("Zechariah")) assert.ok(!parentsOf(z).some((p: any) => p.name === "Aaron"), z.id);
+  // A step in Luke's line can run across two verses, and the plainer verse is cited where there is one.
+  const kenan = named("Kenan")[0];
+  assert.deepEqual(Object.values(kenan.parentLinks).map((l: any) => l.refs[0]), ["Genesis 5:9"]);
+  const naggai = named("Naggai")[0];
+  assert.deepEqual(Object.values(naggai.parentLinks).map((l: any) => l.refs[0]), ["Luke 3:25-26"]);
+  // A line of descent cites a verse for every step.
+  const uzziah = named("Uzziah").find((f) => f.parents.length > 1);
+  const skip = Object.values(uzziah.parentLinks).find((l: any) => l.kind === "descendant") as any;
+  assert.ok(skip.refs.length >= 4 && /Matthew 1:8/.test(skip.refs[0]));
+  // Names Scripture uses, not names from elsewhere.
+  const called = (n: string) => list.filter((f) => f.name === n);
+  assert.ok(called("Mizraim").length && !called("Egypt").length);
+  assert.ok(called("Daughter of Herodias").length && !called("Salome").some((f) => f.scriptures[0].ref.startsWith("Matthew 14")));
+  // Isaiah 20:1's Sargon is his own person, not another name for Sennacherib.
+  assert.ok(called("Sargon").length);
+});
+
 test("people: every record is sound, and old saved ids still work", () => {
   const { list, byId } = peopleIndex();
   assert.ok(list.length > 3000);

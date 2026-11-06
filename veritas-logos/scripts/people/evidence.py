@@ -66,7 +66,8 @@ class Evidence:
                 for key, p in self.people.items():
                     if c in p["verses"] and s & p["strongs"] and (not order or order[-1][0] != key):
                         order.append((key, c, i))
-        return {(order[k][0], order[k + 1][0]): order[k + 1][1] for k in range(len(order) - 1)}
+        # Each step is cited from the verse naming the child to the verse naming the parent, which is often the next one.
+        return {(order[k][0], order[k + 1][0]): (order[k + 1][1], order[k][1]) for k in range(len(order) - 1)}
 
     def _names_between(self, t, a, b, skip=()):
         return any(t[i][1] and i not in skip for i in range(a + 1, b))
@@ -160,36 +161,87 @@ class Evidence:
                 return None
         return None
 
-    def parent(self, child, parent):
-        """Returns (level, verse, how) for "parent is a parent of child"."""
+    def list_footer(self, child, parent, c):
+        """1 Chronicles 8:26-27: "Shamsherai, Shehariah, Athaliah, / Jaareshiah, Elijah, and Zichri were the sons of Jeroham."
+        A verse of names only, closed in a following verse by "were the sons of P"."""
+        t = self.toks(c)
+        if not self.at(child, c) or any(is_verb(x[2]) for x in t) or any(x[0] & FAMILY for x in t):
+            return None
+        b, ch, v = c // 1000000, (c // 1000) % 1000, c % 1000
+        for fwd in range(1, 4):
+            h = code(b, ch, v + fwd)
+            th = self.toks(h)
+            if not th:
+                return None
+            where = self.at(parent, h)
+            if where:
+                for j in where:
+                    for k, x in enumerate(th):
+                        if x[0] & CHILD and 0 < j - k <= 2 and not self._has_pronoun(th, k) and not self._names_between(th, k, j):
+                            # Everything before "the sons of" is the rest of the list.
+                            if not any(is_verb(y[2]) and not y[0] & FAMILY for y in th[:k]) and not any(y[0] & FAMILY for y in th[:k]):
+                                return h
+                return None
+            if any(is_verb(x[2]) for x in th) or any(x[0] & FAMILY for x in th):
+                return None
+        return None
+
+    def parent(self, child, parent, prefer=True, tribe=False):
+        """Returns (level, verse, how) for "parent is a parent of child". With prefer, the verse cited is the first
+        whose English also reads as the relationship."""
         pair = (child["key"], parent["key"])
         if child.get("unnamed") or parent.get("unnamed"):
             # An unnamed person has no name to locate in the verse, so the source's reading stands as an inference.
             shared = child["verses"] & parent["verses"]
             return ("implied", min(shared), "unnamed person") if shared else ("together", min(child["verses"] | parent["verses"]), "unnamed person")
-        if pair in self.luke:
-            return "stated", self.luke[pair], "Luke's line"
         shared = child["verses"] & parent["verses"]
-        for c in sorted(shared):
+        found = None
+        # A verse that names someone only by their clan or nation ("Caleb son of Jephunneh the Kenizzite") can't state
+        # whose child they are.
+        # A tribe tie ("Ehud son of Gera, a Benjamite", Judges 3:15) is exactly what such a verse shows, so it may use them.
+        own = shared if tribe else shared - child.get("group_verses", set()) - parent.get("group_verses", set())
+        for c in sorted(own):
             how = self.stated_in_verse(self.at(child, c), self.at(parent, c), c)
             if how:
                 reverse = self.stated_in_verse(self.at(parent, c), self.at(child, c), c)
                 if reverse and how == "born" and reverse != "born":
                     continue
-                return "stated", c, how
+                # Cite the first verse whose English also reads this way, so the reference shows it plainly.
+                if not prefer or english_confirms(self.b, child, parent, c):
+                    return "stated", c, how
+                found = found or ("stated", c, how)
+        # Luke 3 is cited when no other verse says it plainly, so Kenan's father Enosh comes from Genesis 5:9.
+        if pair in self.luke:
+            pv, cv = self.luke[pair]
+            return "stated", pv, f"luke:{cv % 1000}"
+        if found:
+            # The Hebrew reading held, but not in plain English there. "The Benjamites heard that the Israelites..."
+            # (Judges 20:3) is "sons of Benjamin ... sons of Israel" in Hebrew. Cite a verse whose English shows it.
+            plain = next((c for c in sorted(own) if english_confirms(self.b, child, parent, c)), None) if prefer else None
+            return ("stated", plain, found[2]) if plain else found
         for c in sorted(child["verses"]):
             h = self.list_header(child, parent, c)
             if h:
                 return "stated", h, f"list:{c % 1000}"
-        implied = [c for c in sorted(shared) if any(x[0] & (CHILD | BEGET | FATHER | MOTHER) for x in self.toks(c))]
+            h = self.list_footer(child, parent, c)
+            if h:
+                return "stated", h, f"span:{c % 1000}"
+        implied = [c for c in sorted(own) if any(x[0] & (CHILD | BEGET | FATHER | MOTHER) for x in self.toks(c))]
         if implied:
-            return "implied", implied[0], "family word"
+            # Cite the verse whose English reads as this relationship, if there is one.
+            best = next((c for c in implied if english_confirms(self.b, child, parent, c)), implied[0]) if prefer else implied[0]
+            return "implied", best, "family word"
+        if own:
+            return "together", min(own), "same verse"
+        # Being named in one chapter is weaker still. A clan name counts here only if nothing else does.
+        chap = lambda s: {c // 1000 for c in s}
+        mine = lambda p: p["verses"] if tribe else p["verses"] - p.get("group_verses", set())
+        for cv, pv in ((mine(child), mine(parent)), (child["verses"], parent["verses"])):
+            common = chap(cv) & chap(pv)
+            if common:
+                return "together", min(c for c in cv if c // 1000 in common), "same chapter"
         if shared:
             return "together", min(shared), "same verse"
-        chap = lambda s: {c // 1000 for c in s}
-        common = chap(child["verses"]) & chap(parent["verses"])
-        if common:
-            return "together", min(c for c in child["verses"] if c // 1000 in common), "same chapter"
         return "none", None, ""
 
     def spouse(self, a, b):
@@ -227,14 +279,21 @@ def english_confirms(bible, child, parent, c):
     """A second reading, from the English of two translations: does the verse put these two people in this relationship?"""
     forms = lambda p: "|".join(sorted({re.escape(x) for x in [p["name"], *p["forms"]] if x and x[0].isupper()}, key=len, reverse=True)) or "$^"
     C, P = forms(child), forms(parent)
+    # No other name may come between the two people and the family word: "Saul son of Kish, Abner son of Ner" doesn't
+    # make Ner the father of Kish.
+    gap = lambda n: rf"(?:(?![A-Z])[^.;?!]){{0,{n}}}"
     pats = [
-        rf"\b(?:{C})\b[^.;]{{0,60}}\b(?:son|daughter|sons|daughters|children|child|offspring|firstborn|descendants?)\b[^.;]{{0,12}}\b(?:of\s+)?(?:{P})\b",
-        rf"\b(?:{P})(?:’s|'s)?\b[^.;]{{0,80}}\b(?:father of|fathered|begat|bore|mother of|gave birth|had|son|sons|daughter|daughters)\b[^.]{{0,120}}\b(?:{C})\b",
-        rf"\b(?:sons?|daughters?|children|descendants)\s+of\s+(?:{P})\b[^.]{{0,200}}\b(?:{C})\b",
-        rf"\b(?:{C})\b[^.;]{{0,30}}\bhis (?:son|father|mother)\b",
+        rf"\b(?:{C})\b{gap(60)}\b(?:son|daughter|sons|daughters|children|child|offspring|firstborn|descendants?)\b[^.;?!A-Z]{{0,12}}\b(?:of\s+)?(?:{P})\b",
+        rf"\b(?:{P})(?:’s|'s)?\b{gap(80)}\b(?:father of|fathered|begat|bore|born|mother of|gave birth|had|son|sons|daughter|daughters)\b[^.?!]{{0,120}}\b(?:{C})\b",
+        # The KJV sets out lists with semicolons: "the sons of Javan; Elishah, and Tarshish, Kittim" (Genesis 10:4).
+        rf"\b(?:sons|daughters|children|descendants)\s+of\s+(?:{P})\b[^.?!]{{0,200}}\b(?:{C})\b",
+        rf"\b(?:{C})\b{gap(30)}\bhis (?:son|father|mother)\b",
     ]
     for t in ("BSB", "KJV"):
         text = bible.verse(c, t)
+        # The KJV's "children of Israel" means the Israelites, not Jacob's own children.
+        if t == "KJV":
+            text = re.sub(r"\bchildren of\b", "people of", text)
         if any(re.search(x, text) for x in pats):
             return True
     return False

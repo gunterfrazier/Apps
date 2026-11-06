@@ -33,14 +33,14 @@ def sid(x):
 
 
 class Bible:
-    """The Hebrew and Greek tagged word by word, with the English of two translations."""
+    """The Hebrew and Greek tagged word by word, with the English of the bundled translations (BSB and KJV for most checks)."""
 
     def __init__(self, data_dir):
         self.words = {}
         for b in range(1, 67):
             self.words[b] = json.load(open(f"{data_dir}/words/{b:02d}.json", encoding="utf-8"))
         self.text = {}
-        for t in ("BSB", "KJV"):
+        for t in ("BSB", "KJV", "ASV", "NHEB", "YLT"):
             ot = json.load(open(f"{data_dir}/bible/{t}-ot.json", encoding="utf-8"))
             nt = json.load(open(f"{data_dir}/bible/{t}-nt.json", encoding="utf-8"))
             self.text[t] = {**_books(ot), **_books(nt)}
@@ -79,6 +79,24 @@ def ref_list(field):
     return out
 
 
+# Form lines that name a different person. Isaiah 20:1's Sargon is a king of Assyria in his own right, not another
+# name for Sennacherib.
+NOT_SAME = {("Sennacherib@2Ki.18.13-Isa", "Sargon")}
+
+
+def _close(a, b):
+    a, b = re.sub(r"[^a-z]", "", a.lower()), re.sub(r"[^a-z]", "", b.lower())
+    if a == b or (len(a) >= 4 and a[:4] == b[:4]):
+        return True
+    prev = list(range(len(b) + 1))
+    for i, x in enumerate(a, 1):
+        cur = [i]
+        for j, y in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (x != y)))
+        prev = cur
+    return prev[-1] <= 2
+
+
 def load_tipnr(path):
     text = open(path, encoding="utf-8").read()
     people = {}
@@ -95,9 +113,31 @@ def load_tipnr(path):
              "parents": ref_list(h[2] if len(h) > 2 else ""), "siblings": ref_list(h[3] if len(h) > 3 else ""),
              "partners": ref_list(h[4] if len(h) > 4 else ""), "offspring": ref_list(h[5] if len(h) > 5 else ""),
              "tribe": h[6] if len(h) > 6 else "", "summary": h[7].lstrip("#").strip() if len(h) > 7 else "", "type": h[8] if len(h) > 8 else "",
-             "forms": [], "strongs": set(), "verses": set(), "inst": {}, "brief": "", "briefest": "", "short": "", "article": ""}
+             "forms": [], "strongs": set(), "verses": set(), "group_verses": set(), "inst": {}, "brief": "", "briefest": "", "short": "", "article": ""}
+        # A form line can be about someone else. "David|Judah" is a manuscript reading with another name, and
+        # "Shallum|Jehoiachin(?)" an identification TIPNR itself marks as uncertain: those verses are left out.
+        # "Jews|Judah" is the nation named after Judah. A clan name can stand for its founder in a genealogy ("the
+        # Iezerite clan from Iezer", Numbers 26:30), so those verses count as evidence, but aren't listed as the person's.
+        forms_lines = [l.split("\t") for l in lines[1:] if l.startswith("–") and not l.startswith("– Total")]
+        groups = {f[1].split("|")[0] for f in forms_lines if len(f) > 1 and "|" in f[1] and re.match(r"– (Group|Form \(verb\))", f[0])}
+        plain = {f[1].split("|")[0] if "|" in f[1] else "" for f in forms_lines if len(f) > 1 and not f[0].startswith("– (same")}
+        p["skipped"] = 0
+        own = set()
         for l in lines[1:]:
             f = l.split("\t")
+            group = False
+            if l.startswith("–") and not l.startswith("– Total") and len(f) >= 5:
+                kind, ident = f[0].lstrip("– ").strip(), f[1]
+                prefix = ident.split("|")[0] if "|" in ident else ""
+                english = f[3]
+                variant = kind.startswith("(same")
+                # A variant spelling of the same name, such as Shelomith for Shelomoth (1 Chronicles 23:9), is kept.
+                same = not prefix or any(_close(prefix, x) for x in plain | {key.split("@")[0]} if x)
+                if ("(?)" in ident or (variant and not same and prefix not in groups) or (key, prefix) in NOT_SAME
+                        or (variant and re.search(r"\[ \] =[^;]*\bESV\b", english) and re.search(r"\[ \] =[^;]*\bNIV\b", english))):
+                    p["skipped"] += 1
+                    continue
+                group = kind.startswith("Group") or kind.startswith("Form (verb)") or bool(prefix and prefix in groups)
             if l.startswith("@Briefest="):
                 p["briefest"] = l[10:].strip()
             elif l.startswith("@Brief="):
@@ -115,20 +155,33 @@ def load_tipnr(path):
                     s = sid(part)
                     if s:
                         p["strongs"].add(s)
-                name = re.sub(r"\s*=.*$", "", f[3]).strip()
-                if name and name not in p["forms"] and not name.startswith("["):
-                    p["forms"].append(name)
+                # "Egypt =ESV,NIV; Mizraim =KJV" names the same person two ways.
+                # A spelling only one modern paraphrase uses, such as NIV's "Judea" for Judah, isn't a name for the person.
+                for part in ([] if group else f[3].split(";")):
+                    tags = part.split("=")[1] if "=" in part else ""
+                    if tags and not re.search(r"\b(ESV|KJV|NA|TR|MT|LC)\b", tags):
+                        continue
+                    for name in re.sub(r"\s*=.*$", "", part).split(","):
+                        name = name.strip()
+                        if name and name not in p["forms"] and not name.startswith("[") and name[:1].isupper():
+                            p["forms"].append(name)
                 refs = f[5] if len(f) > 5 and f[5].strip() else f[4]
                 for r in refs.split(";"):
                     c = osis(r)
                     if c:
                         p["verses"].add(c)
+                        (p["group_verses"] if group else own).add(c)
                         # 1Sa.17.37b means the second time this name occurs in the verse.
                         m = re.search(r"\.\d+([a-e])\s*$", r.strip())
                         if m:
                             p["inst"].setdefault(c, set()).add(ord(m[1]) - 97)
                         else:
                             p["inst"].setdefault(c, set()).add(-1)
+        # Verses that only the nation or clan form names. Someone known only that way, like "the Aramean" concubine
+        # of 1 Chronicles 7:14, keeps them.
+        p["group_verses"] -= own
+        if not own:
+            p["group_verses"] = set()
         people[key] = p
     return people
 
