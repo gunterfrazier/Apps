@@ -12,6 +12,8 @@ import { chapterCount } from "../../core/bible";
 import { getChronology } from "../../core/scholar";
 import { ExploreNav } from "./texts";
 import { ScholarshipLinks } from "./scholar-ui";
+import { getBookGuide, guideBooks } from "../../core/bookguide";
+import { BookGuideView } from "./book-guide";
 
 const TOOLS: [string, { hash: string; title: string; text: string }[]][] = [
   ["Words and languages", [
@@ -27,7 +29,7 @@ const TOOLS: [string, { hash: string; title: string; text: string }[]][] = [
     { hash: "textual", title: "Textual notes", text: "Disputed passages, and what each Greek edition prints" },
     { hash: "dc", title: "Deuterocanon and related books", text: "Books in Catholic and Orthodox Bibles, with where each church stands" },
     { hash: "originals", title: "Primary texts", text: "Apostolic Fathers in Greek and English, and Josephus" },
-    { hash: "books", title: "Books of the Bible", text: "Names, chapters, verses and disputed dates" },
+    { hash: "books", title: "Books of the Bible", text: "Book guides, names, chapters and disputed dates" },
     { hash: "topics", title: "Topics", text: "5,319 subjects from Nave's Topical Bible" },
   ]],
   ["Search and history", [
@@ -195,12 +197,14 @@ export function WordPage({ id }: { id: string }) {
 
 export function BooksPage() {
   const { data } = useAsync(getBooks, []);
+  const guided = useAsync(guideBooks, []);
   if (!data) return <div className="page"><Loading /></div>;
   return (
     <div className="page">
       <h1 className="page-title">Books of the Bible</h1>
+      {(guided.data?.length ?? 0) > 0 && <p className="fine">Books marked Guide have a full book guide: counted facts, early witnesses, key words and AI drafts on request.</p>}
       <div className="tool-list">
-        {data.map((b) => <a key={b.name} href={`#book-${b.name.toLowerCase().replace(/\s+/g, "")}`} className="tool-row"><strong>{b.name}</strong><span>{b.testament} · {b.chapters} chapters · {b.verses.toLocaleString()} verses</span></a>)}
+        {data.map((b, i) => <a key={b.name} href={`#book-${b.name.toLowerCase().replace(/\s+/g, "")}`} className="tool-row"><strong>{b.name}{guided.data?.includes(i + 1) && <span className="tag tag-cited">Guide</span>}</strong><span>{b.testament} · {b.chapters} chapters · {b.verses.toLocaleString()} verses</span></a>)}
       </div>
       <p className="fine">Names and meanings from BibleData (CC BY 4.0).</p>
     </div>
@@ -212,12 +216,16 @@ export function BookPage({ slug }: { slug: string }) {
   const dating = useAsync(async () => (await getChronology()).books.find((b) => b.book === book?.name), [slug]);
   const { data } = useAsync(async () => {
     if (!book) return null;
-    const [meta, chapters] = await Promise.all([getBookMeta(book.number), chapterCount(book.number)]);
-    return { meta, chapters };
+    const [meta, chapters, guide, guided] = await Promise.all([getBookMeta(book.number), chapterCount(book.number), getBookGuide(book.number), guideBooks()]);
+    return { meta, chapters, guide, guided };
   }, [slug]);
   if (!book) return <div className="page"><Empty>That book wasn't found.</Empty></div>;
   if (!data) return <div className="page"><Loading /></div>;
   const m = data.meta;
+  if (data.guide) {
+    const greekName = m?.greek ? <><dt>Greek name</dt><dd><span className="greek" lang="grc">{m.greek}</span> {m.greekTranslit}</dd></> : null;
+    return <><BookGuideView g={data.guide} testament={m?.testament} greekName={greekName} /><div className="page"><ScholarshipLinks query={`${book.name} biblical studies`} /></div></>;
+  }
   return (
     <div className="page prose">
       <p className="eyebrow">{m?.testament}</p>
@@ -236,6 +244,7 @@ export function BookPage({ slug }: { slug: string }) {
       )}
       <h3>Chapters</h3>
       <div className="num-grid">{Array.from({ length: data.chapters }, (_, i) => i + 1).map((c) => <button type="button" key={c} onClick={() => navigate(readHash({ book: book.number, chapter: c }))}>{c}</button>)}</div>
+      {data.guided.length > 0 && <p className="note">Full book guides are being built one book at a time. So far: {data.guided.map((n, i) => <span key={n}>{i ? ", " : ""}<a href={`#book-${BOOKS[n - 1].name.toLowerCase().replace(/\s+/g, "")}`}>{BOOKS[n - 1].name}</a></span>)}.</p>}
       <a className="btn primary" href={`#new-${book.name.toLowerCase().replace(/\s+/g, "")}`}>Build a study guide on {book.name}</a>
       <a className="btn" href={`#ask-${slug}-1`}>Ask AI about this book</a>
       <ScholarshipLinks query={`${book.name} biblical studies`} />

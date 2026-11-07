@@ -110,13 +110,26 @@ const refLabel = (book: number, c1: number, v1: number, c2: number, v2: number) 
   return `${bookName(book)} ${c1}:${v1}${v2 !== v1 ? `-${v2}` : ""}`;
 };
 
+/**
+ * Henry died having reached the end of Acts. The preface to volume 6 of his Commentary lists the ministers who
+ * finished Romans to Revelation from notes his hearers took (the list it gives from J. B. Williams's Memoirs, p. 308).
+ */
+const HENRY_COMPLETED: Record<number, string> = {
+  45: "John Evans", 46: "Simon Browne", 47: "Daniel Mayo", 48: "Joshua Bayes", 49: "Samuel Rosewell", 50: "William Harris", 51: "William Harris",
+  52: "Daniel Mayo", 53: "Daniel Mayo", 54: "Benjamin Andrews Atkinson", 55: "Benjamin Andrews Atkinson", 56: "Jeremiah Smith", 57: "Jeremiah Smith",
+  58: "William Tong", 59: "S. Wright", 60: "Zec. Merrill", 61: "Joseph Hill", 62: "John Reynolds of Shrewsbury", 63: "John Reynolds of Shrewsbury",
+  64: "John Reynolds of Shrewsbury", 65: "John Billingsley", 66: "William Tong",
+};
+export const henryCompletedBy = (book: number) => HENRY_COMPLETED[book] ?? "";
+export const henryNote = (book: number) => (HENRY_COMPLETED[book] ? `Henry died before reaching ${bookName(book)}. This part was finished after his death by ${HENRY_COMPLETED[book]}, according to the preface to volume 6.` : "");
+
 async function loadPart(kind: WritingKind, book: number, part: number, index: WritingsIndex): Promise<Excerpt[]> {
   const s = await load<Shard>(`${kind}/${pad2(book)}-${part}.json`);
   return s.q.map(([a, t, c1, v1, c2, v2, text, page]) => ({
     writer: index.authors[a],
     title: s.t[t][0],
     url: s.t[t][1],
-    source: index.sources[s.t[t][2]],
+    source: index.authors[a].id === "matthew-henry" && HENRY_COMPLETED[book] ? `${index.sources[s.t[t][2]]}. ${henryNote(book)}` : index.sources[s.t[t][2]],
     book, c1, v1, c2, v2,
     reference: refLabel(book, c1, v1, c2, v2),
     text,

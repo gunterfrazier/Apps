@@ -97,6 +97,8 @@ Built by `scripts/build_scholar.py`. Everything comes from a named source, and t
 
 **Not included.** Critical apparatus from NA28 or BHS and lexicons such as BDAG and HALOT are under copyright. Philo isn't included, because no open English translation could be loaded here. The Greek and Latin of later Fathers aren't included, because open texts of them don't line up with the old translations in a way the app can check.
 
+**Book guides.** `scripts/build_bookguides.py` counts from STEP's TAGNT and lexicon (CC BY 4.0), OpenBible.info's cross-references (CC BY), the people data and the edition comparison above. Its quotations come from CCEL's ThML files of the Ante-Nicene and Nicene and Post-Nicene Fathers (rights field "Public Domain"), Matthew Henry's Commentary (LyteWord, CC0) and Easton's and Smith's dictionaries. Henry died before reaching Romans, and the preface to his sixth volume names the ministers who finished it, so Henry's notes on Romans to Revelation now name the minister who wrote them, John Reynolds of Shrewsbury for 1–3 John.
+
 **AI research mode.** A confirmed source shows that the quoted words exist in the app's data. It doesn't show that they support the claim, so the reader still has to judge that. This has been tested with a stand-in for the model, not with real model answers.
 
 ## Theological terms

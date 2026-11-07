@@ -375,7 +375,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
         </div>
       )}
 
-      <p className="chapter-links"><a href={`#${passageWritersHash(book, chapter)}`}>What the Fathers and teachers said on this chapter</a></p>
+      <p className="chapter-links"><a href={`#${passageWritersHash(book, chapter)}`}>What the Fathers and teachers said on this chapter</a> · <a href={`#book-${bookName(book).toLowerCase().replace(/\s+/g, "")}`}>About {bookName(book)}</a></p>
       <div className="chapter-nav">
         <button type="button" className="btn" onClick={prev} disabled={book === 1 && chapter === 1}>Previous chapter</button>
         <button type="button" className="btn" onClick={next} disabled={book === 66 && chapter === (chapters ?? 22)}>Next chapter</button>

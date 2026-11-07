@@ -766,3 +766,49 @@ test("people: every record is sound, and old saved ids still work", () => {
   };
   for (const f of list) if (!seen.has(f.id)) visit(f.id);
 });
+
+test("book guides: counted figures, quoted witnesses and credits hold up", async () => {
+  const { getBookGuide, guideBooks, guideDigest } = await import("../src/core/bookguide");
+  const { henryCompletedBy } = await import("../src/core/writings");
+  assert.deepEqual((await guideBooks()).sort((a, b) => a - b), [41, 62, 63, 64]);
+  const two = (await getBookGuide(63))!;
+  assert.equal(two.glance.words, 245);
+  // 2 John uses ἀλήθεια five times, all in verses 1 to 4.
+  const truth = two.keywords.find((k) => k.id === "G225")!;
+  assert.equal(truth.n, 5);
+  assert.ok(truth.refs.every((r) => ["1:1", "1:2", "1:3", "1:4"].includes(r)));
+  const nine = two.textual.readings.find((r) => r.at === "1:9" && r.greek === "προάγων")!;
+  assert.equal(nine.other.greek, "παραβαίνων");
+  assert.match(nine.other.editions, /TR/);
+  const mark = (await getBookGuide(41))!;
+  assert.deepEqual(mark.textual.outsideCritical, ["7:16", "9:44", "9:46", "11:26", "15:28"]);
+  assert.deepEqual(mark.textual.doubleBrackets, [["16:9", "16:20"]]);
+  const euthys = mark.keywords.find((k) => k.id === "G2112")!;
+  assert.equal(euthys.lemma, "εὐθύς");
+  assert.equal(euthys.tagged, "εὐθέως");
+  const one = (await getBookGuide(62))!;
+  assert.ok(one.self.includes("5:13") && one.self.includes("1:4"));
+  assert.ok(one.textual.disputed.some((d) => d.ref === "1 John 5:7-8"));
+  assert.ok(one.onlyHere.some((w) => w.id === "G2434"));
+  for (const g of [mark, one, two, (await getBookGuide(64))!]) {
+    const counts = await import("../src/core/bible").then((m) => m.getVerseCounts());
+    const real = (cv: string) => { const [c, v] = cv.split(":").map(Number); return v >= 1 && v <= (counts[g.book - 1][c - 1] ?? 0); };
+    for (const k of [...g.keywords, ...g.onlyHere]) assert.ok(k.refs.every(real), `${g.name} ${k.lemma}`);
+    assert.ok(g.self.every(real));
+    for (const p of g.people) assert.ok(await getFigure(p.id), p.id);
+    for (const w of g.witnesses) {
+      assert.match(w.url, /^https:\/\/ccel\.org\/ccel\/schaff\/(anf|npnf)\d+\.[a-z.]+\.html$/);
+      assert.ok(w.text.length > 40 && w.edition && w.cite, w.cite);
+      if (w.writer) assert.ok(await writerById(w.writer), w.writer);
+    }
+    assert.ok(g.chapters.reduce((n, c) => n + c.words, 0) === g.glance.words, `${g.name} chapter words add up`);
+    assert.match(guideDigest(g), new RegExp(g.name));
+  }
+  // Henry died before Romans; his commentary on John's letters was finished by John Reynolds.
+  assert.equal(henryCompletedBy(62), "John Reynolds of Shrewsbury");
+  assert.equal(henryCompletedBy(41), "");
+  assert.equal(one.henry?.completedBy, "John Reynolds of Shrewsbury");
+  const henry62 = (await excerptsByWriter("matthew-henry", 62))[0];
+  assert.match(henry62.source, /John Reynolds of Shrewsbury/);
+  assert.doesNotMatch((await excerptsByWriter("matthew-henry", 41))[0].source, /finished after his death/);
+});

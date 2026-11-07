@@ -78,6 +78,25 @@ const byTerm = new Set(glossary.map((t) => t.id));
 for (const t of glossary) if (t.see && !byTerm.has(t.see)) errors.push(`glossary ${t.term}: points to missing ${t.see}`);
 console.log(`glossary terms ${glossary.length}, quoted ${glossary.filter((t) => t.defs.length).length}, your glossary ${glossary.filter((t) => t.own).length}`);
 
+// Book guides: every reference is a verse in the app's Bibles, every person and writer exists, every quote names its edition.
+if (fs.existsSync("public/data/scholar/bookguides.json")) {
+  const guides = Object.values(read("scholar/bookguides.json").books);
+  const writerIds = new Set(read("writings/index.json").authors.map((a) => a.id));
+  const figureIds = new Set(figures.map((f) => f.id));
+  for (const g of guides) {
+    const refs = [...g.self, ...g.keywords.flatMap((k) => k.refs), ...g.onlyHere.flatMap((k) => k.refs), ...g.textual.readings.map((r) => r.at), ...g.links.quotes.map((q) => q.at)];
+    for (const r of refs) if (!exists(`${g.name} ${r}`)) errors.push(`book guide ${g.name}: ${r} isn't a verse`);
+    for (const q of [...g.links.quotes, ...g.links.allusions, ...g.links.parallels]) if (!exists(q.ref)) errors.push(`book guide ${g.name}: ${q.ref} isn't a verse`);
+    for (const p of g.people) if (!figureIds.has(p.id)) errors.push(`book guide ${g.name}: no person ${p.id}`);
+    for (const w of g.witnesses) {
+      if (w.writer && !writerIds.has(w.writer)) errors.push(`book guide ${g.name}: no writer ${w.writer}`);
+      if (!w.text || !w.edition || !w.url || !w.cite) errors.push(`book guide ${g.name}: a quote is missing its text, edition, link or citation`);
+    }
+    if (g.chapters.reduce((n, c) => n + c.words, 0) !== g.glance.words) errors.push(`book guide ${g.name}: chapter word counts don't add up`);
+  }
+  console.log(`book guides ${guides.length}: ${guides.map((g) => g.name).join(", ")}`);
+}
+
 const topics = read("topics/index.json");
 console.log(`people ${figures.length}, topics ${topics.length}, timeline rows ${rows.length}`);
 if (errors.length) { console.error(errors.slice(0, 40).join("\n")); console.error(`${errors.length} problems`); process.exit(1); }
