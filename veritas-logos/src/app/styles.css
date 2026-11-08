@@ -406,7 +406,10 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
 .cite-text { font: 1rem/1.5 var(--font-serif); overflow-wrap: anywhere; }
 .cite-code { background: var(--surface-2); padding: .7rem; border-radius: 8px; font-size: .78rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ex-actions { display: flex; flex-wrap: wrap; gap: .2rem .9rem; align-items: center; margin-top: .25rem; }
-.c-bars { display: flex; align-items: flex-end; gap: 2px; height: 96px; margin: .5rem 0 .3rem; }
+.c-bars { display: flex; align-items: flex-end; gap: 2px; height: 96px; margin: .5rem 0 .3rem; overflow: hidden; }
+.c-bars.dense { gap: 1px; }
+.c-bars.dense .c-label { visibility: hidden; }
+.c-bars.dense .c-bar:nth-child(25n) .c-label, .c-bars.dense .c-bar:first-child .c-label { visibility: visible; }
 .c-bar { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; background: none; border: 0; padding: 0; cursor: pointer; }
 .c-bar:disabled { cursor: default; }
 .c-fill { width: 100%; max-width: 26px; background: var(--accent); border-radius: 3px 3px 0 0; opacity: .75; }
@@ -580,6 +583,12 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
 .kw-map-word { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kw-map-num { text-align: center; color: var(--ink-3); font-size: .68rem; font-variant-numeric: tabular-nums; }
 .kw-map-cell { height: 18px; border-radius: 3px; background: var(--accent); }
+/* Psalms: 150 columns fit a phone only without gaps, with every 25th chapter numbered. */
+.kw-map.dense { overflow: hidden; }
+.kw-map.dense .kw-map-row { gap: 0; }
+.kw-map.dense .kw-map-cell { border-radius: 0; }
+.kw-map.dense .kw-map-num { visibility: hidden; overflow: visible; }
+.kw-map.dense .kw-map-num:nth-child(2), .kw-map.dense .kw-map-num:nth-child(25n+1):not(:last-child) { visibility: visible; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .bg-ch h3 { margin: .3rem 0; }
 .bg-ch p { margin: .25rem 0; }

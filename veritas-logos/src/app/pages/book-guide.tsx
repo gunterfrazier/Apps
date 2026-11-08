@@ -104,7 +104,7 @@ function WordMap({ guide }: { guide: BookGuide }) {
   if (n < 2) return null;
   const cols = { gridTemplateColumns: `minmax(4.5rem, 6.5rem) repeat(${n}, minmax(0, 1fr))` };
   return (
-    <div className="kw-map" role="table" aria-label="Key words by chapter">
+    <div className={`kw-map${n > 60 ? " dense" : ""}`} role="table" aria-label="Key words by chapter">
       <div className="kw-map-row" role="row" style={cols}>
         <span role="columnheader" className="kw-map-word fine">Chapter</span>
         {guide.chapters.map((c) => <span key={c.c} role="columnheader" className="kw-map-num">{c.c}</span>)}
@@ -130,7 +130,8 @@ function WordMap({ guide }: { guide: BookGuide }) {
 function ChapterBars({ guide }: { guide: BookGuide }) {
   const max = Math.max(...guide.chapters.map((c) => c.words));
   return (
-    <div className="c-bars" role="list" aria-label="Words in each chapter">
+    // Psalms has 150 chapters: on a phone the bars only fit with a 1px gap.
+    <div className={`c-bars${guide.chapters.length > 60 ? " dense" : ""}`} role="list" aria-label="Words in each chapter">
       {guide.chapters.map((c) => (
         <button key={c.c} type="button" role="listitem" className="c-bar" onClick={() => navigate(readHash({ book: guide.book, chapter: c.c }))} aria-label={`Chapter ${c.c}: ${c.verses} verses, ${c.words} words`} title={`Chapter ${c.c}: ${c.words} words`}>
           <span className="c-fill" style={{ height: `${Math.max(4, (c.words / max) * 80)}px` }} />
@@ -274,6 +275,9 @@ const SELF_INTRO: Record<BookGuide["selfKind"], string> = {
   listed: "The opening, and the passages where the writer speaks about his book.",
   record: "The opening verse, and the verses that say who wrote these words down.",
   memoir: "The opening verse, and the verses where the writer begins to tell the story as “I”.",
+  heading: "The opening verse, which says whose words these are, and any verse that speaks of writing them down.",
+  headings: "The headings that say whose sayings follow.",
+  titles: "The opening verse. The book doesn't say who gathered it, and Psalm 1 has no title; the names in the other psalms' titles are below.",
 };
 const selfIntro = (g: BookGuide) => (g.selfKind === "opening" && isOT(g) ? "The opening verse. The book doesn't say who wrote it." : SELF_INTRO[g.selfKind]);
 
@@ -334,7 +338,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
       <Sec id="glance" title="At a glance" basis={["counted"]}>
         <dl className="facts">
           <dt>Length</dt><dd>{plural(g.glance.chapters, "chapter")}, {plural(g.glance.verses, "verse")}</dd>
-          <dt>{isOT(g) ? "Hebrew words" : "Greek words"}</dt><dd>{g.glance.words.toLocaleString()}, {pct(g.glance.words / g.glance.ntWords)}% of the {tName(g)}{g.glance.wordsInBrackets ? `, including ${g.glance.wordsInBrackets} in double brackets` : ""}</dd>
+          <dt>{isOT(g) ? "Hebrew words" : "Greek words"}</dt><dd>{g.glance.words.toLocaleString()}, {pct(g.glance.words / g.glance.ntWords)}% of the {tName(g)}{g.glance.wordsInBrackets ? `, including ${g.glance.wordsInBrackets} in double brackets` : ""}{g.glance.aramaicWords ? `, ${g.glance.aramaicWords.toLocaleString()} of them in Aramaic` : ""}{g.psalmTitles ? ". The Psalm titles aren't counted: the app follows the English verse numbers, which leave them out" : ""}</dd>
           <dt>Different words</dt><dd>{g.glance.distinct.toLocaleString()} nouns, verbs, adjectives and adverbs</dd>
           {greekName}
           {g.people.length > 0 && <><dt>People named</dt><dd>{g.people.length}</dd></>}
@@ -352,6 +356,20 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
 
       <Sec id="own" title="In its own words" basis={["counted"]} intro={`${selfIntro(g)} Shown in the ${translationInfo(prefs.translation).name}.`}>
         <ul className="bg-verses">{g.self.map((cv) => <VerseLine key={cv} book={g.book} cv={cv} />)}</ul>
+        {g.psalmTitles && (
+          <>
+            <h3>Names in the Psalm titles</h3>
+            <p className="fine">{g.psalmTitles.titled} of the 150 psalms have a title. In the Hebrew a title is part of the psalm; English Bibles print it above, unnumbered. The Hebrew “of David” (<i>le-David</i>) can also mean “for David” or “about David”. Read from STEPBible's Hebrew text.</p>
+            <ul className="fine-list">
+              {g.psalmTitles.names.map((x) => (
+                <li key={x.name}>
+                  <strong>{x.name}</strong> <span className="fine">{plural(x.psalms.length, "psalm")}:</span>{" "}
+                  {x.psalms.map((n, i) => <span key={n}>{i ? ", " : ""}<RefLink refText={`Psalms ${n}:1`}>{String(n)}</RefLink></span>)}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         {g.sources && g.sources.length > 0 && (
           <>
             <h3>Records it names <span className="count">{g.sources.reduce((n, x) => n + x.refs.length, 0)}</span></h3>
@@ -371,6 +389,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
       <Sec id="author" title="Who wrote it, and when" basis={["quoted", "ai"]} intro="What early writers said, in their own words. They are witnesses to be weighed, and some depend on others.">
         {g.notes.author && <p className="note">{g.notes.author}</p>}
         {author.map((w, i) => <WitnessCard key={i} w={w} />)}
+        {author.length === 0 && !g.notes.author && <p className="fine">No early writer quoted in this guide says who wrote it.{g.selfKind === "heading" ? " The opening verse, under “In its own words”, names whose words these are." : ""}</p>}
         {dating.data && (
           <div className="note">
             <strong>When it was written is disputed</strong>

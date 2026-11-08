@@ -42,7 +42,7 @@ export interface BookGuide {
   /** words counts the Nestle-Aland wording (NT) or the Leningrad Codex (OT) as STEPBible tags it; ntWords is the same
    * count for the book's whole Testament, and a key word's nt is its count there. */
   /** verses follows the app's (KJV) numbering; greekVerses the Greek editions'. */
-  glance: { chapters: number; verses: number; greekVerses: number; versesCounted: number; words: number; distinct: number; ntWords: number; wordsInBrackets?: number };
+  glance: { chapters: number; verses: number; greekVerses: number; versesCounted: number; words: number; distinct: number; ntWords: number; wordsInBrackets?: number; aramaicWords?: number };
   /** Greek verse numbers the app's Bibles join to the verse before: [Greek, app]. */
   renumbered: [string, string][];
   keywords: KeyWord[];
@@ -50,7 +50,9 @@ export interface BookGuide {
   self: string[];
   /** How self was found: the opening only, a letter's "I write" verses, or passages listed in book_guides.json
    * (for the Old Testament, the verses that say who wrote these words down). */
-  selfKind: "opening" | "writing" | "listed" | "record" | "memoir";
+  selfKind: "opening" | "writing" | "listed" | "record" | "memoir" | "heading" | "headings" | "titles";
+  /** Psalms only: the names in the Hebrew titles, read from STEPBible's TAHOT (the app's verse data leaves the titles out). */
+  psalmTitles?: { titled: number; names: { name: string; psalms: number[] }[] };
   /** Records a narrative book names as its sources, found by their wording: "the book of the chronicles of the kings of Israel". */
   sources?: { name: string; refs: string[] }[];
   testament?: "OT" | "NT";

@@ -269,12 +269,30 @@ def first_person(m, b):
     # a first-person verb (Vqp1cs), pronoun (Pp1cs) or suffix (Sp1cs)
     return any(re.match(r"^(?:V\w\w1|Pp1|Sp1)", p) for p in heb_parts(m))
 # write, write a letter, write before, book, scroll; and in Hebrew write (kathav) and book (sepher)
-WRITING = {"G1125", "G1989", "G4270", "G975", "G976", "H3789", "H5612"}
+WRITING = {"G1125", "G1989", "G4270", "G975", "G976", "H3789", "H5612", "H3790", "H5609"}   # the last two Aramaic (Daniel 7:1)
 # Records a narrative book names as its sources, or points the reader to ("Are they not written in the book of the
 # chronicles of the kings of Israel?"). Each is found by its KJV wording, and the Hebrew of every verse must speak of
 # writing, a book or "the words/acts of": write (H3789, Aramaic H3790), book (H5612, Aramaic H5609), words (H1697).
 KJV_OT = load("bible/KJV-ot.json")
 RECORD_WORDS = {"H3789", "H3790", "H5612", "H5609", "H1697"}
+# The Psalm titles. The Hebrew counts a title as verse 1 (or 1-2); English Bibles print it above the psalm, unnumbered,
+# so STEP's TAHOT files it as verse 0 in English numbering ("Psa.3.0(3.1)"), and the app's verse data leaves it out.
+# Here the titles are read from TAHOT itself, and each name is found by its Strong's number.
+TITLE_NAMES = [("H1732", "David"), ("H623", "Asaph"), ("H7141", "the sons of Korah"), ("H8010", "Solomon"), ("H4872", "Moses"),
+               ("H1968", "Heman"), ("H387", "Ethan"), ("H3038", "Jeduthun")]
+def psalm_titles():
+    path = os.path.join(S, "STEPBible-Data/Translators Amalgamated OT+NT/TAHOT Job-Sng - Translators Amalgamated Hebrew OT - STEPBible.org CC BY.txt")
+    ids = defaultdict(set)
+    for line in open(path, encoding="utf-8"):
+        m = re.match(r"^Psa\.(\d+)\.0\(", line)
+        if m:
+            cols = line.split("\t")
+            ids[int(m.group(1))] |= {base_id(x) for x in re.findall(r"H\d+[A-Z]?", cols[4])}
+    if not 100 < len(ids) < 150:
+        fail(f"Psalms: found {len(ids)} titles in TAHOT; expected about 116")
+    names = [{"name": n, "psalms": sorted(p for p, s in ids.items() if i in s)} for i, n in TITLE_NAMES]
+    return {"titled": len(ids), "names": [x for x in names if x["psalms"]]}
+
 def named_sources(b, spec):
     out = []
     for src in spec:
@@ -291,7 +309,9 @@ def named_sources(b, spec):
         out.append({"name": src["name"], "refs": [app_cv(b, c, v) for c, v in hits]})
     return out
 
-def self_refs(b, listed=None):
+# Words a heading uses for what follows: words, proverbs, the wise, a song, a vision, an oracle ("burden").
+HEADING_WORDS = {"H1697", "H4912", "H2450", "H7892", "H2377", "H4853"}
+def self_refs(b, listed=None, headings=False):
     """In a letter the writer is the speaker, so: the opening, and every verse where he says "I write" or "we write".
     In a narrative book the speaker is usually someone else (Pilate's "What I have written"), so the passages where
     the writer speaks about his book are listed in book_guides.json, and each is checked for a first-person word or
@@ -303,7 +323,8 @@ def self_refs(b, listed=None):
             c, a_, z = int(c), int(a_), int(z or a_)
             vs = [(c, v) for v in range(a_, z + 1)]
             toks = [t for (cc, vv) in vs for t in words[b][cc - 1][vv - 1]]
-            if item != "1:1" and not any(first_person(t[4], b) or base_id(t[3]) in WRITING for t in toks):
+            heading = lambda t: "Np" in (t[4] or "") or base_id(t[3]) in HEADING_WORDS
+            if item != "1:1" and not any(first_person(t[4], b) or base_id(t[3]) in WRITING or (headings and heading(t)) for t in toks):
                 fail(f"{NAME[b]} {item}: listed as the writer speaking about his book, but has no first-person word or word for writing")
             refs += [app_cv(b, cc, vv) for cc, vv in vs]
         return list(dict.fromkeys(refs))
@@ -567,8 +588,11 @@ def josephus_witness(b, w):
     """A passage from the app's Josephus (Whiston's translation, from Project Gutenberg's text), found the same way:
     by its first and last words, inside the section the citation names ("Against Apion 1.8")."""
     work = JOSEPHUS[w["work_id"]]
-    bk, sec = map(int, w["at"].split("."))
-    paras = [p for book in work["books"] if book["n"] == bk for ch in book["chapters"] for p in ch["paras"] if p[0] == sec]
+    # "1.8": book and section (Against Apion numbers its sections through each book); "11.1.2": book, chapter, section.
+    parts = list(map(int, w["at"].split(".")))
+    bk, sec = parts[0], parts[-1]
+    chn = parts[1] if len(parts) == 3 else None
+    paras = [p for book in work["books"] if book["n"] == bk for ch in book["chapters"] if chn is None or ch["n"] == chn for p in ch["paras"] if p[0] == sec]
     if len(paras) != 1:
         fail(f"{NAME[b]}: the app's Josephus has no single section {work['name']} {w['at']}")
         return None
@@ -582,7 +606,7 @@ def josephus_witness(b, w):
         passage = "…" + passage
     if not re.search(r"[.?!”’]$", passage):
         passage += " …"
-    ch = next(ch["n"] for book in work["books"] if book["n"] == bk for ch in book["chapters"] if any(p[0] == sec for p in ch["paras"]))
+    ch = chn or next(ch["n"] for book in work["books"] if book["n"] == bk for ch in book["chapters"] if any(p[0] == sec for p in ch["paras"]))
     return {"topic": w["topic"], "writer": "josephus", "name": WHO.get("josephus", "Josephus"), "work": work["name"], "cite": f"{work['name']} {w['at']}",
             "edition": "The Works of Flavius Josephus, trans. William Whiston (1737), Project Gutenberg's text", "translator": "",
             "page": "", "url": f"#josephus-{w['work_id']}-{bk}-{ch}", "text": passage}, text
@@ -689,7 +713,7 @@ for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
         },
         "keywords": key_words(b),
         "onlyHere": only_here(b),
-        "self": self_refs(b, spec.get("self")),
+        "self": self_refs(b, spec.get("self"), headings=spec.get("selfKind") in ("heading", "headings")),
         "selfKind": spec.get("selfKind") or (("record" if b < 40 else "listed") if spec.get("self") else "writing" if 45 <= b <= 65 else "opening"),
         **({"sources": named_sources(b, spec["sources"])} if spec.get("sources") else {}),
         "testament": "OT" if b < 40 else "NT",
@@ -707,6 +731,13 @@ for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
     }
     if guide["textual"]["doubleBrackets"]:
         guide["glance"]["wordsInBrackets"] = words_in_brackets[b]
+    if b < 40:
+        # Daniel 2:4b-7:28, Ezra 4:8-6:18 and 7:12-26, Jeremiah 10:11 and two words of Genesis 31:47 are Aramaic.
+        aramaic = sum(1 for c, v, toks in verse_tokens(b) if (c, v) not in excluded[b] for t in toks if (t[4] or "").startswith("A"))
+        if aramaic:
+            guide["glance"]["aramaicWords"] = aramaic
+    if b == 19:
+        guide["psalmTitles"] = psalm_titles()
     for w in spec.get("witnesses", []):
         got = witness(b, w)
         if got:
@@ -776,7 +807,7 @@ if problems:
     sys.exit(1)
 # One file per group of books, so a page loads only its group, plus an index of which books have a guide.
 # The long books get a file each; the short letters share. (The artifact holds at most 511 files.)
-GROUPS = [("law", range(1, 6)), ("history", range(6, 18)),
+GROUPS = [("law", range(1, 6)), ("history", range(6, 18)), ("poetry", range(18, 23)), ("prophets", range(23, 28)), ("twelve", range(28, 40)),
           ("matthew", [40]), ("mark", [41]), ("luke", [42]), ("john", [43]), ("acts", [44]), ("romans", [45]), ("corinthians", [46, 47]),
           ("galatians-philemon", range(48, 58)), ("hebrews-jude", range(58, 66)), ("revelation", [66])]
 folder = os.path.join(D, "scholar/bookguides")

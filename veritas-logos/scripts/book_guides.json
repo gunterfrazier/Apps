@@ -1,5 +1,5 @@
 {
-  "_about": "What the book guides quote, and where from. Each witness names a CCEL volume, the id of the chapter in CCEL's ThML file, and the first and last words of the passage. scripts/build_bookguides.py takes the words between them from that file, so nothing here is typed out. 'topic' is author (who wrote it and why), reception (how the church received it) or background (people and writings the book's setting is often tied to). 'via' is the writer who quotes an earlier one. 'source': 'josephus' takes the passage from the app's own Josephus (Whiston), by the section 'at' names. 'self' lists the passages where a narrative book's writer speaks about the book; letters are found by their first-person 'I write'. 'titles' heads a topic's group of witnesses. 'sources' lists the records a narrative book names, found by their KJV wording (regular expressions); 'selfKind' memoir marks where the writer begins to speak as \"I\". A note's 'absentFrom' names a quoted passage that must not contain a word. 'datingAs' shows another book's dating views (the books of Moses share Genesis's). A note's 'quoted' phrases must be in a passage the guide quotes, its 'inBook' words in the book's Greek, and its 'notInBook' word must not be.",
+  "_about": "What the book guides quote, and where from. Each witness names a CCEL volume, the id of the chapter in CCEL's ThML file, and the first and last words of the passage. scripts/build_bookguides.py takes the words between them from that file, so nothing here is typed out. 'topic' is author (who wrote it and why), reception (how the church received it) or background (people and writings the book's setting is often tied to). 'via' is the writer who quotes an earlier one. 'source': 'josephus' takes the passage from the app's own Josephus (Whiston), by the section 'at' names. 'self' lists the passages where a narrative book's writer speaks about the book; letters are found by their first-person 'I write'. 'titles' heads a topic's group of witnesses. 'sources' lists the records a narrative book names, found by their KJV wording (regular expressions); 'selfKind' memoir marks where the writer begins to speak as \"I\", heading an opening that names whose words follow, headings the headings inside a book (Proverbs), titles the Psalm titles (read from TAHOT). A note's 'absentFrom' names a quoted passage that must not contain a word. 'datingAs' shows another book's dating views (the books of Moses share Genesis's). A note's 'quoted' phrases must be in a passage the guide quotes, its 'inBook' words in the book's Greek, and its 'notInBook' word must not be.",
   "books": {
     "1": {
       "witnesses": [
@@ -1251,6 +1251,1159 @@
           ]
         }
       }
+    },
+    "18": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-3/job/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOB, BOOK OF"
+        ],
+        [
+          "smith",
+          "JOB, BOOK OF"
+        ]
+      ]
+    },
+    "19": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "",
+          "at": "1.8",
+          "from": "The remaining four books contain hymns to God",
+          "to": "precepts for the conduct of human life."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-3/psalms/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "PSALMS"
+        ],
+        [
+          "smith",
+          "PSALMS, BOOK OF"
+        ]
+      ],
+      "selfKind": "titles"
+    },
+    "20": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "",
+          "at": "1.8",
+          "from": "The remaining four books contain hymns to God",
+          "to": "precepts for the conduct of human life."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-3/proverbs/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "PROVERBS, BOOK OF"
+        ],
+        [
+          "smith",
+          "PROVERBS, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "10:1",
+        "22:17",
+        "24:23",
+        "25:1",
+        "30:1",
+        "31:1"
+      ],
+      "selfKind": "headings"
+    },
+    "21": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "",
+          "at": "1.8",
+          "from": "The remaining four books contain hymns to God",
+          "to": "precepts for the conduct of human life."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-3/ecclesiastes/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ECCLESIASTES"
+        ],
+        [
+          "smith",
+          "ECCLESIASTES"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "1:12",
+        "12:9-10"
+      ],
+      "selfKind": "record"
+    },
+    "22": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "",
+          "at": "1.8",
+          "from": "The remaining four books contain hymns to God",
+          "to": "precepts for the conduct of human life."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-3/song-of-solomon/_index.md"
+      },
+      "dictionaries": [
+        [
+          "smith",
+          "CANTICLES"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "23": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "11.1.2",
+          "from": "This was known to Cyrus by his reading the book which Isaiah left behind him",
+          "to": "one hundred and forty years before the temple was demolished."
+        },
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/isaiah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ISAIAH, THE BOOK OF"
+        ],
+        [
+          "smith",
+          "ISAIAH, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "8:1",
+        "30:8"
+      ],
+      "selfKind": "heading",
+      "notes": {
+        "author": {
+          "text": "Isaiah 44:28 and 45:1 name Cyrus. Josephus says Cyrus read the prophecy and saw what it said of him.",
+          "quoted": [
+            "This was known to Cyrus by his reading the book which Isaiah left behind him"
+          ],
+          "inBook": [
+            "כורש"
+          ]
+        }
+      }
+    },
+    "24": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "10.5.1",
+          "from": "and Jeremiah the prophet composed an elegy to lament him",
+          "to": "two books concerning these events."
+        },
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/jeremiah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JEREMIAH, BOOK OF"
+        ],
+        [
+          "smith",
+          "JEREMIAH, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "30:2",
+        "36:2",
+        "36:4",
+        "36:27-28",
+        "36:32",
+        "45:1",
+        "51:60"
+      ],
+      "selfKind": "heading"
+    },
+    "25": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "Whence it happens that, by most people, five of the books are reckoned as double",
+          "to": "with Kinoth, i.e., his Lamentations."
+        },
+        {
+          "topic": "background",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "10.5.1",
+          "from": "and Jeremiah the prophet composed an elegy to lament him",
+          "to": "two books concerning these events."
+        },
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "And so there are also twenty-two books of the Old Testament",
+          "to": "we should thus have twenty-four books of the old law."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/lamentations/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "LAMENTATIONS, BOOK OF"
+        ],
+        [
+          "smith",
+          "LAMENTATIONS OF JEREMIAH"
+        ]
+      ],
+      "notes": {
+        "background": {
+          "text": "Josephus says Jeremiah wrote a lament for King Josiah that was still read in his day, as 2 Chronicles 35:25 also says. Lamentations itself mourns the fall of Jerusalem.",
+          "quoted": [
+            "Jeremiah the prophet composed an elegy to lament him"
+          ],
+          "inBook": [
+            "ירושלם"
+          ]
+        }
+      }
+    },
+    "26": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "10.5.1",
+          "from": "and Jeremiah the prophet composed an elegy to lament him",
+          "to": "two books concerning these events."
+        },
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/ezekiel/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "EZEKIEL, BOOK OF"
+        ],
+        [
+          "smith",
+          "EZEKIEL"
+        ]
+      ],
+      "self": [
+        "1:1-3",
+        "43:11"
+      ],
+      "selfKind": "heading"
+    },
+    "27": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "10.11.7",
+          "from": "for the several books that he wrote and left behind him",
+          "to": "but he also determined the time of their accomplishment."
+        },
+        {
+          "topic": "reception",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "11.8.5",
+          "from": "And when the Book of Daniel was showed him",
+          "to": "he supposed that himself was the person intended."
+        },
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/daniel/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "DANIEL, BOOK OF"
+        ],
+        [
+          "smith",
+          "DANIEL, THE BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "7:1"
+      ],
+      "selfKind": "record",
+      "notes": {
+        "reception": {
+          "text": "The Hebrew order Jerome describes puts Daniel among the Writings, not the Prophets. Josephus says Alexander the Great was shown the book.",
+          "quoted": [
+            "the sixth is Daniel",
+            "the Book of Daniel was showed him"
+          ]
+        }
+      }
+    },
+    "28": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/hosea/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "HOSEA, PROPHECIES OF"
+        ],
+        [
+          "smith",
+          "HOSEA, PROPHECIES OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "29": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/joel/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOEL, BOOK OF"
+        ],
+        [
+          "smith",
+          "JOEL"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "30": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/amos/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "AMOS"
+        ],
+        [
+          "smith",
+          "AMOS, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "31": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/obadiah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "OBADIAH, BOOK OF"
+        ],
+        [
+          "smith",
+          "OBADIAH"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "32": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/jonah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JONAH, BOOK OF"
+        ],
+        [
+          "smith",
+          "JONAH"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "33": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/micah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "MICAH, BOOK OF"
+        ],
+        [
+          "smith",
+          "MICAH, THE BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "34": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/nahum/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "NAHUM, BOOK OF"
+        ],
+        [
+          "smith",
+          "NAHUM"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "35": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/habakkuk/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "HABAKKUK, PROPHECIES OF"
+        ],
+        [
+          "smith",
+          "HABAKKUK, PROPHECY OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "2:2"
+      ],
+      "selfKind": "heading"
+    },
+    "36": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/zephaniah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ZEPHANIAH"
+        ],
+        [
+          "smith",
+          "ZEPHANIAH"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "37": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/haggai/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "HAGGAI, BOOK OF"
+        ],
+        [
+          "smith",
+          "HAGGAI, PROPHECY OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "38": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/zechariah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ZECHARIAH"
+        ],
+        [
+          "smith",
+          "ZECHARIAH, THE BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "39": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/malachi/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "MALACHI, PROPHECIES OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
     },
     "40": {
       "witnesses": [

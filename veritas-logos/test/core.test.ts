@@ -770,8 +770,24 @@ test("people: every record is sound, and old saved ids still work", () => {
 test("book guides: counted figures, quoted witnesses and credits hold up", async () => {
   const { getBookGuide, guideBooks, guideDigest } = await import("../src/core/bookguide");
   const { henryCompletedBy } = await import("../src/core/writings");
-  // Genesis to Esther, and every New Testament book.
-  assert.deepEqual(await guideBooks(), [...Array.from({ length: 17 }, (_, i) => 1 + i), ...Array.from({ length: 27 }, (_, i) => 40 + i)]);
+  // Every book of the Bible has a guide.
+  assert.deepEqual(await guideBooks(), Array.from({ length: 66 }, (_, i) => 1 + i));
+  // The Psalm titles are read from STEP's Hebrew, since the app's verse data leaves them out: the usual counts.
+  const ps = (await getBookGuide(19))!;
+  assert.equal(ps.psalmTitles?.titled, 116);
+  assert.deepEqual(Object.fromEntries(ps.psalmTitles!.names.map((x) => [x.name, x.psalms.length])), { David: 73, Asaph: 12, "the sons of Korah": 11, Solomon: 2, Moses: 1, Heman: 1, Ethan: 1, Jeduthun: 3 });
+  assert.ok(ps.psalmTitles!.names[0].psalms.includes(51) && !ps.psalmTitles!.names[0].psalms.includes(1));
+  // Psalm 145's missing "nun" verse is listed, not counted.
+  assert.ok(ps.textual.hebrew!.added.some((x) => x.at === "145:13"));
+  // Daniel 2:4-7:28 is Aramaic, and Jeremiah 10:11.
+  const dan = (await getBookGuide(27))!;
+  assert.ok(dan.glance.aramaicWords! > 3000 && dan.glance.aramaicWords! < dan.glance.words);
+  assert.equal((await getBookGuide(24))!.glance.aramaicWords, 15);
+  assert.match(dan.notes.reception ?? "", /among the Writings/);
+  assert.deepEqual((await getBookGuide(20))!.self, ["1:1", "10:1", "22:17", "24:23", "25:1", "30:1", "31:1"]);
+  assert.deepEqual((await getBookGuide(35))!.self, ["1:1", "2:2"]);
+  assert.match((await getBookGuide(23))!.notes.author ?? "", /Cyrus/);
+  assert.ok((await getBookGuide(23))!.witnesses.some((w) => w.cite === "Antiquities of the Jews 11.1.2" && w.url === "#josephus-antiquities-11-1"));
   // The history books: the records each names, found by wording and checked in the Hebrew.
   const k1 = (await getBookGuide(11))!, c2 = (await getBookGuide(14))!;
   assert.deepEqual(k1.sources?.map((x) => [x.name, x.refs.length]), [["The book of the acts of Solomon", 1], ["The book of the chronicles of the kings of Israel", 7], ["The book of the chronicles of the kings of Judah", 4]]);
