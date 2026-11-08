@@ -18,13 +18,12 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import zlib from "node:zlib";
 import { DatabaseSync } from "node:sqlite";
 
 import { chatPreamble, checkReferences, exegesisStagePrompt, explorePrompt, genrePrompt, symbolPrompt, topicPrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
 import { getPassage, isTranslationId, searchText, TRANSLATIONS, DEFAULT_TRANSLATION, translationInfo, decodeVerseCode, refOf, getVerse, type TranslationId } from "../src/core/bible";
 import { getTopic, searchTopics } from "../src/core/content";
-import { setLoader } from "../src/core/data";
+import { parseData, setLoader } from "../src/core/data";
 import { allFigures, buildSubgraph, findShortestPath, getFigure, describeRelationshipStep } from "../src/core/figure-graph";
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, guideToText, isGuideFormat, resolveGuide, sanitizeGuide, newId, type Guide } from "../src/core/guide";
 import { getInsights } from "../src/core/insights";
@@ -61,9 +60,8 @@ export function createServer(opts: ServerOptions = {}) {
   setLoader(async (p) => {
     const file = path.join(dataDir, p);
     if (!file.startsWith(dataDir + path.sep)) throw new Error("bad path");
-    const bytes = await fs.promises.readFile(file);
-    // The built data is stored gzip-compressed (scripts/build.mjs); plain JSON is read as it is.
-    return JSON.parse((bytes[0] === 0x1f && bytes[1] === 0x8b ? zlib.gunzipSync(bytes) : bytes).toString("utf8"));
+    // The built data is packed (scripts/build.mjs) and unpacked the same way the app does it; plain JSON is read as it is.
+    return parseData(await fs.promises.readFile(file, "utf8"));
   });
 
   const db = new DatabaseSync(opts.dbPath ?? process.env.DB_PATH ?? "veritas.db");

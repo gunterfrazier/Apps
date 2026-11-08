@@ -2,7 +2,7 @@
 
 Everything stored in the app comes from these sources. Keep these credits wherever the data is shown. The app's About screen and the API responses already include them.
 
-The published copies in `dist/data` are gzip-compressed to save space. Compression doesn't change a word: the build checks that each file unpacks to exactly the bytes in `public/data`.
+The published copies in `dist/data` are gzip-compressed and base64-encoded to save space. Packing doesn't change a word: the build checks that each file unpacks to exactly the bytes in `public/data`.
 
 | Data | Source | License |
 |---|---|---|

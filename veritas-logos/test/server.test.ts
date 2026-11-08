@@ -160,13 +160,13 @@ test("AI: needs a key, runs tools, flags bad references, enforces the daily limi
   assert.equal((await j("/v1/ai/ask", { method: "POST", headers: auth(key), body })).status, 429, "daily limit applies");
 });
 
-test("reads the built data, which is stored gzip-compressed", async () => {
-  // scripts/build.mjs compresses every data file in dist/data; the server unpacks them as it reads.
+test("reads the built data, which is stored packed", async () => {
+  // scripts/build.mjs packs every data file in dist/data (gzip, then base64 in a JSON string); the server unpacks them as it reads.
   // Last in the file: a server sets the one data loader core uses, so this one replaces the shared server's.
   const gzDir = fs.mkdtempSync(path.join(os.tmpdir(), "vl-gz-"));
   for (const f of ["verse-counts.json", "books.json", "bible/KJV-nt.json"]) {
     fs.mkdirSync(path.dirname(path.join(gzDir, f)), { recursive: true });
-    fs.writeFileSync(path.join(gzDir, f), zlib.gzipSync(fs.readFileSync(path.join("public/data", f))));
+    fs.writeFileSync(path.join(gzDir, f), JSON.stringify(zlib.gzipSync(fs.readFileSync(path.join("public/data", f))).toString("base64")));
   }
   const gz = createServer({ dataDir: gzDir, staticDir: "", dbPath: path.join(gzDir, "t.db"), adminToken: ADMIN });
   const gzBase = `http://127.0.0.1:${await listen(gz.server)}`;

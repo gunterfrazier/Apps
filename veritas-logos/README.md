@@ -43,7 +43,7 @@ npm run api          # website and API at http://localhost:8787
 
 `npm run dev` rebuilds the app on change at http://localhost:5173, without the API.
 
-`npm run build` stores the data files in `dist/data` gzip-compressed, which takes them from about 240 MB to about 75 MB. They keep their `.json` names; the app and the server unpack them when they're read, so they work on any host without special settings. `public/data` stays uncompressed, and `npm run dev` doesn't compress.
+`npm run build` packs the data files in `dist/data`, which takes them from about 240 MB to about 100 MB. Each is gzip-compressed, then base64-encoded into a JSON string, because Claude's artifact host serves `.json` files only as text. They keep their names, and the app and the server unpack them when they're read, so they work on any host without special settings. `public/data` stays plain, and `npm run dev` doesn't pack.
 
 Checks: `npm run typecheck`, `npm test`, `npm run data:check`.
 
@@ -52,7 +52,7 @@ Checks: `npm run typecheck`, `npm test`, `npm run data:check`.
 The app can also run on your own site. The hosted options are built and tested but not deployed. A public release would also need user accounts and billing if you charge a subscription or usage fee, and you should recheck the data licenses.
 
 
-1. **Static site only (cheapest).** Upload `dist/` to any static host. Everything works except AI and saved API guides. It's about 75 MB, because the build compresses the data files.
+1. **Static site only (cheapest).** Upload `dist/` to any static host. Everything works except AI and saved API guides. It's about 100 MB, because the build packs the data files.
 2. **Static site plus server (needed for AI and the API).** Run `dist-server/server.js`, or the included `Dockerfile`, on any Node host with a persistent disk for the SQLite database. Set the values in `.env.example`.
 
 ## Turning on AI
@@ -105,7 +105,7 @@ Any passage, term, writer, event or creed is one tap from the others:
 - Echoes show shared words, not intent. The Septuagint here isn't tagged, so it's matched by word stems, and Psalms and Jeremiah aren't matched because their Greek numbering differs. Aramaic parts of Daniel and Ezra have fewer links.
 
 - A web page can't run while the phone has suspended it. AI work in a minimized app may pause and carries on when the app is opened again.
-- The compressed data needs a browser from 2023 or later (Safari 16.4, Chrome 80, Firefox 113). An older browser shows a message asking for an update.
+- The packed data needs a browser from 2023 or later (Safari 16.4, Chrome 80, Firefox 113). An older browser shows a message asking for an update.
 
 - There is no sourced data yet for idioms, customs, or the first audience, so those rely on AI drafts. Public-domain works could be added as cited sources.
 - The verse-by-verse confession citations in Insights cover Reformed and Baptist documents, while the Creeds section adds Catholic, Orthodox and other traditions through Schaff (6th ed.), so nothing after about 1930 is there.

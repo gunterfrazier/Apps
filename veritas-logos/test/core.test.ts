@@ -5,7 +5,7 @@ import path from "node:path";
 import { before, test } from "node:test";
 import { getPassage, getVerse, searchText, TRANSLATIONS } from "../src/core/bible";
 import { checkReferences, coerceDraftSections, coerceInsight } from "../src/core/ai";
-import { parseData, setLoader } from "../src/core/data";
+import { PACKED, parseData, setLoader } from "../src/core/data";
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, resolveGuide, sanitizeGuide } from "../src/core/guide";
 import { getInsights } from "../src/core/insights";
 import { decodeMorph, gematria, getConcordance, getLexEntry, getVerseWords, searchLexicon } from "../src/core/lexicon";
@@ -31,10 +31,13 @@ import { ahToX, formatSpan, formatYear, getTimelineItems, parseTimelineRoute, ti
 
 before(() => setLoader(async (p) => JSON.parse(await fs.promises.readFile(path.join("public/data", p), "utf8"))));
 
-test("data files: the app reads them gzip-compressed, as published, or plain", async () => {
+test("data files: the app reads them packed, as published, or plain", async () => {
   const value = { a: [1, 2, "ἐν ἀρχῇ", "בְּרֵאשִׁית"] };
-  const raw = new TextEncoder().encode(JSON.stringify(value));
-  assert.deepEqual(await parseData(new Uint8Array(zlib.gzipSync(raw, { level: 9 }))), value);
+  const raw = JSON.stringify(value);
+  // Packed as scripts/build.mjs does it: gzip, then base64 in a JSON string.
+  const packed = JSON.stringify(zlib.gzipSync(raw, { level: 9 }).toString("base64"));
+  assert.ok(packed.startsWith(PACKED));
+  assert.deepEqual(await parseData(packed), value);
   assert.deepEqual(await parseData(raw), value);
 });
 
