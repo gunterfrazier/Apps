@@ -18,6 +18,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import zlib from "node:zlib";
 import { DatabaseSync } from "node:sqlite";
 
 import { chatPreamble, checkReferences, exegesisStagePrompt, explorePrompt, genrePrompt, symbolPrompt, topicPrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
@@ -60,7 +61,9 @@ export function createServer(opts: ServerOptions = {}) {
   setLoader(async (p) => {
     const file = path.join(dataDir, p);
     if (!file.startsWith(dataDir + path.sep)) throw new Error("bad path");
-    return JSON.parse(await fs.promises.readFile(file, "utf8"));
+    const bytes = await fs.promises.readFile(file);
+    // The built data is stored gzip-compressed (scripts/build.mjs); plain JSON is read as it is.
+    return JSON.parse((bytes[0] === 0x1f && bytes[1] === 0x8b ? zlib.gunzipSync(bytes) : bytes).toString("utf8"));
   });
 
   const db = new DatabaseSync(opts.dbPath ?? process.env.DB_PATH ?? "veritas.db");

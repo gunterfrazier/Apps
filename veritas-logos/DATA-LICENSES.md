@@ -2,6 +2,8 @@
 
 Everything stored in the app comes from these sources. Keep these credits wherever the data is shown. The app's About screen and the API responses already include them.
 
+The published copies in `dist/data` are gzip-compressed to save space. Compression doesn't change a word: the build checks that each file unpacks to exactly the bytes in `public/data`.
+
 | Data | Source | License |
 |---|---|---|
 | BSB, NHEB, KJV, ASV, YLT text | [scrollmapper/bible_databases](https://github.com/scrollmapper/bible_databases) | BSB: CC0. NHEB, ASV, YLT: public domain. KJV: public domain except in the UK, where Crown rights apply |

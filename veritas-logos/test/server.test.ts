@@ -4,6 +4,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
+import zlib from "node:zlib";
 import { createServer } from "../server/server";
 
 let base = "";
@@ -157,4 +158,22 @@ test("AI: needs a key, runs tools, flags bad references, enforces the daily limi
   assert.equal((await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "research", prompt: "Write me a poem" }) })).status, 400, "no free-form prompts");
   assert.equal((await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "other" }) })).status, 400);
   assert.equal((await j("/v1/ai/ask", { method: "POST", headers: auth(key), body })).status, 429, "daily limit applies");
+});
+
+test("reads the built data, which is stored gzip-compressed", async () => {
+  // scripts/build.mjs compresses every data file in dist/data; the server unpacks them as it reads.
+  // Last in the file: a server sets the one data loader core uses, so this one replaces the shared server's.
+  const gzDir = fs.mkdtempSync(path.join(os.tmpdir(), "vl-gz-"));
+  for (const f of ["verse-counts.json", "books.json", "bible/KJV-nt.json"]) {
+    fs.mkdirSync(path.dirname(path.join(gzDir, f)), { recursive: true });
+    fs.writeFileSync(path.join(gzDir, f), zlib.gzipSync(fs.readFileSync(path.join("public/data", f))));
+  }
+  const gz = createServer({ dataDir: gzDir, staticDir: "", dbPath: path.join(gzDir, "t.db"), adminToken: ADMIN });
+  const gzBase = `http://127.0.0.1:${await listen(gz.server)}`;
+  try {
+    const d = await (await fetch(`${gzBase}/v1/passages?ref=John%2011:35&translation=KJV`)).json();
+    assert.equal(d.parts[0].verses[0].text, "Jesus wept.");
+  } finally {
+    gz.server.close(); gz.server.closeAllConnections?.(); gz.db.close(); fs.rmSync(gzDir, { recursive: true, force: true });
+  }
 });

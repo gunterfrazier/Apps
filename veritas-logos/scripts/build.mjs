@@ -5,6 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import * as esbuild from "esbuild";
 
 const watch = process.argv.includes("--watch");
@@ -30,6 +31,23 @@ ${extraHead}
 fs.rmSync("dist", { recursive: true, force: true });
 fs.mkdirSync("dist", { recursive: true });
 fs.cpSync("public", "dist", { recursive: true });
+// Every data file is stored gzip-compressed under its own name: the published app has to fit the host's 256 MB, and
+// compressed it is about a third of the size. The app unpacks a file when it loads it (src/core/data.ts), and keeps
+// reading plain JSON too, so the repo's public/data stays readable and a half-uploaded version still works.
+// Fixed settings and no timestamp, so the same data always gives the same bytes.
+const gzipAll = (dir) => {
+  for (const f of fs.readdirSync(dir)) {
+    const p = path.join(dir, f);
+    if (fs.statSync(p).isDirectory()) { gzipAll(p); continue; }
+    if (!p.endsWith(".json")) continue;
+    const raw = fs.readFileSync(p);
+    const gz = zlib.gzipSync(raw, { level: 9 });
+    if (gz.length >= raw.length) continue;
+    if (!zlib.gunzipSync(gz).equals(raw)) throw new Error(`${p} doesn't unpack to its original bytes`);
+    fs.writeFileSync(p, gz);
+  }
+};
+if (!watch) gzipAll("dist/data");
 fs.writeFileSync("dist/index.html", shell("Veritas Logos", "app"));
 fs.writeFileSync("dist/embed.html", shell("Veritas Logos", "embed"));
 

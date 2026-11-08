@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import zlib from "node:zlib";
 import path from "node:path";
 import { before, test } from "node:test";
 import { getPassage, getVerse, searchText, TRANSLATIONS } from "../src/core/bible";
-import { checkReferences, coerceDraftSections, coerceInsight, parseJsonReply } from "../src/core/ai";
-import { setLoader } from "../src/core/data";
+import { checkReferences, coerceDraftSections, coerceInsight } from "../src/core/ai";
+import { parseData, setLoader } from "../src/core/data";
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, resolveGuide, sanitizeGuide } from "../src/core/guide";
 import { getInsights } from "../src/core/insights";
 import { decodeMorph, gematria, getConcordance, getLexEntry, getVerseWords, searchLexicon } from "../src/core/lexicon";
@@ -29,6 +30,13 @@ import { excerptsByWriter, excerptsForPassage, getWritingsIndex, searchWritings,
 import { ahToX, formatSpan, formatYear, getTimelineItems, parseTimelineRoute, timelineForPassage, timelineHash } from "../src/core/timeline";
 
 before(() => setLoader(async (p) => JSON.parse(await fs.promises.readFile(path.join("public/data", p), "utf8"))));
+
+test("data files: the app reads them gzip-compressed, as published, or plain", async () => {
+  const value = { a: [1, 2, "ἐν ἀρχῇ", "בְּרֵאשִׁית"] };
+  const raw = new TextEncoder().encode(JSON.stringify(value));
+  assert.deepEqual(await parseData(new Uint8Array(zlib.gzipSync(raw, { level: 9 }))), value);
+  assert.deepEqual(await parseData(raw), value);
+});
 
 test("verses are real text in each translation, never invented", async () => {
   // Spot checks against known wording, including verses the old prototype fabricated.
