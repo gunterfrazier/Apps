@@ -146,7 +146,7 @@ for p in order:
     for c in p["verses"]:
         by_book[c // 1000000][f"{(c // 1000) % 1000}:{c % 1000}"].append(p["veritas"])
 for b in range(1, 67):
-    path = f"{D}/refs/{b:02d}.json"
+    path = f"{D}/links/{b:02d}.json"
     r = json.load(open(path, encoding="utf-8"))
     r["p"] = by_book[b]
     json.dump(r, open(path, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))

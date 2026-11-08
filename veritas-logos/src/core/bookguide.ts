@@ -55,7 +55,7 @@ export interface BookGuide {
   people: { id: string; name: string; verses: number; first: string; title?: string }[];
   links: {
     quotes: { at: string; ref: string; shared: string }[];
-    /** Matches left out: under five words, or wording matched to three or more different passages (a stock phrase). */
+    /** Matches left out: under five words, or a stock phrase (wording matched to several different passages, or found in eight or more OT verses). */
     shortQuotes: number;
     quotedBy: { at: string; ref: string; shared: string }[];
     allusions: { at: string; ref: string; votes: number }[];

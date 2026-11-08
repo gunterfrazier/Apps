@@ -331,6 +331,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
       </Sec>
 
       <Sec id="author" title="Who wrote it, and when" basis={["quoted", "ai"]} intro="What early writers said, in their own words. They are witnesses to be weighed, and some depend on others.">
+        {g.notes.author && <p className="note">{g.notes.author}</p>}
         {author.map((w, i) => <WitnessCard key={i} w={w} />)}
         {dating.data && (
           <div className="note">
@@ -390,7 +391,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
           <>
             <h3>Quotations with matching wording</h3>
             <ul className="link-list">{g.links.quotes.map((q, i) => <li key={i}><RefLink refText={at(g.book, q.at)}>{q.at}</RefLink> quotes <RefLink refText={q.ref} /><span className="shared">“{q.shared}”</span></li>)}</ul>
-            <p className="fine">Found by matching the wording of cross-references, five words or more. {g.links.shortQuotes > 0 ? `${plural(g.links.shortQuotes, "match", "matches")} under five words, or of a stock phrase that matches several passages, ${g.links.shortQuotes === 1 ? "is" : "are"} left out.` : ""} A shared phrase can still be an echo rather than a quotation.</p>
+            <p className="fine">Found by matching the wording of cross-references, five words or more. {g.links.shortQuotes > 0 ? `${plural(g.links.shortQuotes, "match", "matches")} under five words, or of a stock phrase (matched to several passages, or found in eight or more Old Testament verses), ${g.links.shortQuotes === 1 ? "is" : "are"} left out.` : ""} A shared phrase can still be an echo rather than a quotation.</p>
           </>
         ) : <p className="fine">No quotation of earlier Scripture with matching wording was found. A loose paraphrase can be missed.</p>}
         {g.links.parallelCount > 0 && (

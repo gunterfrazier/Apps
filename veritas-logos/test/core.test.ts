@@ -770,7 +770,7 @@ test("people: every record is sound, and old saved ids still work", () => {
 test("book guides: counted figures, quoted witnesses and credits hold up", async () => {
   const { getBookGuide, guideBooks, guideDigest } = await import("../src/core/bookguide");
   const { henryCompletedBy } = await import("../src/core/writings");
-  assert.deepEqual(await guideBooks(), [40, 41, 42, 43, 44, 62, 63, 64]);
+  assert.deepEqual(await guideBooks(), [40, 41, 42, 43, 44, 45, 46, 47, 48, 58, 59, 60, 61, 62, 63, 64, 65]);
   const two = (await getBookGuide(63))!;
   assert.equal(two.glance.words, 245);
   // 2 John uses ἀλήθεια five times, all in verses 1 to 4.
@@ -790,7 +790,29 @@ test("book guides: counted figures, quoted witnesses and credits hold up", async
   assert.ok(one.self.includes("5:13") && one.self.includes("1:4"));
   assert.ok(one.textual.disputed.some((d) => d.ref === "1 John 5:7-8"));
   assert.ok(one.onlyHere.some((w) => w.id === "G2434"));
-  for (const g of [mark, one, two, (await getBookGuide(64))!]) {
+  // Letters: the writer's own "I write", including "it is superfluous for me to write" (2 Corinthians 9:1), Tertius
+  // (Romans 16:22) and "I have written to you briefly", a different verb (Hebrews 13:22).
+  const rom = (await getBookGuide(45))!, cor2 = (await getBookGuide(47))!, heb = (await getBookGuide(58))!;
+  assert.ok(rom.self.includes("16:22") && cor2.self.includes("9:1") && heb.self.includes("13:22"));
+  // Hebrews names no writer; its note says so and rests on the passages quoted under it.
+  assert.match(heb.notes.author ?? "", /doesn't name its writer/);
+  assert.ok(heb.witnesses.some((w) => w.writer === "origen-of-alexandria" && /in truth, God knows/.test(w.text)));
+  assert.equal(heb.keywords.find((k) => k.id === "G129")?.translit, "haima");
+  // A wording common across the Old Testament isn't evidence of which passage is quoted.
+  assert.deepEqual(heb.links.quotes.filter((q) => q.at === "8:8").map((q) => q.ref), ["Jeremiah 31:31"]);
+  assert.ok(!(await getBookGuide(59))!.links.quotes.some((q) => q.at === "5:10"));
+  // Translators are credited from each work's own notice.
+  const credits = new Map((await Promise.all([46, 58, 65].map(getBookGuide))).flatMap((g) => g!.witnesses).map((w) => [w.cite, w.translator]));
+  assert.equal(credits.get("1 Clement 47"), "trans. Alexander Roberts and James Donaldson");
+  assert.equal(credits.get("On Modesty 20"), "trans. S. Thelwall");
+  assert.equal(credits.get("Commentary on Matthew 10.17"), "trans. John Patrick");
+  // STEPBible's lexicon writes the breathing after a diphthong's first vowel ("ahima"); the data puts it first, as Greek does.
+  const lexIndex: [string, string, string][] = JSON.parse(fs.readFileSync("public/data/lex/index.json", "utf8"));
+  assert.equal(lexIndex.find((r) => r[0] === "G7561")?.[2], "heurēma");
+  assert.ok(!lexIndex.some((r) => r[0].startsWith("G") && /(^|[\s᾽’(])[aeēioōuy]h(?=[iuy])/.test(r[2])));
+  assert.match((await getBookGuide(65))!.notes.background ?? "", /Enoch/);
+  for (const b of await guideBooks()) {
+    const g = (await getBookGuide(b))!;
     const counts = await import("../src/core/bible").then((m) => m.getVerseCounts());
     const real = (cv: string) => { const [c, v] = cv.split(":").map(Number); return v >= 1 && v <= (counts[g.book - 1][c - 1] ?? 0); };
     for (const k of [...g.keywords, ...g.onlyHere]) assert.ok(k.refs.every(real), `${g.name} ${k.lemma}`);
@@ -803,6 +825,7 @@ test("book guides: counted figures, quoted witnesses and credits hold up", async
     }
     assert.ok(g.chapters.reduce((n, c) => n + c.words, 0) === g.glance.words, `${g.name} chapter words add up`);
     assert.match(guideDigest(g), new RegExp(g.name));
+    assert.equal(g.henry?.completedBy ?? "", henryCompletedBy(b), `${g.name}: Henry's completer`);
   }
   // Henry died before Romans; his commentary on John's letters was finished by John Reynolds.
   assert.equal(henryCompletedBy(62), "John Reynolds of Shrewsbury");
@@ -829,7 +852,7 @@ test("people: a nation's name and another king's reign aren't given to the wrong
   const jacob = fig("jacob-1");
   assert.equal(jacob.name, "Jacob");
   assert.ok(!jacob.facts.some((f: string) => /^Reigned/.test(f)));
-  const refs40 = JSON.parse(fs.readFileSync("public/data/refs/40.json", "utf8"));
+  const refs40 = JSON.parse(fs.readFileSync("public/data/links/40.json", "utf8"));
   assert.ok(!(refs40.p["2:6"] ?? []).includes("jacob-1"));
   assert.ok(refs40.p["8:11"].includes("jacob-1"));
   assert.equal(fig("judah-1").title, "Jacob's son living at the time of the Patriarchs");

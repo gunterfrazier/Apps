@@ -163,6 +163,9 @@ const sanitize = (html) =>
     .replace(/<(?!\/?(b|i)>)[^>]*>/gi, "")
     .replace(/_{2,}/g, "  ")
     .replace(/[ \t]+/g, " ").replace(/\n\s*/g, "\n").trim();
+/** STEPBible's Greek lexicon writes a rough breathing on a diphthong after its first vowel ("ahima" for αἷμα, "uhios"
+ * for υἱός). In Greek the h sound comes first, as the tagged text itself writes it ("haima"), so it is moved there. */
+const breathing = (x) => (x || "").replace(/(^|[\s᾽’(])([aeēioōuy])h(?=[iuy])/g, "$1h$2");
 for (const f of fs.readdirSync(path.join(SRC, "STEPBible-Data/Lexicons")).filter((f) => /^TBES[GH]/.test(f))) {
   for (const line of fs.readFileSync(path.join(SRC, "STEPBible-Data/Lexicons", f), "utf8").split("\n")) {
     const c = line.split("\t");
@@ -170,8 +173,9 @@ for (const f of fs.readdirSync(path.join(SRC, "STEPBible-Data/Lexicons")).filter
     const id = baseId(c[0]);
     const dm = (c[1] || "").match(/^([HG]\d+)([A-Z]?)/);
     let e = lex.get(id);
-    if (!e) lex.set(id, (e = { l: c[3], x: c[4] }));
-    (e.m ??= []).push({ a: dm?.[2] || "", l: c[3], x: c[4], g: c[6], m: c[5], t: sanitize(c[7] || "") });
+    const x = c[0].startsWith("G") ? breathing(c[4]) : c[4];
+    if (!e) lex.set(id, (e = { l: c[3], x }));
+    (e.m ??= []).push({ a: dm?.[2] || "", l: c[3], x, g: c[6], m: c[5], t: sanitize(c[7] || "") });
   }
 }
 const lexShards = {};
@@ -549,8 +553,8 @@ for (const row of csvRows("BibleData-PersonVerse.csv")) {
 verseIndex.forEach((d, i) => { refBooks[i].p = d; });
 const pvDelta = Object.fromEntries(Object.entries(personVerses).map(([id, codes]) => [id, [...codes].sort((a, b) => a - b).map((c, i, arr) => (i ? c - arr[i - 1] : c))]));
 write("person-verses-all.json", pvDelta);
-fs.mkdirSync(path.join(OUT, "refs"), { recursive: true });
-refBooks.forEach((d, i) => write(`refs/${String(i + 1).padStart(2, "0")}.json`, d));
+fs.mkdirSync(path.join(OUT, "links"), { recursive: true });
+refBooks.forEach((d, i) => write(`links/${String(i + 1).padStart(2, "0")}.json`, d));
 
 // Lifespans and reigns, keeping only those whose start cites a verse. The dataset's own calculation is shown with each.
 // Where the cited verse gives a total ("lived a total of 950 years"), the row must agree with it or it's left out.

@@ -67,7 +67,7 @@ export async function getInsights(reference: string): Promise<PassageInsights> {
   };
   for (const { b, c, v } of verses) {
     const key = `${c}:${v}`;
-    const book = await load<RefBook>(`refs/${pad2(b)}.json`);
+    const book = await load<RefBook>(`links/${pad2(b)}.json`);
     const inter = book.i?.[key];
     if (inter) {
       addLinks(result.quotes, inter.q);

@@ -21,7 +21,7 @@ export async function peopleInPassage(reference: string): Promise<{ id: string; 
   const counts = await getVerseCounts();
   const ids = new Set<string>();
   for (const s of segs) {
-    const index = (await load<{ p?: Record<string, string[]> }>(`refs/${pad2(s.book)}.json`)).p ?? {};
+    const index = (await load<{ p?: Record<string, string[]> }>(`links/${pad2(s.book)}.json`)).p ?? {};
     for (let c = s.chapter; c <= s.chapterEnd; c++) {
       const total = counts[s.book - 1]?.[c - 1] ?? 0;
       const from = s.verseStart !== undefined && c === s.chapter ? s.verseStart : 1;
