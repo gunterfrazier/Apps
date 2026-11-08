@@ -1,58 +1,757 @@
 {
-  "_about": "What the book guides quote, and where from. Each witness names a CCEL volume, the id of the chapter in CCEL's ThML file, and the first and last words of the passage. scripts/build_bookguides.py takes the words between them from that file, so nothing here is typed out. 'topic' is author (who wrote it and why), reception (how the church received it) or background (people the book's setting is often tied to). 'via' is the writer who quotes an earlier one.",
+  "_about": "What the book guides quote, and where from. Each witness names a CCEL volume, the id of the chapter in CCEL's ThML file, and the first and last words of the passage. scripts/build_bookguides.py takes the words between them from that file, so nothing here is typed out. 'topic' is author (who wrote it and why), reception (how the church received it) or background (people the book's setting is often tied to). 'via' is the writer who quotes an earlier one. 'self' lists the passages where a narrative book's writer speaks about the book; letters are found by their first-person 'I write'. 'titles' heads a topic's group of witnesses.",
   "books": {
+    "40": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "papias-of-hierapolis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.39",
+          "vol": "npnf201",
+          "div": "iii.viii.xxxix",
+          "from": "But concerning Matthew he writes as follows",
+          "to": "every one interpreted them as he was able.”"
+        },
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.1",
+          "vol": "anf01",
+          "div": "ix.iv.ii",
+          "from": "Matthew also issued a written Gospel among the Hebrews",
+          "to": "laying the foundations of the Church."
+        },
+        {
+          "topic": "author",
+          "writer": "clement-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.14",
+          "vol": "npnf201",
+          "div": "iii.xi.xiv",
+          "from": "Again, in the same books, Clement gives the tradition of the earliest presbyters",
+          "to": "composed a spiritual Gospel."
+        },
+        {
+          "topic": "author",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Among the four Gospels, which are the only indisputable ones",
+          "to": "published in the Hebrew language."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.24",
+          "vol": "npnf201",
+          "div": "iii.viii.xxiv",
+          "from": "Nevertheless, of all the disciples of the Lord, only Matthew and John",
+          "to": "for the loss of his presence."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "3",
+          "vol": "npnf203",
+          "div": "v.iii.v",
+          "from": "Matthew, also called Levi",
+          "to": "“for he shall be called a Nazarene.”"
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "5.10",
+          "vol": "npnf201",
+          "div": "iii.x.xi",
+          "from": "Pantænus was one of these, and is said to have gone to India.",
+          "to": "which they had preserved till that time."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "First then must be put the holy quaternion of the Gospels",
+          "to": "following them the Acts of the Apostles."
+        }
+      ],
+      "henry": {
+        "path": "volume-5/matthew/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "MATTHEW, GOSPEL ACCORDING TO"
+        ],
+        [
+          "smith",
+          "MATTHEW, GOSPEL OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ]
+    },
     "41": {
       "witnesses": [
-        { "topic": "author", "writer": "papias-of-hierapolis", "via": "eusebius-of-caesarea", "work": "Church History", "at": "3.39", "vol": "npnf201", "div": "iii.viii.xxxix", "from": "This also the presbyter said", "to": "not to state any of them falsely." },
-        { "topic": "author", "writer": "irenaeus", "work": "Against Heresies", "at": "3.1", "vol": "anf01", "div": "ix.iv.ii", "from": "Matthew also issued a written Gospel among the Hebrews", "to": "what had been preached by Peter." },
-        { "topic": "author", "writer": "eusebius-of-caesarea", "work": "Church History", "at": "2.15", "vol": "npnf201", "div": "iii.vii.xvi", "from": "And so greatly did the splendor of piety", "to": "and so doth Marcus my son.”" },
-        { "topic": "author", "writer": "clement-of-alexandria", "via": "eusebius-of-caesarea", "work": "Church History", "at": "6.14", "vol": "npnf201", "div": "iii.xi.xiv", "from": "The Gospel according to Mark had this occasion.", "to": "he neither directly forbade nor encouraged it." },
-        { "topic": "author", "writer": "origen-of-alexandria", "via": "eusebius-of-caesarea", "work": "Church History", "at": "6.25", "vol": "npnf201", "div": "iii.xi.xxv", "from": "The second is by Mark", "to": "and so doth Marcus, my son.’" }
+        {
+          "topic": "author",
+          "writer": "papias-of-hierapolis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.39",
+          "vol": "npnf201",
+          "div": "iii.viii.xxxix",
+          "from": "This also the presbyter said",
+          "to": "not to state any of them falsely."
+        },
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.1",
+          "vol": "anf01",
+          "div": "ix.iv.ii",
+          "from": "Matthew also issued a written Gospel among the Hebrews",
+          "to": "what had been preached by Peter."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "2.15",
+          "vol": "npnf201",
+          "div": "iii.vii.xvi",
+          "from": "And so greatly did the splendor of piety",
+          "to": "and so doth Marcus my son.”"
+        },
+        {
+          "topic": "author",
+          "writer": "clement-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.14",
+          "vol": "npnf201",
+          "div": "iii.xi.xiv",
+          "from": "Again, in the same books, Clement gives the tradition of the earliest presbyters",
+          "to": "composed a spiritual Gospel."
+        },
+        {
+          "topic": "author",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The second is by Mark",
+          "to": "and so doth Marcus, my son.’"
+        }
       ],
-      "henry": { "path": "volume-5/mark/_index.md" },
-      "dictionaries": [["easton", "MARK, GOSPEL ACCORDING TO"], ["smith", "MARK, GOSPEL OF"]]
+      "henry": {
+        "path": "volume-5/mark/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "MARK, GOSPEL ACCORDING TO"
+        ],
+        [
+          "smith",
+          "MARK, GOSPEL OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ]
+    },
+    "42": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.1",
+          "vol": "anf01",
+          "div": "ix.iv.ii",
+          "from": "Luke also, the companion of Paul",
+          "to": "the Gospel preached by him."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "The third book of the Gospel, that according to Luke",
+          "to": "began his narrative with the nativity of John."
+        },
+        {
+          "topic": "author",
+          "writer": "clement-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.14",
+          "vol": "npnf201",
+          "div": "iii.xi.xiv",
+          "from": "Again, in the same books, Clement gives the tradition of the earliest presbyters",
+          "to": "composed a spiritual Gospel."
+        },
+        {
+          "topic": "author",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "And the third by Luke",
+          "to": "composed for Gentile converts."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.4",
+          "vol": "npnf201",
+          "div": "iii.viii.iv",
+          "from": "But Luke, who was of Antiochian parentage",
+          "to": "from what he had seen himself."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "7",
+          "vol": "npnf203",
+          "div": "v.iii.ix",
+          "from": "Luke a physician of Antioch",
+          "to": "the book was composed in that same city."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "First then must be put the holy quaternion of the Gospels",
+          "to": "following them the Acts of the Apostles."
+        }
+      ],
+      "henry": {
+        "path": "volume-5/luke/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "LUKE, GOSPEL ACCORDING TO"
+        ],
+        [
+          "smith",
+          "LUKE, GOSPEL OF"
+        ]
+      ],
+      "self": [
+        "1:1-4"
+      ]
+    },
+    "43": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.1",
+          "vol": "anf01",
+          "div": "ix.iv.ii",
+          "from": "Afterwards, John, the disciple of the Lord, who also had leaned upon His breast",
+          "to": "during his residence at Ephesus in Asia."
+        },
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.3",
+          "vol": "anf01",
+          "div": "ix.iv.iv",
+          "from": "Then, again, the Church in Ephesus, founded by Paul",
+          "to": "a true witness of the tradition of the apostles."
+        },
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.11",
+          "vol": "anf01",
+          "div": "ix.iv.xii",
+          "from": "John, the disciple of the Lord, preaches this faith",
+          "to": "who made all things by His Word;"
+        },
+        {
+          "topic": "author",
+          "writer": "clement-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.14",
+          "vol": "npnf201",
+          "div": "iii.xi.xiv",
+          "from": "Again, in the same books, Clement gives the tradition of the earliest presbyters",
+          "to": "composed a spiritual Gospel."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "The fourth Gospel is that of John, one of the disciples.",
+          "to": "which is yet in the future."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.24",
+          "vol": "npnf201",
+          "div": "iii.viii.xxiv",
+          "from": "And when Mark and Luke had already published their Gospels",
+          "to": "by the divine Spirit."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "9",
+          "vol": "npnf203",
+          "div": "v.iii.xi",
+          "from": "John, the apostle whom Jesus most loved",
+          "to": "the discrepancy which there seems to be between John and the others."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.24",
+          "vol": "npnf201",
+          "div": "iii.viii.xxiv",
+          "from": "But of the writings of John, not only his Gospel",
+          "to": "But the other two are disputed."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "First then must be put the holy quaternion of the Gospels",
+          "to": "following them the Acts of the Apostles."
+        }
+      ],
+      "henry": {
+        "path": "volume-5/john/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOHN, GOSPEL OF"
+        ],
+        [
+          "smith",
+          "JOHN, GOSPEL OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "20:30-31",
+        "21:24-25"
+      ]
+    },
+    "44": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.14",
+          "vol": "anf01",
+          "div": "ix.iv.xv",
+          "from": "But that this Luke was inseparable from Paul",
+          "to": "he was not ignorant of the truth."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "Moreover, the Acts of all the Apostles are comprised by Luke in one book",
+          "to": "when he went from the city—Rome—to Spain."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.4",
+          "vol": "npnf201",
+          "div": "iii.viii.iv",
+          "from": "But Luke, who was of Antiochian parentage",
+          "to": "from what he had seen himself."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "7",
+          "vol": "npnf203",
+          "div": "v.iii.ix",
+          "from": "Luke a physician of Antioch",
+          "to": "the book was composed in that same city."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "First then must be put the holy quaternion of the Gospels",
+          "to": "following them the Acts of the Apostles."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/acts/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ACTS OF THE APOSTLES"
+        ],
+        [
+          "smith",
+          "ACTS OF THE APOSTLES"
+        ]
+      ],
+      "self": [
+        "1:1-2"
+      ]
     },
     "62": {
       "witnesses": [
-        { "topic": "author", "writer": "irenaeus", "work": "Against Heresies", "at": "3.16", "vol": "anf01", "div": "ix.iv.xvii", "from": "as John, the disciple of the Lord, verifies", "to": "This is Antichrist.”" },
-        { "topic": "author", "writer": "dionysius-of-alexandria", "via": "eusebius-of-caesarea", "work": "Church History", "at": "7.25", "vol": "npnf201", "div": "iii.xii.xxvi", "from": "For the Gospel and Epistle agree with each other", "to": "in opposition to those who said that the Lord had not come in the flesh." },
-        { "topic": "author", "writer": "jerome", "work": "Lives of Illustrious Men", "at": "9", "vol": "npnf203", "div": "v.iii.xi", "from": "He wrote also one Epistle which begins as follows", "to": "two memorials of this same John the evangelist." },
-        { "topic": "reception", "writer": "papias-of-hierapolis", "via": "eusebius-of-caesarea", "work": "Church History", "at": "3.39", "vol": "npnf201", "div": "iii.viii.xxxix", "from": "And the same writer uses testimonies from the first Epistle of John", "to": "from that of Peter likewise." },
-        { "topic": "reception", "writer": "", "name": "Muratorian fragment", "work": "Canon Muratorianus", "vol": "anf05", "div": "v.iii.iii", "from": "What marvel is it, then, that John brings forward these several things", "to": "concerning the Lord in their order." },
-        { "topic": "reception", "writer": "origen-of-alexandria", "via": "eusebius-of-caesarea", "work": "Church History", "at": "6.25", "vol": "npnf201", "div": "iii.xi.xxv", "from": "Why need we speak of him who reclined upon the bosom of Jesus", "to": "together they do not contain hundred lines." },
-        { "topic": "reception", "writer": "eusebius-of-caesarea", "work": "Church History", "at": "3.24", "vol": "npnf201", "div": "iii.viii.xxiv", "from": "But of the writings of John, not only his Gospel", "to": "But the other two are disputed." },
-        { "topic": "background", "writer": "irenaeus", "work": "Against Heresies", "at": "1.26", "vol": "anf01", "div": "ix.ii.xxvii", "from": "Cerinthus, again, a man who was educated", "to": "inasmuch as he was a spiritual being." },
-        { "topic": "background", "writer": "irenaeus", "work": "Against Heresies", "at": "3.3", "vol": "anf01", "div": "ix.iv.iv", "from": "There are also those who heard from him that John", "to": "the enemy of the truth, is within.”" }
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.16",
+          "vol": "anf01",
+          "div": "ix.iv.xvii",
+          "from": "as John, the disciple of the Lord, verifies",
+          "to": "This is Antichrist.”"
+        },
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "For the Gospel and Epistle agree with each other",
+          "to": "in opposition to those who said that the Lord had not come in the flesh."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "9",
+          "vol": "npnf203",
+          "div": "v.iii.xi",
+          "from": "He wrote also one Epistle which begins as follows",
+          "to": "two memorials of this same John the evangelist."
+        },
+        {
+          "topic": "reception",
+          "writer": "papias-of-hierapolis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.39",
+          "vol": "npnf201",
+          "div": "iii.viii.xxxix",
+          "from": "And the same writer uses testimonies from the first Epistle of John",
+          "to": "from that of Peter likewise."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "What marvel is it, then, that John brings forward these several things",
+          "to": "concerning the Lord in their order."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Why need we speak of him who reclined upon the bosom of Jesus",
+          "to": "together they do not contain hundred lines."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.24",
+          "vol": "npnf201",
+          "div": "iii.viii.xxiv",
+          "from": "But of the writings of John, not only his Gospel",
+          "to": "But the other two are disputed."
+        },
+        {
+          "topic": "background",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "1.26",
+          "vol": "anf01",
+          "div": "ix.ii.xxvii",
+          "from": "Cerinthus, again, a man who was educated",
+          "to": "inasmuch as he was a spiritual being."
+        },
+        {
+          "topic": "background",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.3",
+          "vol": "anf01",
+          "div": "ix.iv.iv",
+          "from": "There are also those who heard from him that John",
+          "to": "the enemy of the truth, is within.”"
+        }
       ],
-      "notes": { "background": { "text": "Irenaeus connects John with opposition to Cerinthus. 1 John doesn't name Cerinthus or any other teacher.", "quoted": ["Cerinthus, the enemy of the truth"], "notInBook": "Κήρινθ" } },
-      "henry": { "path": "volume-6/1-john/_index.md", "completedBy": "John Reynolds of Shrewsbury" },
-      "dictionaries": [["easton", "JOHN, FIRST EPISTLE OF"], ["smith", "JOHN, THE FIRST EPISTLE GENERAL OF"]]
+      "notes": {
+        "background": {
+          "text": "Irenaeus connects John with opposition to Cerinthus. 1 John doesn't name Cerinthus or any other teacher.",
+          "quoted": [
+            "Cerinthus, the enemy of the truth"
+          ],
+          "notInBook": "Κήρινθ"
+        }
+      },
+      "henry": {
+        "path": "volume-6/1-john/_index.md",
+        "completedBy": "John Reynolds of Shrewsbury"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOHN, FIRST EPISTLE OF"
+        ],
+        [
+          "smith",
+          "JOHN, THE FIRST EPISTLE GENERAL OF"
+        ]
+      ],
+      "titles": {
+        "background": "Cerinthus, in Irenaeus"
+      }
     },
     "63": {
       "witnesses": [
-        { "topic": "author", "writer": "dionysius-of-alexandria", "via": "eusebius-of-caesarea", "work": "Church History", "at": "7.25", "vol": "npnf201", "div": "iii.xii.xxvi", "from": "But neither in the reputed second or third epistle of John", "to": "the anonymous phrase, ‘the elder.’" },
-        { "topic": "author", "writer": "jerome", "work": "Lives of Illustrious Men", "at": "9", "vol": "npnf203", "div": "v.iii.xi", "from": "He wrote also one Epistle which begins as follows", "to": "two memorials of this same John the evangelist." },
-        { "topic": "reception", "writer": "irenaeus", "work": "Against Heresies", "at": "1.16", "vol": "anf01", "div": "ix.ii.xvii", "from": "And John, the disciple of the Lord, has intensified their condemnation", "to": "saith the Lord." },
-        { "topic": "reception", "writer": "irenaeus", "work": "Against Heresies", "at": "3.16", "vol": "anf01", "div": "ix.iv.xvii", "from": "These are they against whom the Lord has cautioned us beforehand", "to": "but is of antichrist.”" },
-        { "topic": "reception", "writer": "", "name": "Muratorian fragment", "work": "Canon Muratorianus", "vol": "anf05", "div": "v.iii.iii", "from": "The Epistle of Jude, indeed, and two belonging to the above-named John", "to": "are reckoned among the Catholic epistles." },
-        { "topic": "reception", "writer": "origen-of-alexandria", "via": "eusebius-of-caesarea", "work": "Church History", "at": "6.25", "vol": "npnf201", "div": "iii.xi.xxv", "from": "He has left also an epistle of very few lines", "to": "together they do not contain hundred lines." },
-        { "topic": "reception", "writer": "eusebius-of-caesarea", "work": "Church History", "at": "3.25", "vol": "npnf201", "div": "iii.viii.xxv", "from": "Among the disputed writings, which are nevertheless recognized by many", "to": "or to another person of the same name." }
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "But neither in the reputed second or third epistle of John",
+          "to": "the anonymous phrase, ‘the elder.’"
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "9",
+          "vol": "npnf203",
+          "div": "v.iii.xi",
+          "from": "He wrote also one Epistle which begins as follows",
+          "to": "two memorials of this same John the evangelist."
+        },
+        {
+          "topic": "reception",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "1.16",
+          "vol": "anf01",
+          "div": "ix.ii.xvii",
+          "from": "And John, the disciple of the Lord, has intensified their condemnation",
+          "to": "saith the Lord."
+        },
+        {
+          "topic": "reception",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.16",
+          "vol": "anf01",
+          "div": "ix.iv.xvii",
+          "from": "These are they against whom the Lord has cautioned us beforehand",
+          "to": "but is of antichrist.”"
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "The Epistle of Jude, indeed, and two belonging to the above-named John",
+          "to": "are reckoned among the Catholic epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "He has left also an epistle of very few lines",
+          "to": "together they do not contain hundred lines."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "Among the disputed writings, which are nevertheless recognized by many",
+          "to": "or to another person of the same name."
+        }
       ],
-      "notes": { "reception": { "quoted": ["in his Epistle already mentioned", "And again does he say in the Epistle", "For this reason also he has thus testified to us in his Epistle"], "text": "In Against Heresies 3.16, Irenaeus gives 2 John 7–8 as coming from “his Epistle already mentioned”, the letter he had quoted 1 John 2:18–22 from, and then quotes 1 John 4:1–3 as “the Epistle”." } },
-      "henry": { "path": "volume-6/2-john/_index.md", "completedBy": "John Reynolds of Shrewsbury" },
-      "dictionaries": [["easton", "JOHN, SECOND EPISTLE OF"], ["smith", "JOHN, THE SECOND AND THIRD EPISTLES OF"]]
+      "notes": {
+        "reception": {
+          "quoted": [
+            "in his Epistle already mentioned",
+            "And again does he say in the Epistle",
+            "For this reason also he has thus testified to us in his Epistle"
+          ],
+          "text": "In Against Heresies 3.16, Irenaeus gives 2 John 7–8 as coming from “his Epistle already mentioned”, the letter he had quoted 1 John 2:18–22 from, and then quotes 1 John 4:1–3 as “the Epistle”."
+        }
+      },
+      "henry": {
+        "path": "volume-6/2-john/_index.md",
+        "completedBy": "John Reynolds of Shrewsbury"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOHN, SECOND EPISTLE OF"
+        ],
+        [
+          "smith",
+          "JOHN, THE SECOND AND THIRD EPISTLES OF"
+        ]
+      ]
     },
     "64": {
       "witnesses": [
-        { "topic": "author", "writer": "dionysius-of-alexandria", "via": "eusebius-of-caesarea", "work": "Church History", "at": "7.25", "vol": "npnf201", "div": "iii.xii.xxvi", "from": "But neither in the reputed second or third epistle of John", "to": "the anonymous phrase, ‘the elder.’" },
-        { "topic": "author", "writer": "jerome", "work": "Lives of Illustrious Men", "at": "9", "vol": "npnf203", "div": "v.iii.xi", "from": "He wrote also one Epistle which begins as follows", "to": "two memorials of this same John the evangelist." },
-        { "topic": "reception", "writer": "", "name": "Muratorian fragment", "work": "Canon Muratorianus", "vol": "anf05", "div": "v.iii.iii", "from": "The Epistle of Jude, indeed, and two belonging to the above-named John", "to": "are reckoned among the Catholic epistles." },
-        { "topic": "reception", "writer": "origen-of-alexandria", "via": "eusebius-of-caesarea", "work": "Church History", "at": "6.25", "vol": "npnf201", "div": "iii.xi.xxv", "from": "He has left also an epistle of very few lines", "to": "together they do not contain hundred lines." },
-        { "topic": "reception", "writer": "eusebius-of-caesarea", "work": "Church History", "at": "3.25", "vol": "npnf201", "div": "iii.viii.xxv", "from": "Among the disputed writings, which are nevertheless recognized by many", "to": "or to another person of the same name." }
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "But neither in the reputed second or third epistle of John",
+          "to": "the anonymous phrase, ‘the elder.’"
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "9",
+          "vol": "npnf203",
+          "div": "v.iii.xi",
+          "from": "He wrote also one Epistle which begins as follows",
+          "to": "two memorials of this same John the evangelist."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "The Epistle of Jude, indeed, and two belonging to the above-named John",
+          "to": "are reckoned among the Catholic epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "He has left also an epistle of very few lines",
+          "to": "together they do not contain hundred lines."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "Among the disputed writings, which are nevertheless recognized by many",
+          "to": "or to another person of the same name."
+        }
       ],
-      "notes": { "reception": { "text": "The Muratorian fragment counts two letters of John here without saying which two.", "quoted": ["two belonging to the above-named John"] } },
-      "henry": { "path": "volume-6/3-john/_index.md", "completedBy": "John Reynolds of Shrewsbury" },
-      "dictionaries": [["easton", "JOHN, THIRD EPISTLE OF"], ["smith", "JOHN, THE SECOND AND THIRD EPISTLES OF"]]
+      "notes": {
+        "reception": {
+          "text": "The Muratorian fragment counts two letters of John here without saying which two.",
+          "quoted": [
+            "two belonging to the above-named John"
+          ]
+        }
+      },
+      "henry": {
+        "path": "volume-6/3-john/_index.md",
+        "completedBy": "John Reynolds of Shrewsbury"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOHN, THIRD EPISTLE OF"
+        ],
+        [
+          "smith",
+          "JOHN, THE SECOND AND THIRD EPISTLES OF"
+        ]
+      ]
     }
   }
 }

@@ -770,7 +770,7 @@ test("people: every record is sound, and old saved ids still work", () => {
 test("book guides: counted figures, quoted witnesses and credits hold up", async () => {
   const { getBookGuide, guideBooks, guideDigest } = await import("../src/core/bookguide");
   const { henryCompletedBy } = await import("../src/core/writings");
-  assert.deepEqual((await guideBooks()).sort((a, b) => a - b), [41, 62, 63, 64]);
+  assert.deepEqual(await guideBooks(), [40, 41, 42, 43, 44, 62, 63, 64]);
   const two = (await getBookGuide(63))!;
   assert.equal(two.glance.words, 245);
   // 2 John uses ἀλήθεια five times, all in verses 1 to 4.
@@ -811,4 +811,30 @@ test("book guides: counted figures, quoted witnesses and credits hold up", async
   const henry62 = (await excerptsByWriter("matthew-henry", 62))[0];
   assert.match(henry62.source, /John Reynolds of Shrewsbury/);
   assert.doesNotMatch((await excerptsByWriter("matthew-henry", 41))[0].source, /finished after his death/);
+});
+
+test("people: a word isn't taken for a name", () => {
+  // Mark 5:41 translates talitha itself: "Little girl." Jairus's daughter stays unnamed, and the old id still leads to her.
+  const { list, byId } = peopleIndex();
+  assert.ok(!list.some((f) => /^talitha$/i.test(f.name)));
+  const aliases = JSON.parse(fs.readFileSync("public/data/person-aliases.json", "utf8"));
+  assert.equal(aliases["talitha-1"], "daughter-of-jairus");
+  assert.deepEqual(byId.get("daughter-of-jairus").parents, ["jairus-1"]);
+});
+
+test("people: a nation's name and another king's reign aren't given to the wrong person", () => {
+  const { byId } = peopleIndex();
+  const fig = (id: string) => byId.get(id);
+  // TIPNR files the nation Israel under Jacob. He is called Jacob, has no reign, and Matthew 2:6 ("my people Israel") isn't his.
+  const jacob = fig("jacob-1");
+  assert.equal(jacob.name, "Jacob");
+  assert.ok(!jacob.facts.some((f: string) => /^Reigned/.test(f)));
+  const refs40 = JSON.parse(fs.readFileSync("public/data/refs/40.json", "utf8"));
+  assert.ok(!(refs40.p["2:6"] ?? []).includes("jacob-1"));
+  assert.ok(refs40.p["8:11"].includes("jacob-1"));
+  assert.equal(fig("judah-1").title, "Jacob's son living at the time of the Patriarchs");
+  // "In the second year of Asa ... Nadab became king ... and he reigned two years": the reign is Nadab's, not Asa's.
+  assert.ok(!fig("asa-1").facts.some((f: string) => /^Reigned/.test(f)));
+  const ahab = fig("ahab-1").facts.filter((f: string) => /^Reigned/.test(f));
+  assert.deepEqual(ahab, ["Reigned 22 years (1 Kings 16:29)."]);
 });

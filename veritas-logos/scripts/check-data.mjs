@@ -79,8 +79,9 @@ for (const t of glossary) if (t.see && !byTerm.has(t.see)) errors.push(`glossary
 console.log(`glossary terms ${glossary.length}, quoted ${glossary.filter((t) => t.defs.length).length}, your glossary ${glossary.filter((t) => t.own).length}`);
 
 // Book guides: every reference is a verse in the app's Bibles, every person and writer exists, every quote names its edition.
-if (fs.existsSync("public/data/scholar/bookguides.json")) {
-  const guides = Object.values(read("scholar/bookguides.json").books);
+if (fs.existsSync("public/data/scholar/bookguides/index.json")) {
+  const groups = new Set(Object.values(read("scholar/bookguides/index.json")));
+  const guides = [...groups].flatMap((g) => Object.values(read(`scholar/bookguides/${g}.json`).books));
   const writerIds = new Set(read("writings/index.json").authors.map((a) => a.id));
   const figureIds = new Set(figures.map((f) => f.id));
   for (const g of guides) {

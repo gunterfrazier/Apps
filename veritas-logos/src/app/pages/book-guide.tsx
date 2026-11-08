@@ -44,7 +44,16 @@ function VerseLine({ book, cv }: { book: number; cv: string }) {
   );
 }
 
+/** The first sentences of a long passage, ending at a sentence break. */
+function opening(text: string, max = 420) {
+  if (text.length <= max * 1.4) return null;
+  const cut = text.slice(0, max).search(/[.;:?!][”’]?\s[^.;:?!]*$/);
+  return cut > 120 ? text.slice(0, cut + 1).replace(/[;:]$/, "") + " …" : null;
+}
+
 function WitnessCard({ w }: { w: Witness }) {
+  const [all, setAll] = useState(false);
+  const short = opening(w.text);
   return (
     <article className="excerpt">
       <header>
@@ -52,7 +61,8 @@ function WitnessCard({ w }: { w: Witness }) {
         {w.via && <span className="fine">quoted by <a href={`#writer-${w.via}`}>{w.viaName}</a></span>}
       </header>
       <p className="ex-on">{w.cite}</p>
-      <blockquote className="ex-text bg-quote">{w.text}</blockquote>
+      <blockquote className="ex-text bg-quote">{short && !all ? short : w.text}</blockquote>
+      {short && <button type="button" className="link-btn" aria-expanded={all} onClick={() => setAll(!all)}>{all ? "Show less" : "Read the whole passage"}</button>}
       <p className="fine ex-source">{w.edition}{w.translator ? `, ${w.translator}` : ""}{w.page ? `, p. ${w.page}` : ""}. <a href={w.url} target="_blank" rel="noopener noreferrer">Read the chapter at CCEL</a></p>
     </article>
   );
@@ -248,6 +258,12 @@ function BookNotes({ g }: { g: BookGuide }) {
   );
 }
 
+const SELF_INTRO: Record<BookGuide["selfKind"], string> = {
+  opening: "The opening verse. The writer doesn't speak of himself or his book anywhere else.",
+  writing: "The opening verse, and every verse where the writer speaks of writing.",
+  listed: "The opening, and the passages where the writer speaks about his book.",
+};
+
 // ---------- The page ----------
 const TOC: [string, string][] = [["glance", "At a glance"], ["own", "Its own words"], ["author", "Author and date"], ["received", "How it was received"], ["shape", "Shape"], ["words", "Key words"], ["people", "People"], ["scripture", "Scripture"], ["text", "Manuscripts"], ["chapters", "Chapters"], ["older", "Older introductions"], ["themes", "Themes and questions"], ["notes", "Notes"]];
 
@@ -299,7 +315,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
       <Sec id="glance" title="At a glance" basis={["counted"]}>
         <dl className="facts">
           <dt>Length</dt><dd>{plural(g.glance.chapters, "chapter")}, {plural(g.glance.verses, "verse")}</dd>
-          <dt>Greek words</dt><dd>{g.glance.words.toLocaleString()}, {pct(g.glance.words / g.glance.ntWords)}% of the New Testament{g.glance.wordsInBrackets ? `, including ${g.glance.wordsInBrackets} in the double-bracketed passage` : ""}</dd>
+          <dt>Greek words</dt><dd>{g.glance.words.toLocaleString()}, {pct(g.glance.words / g.glance.ntWords)}% of the New Testament{g.glance.wordsInBrackets ? `, including ${g.glance.wordsInBrackets} in double brackets` : ""}</dd>
           <dt>Different words</dt><dd>{g.glance.distinct.toLocaleString()} nouns, verbs, adjectives and adverbs</dd>
           {greekName}
           {g.people.length > 0 && <><dt>People named</dt><dd>{g.people.length}</dd></>}
@@ -310,7 +326,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
         {g.glance.chapters > 1 && <ChapterBars guide={g} />}
       </Sec>
 
-      <Sec id="own" title="In its own words" basis={["counted"]} intro={`The opening verse, and every verse where the writer speaks of writing. Shown in the ${translationInfo(prefs.translation).name}.`}>
+      <Sec id="own" title="In its own words" basis={["counted"]} intro={`${SELF_INTRO[g.selfKind]} Shown in the ${translationInfo(prefs.translation).name}.`}>
         <ul className="bg-verses">{g.self.map((cv) => <VerseLine key={cv} book={g.book} cv={cv} />)}</ul>
       </Sec>
 
@@ -332,7 +348,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
           {received.map((w, i) => <WitnessCard key={i} w={w} />)}
           {background.length > 0 && (
             <>
-              <h3>Cerinthus, in Irenaeus</h3>
+              <h3>{g.titles.background ?? "Background in early writers"}</h3>
               {g.notes.background && <p className="note">{g.notes.background}</p>}
               {background.map((w, i) => <WitnessCard key={i} w={w} />)}
             </>
@@ -374,7 +390,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
           <>
             <h3>Quotations with matching wording</h3>
             <ul className="link-list">{g.links.quotes.map((q, i) => <li key={i}><RefLink refText={at(g.book, q.at)}>{q.at}</RefLink> quotes <RefLink refText={q.ref} /><span className="shared">“{q.shared}”</span></li>)}</ul>
-            <p className="fine">Found by matching the wording of cross-references, so a short shared phrase may be a common expression rather than a quotation.</p>
+            <p className="fine">Found by matching the wording of cross-references, five words or more. {g.links.shortQuotes > 0 ? `${plural(g.links.shortQuotes, "match", "matches")} under five words, or of a stock phrase that matches several passages, ${g.links.shortQuotes === 1 ? "is" : "are"} left out.` : ""} A shared phrase can still be an echo rather than a quotation.</p>
           </>
         ) : <p className="fine">No quotation of earlier Scripture with matching wording was found. A loose paraphrase can be missed.</p>}
         {g.links.parallelCount > 0 && (
@@ -405,7 +421,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
             <a className="link-btn" href="#textual">More on disputed passages</a>
           </div>
         ))}
-        {g.textual.doubleBrackets.map(([a, b]) => <p key={a} className="note">NA28 prints {a}–{b} in double brackets. It's counted above.</p>)}
+        {g.textual.doubleBrackets.length > 0 && <p className="note">NA28 prints {g.textual.doubleBrackets.map(([a, b]) => (a === b ? `part of ${a}` : `${a}–${b.startsWith(a.split(":")[0] + ":") ? b.split(":")[1] : b}`)).join(" and ")} in double brackets, its sign for text it judges wasn't part of the original. The {g.glance.wordsInBrackets} words inside are counted above.</p>}
         <p className="stat-row">
           <span><strong>{g.textual.versesDiffer}</strong> of {g.glance.verses} verses differ</span>
           <span><strong>{g.textual.traditionalOnly}</strong> words the TR has and NA28 lacks</span>

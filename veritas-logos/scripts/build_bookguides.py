@@ -18,7 +18,7 @@ from collections import Counter, defaultdict
 ap = argparse.ArgumentParser()
 ap.add_argument("--sources", required=True)
 ap.add_argument("--out", required=True, help="The app's data folder, public/data")
-ap.add_argument("--books", default="41,62,63,64", help="Book numbers to build")
+ap.add_argument("--books", default="", help="Book numbers to build (default: every book in book_guides.json)")
 a = ap.parse_args()
 S, D = a.sources, a.out
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -211,8 +211,26 @@ def only_here(b):
     return out
 
 # ---------- Where the writer speaks of writing ----------
-def self_refs(b):
+FIRST_PERSON = re.compile(r"-1[SP]$|^P-1")   # a first-person verb, or I, me, we, us
+def self_refs(b, listed=None):
+    """In a letter the writer is the speaker, so: the opening, and every verse where he says "I write" or "we write".
+    In a narrative book the speaker is usually someone else (Pilate's "What I have written"), so the passages where
+    the writer speaks about his book are listed in book_guides.json, and each is checked for a first-person word or
+    a word for writing or a book."""
+    if listed:
+        refs = []
+        for item in listed:
+            c, a_, z = re.match(r"^(\d+):(\d+)(?:-(\d+))?$", item).groups()
+            c, a_, z = int(c), int(a_), int(z or a_)
+            vs = [(c, v) for v in range(a_, z + 1)]
+            toks = [t for (cc, vv) in vs for t in words[b][cc - 1][vv - 1]]
+            if item != "1:1" and not any(FIRST_PERSON.search(t[4] or "") or base_id(t[3]) in ("G1125", "G975", "G976") for t in toks):
+                fail(f"{NAME[b]} {item}: listed as the writer speaking about his book, but has no first-person word or word for writing")
+            refs += [app_cv(b, cc, vv) for cc, vv in vs]
+        return list(dict.fromkeys(refs))
     refs = ["1:1"]
+    if not 45 <= b <= 65:
+        return refs
     for c, v, toks in verse_tokens(b):
         has_first = any(re.search(r"-1[SP]$", t[4] or "") for t in toks)
         for t in toks:
@@ -220,8 +238,8 @@ def self_refs(b):
                 continue
             m = t[4] or ""
             finite_first = bool(re.search(r"-1[SP]$", m))
-            nonfinite = bool(re.match(r"^V-\w+-(N|P)", m) or re.match(r"^V-\w+N$", m) or re.search(r"-(PAN|AAN|PAP|AAP)", m))
-            if finite_first or (nonfinite and has_first):
+            active = bool(re.match(r"^V-[PA]A[NP]", m))   # "writing", "to write"; not "written"
+            if finite_first or (active and has_first):
                 r = app_cv(b, c, v)
                 if r not in refs:
                     refs.append(r)
@@ -238,12 +256,26 @@ DISPUTED = load("scholar/disputed.json")
 def ref_key(r):
     return tuple(map(int, re.findall(r"\d+", r.split(" ", 1)[1] if r[0].isdigit() and " " in r else r.split(" ")[-1])))
 
+short_quotes = {}
+STOCK = defaultdict(set)   # matched wording -> the passages it's matched to
+for bb in NT:
+    for cv, x in load(f"refs/{bb:02d}.json").get("i", {}).items():
+        for ref, shared in x.get("q", []):
+            STOCK[shared].add(ref)
 def links(b):
     r = load(f"refs/{b:02d}.json")
     quotes, allusions, parallels, by = [], [], [], []
     for cv, x in sorted(r.get("i", {}).items(), key=lambda kv: tuple(map(int, kv[0].split(":")))):
+        # A verse can share a stock phrase ("and it shall come to pass") with many passages besides the one it
+        # quotes. Keep matches of five words or more ("name s sake" is three) whose wording isn't matched to three or
+        # more different passages (two, for six words or fewer): Isaiah 40:3 quoted in all four Gospels stays;
+        # "and it shall come to pass", matched to Joel 2:32 and Isaiah 66:23 at Acts 2:17, goes.
         for ref, shared in x.get("q", []):
-            quotes.append({"at": cv, "ref": ref, "shared": shared})
+            n_words = len([w for w in shared.split() if w != "s"])
+            if n_words >= 5 and len(STOCK[shared]) < (2 if n_words <= 6 else 3):
+                quotes.append({"at": cv, "ref": ref, "shared": shared})
+            else:
+                short_quotes[b] = short_quotes.get(b, 0) + 1
         for ref, shared in x.get("by", []):
             by.append({"at": cv, "ref": ref, "shared": shared})
         for ref, shared in x.get("p", []):
@@ -267,8 +299,9 @@ def links(b):
             fail(f"{NAME[b]}: person {p['id']} isn't in figures.json")
     # Shared wording inside the same book is listed once per pair.
     parallels = [p for p in parallels if not (p["ref"].startswith(NAME[b] + " ") and tuple(map(int, re.findall(r"\d+", p["ref"][len(NAME[b]):])[:2])) <= tuple(map(int, p["at"].split(":"))))]
-    return {"quotes": quotes, "quotedBy": by, "allusions": allusions[:15], "allusionCount": len(allusions), "parallels": parallels if len(parallels) <= 60 else [], "parallelCount": len(parallels)}, plist, r.get("p", {})
+    return {"quotes": quotes, "shortQuotes": short_quotes.get(b, 0), "quotedBy": by, "allusions": allusions[:15], "allusionCount": len(allusions), "parallels": parallels if len(parallels) <= 60 else [], "parallelCount": len(parallels)}, plist, r.get("p", {})
 
+words_in_brackets = {}
 def textual(b):
     name = NAME[b]
     disputed = [d for d in DISPUTED if d["ref"].startswith(name + " ")]
@@ -295,10 +328,16 @@ def textual(b):
                 en = lambda x: re.sub(r"^[\s,.;:·]+|[\s,.;:·]+$", "", x)
                 readings.append({"at": app_cv(b, c, v), "greek": gw(greek), "english": en(eng), "editions": eds, "other": {"greek": gw(m.group(1)), "translit": m.group(2), "english": en(m.group(3)), "editions": m.group(4)}})
     readings.sort(key=lambda x: tuple(map(int, x["at"].split(":"))))
+    inside, in_br = 0, False
     for c, v, toks in verse_tokens(b):
         for t in toks:
-            if "[[" in t[0]: bracketed.append([f"{c}:{v}", None])
-            if "]]" in t[0] and bracketed: bracketed[-1][1] = f"{c}:{v}"
+            if "[[" in t[0]:
+                bracketed.append([app_cv(b, c, v), None]); in_br = True
+            if in_br:
+                inside += 1
+            if "]]" in t[0] and bracketed:
+                bracketed[-1][1] = app_cv(b, c, v); in_br = False
+    words_in_brackets[b] = inside
     return {"disputed": disputed, "outsideCritical": excluded[b], "versesDiffer": sum(verses.values()), "byChapter": [verses.get(c, 0) for c in range(1, len(words[b]) + 1)], "criticalOnly": crit_only, "traditionalOnly": trad_only, "readings": readings, "doubleBrackets": [x for x in bracketed if x[1]]}
 
 # ---------- Quoted passages from CCEL ----------
@@ -422,7 +461,7 @@ easton, smith = load("scholar/dictionary-easton.json"), load("scholar/dictionary
 DICTS = {"easton": easton, "smith": smith}
 chron = {x["book"]: x for x in load("scholar/chronology.json")["books"]}
 out = {"about": "Counted from the app's data, or quoted word for word from the named editions. Built by scripts/build_bookguides.py.", "books": {}}
-for b in map(int, a.books.split(",")):
+for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
     name = NAME[b]
     print(name)
     spec = SPEC.get(str(b), {})
@@ -441,7 +480,8 @@ for b in map(int, a.books.split(",")):
         },
         "keywords": key_words(b),
         "onlyHere": only_here(b),
-        "self": self_refs(b),
+        "self": self_refs(b, spec.get("self")),
+        "selfKind": "listed" if spec.get("self") else "writing" if 45 <= b <= 65 else "opening",
         "people": people,
         "links": link,
         "textual": textual(b),
@@ -452,15 +492,8 @@ for b in map(int, a.books.split(",")):
         "chapters": [],
         "renumbered": [],
     }
-    br = guide["textual"]["doubleBrackets"]
-    if br:
-        inside = 0
-        for (s, e) in br:
-            (c1, v1), (c2, v2) = map(int, s.split(":")), map(int, e.split(":"))
-            for c, v, toks in verse_tokens(b):
-                if (c, v) >= (c1, v1) and (c, v) <= (c2, v2):
-                    inside += len(toks)
-        guide["glance"]["wordsInBrackets"] = inside
+    if guide["textual"]["doubleBrackets"]:
+        guide["glance"]["wordsInBrackets"] = words_in_brackets[b]
     texts = []
     for w in spec.get("witnesses", []):
         got = witness(b, w)
@@ -473,6 +506,7 @@ for b in map(int, a.books.split(",")):
         if note.get("notInBook") and any(note["notInBook"] in t[0] for _, _, toks in verse_tokens(b) for t in toks):
             fail(f"{name}: the {k} note says the book doesn't name {note['notInBook']}, but it does")
         guide["notes"][k] = note["text"]
+    guide["titles"] = spec.get("titles", {})
     if spec.get("henry"):
         guide["henry"] = henry(b, spec["henry"])
     for d, head in spec.get("dictionaries", []):
@@ -510,6 +544,24 @@ for b in map(int, a.books.split(",")):
 if problems:
     print(f"\n{len(problems)} problem(s). Nothing written.")
     sys.exit(1)
-p = os.path.join(D, "scholar/bookguides.json")
-json.dump(out, open(p, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-print(f"bookguides.json: {os.path.getsize(p) // 1000} KB")
+# One file per group of books, so a page loads only its group, plus an index of which books have a guide.
+# The long books get a file each; the short letters share. (The artifact holds at most 511 files.)
+GROUPS = [("matthew", [40]), ("mark", [41]), ("luke", [42]), ("john", [43]), ("acts", [44]), ("romans", [45]), ("corinthians", [46, 47]),
+          ("galatians-philemon", range(48, 58)), ("hebrews-jude", range(58, 66)), ("revelation", [66])]
+folder = os.path.join(D, "scholar/bookguides")
+os.makedirs(folder, exist_ok=True)
+for f in os.listdir(folder):
+    os.remove(os.path.join(folder, f))
+stale = os.path.join(D, "scholar/bookguides.json")
+if os.path.exists(stale):
+    os.remove(stale)
+index = {}
+for g, books in GROUPS:
+    part = {k: v for k, v in out["books"].items() if int(k) in books}
+    if not part:
+        continue
+    p = os.path.join(folder, f"{g}.json")
+    json.dump({"about": out["about"], "books": part}, open(p, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    print(f"bookguides/{g}.json: {', '.join(NAME[int(k)] for k in part)}, {os.path.getsize(p) // 1000} KB")
+    index.update({k: g for k in part})
+json.dump(index, open(os.path.join(folder, "index.json"), "w", encoding="utf-8"), separators=(",", ":"))

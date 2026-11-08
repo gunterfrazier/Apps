@@ -719,9 +719,19 @@ def text_facts(p):
             m = re.search(rf"\b(?:{name})\b was {NUMBER} years old when he became the father of", sent)
             if m and number(m[1]):
                 facts.append({"kind": "fathered", "years": number(m[1]), "text": sent.rstrip(".") , "ref": nice(c)})
-        # "He reigned" belongs to the king named earlier in the same verse.
-        m = re.search(rf"\b(?:{name})\b[^.]*?\breigned\b(?: in [A-Z][a-z]+)? {NUMBER} years", t) or re.search(rf"\b(?:{name})\b[^.]*\.\s*He reigned\b(?: in [A-Z][a-z]+)? {NUMBER} years", t)
-        if m and number(m[1]) and "became king" in t:
+        # "He reigned" belongs to the king who "became king" in the same verse. A name after "of", "over" or "in" is
+        # another king or a country: "Nadab son of Jeroboam became king of Israel in the second year of Asa".
+        subj = next((m_.start() for m_ in re.finditer(rf"\b(?:{name})\b", t)
+                     if not re.search(r"\b(?:of|over|in|to|from|by|against|with|for)\s+$", t[max(0, m_.start() - 9):m_.start()])
+                     and not t[m_.end():m_.end() + 2] in ("’s", "'s")), -1)
+        became = t.find("became king", subj) if subj >= 0 else -1
+        m = re.compile(rf"\breigned\b(?: (?:in|over) [A-Z][a-z]+)?(?: (?:in|over) [A-Z][a-z]+)? {NUMBER} years").search(t, became) if became >= 0 else None
+        # Two kings share the names Joash and Jehoash: "Jehoash son of Jehoahaz became king of Israel" isn't Judah's Joash.
+        realm = re.match(r"became king (?:of|over) (Israel|Judah)", t[became:]) if became >= 0 else None
+        own = re.search(r"\bking of (Israel|Judah)\b", p.get("desc", "") + " " + p.get("summary", ""), re.I)
+        if realm and own and realm[1].lower() != own[1].lower():
+            m = None
+        if m and number(m[1]) and "." not in t[subj:became].replace("St.", ""):
             facts.append({"kind": "reign", "years": number(m[1]), "text": f"Reigned {number(m[1])} years", "ref": nice(c)})
     seen, out = set(), []
     for f in facts:
@@ -862,9 +872,45 @@ for r in csv_rows(f"{S}/bible-data/BibleData-Epoch.csv"):
         epochs[t].append(r)
 
 # Names Scripture doesn't give. Matthew 14:6 says only "the daughter of Herodias"; Salome is Josephus's name for her.
+# TIPNR files Jacob under Israel, the name given him at Genesis 32:28. Genesis keeps calling him Jacob.
+BORN_AS = {"Israel@Gen.25.26-Rev": "Jacob"}
 DISPLAY = {"Salome@Mat.14.6": ("Daughter of Herodias", ["Salome (a name from outside the Bible)"])}
 DISPLAY_NAMES = {"daughter1 of lot": "Lot's older daughter", "daughter2 of lot": "Lot's younger daughter", "motherinlaw of peter": "Peter's mother-in-law",
                  "huge man": "Man of great stature", "hammelech": "Hammelech (\"the king\")"}
+
+# Founders whose names became their people's. TIPNR files every "Israel" and "Judah" under the man, so the nation's
+# verses would be listed as his (and "reigned over Israel" read as his reign). His own verses are those of his life
+# story, and elsewhere only those whose English names him as a person: "Abraham, Isaac and Jacob", "Jacob's well",
+# "son of Judah", "Judah the father of Perez", "By faith Joseph". The rest still count as evidence, but aren't listed.
+SONS_STORY = [((1, 29, 31), (2, 1, 7)), ((2, 6, 14), (2, 6, 25))]   # Genesis 29:31 to Exodus 1:7, and Exodus 6:14-25
+EPONYMS = {
+    "Israel@Gen.25.26-Rev": [((1, 25, 19), (2, 1, 7))],
+    **{k: SONS_STORY for k in ("Reuben@Gen.29.32-Rev", "Simeon@Gen.29.33-Rev", "Levi@Gen.29.34-Rev", "Judah@Gen.29.35-Rev", "Dan@Gen.30.6-1Ch",
+                               "Naphtali@Gen.30.8-Rev", "Gad@Gen.30.11-Rev", "Asher@Gen.30.13-Rev", "Issachar@Gen.30.18-Rev", "Zebulun@Gen.30.20-Rev",
+                               "Joseph@Gen.30.24-Rev", "Benjamin@Gen.35.18-Rev")},
+    "Ephraim@Gen.41.52-Zec": [((1, 41, 50), (1, 50, 26))],
+    "Manasseh@Gen.41.51-Rev": [((1, 41, 50), (1, 50, 26))],
+}
+def as_person(name, bsb, kjv):
+    """The BSB names him as a person, or the KJV's genealogy does ("Judah begat Phares"). "Daughter of Judah" (the
+    city), "No daughter or son of Israel" and "Amaziah king of Judah, the son of Joash" are the people's name."""
+    n = re.escape(name)
+    return bool(re.search(rf"\b(?:Abraham|Isaac),? (?:Isaac,? )?and {n}\b", bsb)
+                or re.search(rf"\b{n}['’]s (?:son|sons|daughter|wife|wives|well|bones|brothers|household|father|mother)\b", bsb)
+                or re.search(rf"(?<!or )(?<!r and )\b(?:son|daughter|wife|brother|father|bones|grandson) of {n}\b", bsb)
+                or re.search(rf"(?<!of )\b{n},? (?:the )?(?:son|father) of\b", bsb)
+                or re.search(rf"\b{n} (?:was the father of|fathered|became the father of)\b", bsb)
+                or re.search(rf"\b{n} begat\b", kjv)
+                or re.search(rf"\bBy faith {n}\b", bsb))
+for k, spans in EPONYMS.items():
+    p = tip.get(k)
+    if not p:
+        raise SystemExit(f"EPONYMS names {k}, which TIPNR doesn't have")
+    names = {p["name"], *p["forms"]} - {x for x in p["forms"] if x.endswith(("ite", "ites", "itess"))}
+    inside = lambda c: any(code(*a) <= c <= code(*b) for a, b in spans)
+    tribe = {c for c in p["verses"] if not inside(c) and not any(as_person(n, bible.verse(c), bible.verse(c, "KJV")) for n in names)}
+    p.setdefault("group_verses", set()).update(tribe)
+    report.setdefault("eponyms", []).append({"person": BORN_AS.get(k, p["name"]), "kept": len(p["verses"] - p["group_verses"]), "people_verses": len(tribe)})
 
 people = {}
 for k, p in tip.items():
@@ -921,6 +967,9 @@ for k, p in tip.items():
             display = best[1]
             alt = [x for x in [p["name"], *p["forms"]] if x != display]
             report.setdefault("renamed", []).append({"person": label(p), "name": display, "why": f"{p['name']} isn't the name in these verses"})
+    if k in BORN_AS:
+        display = BORN_AS[k]
+        alt = [x for x in [p["name"], *alt] if x != display]
     if k in DISPLAY:
         display, extra = DISPLAY[k]
         alt = [*alt, *extra]
@@ -938,7 +987,7 @@ for k, p in tip.items():
         parents.append(item)
     people[k] = {
         "key": k, "veritas": vid(k), "mobile": mobile_id.get(k) or vid(k), "name": display, "unnamed": p["unnamed"] or k in DISPLAY, "alt": alt, "first": first,
-        "title": p["brief"] or p["desc"], "gender": gender, "era": era_of(p, up), "tribe": p["tribe"], "meaning": meaning.get(k, ""), "roles": roles_of(p), "messianic": k in line,
+        "title": p["desc"] if k in EPONYMS and p["brief"].startswith("Israelite tribe") else p["brief"] or p["desc"], "gender": gender, "era": era_of(p, up), "tribe": p["tribe"], "meaning": meaning.get(k, ""), "roles": roles_of(p), "messianic": k in line,
         "bio": clean_bio(p, fam), "facts": facts, "lifespan": f"{lifespan['years']} years ({lifespan['ref']})" if lifespan else "", "am": am, "dates": dates, "parents": parents,
         "spouses": [{"key": s, "level": links["spouse"].get(tuple(sorted((k, s))), {}).get("level"), "ref": links["spouse"].get(tuple(sorted((k, s))), {}).get("ref"), "secondary": links["spouse"].get(tuple(sorted((k, s))), {}).get("secondary", False)} for s in spouses_of[k]],
         "children": kids[k], "verses": shown,
@@ -1016,7 +1065,16 @@ by_verse_all = collections.defaultdict(list)
 for k_, p_ in tip.items():
     for c in p_["verses"]:
         by_verse_all[c].append(k_)
+# BibleData names that are words, not names. Mark 5:41 translates talitha itself: "Little girl, I say to you, get up."
+# The girl is the unnamed daughter of Jairus, added from the verses below.
+BD_NOT_A_NAME = {"Talitha_1": ("daughter-of-jairus", "Daughter of Jairus", "Talitha is Aramaic for \"little girl\", as Mark 5:41 itself translates it, not her name")}
 for k, r in bd.items():
+    if k in BD_NOT_A_NAME:
+        to, into, why = BD_NOT_A_NAME[k]
+        aliases[slug(k)] = to
+        mobile_aliases[slug(k)] = to
+        report.setdefault("merged", []).append({"person": r["name"], "into": into, "why": why})
+        continue
     if k in bd_map or not r["verses"] or SKIP_BD.search(k):
         continue
     words = {w for n in [r["name"], *r["labels"]] for w in re.findall(r"[A-Za-z][A-Za-z'-]+", n) if w.lower() not in STOP_BD and len(w) > 2}

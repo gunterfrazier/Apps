@@ -47,10 +47,16 @@ export interface BookGuide {
   keywords: KeyWord[];
   onlyHere: OnlyHereWord[];
   self: string[];
+  /** How self was found: the opening only, a letter's "I write" verses, or passages listed in book_guides.json. */
+  selfKind: "opening" | "writing" | "listed";
+  /** Headings for a topic's group of witnesses, such as "Cerinthus, in Irenaeus". */
+  titles: Partial<Record<Witness["topic"], string>>;
   /** title is given only where two people share a name. */
   people: { id: string; name: string; verses: number; first: string; title?: string }[];
   links: {
     quotes: { at: string; ref: string; shared: string }[];
+    /** Matches left out: under five words, or wording matched to three or more different passages (a stock phrase). */
+    shortQuotes: number;
     quotedBy: { at: string; ref: string; shared: string }[];
     allusions: { at: string; ref: string; votes: number }[];
     allusionCount: number;
@@ -76,17 +82,19 @@ export interface BookGuide {
 }
 interface GuideFile { about: string; books: Record<string, BookGuide> }
 
-const file = () => load<GuideFile>("scholar/bookguides.json");
+/** Which group file holds each book's guide: { "41": "gospels", ... } */
+const index = () => load<Record<string, string>>("scholar/bookguides/index.json");
 export async function getBookGuide(book: number): Promise<BookGuide | null> {
   try {
-    return (await file()).books[String(book)] ?? null;
+    const group = (await index())[String(book)];
+    return group ? (await load<GuideFile>(`scholar/bookguides/${group}.json`)).books[String(book)] ?? null : null;
   } catch {
     return null;
   }
 }
 export async function guideBooks(): Promise<number[]> {
   try {
-    return Object.keys((await file()).books).map(Number);
+    return Object.keys(await index()).map(Number).sort((a, b) => a - b);
   } catch {
     return [];
   }
