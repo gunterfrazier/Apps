@@ -770,8 +770,22 @@ test("people: every record is sound, and old saved ids still work", () => {
 test("book guides: counted figures, quoted witnesses and credits hold up", async () => {
   const { getBookGuide, guideBooks, guideDigest } = await import("../src/core/bookguide");
   const { henryCompletedBy } = await import("../src/core/writings");
-  // The books of Moses, and every New Testament book.
-  assert.deepEqual(await guideBooks(), [1, 2, 3, 4, 5, ...Array.from({ length: 27 }, (_, i) => 40 + i)]);
+  // Genesis to Esther, and every New Testament book.
+  assert.deepEqual(await guideBooks(), [...Array.from({ length: 17 }, (_, i) => 1 + i), ...Array.from({ length: 27 }, (_, i) => 40 + i)]);
+  // The history books: the records each names, found by wording and checked in the Hebrew.
+  const k1 = (await getBookGuide(11))!, c2 = (await getBookGuide(14))!;
+  assert.deepEqual(k1.sources?.map((x) => [x.name, x.refs.length]), [["The book of the acts of Solomon", 1], ["The book of the chronicles of the kings of Israel", 7], ["The book of the chronicles of the kings of Judah", 4]]);
+  assert.deepEqual(c2.sources?.find((x) => x.name === "The book of the kings of Israel")?.refs, ["20:34", "33:18"]);
+  assert.deepEqual((await getBookGuide(6))!.self, ["1:1", "24:26"]);
+  const ezra = (await getBookGuide(15))!;
+  assert.equal(ezra.selfKind, "memoir");
+  assert.deepEqual(ezra.self, ["1:1", "7:27", "7:28"]);
+  // Saul's age at 1 Samuel 13:1 is missing from the Leningrad Codex; STEP's numbers come from elsewhere and aren't counted.
+  assert.ok((await getBookGuide(9))!.textual.hebrew!.added.some((x) => x.at === "13:1" && x.kind === "X"));
+  const esther = (await getBookGuide(17))!;
+  assert.match(esther.notes.reception ?? "", /never names God/);
+  assert.equal(esther.links.quotedBy.length, 0);
+  assert.ok(esther.witnesses.some((w) => w.writer === "athanasius-of-alexandria" && /Esther, and Judith/.test(w.text)));
   // Genesis is counted in the Leningrad Codex: the Septuagint's "let us go into the field" (4:8) is listed, not counted,
   // and each word is measured against the rest of the Old Testament.
   const gen = (await getBookGuide(1))!;

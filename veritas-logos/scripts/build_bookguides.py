@@ -270,6 +270,27 @@ def first_person(m, b):
     return any(re.match(r"^(?:V\w\w1|Pp1|Sp1)", p) for p in heb_parts(m))
 # write, write a letter, write before, book, scroll; and in Hebrew write (kathav) and book (sepher)
 WRITING = {"G1125", "G1989", "G4270", "G975", "G976", "H3789", "H5612"}
+# Records a narrative book names as its sources, or points the reader to ("Are they not written in the book of the
+# chronicles of the kings of Israel?"). Each is found by its KJV wording, and the Hebrew of every verse must speak of
+# writing, a book or "the words/acts of": write (H3789, Aramaic H3790), book (H5612, Aramaic H5609), words (H1697).
+KJV_OT = load("bible/KJV-ot.json")
+RECORD_WORDS = {"H3789", "H3790", "H5612", "H5609", "H1697"}
+def named_sources(b, spec):
+    out = []
+    for src in spec:
+        hits = []
+        for c, ch in enumerate(KJV_OT[b - 1], 1):
+            for v, text in enumerate(ch, 1):
+                if any(re.search(m, text, re.I) for m in src["match"]):   # regular expressions
+                    hits.append((c, v))
+        if not hits:
+            fail(f"{NAME[b]}: no verse names {src['name']}")
+        for c, v in hits:
+            if not any(base_id(t[3]) in RECORD_WORDS for t in words[b][c - 1][v - 1]):
+                fail(f"{NAME[b]} {c}:{v}: the Hebrew doesn't speak of a book, writing or words, for {src['name']}")
+        out.append({"name": src["name"], "refs": [app_cv(b, c, v) for c, v in hits]})
+    return out
+
 def self_refs(b, listed=None):
     """In a letter the writer is the speaker, so: the opening, and every verse where he says "I write" or "we write".
     In a narrative book the speaker is usually someone else (Pilate's "What I have written"), so the passages where
@@ -482,6 +503,7 @@ def clean(x):
 VOL_LABEL = {
     "npnf201": ("Nicene and Post-Nicene Fathers, Series 2, vol. 1, ed. Schaff and Wace (1890–1900)", "trans. Arthur Cushman McGiffert"),
     "npnf203": ("Nicene and Post-Nicene Fathers, Series 2, vol. 3, ed. Schaff and Wace (1890–1900)", "trans. Ernest Cushing Richardson"),
+    "npnf204": ("Nicene and Post-Nicene Fathers, Series 2, vol. 4, ed. Schaff and Wace (1890–1900)", ""),
     "npnf206": ("Nicene and Post-Nicene Fathers, Series 2, vol. 6, ed. Schaff and Wace (1890–1900)", "trans. W. H. Fremantle, with G. Lewis and W. G. Martley"),
     "anf01": ("Ante-Nicene Fathers, vol. 1, ed. Roberts and Donaldson (1885–96)", ""),
     "anf02": ("Ante-Nicene Fathers, vol. 2, ed. Roberts and Donaldson (1885–96)", ""),
@@ -668,7 +690,8 @@ for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
         "keywords": key_words(b),
         "onlyHere": only_here(b),
         "self": self_refs(b, spec.get("self")),
-        "selfKind": ("record" if b < 40 else "listed") if spec.get("self") else "writing" if 45 <= b <= 65 else "opening",
+        "selfKind": spec.get("selfKind") or (("record" if b < 40 else "listed") if spec.get("self") else "writing" if 45 <= b <= 65 else "opening"),
+        **({"sources": named_sources(b, spec["sources"])} if spec.get("sources") else {}),
         "testament": "OT" if b < 40 else "NT",
         "people": people,
         "links": link,
@@ -697,8 +720,17 @@ for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
         for q in note.get("quoted", []):
             if not any(q in w["text"] for w in guide["witnesses"]):
                 fail(f"{name}: the {k} note relies on “{q}”, which isn't in the passages quoted")
-        if note.get("notInBook") and any(nfc(note["notInBook"]) in t for t in book_words):
-            fail(f"{name}: the {k} note says the book doesn't name {note['notInBook']}, but it does")
+        nib = note.get("notInBook") or []
+        for g_ in [nib] if isinstance(nib, str) else nib:
+            if any(nfc(g_) in t for t in book_words):
+                fail(f"{name}: the {k} note says the book doesn't name {g_}, but it does")
+        # A passage the note says leaves something out ("Melito's list has no Esther").
+        for x in note.get("absentFrom", []):
+            ws = [w for w in guide["witnesses"] if w["cite"] == x["cite"]]
+            if not ws:
+                fail(f"{name}: the {k} note points to {x['cite']}, which isn't quoted")
+            elif any(x["words"] in w["text"] for w in ws):
+                fail(f"{name}: the {k} note says {x['cite']} leaves out “{x['words']}”, but it doesn't")
         for g_ in note.get("inBook", []):
             if not any(nfc(g_) in t for t in book_words):
                 fail(f"{name}: the {k} note says the book names {g_}, but it doesn't")
@@ -744,7 +776,7 @@ if problems:
     sys.exit(1)
 # One file per group of books, so a page loads only its group, plus an index of which books have a guide.
 # The long books get a file each; the short letters share. (The artifact holds at most 511 files.)
-GROUPS = [("law", range(1, 6)),
+GROUPS = [("law", range(1, 6)), ("history", range(6, 18)),
           ("matthew", [40]), ("mark", [41]), ("luke", [42]), ("john", [43]), ("acts", [44]), ("romans", [45]), ("corinthians", [46, 47]),
           ("galatians-philemon", range(48, 58)), ("hebrews-jude", range(58, 66)), ("revelation", [66])]
 folder = os.path.join(D, "scholar/bookguides")

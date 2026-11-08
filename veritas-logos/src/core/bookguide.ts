@@ -50,7 +50,9 @@ export interface BookGuide {
   self: string[];
   /** How self was found: the opening only, a letter's "I write" verses, or passages listed in book_guides.json
    * (for the Old Testament, the verses that say who wrote these words down). */
-  selfKind: "opening" | "writing" | "listed" | "record";
+  selfKind: "opening" | "writing" | "listed" | "record" | "memoir";
+  /** Records a narrative book names as its sources, found by their wording: "the book of the chronicles of the kings of Israel". */
+  sources?: { name: string; refs: string[] }[];
   testament?: "OT" | "NT";
   /** Headings for a topic's group of witnesses, such as "Cerinthus, in Irenaeus". */
   titles: Partial<Record<Witness["topic"], string>>;

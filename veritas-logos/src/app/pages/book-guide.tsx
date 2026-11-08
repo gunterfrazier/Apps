@@ -31,6 +31,7 @@ function Sec({ id, title, basis, children, intro }: { id: string; title: string;
 }
 
 const pct = (x: number) => (x >= 0.1 ? Math.round(x * 100) : Math.round(x * 1000) / 10);
+const PEOPLE_SHOWN = 80;
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const slugOf = (name: string) => name.toLowerCase().replace(/\s+/g, "");
 /** The book's own Testament, for the words a figure is measured against. */
@@ -272,6 +273,7 @@ const SELF_INTRO: Record<BookGuide["selfKind"], string> = {
   writing: "The opening verse, and every verse where the writer speaks of writing.",
   listed: "The opening, and the passages where the writer speaks about his book.",
   record: "The opening verse, and the verses that say who wrote these words down.",
+  memoir: "The opening verse, and the verses where the writer begins to tell the story as “I”.",
 };
 const selfIntro = (g: BookGuide) => (g.selfKind === "opening" && isOT(g) ? "The opening verse. The book doesn't say who wrote it." : SELF_INTRO[g.selfKind]);
 
@@ -283,6 +285,8 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
   const slug = slugOf(g.name);
   const dating = useAsync(async () => (g.dating ? (await getChronology()).books.find((b) => b.book === (g.datingAs ?? g.name)) : undefined), [g.name]);
   const [henryOpen, setHenryOpen] = useState(false);
+  // 1 Chronicles names over a thousand people; the most-named come first.
+  const [allPeople, setAllPeople] = useState(false);
   const henry = useHenryChapters(g.book, henryOpen);
   const [allOnly, setAllOnly] = useState(false);
   const [allReadings, setAllReadings] = useState(false);
@@ -348,6 +352,20 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
 
       <Sec id="own" title="In its own words" basis={["counted"]} intro={`${selfIntro(g)} Shown in the ${translationInfo(prefs.translation).name}.`}>
         <ul className="bg-verses">{g.self.map((cv) => <VerseLine key={cv} book={g.book} cv={cv} />)}</ul>
+        {g.sources && g.sources.length > 0 && (
+          <>
+            <h3>Records it names <span className="count">{g.sources.reduce((n, x) => n + x.refs.length, 0)}</span></h3>
+            <p className="fine">Books the writer names as a source, or sends the reader to for more, as the King James Version words them.</p>
+            <ul className="fine-list">
+              {g.sources.map((x) => (
+                <li key={x.name}>
+                  <strong>{x.name}</strong> <span className="fine">{plural(x.refs.length, "time")}:</span>{" "}
+                  {x.refs.map((r, i) => <span key={r}>{i ? ", " : ""}<RefLink refText={at(g.book, r)}>{r}</RefLink></span>)}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </Sec>
 
       <Sec id="author" title="Who wrote it, and when" basis={["quoted", "ai"]} intro="What early writers said, in their own words. They are witnesses to be weighed, and some depend on others.">
@@ -403,7 +421,8 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
 
       {g.people.length > 0 && (
         <Sec id="people" title="People named" basis={["counted"]} intro="From the app's people database. The count is of verses that name each person.">
-          <p className="chips">{g.people.map((p) => <a key={p.id} className="chip" href={`#person-${p.id}`}>{p.name}{p.title && <span className="fine">&nbsp;· {p.title}</span>}<span className="count">{p.verses}</span></a>)}</p>
+          <p className="chips">{(allPeople ? g.people : g.people.slice(0, PEOPLE_SHOWN)).map((p) => <a key={p.id} className="chip" href={`#person-${p.id}`}>{p.name}{p.title && <span className="fine">&nbsp;· {p.title}</span>}<span className="count">{p.verses}</span></a>)}</p>
+          {!allPeople && g.people.length > PEOPLE_SHOWN && <button type="button" className="btn small" onClick={() => setAllPeople(true)}>Show all {g.people.length.toLocaleString()}</button>}
         </Sec>
       )}
 

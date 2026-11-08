@@ -1,5 +1,5 @@
 {
-  "_about": "What the book guides quote, and where from. Each witness names a CCEL volume, the id of the chapter in CCEL's ThML file, and the first and last words of the passage. scripts/build_bookguides.py takes the words between them from that file, so nothing here is typed out. 'topic' is author (who wrote it and why), reception (how the church received it) or background (people and writings the book's setting is often tied to). 'via' is the writer who quotes an earlier one. 'source': 'josephus' takes the passage from the app's own Josephus (Whiston), by the section 'at' names. 'self' lists the passages where a narrative book's writer speaks about the book; letters are found by their first-person 'I write'. 'titles' heads a topic's group of witnesses. 'datingAs' shows another book's dating views (the books of Moses share Genesis's). A note's 'quoted' phrases must be in a passage the guide quotes, its 'inBook' words in the book's Greek, and its 'notInBook' word must not be.",
+  "_about": "What the book guides quote, and where from. Each witness names a CCEL volume, the id of the chapter in CCEL's ThML file, and the first and last words of the passage. scripts/build_bookguides.py takes the words between them from that file, so nothing here is typed out. 'topic' is author (who wrote it and why), reception (how the church received it) or background (people and writings the book's setting is often tied to). 'via' is the writer who quotes an earlier one. 'source': 'josephus' takes the passage from the app's own Josephus (Whiston), by the section 'at' names. 'self' lists the passages where a narrative book's writer speaks about the book; letters are found by their first-person 'I write'. 'titles' heads a topic's group of witnesses. 'sources' lists the records a narrative book names, found by their KJV wording (regular expressions); 'selfKind' memoir marks where the writer begins to speak as \"I\". A note's 'absentFrom' names a quoted passage that must not contain a word. 'datingAs' shows another book's dating views (the books of Moses share Genesis's). A note's 'quoted' phrases must be in a passage the guide quotes, its 'inBook' words in the book's Greek, and its 'notInBook' word must not be.",
   "books": {
     "1": {
       "witnesses": [
@@ -322,6 +322,935 @@
         }
       },
       "datingAs": "Genesis"
+    },
+    "6": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/joshua/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOSHUA, THE BOOK OF"
+        ],
+        [
+          "smith",
+          "JOSHUA, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "24:26"
+      ],
+      "sources": [
+        {
+          "name": "The book of Jasher",
+          "match": [
+            "book of Jasher"
+          ]
+        }
+      ]
+    },
+    "7": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/judges/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JUDGES, BOOK OF"
+        ],
+        [
+          "smith",
+          "JUDGES, BOOK OF"
+        ]
+      ]
+    },
+    "8": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/ruth/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "RUTH THE BOOK OF"
+        ],
+        [
+          "smith",
+          "RUTH, BOOK OF"
+        ]
+      ]
+    },
+    "9": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/1-samuel/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "SAMUEL, BOOKS OF"
+        ],
+        [
+          "smith",
+          "SAMUEL, BOOKS OF"
+        ]
+      ]
+    },
+    "10": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/2-samuel/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "SAMUEL, BOOKS OF"
+        ],
+        [
+          "smith",
+          "SAMUEL, BOOKS OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of Jasher",
+          "match": [
+            "book of Jasher"
+          ]
+        }
+      ]
+    },
+    "11": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/1-kings/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "KINGS, THE BOOKS OF"
+        ],
+        [
+          "smith",
+          "KINGS, FIRST AND SECOND BOOKS OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of the acts of Solomon",
+          "match": [
+            "book of the acts of Solomon"
+          ]
+        },
+        {
+          "name": "The book of the chronicles of the kings of Israel",
+          "match": [
+            "chronicles of the kings of Israel"
+          ]
+        },
+        {
+          "name": "The book of the chronicles of the kings of Judah",
+          "match": [
+            "chronicles of the kings of Judah"
+          ]
+        }
+      ]
+    },
+    "12": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/2-kings/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "KINGS, THE BOOKS OF"
+        ],
+        [
+          "smith",
+          "KINGS, FIRST AND SECOND BOOKS OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of the chronicles of the kings of Israel",
+          "match": [
+            "chronicles of the kings of Israel"
+          ]
+        },
+        {
+          "name": "The book of the chronicles of the kings of Judah",
+          "match": [
+            "chronicles of the kings of Judah"
+          ]
+        }
+      ]
+    },
+    "13": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/1-chronicles/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "CHRONICLES, BOOKS OF"
+        ],
+        [
+          "smith",
+          "CHRONICLES, FIRST AND SECOND BOOKS OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of the kings of Israel and Judah",
+          "match": [
+            "book of the kings of Israel and Judah"
+          ]
+        },
+        {
+          "name": "The chronicles of King David",
+          "match": [
+            "chronicles of king David"
+          ]
+        },
+        {
+          "name": "The book of Samuel the seer",
+          "match": [
+            "book of Samuel the seer"
+          ]
+        },
+        {
+          "name": "The book of Nathan the prophet",
+          "match": [
+            "book of Nathan the prophet"
+          ]
+        },
+        {
+          "name": "The book of Gad the seer",
+          "match": [
+            "book of Gad the seer"
+          ]
+        }
+      ]
+    },
+    "14": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/2-chronicles/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "CHRONICLES, BOOKS OF"
+        ],
+        [
+          "smith",
+          "CHRONICLES, FIRST AND SECOND BOOKS OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of the kings of Judah and Israel",
+          "match": [
+            "book of the kings of (Judah and Israel|Israel and Judah)"
+          ]
+        },
+        {
+          "name": "The book of the kings of Israel",
+          "match": [
+            "book of the kings of Israel(?! and)"
+          ]
+        },
+        {
+          "name": "The story of the book of the kings",
+          "match": [
+            "story of the book of the kings"
+          ]
+        },
+        {
+          "name": "The book of Nathan the prophet",
+          "match": [
+            "book of Nathan the prophet"
+          ]
+        },
+        {
+          "name": "The prophecy of Ahijah the Shilonite",
+          "match": [
+            "prophecy of Ahijah"
+          ]
+        },
+        {
+          "name": "The visions of Iddo the seer",
+          "match": [
+            "visions of Iddo"
+          ]
+        },
+        {
+          "name": "The book of Shemaiah the prophet",
+          "match": [
+            "book of Shemaiah the prophet"
+          ]
+        },
+        {
+          "name": "The book of Iddo the seer concerning genealogies",
+          "match": [
+            "Iddo the seer concerning genealogies"
+          ]
+        },
+        {
+          "name": "The story of the prophet Iddo",
+          "match": [
+            "story of the prophet Iddo"
+          ]
+        },
+        {
+          "name": "The book of Jehu the son of Hanani",
+          "match": [
+            "book of Jehu the son of Hanani"
+          ]
+        },
+        {
+          "name": "What Isaiah the prophet wrote",
+          "match": [
+            "did Isaiah the prophet"
+          ]
+        },
+        {
+          "name": "The vision of Isaiah the prophet",
+          "match": [
+            "vision of Isaiah the prophet"
+          ]
+        },
+        {
+          "name": "The sayings of the seers",
+          "match": [
+            "sayings of the seers"
+          ]
+        },
+        {
+          "name": "The lamentations",
+          "match": [
+            "written in the lamentations"
+          ]
+        }
+      ]
+    },
+    "15": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/ezra/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "EZRA, BOOK OF"
+        ],
+        [
+          "smith",
+          "EZRA, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "7:27-28"
+      ],
+      "selfKind": "memoir"
+    },
+    "16": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/nehemiah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "NEHEMIAH, BOOK OF"
+        ],
+        [
+          "smith",
+          "NEHEMIAH, THE BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "sources": [
+        {
+          "name": "A register of the genealogy of those who came up first",
+          "match": [
+            "register of the genealogy"
+          ]
+        },
+        {
+          "name": "The book of the chronicles",
+          "match": [
+            "written in the book of the chronicles"
+          ]
+        }
+      ]
+    },
+    "17": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Esther, Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "athanasius-of-alexandria",
+          "work": "Festal Letters",
+          "at": "39",
+          "vol": "npnf204",
+          "div": "xxv.iii.iii.xxv",
+          "from": "But for greater exactness I add this also",
+          "to": "the latter being [merely] read;"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/esther/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ESTHER, BOOK OF"
+        ],
+        [
+          "smith",
+          "ESTHER, BOOK OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of the chronicles of the kings of Media and Persia",
+          "match": [
+            "chronicles of the kings of Media and Persia"
+          ]
+        }
+      ],
+      "notes": {
+        "reception": {
+          "text": "Esther never names God. Melito's list of the books leaves Esther out, and Athanasius puts it among books to be read but not in the canon; Origen and Jerome list it.",
+          "quoted": [
+            "Esther, Esther",
+            "the ninth is Esther",
+            "Esther, and Judith, and Tobit",
+            "not indeed included in the Canon"
+          ],
+          "notInBook": [
+            "יהוה",
+            "אלהים"
+          ],
+          "absentFrom": [
+            {
+              "cite": "Church History 4.26.14",
+              "words": "Esther"
+            }
+          ]
+        }
+      }
     },
     "40": {
       "witnesses": [
