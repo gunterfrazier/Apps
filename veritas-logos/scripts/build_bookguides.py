@@ -732,7 +732,8 @@ for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
     if guide["textual"]["doubleBrackets"]:
         guide["glance"]["wordsInBrackets"] = words_in_brackets[b]
     if b < 40:
-        # Daniel 2:4b-7:28, Ezra 4:8-6:18 and 7:12-26, Jeremiah 10:11 and two words of Genesis 31:47 are Aramaic.
+        # Daniel 2:4b-7:28, Ezra 4:8-6:18 and 7:12-26 and Jeremiah 10:11 are Aramaic. (STEP tags the Aramaic place
+        # name at Genesis 31:47 as a Hebrew proper noun, so it isn't counted here.)
         aramaic = sum(1 for c, v, toks in verse_tokens(b) if (c, v) not in excluded[b] for t in toks if (t[4] or "").startswith("A"))
         if aramaic:
             guide["glance"]["aramaicWords"] = aramaic
