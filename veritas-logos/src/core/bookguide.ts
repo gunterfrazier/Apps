@@ -39,7 +39,8 @@ export interface ChapterFacts { c: number; verses: number; words: number; keywor
 export interface BookGuide {
   book: number;
   name: string;
-  /** words counts the Nestle-Aland wording as STEPBible tags it; ntWords is the same count for the whole NT. */
+  /** words counts the Nestle-Aland wording (NT) or the Leningrad Codex (OT) as STEPBible tags it; ntWords is the same
+   * count for the book's whole Testament, and a key word's nt is its count there. */
   /** verses follows the app's (KJV) numbering; greekVerses the Greek editions'. */
   glance: { chapters: number; verses: number; greekVerses: number; versesCounted: number; words: number; distinct: number; ntWords: number; wordsInBrackets?: number };
   /** Greek verse numbers the app's Bibles join to the verse before: [Greek, app]. */
@@ -47,8 +48,10 @@ export interface BookGuide {
   keywords: KeyWord[];
   onlyHere: OnlyHereWord[];
   self: string[];
-  /** How self was found: the opening only, a letter's "I write" verses, or passages listed in book_guides.json. */
-  selfKind: "opening" | "writing" | "listed";
+  /** How self was found: the opening only, a letter's "I write" verses, or passages listed in book_guides.json
+   * (for the Old Testament, the verses that say who wrote these words down). */
+  selfKind: "opening" | "writing" | "listed" | "record";
+  testament?: "OT" | "NT";
   /** Headings for a topic's group of witnesses, such as "Cerinthus, in Irenaeus". */
   titles: Partial<Record<Witness["topic"], string>>;
   /** title is given only where two people share a name. */
@@ -72,12 +75,21 @@ export interface BookGuide {
     traditionalOnly: number;
     readings: Reading[];
     doubleBrackets: [string, string][];
+    /** Old Testament: Qere and Ketiv, and words the Leningrad Codex lacks (X from the Septuagint, R restored). */
+    hebrew?: {
+      qere: number;
+      qereMinor: number;
+      readings: { at: string; read: string; english: string; written: string; writtenEnglish: string; translit: string }[];
+      added: { at: string; kind: "X" | "R"; hebrew: string; english: string }[];
+    };
   };
   witnesses: Witness[];
   notes: Partial<Record<Witness["topic"], string>>;
   henry?: { text: string; source: string; completedBy?: string };
   dictionaries: ["easton" | "smith", string][];
   dating: boolean;
+  /** The book whose dating views this one shares (Exodus to Deuteronomy share Genesis's). */
+  datingAs?: string;
   chapters: ChapterFacts[];
 }
 interface GuideFile { about: string; books: Record<string, BookGuide> }
@@ -106,11 +118,12 @@ export const at = (book: number, cv: string) => `${bookName(book)} ${cv}`;
 /** A short plain-text digest of the counted and quoted facts, for an AI request to work from. */
 export function guideDigest(g: BookGuide): string {
   const lines = [
-    `${g.name}: ${g.glance.chapters} chapter${g.glance.chapters === 1 ? "" : "s"}, ${g.glance.verses} verses, ${g.glance.words.toLocaleString()} Greek words.`,
-    `Words this book uses far more than the rest of the NT: ${g.keywords.map((k) => `${k.lemma} (${k.translit}, "${k.gloss}") ${k.n} times`).join("; ")}.`,
+    `${g.name}: ${g.glance.chapters} chapter${g.glance.chapters === 1 ? "" : "s"}, ${g.glance.verses} verses, ${g.glance.words.toLocaleString()} ${g.book < 40 ? "Hebrew" : "Greek"} words.`,
+    `Words this book uses far more than the rest of the ${g.book < 40 ? "OT" : "NT"}: ${g.keywords.map((k) => `${k.lemma} (${k.translit}, "${k.gloss}") ${k.n} times`).join("; ")}.`,
     g.people.length ? `People named: ${g.people.map((p) => p.name).join(", ")}.` : "",
     g.self.length ? `Verses where the writer opens or speaks of writing: ${g.self.join(", ")}.` : "",
     g.links.quotes.length ? `Earlier Scripture quoted: ${g.links.quotes.map((q) => `${q.at} quotes ${q.ref}`).join("; ")}.` : "",
+    g.links.quotedBy.length ? `Quoted in the New Testament: ${g.links.quotedBy.map((q) => `${q.at} in ${q.ref}`).join("; ")}.` : "",
     g.textual.disputed.length ? `Disputed passages: ${g.textual.disputed.map((d) => `${d.ref} (${d.label})`).join("; ")}.` : "",
     g.witnesses.length ? `Early witnesses quoted in the guide: ${g.witnesses.map((w) => `${w.name}${w.viaName ? ` (quoted by ${w.viaName})` : ""}, ${w.cite}`).join("; ")}.` : "",
     `Verses per chapter: ${g.chapters.map((c) => `${c.c}: ${c.verses}`).join(", ")}.`,

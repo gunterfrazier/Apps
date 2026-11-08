@@ -36,7 +36,9 @@ def load(rel):
 BOOKS = load("books.json")
 NAME = {i + 1: b["name"] for i, b in enumerate(BOOKS)}
 NO = {b["name"]: i + 1 for i, b in enumerate(BOOKS)}
-NT = range(40, 67)
+OT, NT = range(1, 40), range(40, 67)
+def testament(b):
+    return OT if b < 40 else NT
 
 # ---------- The Greek text ----------
 # words/NN.json follows STEPBible's TAGNT, which takes the Nestle-Aland wording where it exists.
@@ -50,7 +52,19 @@ VARIANTS = {}
 for f in ("variants-gospels.json", "variants-acts-paul.json", "variants-general.json"):
     VARIANTS.update(load(f"scholar/{f}"))
 
-words = {b: load(f"words/{b:02d}.json") for b in NT}
+words = {b: load(f"words/{b:02d}.json") for b in (*OT, *NT)}
+
+# ---------- The Hebrew text ----------
+# words/NN.json for the Old Testament follows STEPBible's TAHOT: the Leningrad Codex, reading the Qere where the
+# scribes' margin corrects the written text (the Ketiv), with text the Leningrad Codex lacks restored from parallel
+# passages (R) and words the Septuagint preserves turned back into Hebrew (X). Words marked R or X aren't in the
+# Leningrad Codex, so they're left out of every count here and listed instead.
+VAR_OT = load("scholar/variants-ot.json")
+def consonants(w):
+    return "".join(ch for ch in unicodedata.normalize("NFD", w) if "א" <= ch <= "ת")
+def not_leningrad(b, c, v):
+    """The words of a verse that the Leningrad Codex lacks, by consonants, with how many times each."""
+    return Counter(consonants(e[1]) for e in VAR_OT.get(f"{b}.{c}.{v}", []) if e[3] in ("X", "R"))
 # The app's Bibles follow the KJV's verse numbers; the Greek follows the editions'. Where the Greek has a verse
 # the English joins to the one before (3 John 15 is part of 3 John 14 in the KJV), references point to that verse.
 VC = load("verse-counts.json")
@@ -84,34 +98,62 @@ def outside_critical(b, c, v, toks):
     return True
 
 PRONOUN = re.compile(r"^(?:he|she|it|they|we|you|i|him|them|us|<the>|the|a|an|to|of|having|being|was|were|is|are|be|been|do|does|did|will|shall|have|has|had)\s+", re.I)
-def rendering(g):
-    g = re.sub(r"[\[\]<>(){}.,;:!?“”‘’\"']", "", (g or "").lower()).strip()
+# A Hebrew word carries its prefixes and suffixes, so STEP's English for it does too: "and the earth", "tent his".
+HEB_BEFORE = re.compile(r"^(?:and|the|in|into|to|from|for|with|like|as|on|at|upon|by|obj|that|which|who|when|o|so|then|but|or|not)\s+", re.I)
+HEB_AFTER = re.compile(r"\s+(?:of|his|her|its|their|your|my|our|him|them|me|us|you|it|they|he|she|we|i|yourself|himself|themselves)$", re.I)
+def rendering(g, hebrew=False):
+    g = re.sub(r"(?<=[a-z])\[(\w+)\]", r"\1", (g or "").lower())   # "year[s]" is "years"
+    g = re.sub(r"[\[\]<>(){}.,;:!?“”‘’\"'/]", " ", g)
+    g = re.sub(r"\s+", " ", g).strip()
     while True:
         h = PRONOUN.sub("", g)
+        if hebrew:
+            h = HEB_AFTER.sub("", HEB_BEFORE.sub("", h))
         if h == g: return g
         g = h
 
 CONTENT = re.compile(r"^(N-|V-|A-|ADV)")  # nouns, verbs, adjectives and adverbs; names are nouns too
+def heb_parts(m):
+    """A Hebrew morphology code ("HR/Ncfsa": Hebrew, preposition, common noun) as its parts, without the language."""
+    return (m or "")[1:].split("/") if (m or "")[:1] in ("H", "A") else []
+def is_content(m, b):
+    if b >= 40:
+        return bool(CONTENT.match(m or ""))
+    # noun (Nc, Np, Ng), verb (V), adjective (Aa, Ac, Ag, Ao) or adverb (D); not particles, pronouns or suffixes
+    return any(p[:1] in ("N", "V", "D") or (p[:1] == "A" and p[1:2] in ("a", "c", "g", "o")) for p in heb_parts(m))
 # Words so common that a high count says more about style than subject.
-COMMON = {"G1510", "G3004", "G2036", "G5346", "G3956"}  # be, say, said, say, all
-counts = {b: Counter() for b in NT}           # lemma -> occurrences
-forms = {b: defaultdict(Counter) for b in NT}  # lemma -> spellings in this book
-senses = {b: defaultdict(Counter) for b in NT} # lemma -> STEP's sense letters (G863G, G863H) in this book
-renderings = {b: defaultdict(Counter) for b in NT}  # lemma -> STEP's English gloss for each use
-where = {b: defaultdict(list) for b in NT}    # lemma -> ["c:v", ...]
+COMMON = {"G1510", "G3004", "G2036", "G5346", "G3956",   # be, say, said, say, all
+          "H1961", "H559", "H3605"}                       # be, say, all
+counts = defaultdict(Counter)                 # book -> lemma -> occurrences
+forms = defaultdict(lambda: defaultdict(Counter))   # lemma -> spellings in this book
+senses = defaultdict(lambda: defaultdict(Counter))  # lemma -> STEP's sense letters (G863G, G863H) in this book
+renderings = defaultdict(lambda: defaultdict(Counter))  # lemma -> STEP's English gloss for each use
+where = defaultdict(lambda: defaultdict(list))      # lemma -> ["c:v", ...]
 total = Counter()                             # every word, for the size of each book
 content_total = Counter()
-excluded = defaultdict(list)
+excluded = defaultdict(list)                  # NT: verses only the traditional editions have
+not_in_codex = defaultdict(list)              # OT: words the Leningrad Codex lacks, by verse
+chapter_words = defaultdict(Counter)          # book -> chapter -> words counted
 morph_of = {}
-for b in NT:
+for b in (*OT, *NT):
     for c, v, toks in verse_tokens(b):
-        if outside_critical(b, c, v, toks):
+        if b >= 40 and outside_critical(b, c, v, toks):
             excluded[b].append(f"{c}:{v}")
             continue
-        total[b] += len(toks)
+        skip = not_leningrad(b, c, v) if b < 40 else Counter()
+        kept = []
         for t in toks:
+            k = consonants(t[0]) if skip else ""
+            if k and skip[k] > 0:
+                skip[k] -= 1
+                not_in_codex[b].append([app_cv(b, c, v), t[0].replace("/", ""), t[2]])
+                continue
+            kept.append(t)
+        total[b] += len(kept)
+        chapter_words[b][c] += len(kept)
+        for t in kept:
             i = base_id(t[3])
-            if not i or not CONTENT.match(t[4] or ""):
+            if not i or not is_content(t[4], b):
                 continue
             counts[b][i] += 1
             content_total[b] += 1
@@ -119,11 +161,13 @@ for b in NT:
             morph_of.setdefault(i, t[4])
             forms[b][i][(gk(t[0]), t[1])] += 1
             senses[b][i][re.sub(r"^[HG]\d+", "", t[3] or "")] += 1
-            renderings[b][i][rendering(t[2])] += 1
-nt_counts = Counter()
-for b in NT:
-    nt_counts.update(counts[b])
-nt_content = sum(content_total.values())
+            renderings[b][i][rendering(t[2], b < 40)] += 1
+# Each book is measured against the rest of its own Testament.
+t_counts = {T: Counter() for T in (OT, NT)}
+for b in (*OT, *NT):
+    t_counts[testament(b)].update(counts[b])
+t_content = {T: sum(content_total[b] for b in T) for T in (OT, NT)}
+t_words = {T: sum(total[b] for b in T) for T in (OT, NT)}
 
 # ---------- Lexicon ----------
 lex_cache = {}
@@ -153,6 +197,8 @@ def word_info(i, b=None):
     sense = next((m for m in ms if m.get("a") == letter), ms[0])
     gloss = (sense.get("g") or e.get("k") or "").strip()
     info = {"id": i, "lemma": unicodedata.normalize("NFC", e.get("l") or sense.get("l") or ""), "translit": sense.get("x") or e.get("x") or "", "gloss": gloss}
+    if i.startswith("H"):
+        info["translit"] = info["translit"].replace(".", "")   # STEP marks Hebrew syllables with dots: ya.lad
     if b and renderings[b][i]:
         (top, k), = renderings[b][i].most_common(1)
         used = sum(renderings[b][i].values())
@@ -169,8 +215,12 @@ def word_info(i, b=None):
     return info
 
 def is_name(i):
-    """People, places and peoples: STEP marks them -P, -L and -PG. Titles (-T), such as Christ and God, stay in."""
-    return bool(re.search(r"-(P|L|PG|LI|LG|OI)$", morph_of.get(i, "")))
+    """People, places and peoples: STEP marks them -P, -L and -PG in Greek, and Np (proper noun) or Ng/Ag (people's
+    names) in Hebrew. Titles (-T), such as Christ and God, stay in."""
+    m = morph_of.get(i, "")
+    if i.startswith("H"):
+        return any(p[:2] in ("Np", "Ng", "Ag") for p in heb_parts(m))
+    return bool(re.search(r"-(P|L|PG|LI|LG|OI)$", m))
 
 def keyness(a, b_, c, d):
     """Dunning's log-likelihood for a word used a times in c words here and b_ times in d words elsewhere."""
@@ -182,14 +232,15 @@ def keyness(a, b_, c, d):
 
 def key_words(b):
     here, n_here = counts[b], content_total[b]
-    n_else = nt_content - n_here
+    T = testament(b)
+    n_else = t_content[T] - n_here
     min_n = 2 if n_here < 600 else 3
     want = 6 if n_here < 600 else 12 if n_here > 5000 else 10
     rows = []
     for i, n in here.items():
         if n < min_n or is_name(i) or i in COMMON:
             continue
-        elsewhere = nt_counts[i] - n
+        elsewhere = t_counts[T][i] - n
         ratio = (n / n_here) / ((elsewhere + 0.5) / n_else)
         if ratio < 2:
             continue
@@ -199,19 +250,26 @@ def key_words(b):
     for g, i, n, ratio in rows[:want]:
         refs = where[b][i]
         by_ch = Counter(int(r.split(":")[0]) for r in refs)
-        out.append({**word_info(i, b), "n": n, "nt": nt_counts[i], "times": round(ratio, 1), "refs": sorted(set(refs), key=lambda r: tuple(map(int, r.split(":")))), "byChapter": [by_ch.get(c, 0) for c in range(1, len(words[b]) + 1)]})
+        out.append({**word_info(i, b), "n": n, "nt": t_counts[T][i], "times": round(ratio, 1), "refs": sorted(set(refs), key=lambda r: tuple(map(int, r.split(":")))), "byChapter": [by_ch.get(c, 0) for c in range(1, len(words[b]) + 1)]})
     return out
 
 def only_here(b):
     out = []
     for i, n in counts[b].items():
-        if nt_counts[i] == n:
+        if t_counts[testament(b)][i] == n:
             out.append({**word_info(i, b), "n": n, "refs": sorted(set(where[b][i]), key=lambda r: tuple(map(int, r.split(":")))), "name": is_name(i)})
     out.sort(key=lambda w: tuple(map(int, w["refs"][0].split(":"))))
     return out
 
 # ---------- Where the writer speaks of writing ----------
 FIRST_PERSON = re.compile(r"-1[SP]$|^P-1")   # a first-person verb, or I, me, we, us
+def first_person(m, b):
+    if b >= 40:
+        return bool(FIRST_PERSON.search(m or ""))
+    # a first-person verb (Vqp1cs), pronoun (Pp1cs) or suffix (Sp1cs)
+    return any(re.match(r"^(?:V\w\w1|Pp1|Sp1)", p) for p in heb_parts(m))
+# write, write a letter, write before, book, scroll; and in Hebrew write (kathav) and book (sepher)
+WRITING = {"G1125", "G1989", "G4270", "G975", "G976", "H3789", "H5612"}
 def self_refs(b, listed=None):
     """In a letter the writer is the speaker, so: the opening, and every verse where he says "I write" or "we write".
     In a narrative book the speaker is usually someone else (Pilate's "What I have written"), so the passages where
@@ -224,7 +282,7 @@ def self_refs(b, listed=None):
             c, a_, z = int(c), int(a_), int(z or a_)
             vs = [(c, v) for v in range(a_, z + 1)]
             toks = [t for (cc, vv) in vs for t in words[b][cc - 1][vv - 1]]
-            if item != "1:1" and not any(FIRST_PERSON.search(t[4] or "") or base_id(t[3]) in ("G1125", "G1989", "G4270", "G975", "G976") for t in toks):
+            if item != "1:1" and not any(first_person(t[4], b) or base_id(t[3]) in WRITING for t in toks):
                 fail(f"{NAME[b]} {item}: listed as the writer speaking about his book, but has no first-person word or word for writing")
             refs += [app_cv(b, cc, vv) for cc, vv in vs]
         return list(dict.fromkeys(refs))
@@ -284,6 +342,10 @@ def ot_count(shared):
         _ot_count[shared] = sum(1 for t in OT_TEXT if s in t)
     return _ot_count[shared]
 
+def quotable(shared):
+    n_words = len([w for w in shared.split() if w != "s"])
+    return n_words >= 5 and len(STOCK[shared]) < (2 if n_words <= 6 else 3) and ot_count(shared) < 8
+
 def links(b):
     r = load(f"links/{b:02d}.json")
     quotes, allusions, parallels, by = [], [], [], []
@@ -293,13 +355,16 @@ def links(b):
         # more different passages (two, for six words or fewer): Isaiah 40:3 quoted in all four Gospels stays;
         # "and it shall come to pass", matched to Joel 2:32 and Isaiah 66:23 at Acts 2:17, goes.
         for ref, shared in x.get("q", []):
-            n_words = len([w for w in shared.split() if w != "s"])
-            if n_words >= 5 and len(STOCK[shared]) < (2 if n_words <= 6 else 3) and ot_count(shared) < 8:
+            if quotable(shared):
                 quotes.append({"at": cv, "ref": ref, "shared": shared})
             else:
                 short_quotes[b] = short_quotes.get(b, 0) + 1
+        # The same matches seen from the Old Testament side: where the New Testament quotes this verse.
         for ref, shared in x.get("by", []):
-            by.append({"at": cv, "ref": ref, "shared": shared})
+            if quotable(shared):
+                by.append({"at": cv, "ref": ref, "shared": shared})
+            else:
+                short_quotes[b] = short_quotes.get(b, 0) + 1
         for ref, shared in x.get("p", []):
             parallels.append({"at": cv, "ref": ref, "shared": shared})
         for ref, votes in x.get("a", []):
@@ -321,10 +386,51 @@ def links(b):
             fail(f"{NAME[b]}: person {p['id']} isn't in figures.json")
     # Shared wording inside the same book is listed once per pair.
     parallels = [p for p in parallels if not (p["ref"].startswith(NAME[b] + " ") and tuple(map(int, re.findall(r"\d+", p["ref"][len(NAME[b]):])[:2])) <= tuple(map(int, p["at"].split(":"))))]
-    return {"quotes": quotes, "shortQuotes": short_quotes.get(b, 0), "quotedBy": by, "allusions": allusions[:15], "allusionCount": len(allusions), "parallels": parallels if len(parallels) <= 60 else [], "parallelCount": len(parallels)}, plist, r.get("p", {})
+    return {"quotes": quotes, "shortQuotes": short_quotes.get(b, 0), "quotedBy": by, "allusions": allusions[:15], "allusionCount": len(allusions), "parallels": parallels if len(parallels) <= (60 if b >= 40 else 400) else [], "parallelCount": len(parallels)}, plist, r.get("p", {})
+
+KETIV = re.compile(r'(?:^|¦ )K= (.*?) \((.*?)\) "(.*?)" \((.*?)\)(?: ¦|$)')
+def textual_ot(b):
+    """Where the Leningrad Codex's margin reads a word other than the one written (Qere and Ketiv), and the words
+    STEP's text adds from elsewhere. STEP marks a Ketiv that could change a translation with a capital K."""
+    # Without STEP's word dividers, the verse-end mark, the paseq, and the open and closed section marks (פ, ס).
+    heb = lambda x: unicodedata.normalize("NFC", re.sub(r"\s+[פס]$", "", re.sub(r"[/\\\\׃׀]", "", x)).strip())
+    # STEP's English is word for word, with a slash between the parts of a Hebrew word ("tent/ his").
+    en = lambda x: re.sub(r"\s+", " ", x).strip()
+    verses, readings, minor = Counter(), [], 0
+    for key, entries in VAR_OT.items():
+        bb, c, v = map(int, key.split("."))
+        if bb != b:
+            continue
+        for pos, hebrew, english, code, meaning in entries:
+            if not code.startswith("Q"):
+                continue
+            verses[c] += 1
+            m = KETIV.search(meaning or "")
+            if code == "Q(K)":
+                if not m:
+                    fail(f"{NAME[b]} {c}:{v}: can't read the written form “{meaning}”")
+                    continue
+                readings.append({"at": app_cv(b, c, v), "read": heb(hebrew), "english": en(english), "written": heb(m.group(2)), "writtenEnglish": en(m.group(3)), "translit": m.group(1).replace("/", "").replace(".", "").lower()})   # STEP capitalizes the stressed syllable
+            else:
+                minor += 1
+    readings.sort(key=lambda x: tuple(map(int, x["at"].split(":"))))
+    added = {}
+    for key, entries in VAR_OT.items():
+        bb, c, v = map(int, key.split("."))
+        for pos, hebrew, english, code, meaning in entries:
+            if bb == b and code in ("X", "R"):
+                added.setdefault((app_cv(b, c, v), code), []).append((heb(hebrew), english))
+    return {"disputed": [], "outsideCritical": [], "versesDiffer": sum(verses.values()), "byChapter": [verses.get(c, 0) for c in range(1, len(words[b]) + 1)],
+            "criticalOnly": 0, "traditionalOnly": 0, "readings": [], "doubleBrackets": [],
+            "hebrew": {"qere": len(readings), "qereMinor": minor, "readings": readings,
+                       # X: words the Septuagint preserves, turned back into Hebrew; R: text restored from a parallel passage
+                       "added": [{"at": k, "kind": code, "hebrew": " ".join(w for w, _ in ws), "english": en(" ".join(e for _, e in ws))}
+                                 for (k, code), ws in sorted(added.items(), key=lambda x: tuple(map(int, x[0][0].split(":"))))]}}
 
 words_in_brackets = {}
 def textual(b):
+    if b < 40:
+        return textual_ot(b)
     name = NAME[b]
     disputed = [d for d in DISPUTED if d["ref"].startswith(name + " ")]
     verses, readings = Counter(), []
@@ -367,13 +473,16 @@ def textual(b):
 def norm(s):
     return re.sub(r"[^a-z]", "", unicodedata.normalize("NFKD", s).lower())
 def clean(x):
-    x = re.sub(r"<note\b.*?</note>", "", x, flags=re.S)
+    # A note's marker can sit between two words with no space ("properly call<note>…</note>Thorath"); keep the space.
+    x = re.sub(r"<note\b.*?</note>", "\x00", x, flags=re.S)
     x = html.unescape(re.sub(r"<[^>]+>", "", x)).replace("�", "").replace("\xa0", " ")
+    x = re.sub(r"(?<=[^\W\d_])\x00(?=[^\W\d_])", " ", x).replace("\x00", "")
     x = re.sub(r"\s+", " ", x)
     return re.sub(r" ([,.;:?!])", r"\1", x).strip()
 VOL_LABEL = {
     "npnf201": ("Nicene and Post-Nicene Fathers, Series 2, vol. 1, ed. Schaff and Wace (1890–1900)", "trans. Arthur Cushman McGiffert"),
     "npnf203": ("Nicene and Post-Nicene Fathers, Series 2, vol. 3, ed. Schaff and Wace (1890–1900)", "trans. Ernest Cushing Richardson"),
+    "npnf206": ("Nicene and Post-Nicene Fathers, Series 2, vol. 6, ed. Schaff and Wace (1890–1900)", "trans. W. H. Fremantle, with G. Lewis and W. G. Martley"),
     "anf01": ("Ante-Nicene Fathers, vol. 1, ed. Roberts and Donaldson (1885–96)", ""),
     "anf02": ("Ante-Nicene Fathers, vol. 2, ed. Roberts and Donaldson (1885–96)", ""),
     "anf03": ("Ante-Nicene Fathers, vol. 3, ed. Roberts and Donaldson (1885–96)", ""),
@@ -431,7 +540,34 @@ idx = load("writings/index.json")
 for w in idx["authors"]:
     WHO[w["id"]] = w["name"]
 
+JOSEPHUS = {x["id"]: x for x in load("scholar/josephus.json")["works"]}
+def josephus_witness(b, w):
+    """A passage from the app's Josephus (Whiston's translation, from Project Gutenberg's text), found the same way:
+    by its first and last words, inside the section the citation names ("Against Apion 1.8")."""
+    work = JOSEPHUS[w["work_id"]]
+    bk, sec = map(int, w["at"].split("."))
+    paras = [p for book in work["books"] if book["n"] == bk for ch in book["chapters"] for p in ch["paras"] if p[0] == sec]
+    if len(paras) != 1:
+        fail(f"{NAME[b]}: the app's Josephus has no single section {work['name']} {w['at']}")
+        return None
+    text = paras[0][1]
+    i = text.find(w["from"]); j = text.find(w["to"], i + 1) if i >= 0 else -1
+    if i < 0 or j < 0:
+        fail(f"{NAME[b]}: couldn't find “{w['from']}” to “{w['to']}” in {work['name']} {w['at']}")
+        return None
+    passage = text[i: j + len(w["to"])]
+    if passage[0].islower():
+        passage = "…" + passage
+    if not re.search(r"[.?!”’]$", passage):
+        passage += " …"
+    ch = next(ch["n"] for book in work["books"] if book["n"] == bk for ch in book["chapters"] if any(p[0] == sec for p in ch["paras"]))
+    return {"topic": w["topic"], "writer": "josephus", "name": WHO.get("josephus", "Josephus"), "work": work["name"], "cite": f"{work['name']} {w['at']}",
+            "edition": "The Works of Flavius Josephus, trans. William Whiston (1737), Project Gutenberg's text", "translator": "",
+            "page": "", "url": f"#josephus-{w['work_id']}-{bk}-{ch}", "text": passage}, text
+
 def witness(b, w):
+    if w.get("source") == "josephus":
+        return josephus_witness(b, w)
     raw, page_before = chapter(w["vol"], w["div"])
     if raw is None:
         fail(f"{NAME[b]}: {w['vol']} has no chapter {w['div']}")
@@ -527,19 +663,22 @@ for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
             "versesCounted": sum(len(vv) for vv in chapters) - len(excluded[b]),
             "words": total[b],
             "distinct": len(counts[b]),
-            "ntWords": sum(total.values()),
+            "ntWords": t_words[testament(b)],
         },
         "keywords": key_words(b),
         "onlyHere": only_here(b),
         "self": self_refs(b, spec.get("self")),
-        "selfKind": "listed" if spec.get("self") else "writing" if 45 <= b <= 65 else "opening",
+        "selfKind": ("record" if b < 40 else "listed") if spec.get("self") else "writing" if 45 <= b <= 65 else "opening",
+        "testament": "OT" if b < 40 else "NT",
         "people": people,
         "links": link,
         "textual": textual(b),
         "witnesses": [],
         "notes": {},
         "dictionaries": [],
-        "dating": name in chron,
+        # The five books of Moses share one set of dating views, given under Genesis.
+        "dating": (spec.get("datingAs") or name) in chron,
+        **({"datingAs": spec["datingAs"]} if spec.get("datingAs") else {}),
         "chapters": [],
         "renumbered": [],
     }
@@ -550,7 +689,8 @@ for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
         if got:
             guide["witnesses"].append(got[0])
     # The tagged text writes some accents with the old Greek-extended letters (ά as U+1F71); compare in one form.
-    nfc = lambda x: unicodedata.normalize("NFC", x)
+    # Hebrew is compared by its letters alone, without vowels or accents.
+    nfc = (lambda x: unicodedata.normalize("NFC", x)) if b >= 40 else consonants
     book_words = [nfc(t[0]) for _, _, toks in verse_tokens(b) for t in toks]
     for k, note in spec.get("notes", {}).items():
         # A note may only say what the passages shown under it say, and what the Greek text itself shows.
@@ -573,7 +713,7 @@ for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
             guide["dictionaries"].append([d, head])
     kw = {k["id"] for k in guide["keywords"]}
     for c, vv in enumerate(chapters, 1):
-        n_words = sum(len(t) for v, t in enumerate(vv, 1) if f"{c}:{v}" not in excluded[b])
+        n_words = chapter_words[b][c]
         local = Counter()
         for v, toks in enumerate(vv, 1):
             if f"{c}:{v}" in excluded[b]:
@@ -589,13 +729,14 @@ for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
             "c": c, "verses": VC[b - 1][c - 1], "words": n_words,
             "keywords": [[i, n] for i, n in local.most_common(4)],
             "people": [i for i, _ in in_ch.most_common(6)],
-            "quotes": [q["ref"] for q in link["quotes"] if int(q["at"].split(":")[0]) == c],
+            # Scripture this chapter quotes; for the Old Testament, where the New Testament quotes the chapter.
+            "quotes": list(dict.fromkeys(q["ref"] for q in (link["quotes"] if b >= 40 else link["quotedBy"]) if int(q["at"].split(":")[0]) == c)),
         })
     guide["renumbered"] = renumbered[b]
     g = guide["glance"]
-    print(f"  {g['chapters']} chapters, {g['verses']} verses ({g['versesCounted']} counted), {g['words']} Greek words, {g['distinct']} distinct content words")
+    print(f"  {g['chapters']} chapters, {g['verses']} verses ({g['versesCounted']} counted), {g['words']} {'Greek' if b >= 40 else 'Hebrew'} words, {g['distinct']} distinct content words")
     print("  key words:", ", ".join(f"{k['translit']} {k['n']}" for k in guide["keywords"]))
-    print("  only here:", len(guide["onlyHere"]), " self:", guide["self"], " people:", len(people), " witnesses:", len(guide["witnesses"]), " left out:", excluded[b])
+    print("  only here:", len(guide["onlyHere"]), " self:", guide["self"], " people:", len(people), " witnesses:", len(guide["witnesses"]), " left out:", excluded[b] or [x[0] for x in not_in_codex[b]])
     out["books"][str(b)] = guide
 
 if problems:
@@ -603,7 +744,8 @@ if problems:
     sys.exit(1)
 # One file per group of books, so a page loads only its group, plus an index of which books have a guide.
 # The long books get a file each; the short letters share. (The artifact holds at most 511 files.)
-GROUPS = [("matthew", [40]), ("mark", [41]), ("luke", [42]), ("john", [43]), ("acts", [44]), ("romans", [45]), ("corinthians", [46, 47]),
+GROUPS = [("law", range(1, 6)),
+          ("matthew", [40]), ("mark", [41]), ("luke", [42]), ("john", [43]), ("acts", [44]), ("romans", [45]), ("corinthians", [46, 47]),
           ("galatians-philemon", range(48, 58)), ("hebrews-jude", range(58, 66)), ("revelation", [66])]
 folder = os.path.join(D, "scholar/bookguides")
 os.makedirs(folder, exist_ok=True)

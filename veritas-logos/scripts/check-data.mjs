@@ -87,7 +87,8 @@ if (fs.existsSync("public/data/scholar/bookguides/index.json")) {
   for (const g of guides) {
     const refs = [...g.self, ...g.keywords.flatMap((k) => k.refs), ...g.onlyHere.flatMap((k) => k.refs), ...g.textual.readings.map((r) => r.at), ...g.links.quotes.map((q) => q.at)];
     for (const r of refs) if (!exists(`${g.name} ${r}`)) errors.push(`book guide ${g.name}: ${r} isn't a verse`);
-    for (const q of [...g.links.quotes, ...g.links.allusions, ...g.links.parallels]) if (!exists(q.ref)) errors.push(`book guide ${g.name}: ${q.ref} isn't a verse`);
+    for (const q of [...g.links.quotes, ...g.links.quotedBy, ...g.links.allusions, ...g.links.parallels]) if (!exists(q.ref)) errors.push(`book guide ${g.name}: ${q.ref} isn't a verse`);
+    for (const x of [...(g.textual.hebrew?.readings ?? []), ...(g.textual.hebrew?.added ?? [])]) if (!exists(`${g.name} ${x.at}`)) errors.push(`book guide ${g.name}: ${x.at} isn't a verse`);
     for (const p of g.people) if (!figureIds.has(p.id)) errors.push(`book guide ${g.name}: no person ${p.id}`);
     for (const w of g.witnesses) {
       if (w.writer && !writerIds.has(w.writer)) errors.push(`book guide ${g.name}: no writer ${w.writer}`);

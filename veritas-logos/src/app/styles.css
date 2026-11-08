@@ -568,6 +568,9 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
 .kw p { margin: .2rem 0; }
 .kw-main { display: grid; grid-template-columns: minmax(5.5rem, 8rem) minmax(0, 1fr) auto; gap: .6rem; align-items: baseline; color: inherit; text-decoration: none; }
 .kw-lemma { font-size: 1.15rem; overflow-wrap: anywhere; }
+/* A Hebrew word reads right to left but sits at the left of its column, like the Greek. */
+.kw-lemma.hebrew, .kw-map-word .hebrew { text-align: left; unicode-bidi: isolate; }
+.kw-lemma.hebrew { font-size: 1.3rem; }
 .kw-gloss { min-width: 0; overflow-wrap: anywhere; }
 .kw-n { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink-2); }
 .kw-refs summary { cursor: pointer; font-size: .8rem; color: var(--ink-3); }

@@ -5,6 +5,7 @@ import { blankGuide, lensName, newId, type Guide, type GuideSection } from "../.
 import { getChronology, getDictionary, DICT_NAMES } from "../../core/scholar";
 import { excerptsByWriter, henryNote } from "../../core/writings";
 import { enqueueJob, exploreKey, markSeen, removeJob, useJob } from "../ai-jobs";
+import { BOOKS } from "../../core/references";
 import { readHash } from "../routes";
 import { getData, navigate, saveGuide, saveNote, setPref, toast, useData } from "../store";
 import { LensSelect, Loading, Paras, RefLink, useAsync } from "../ui";
@@ -12,7 +13,7 @@ import { ExploreResult, JobError, JobProgress, useAiMode } from "./ai-explore";
 
 type Basis = "counted" | "quoted" | "ai" | "you";
 const BASIS: Record<Basis, [string, string]> = {
-  counted: ["Counted", "Worked out from the app's data: the Greek text as STEPBible tags it, its lexicon, cross-references and the edition comparison."],
+  counted: ["Counted", "Worked out from the app's data: the Hebrew or Greek text as STEPBible tags it, its lexicon, cross-references and the comparison of editions and readings."],
   quoted: ["Quoted", "Copied word for word from the edition named under each passage."],
   ai: ["AI draft", "Written by the AI when you ask. Check it before relying on it."],
   you: ["Yours", "Your own notes."],
@@ -32,6 +33,13 @@ function Sec({ id, title, basis, children, intro }: { id: string; title: string;
 const pct = (x: number) => (x >= 0.1 ? Math.round(x * 100) : Math.round(x * 1000) / 10);
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const slugOf = (name: string) => name.toLowerCase().replace(/\s+/g, "");
+/** The book's own Testament, for the words a figure is measured against. */
+const isOT = (g: BookGuide) => g.book < 40;
+const tName = (g: BookGuide) => (isOT(g) ? "Old Testament" : "New Testament");
+/** A Hebrew or Greek word, set in its own script and direction. */
+function Orig({ id, text, className = "" }: { id: string; text: string; className?: string }) {
+  return id.startsWith("H") ? <span className={`hebrew ${className}`.trim()} lang="he" dir="rtl">{text}</span> : <span className={`greek ${className}`.trim()} lang="grc">{text}</span>;
+}
 
 function VerseLine({ book, cv }: { book: number; cv: string }) {
   const { prefs } = useData();
@@ -63,7 +71,7 @@ function WitnessCard({ w }: { w: Witness }) {
       <p className="ex-on">{w.cite}</p>
       <blockquote className="ex-text bg-quote">{short && !all ? short : w.text}</blockquote>
       {short && <button type="button" className="link-btn" aria-expanded={all} onClick={() => setAll(!all)}>{all ? "Show less" : "Read the whole passage"}</button>}
-      <p className="fine ex-source">{w.edition}{w.translator ? `, ${w.translator}` : ""}{w.page ? `, p. ${w.page}` : ""}. <a href={w.url} target="_blank" rel="noopener noreferrer">Read the chapter at CCEL</a></p>
+      <p className="fine ex-source">{w.edition}{w.translator ? `, ${w.translator}` : ""}{w.page ? `, p. ${w.page}` : ""}. {w.url.startsWith("#") ? <a href={w.url}>Read it in the app</a> : <a href={w.url} target="_blank" rel="noopener noreferrer">Read the chapter at CCEL</a>}</p>
     </article>
   );
 }
@@ -73,12 +81,12 @@ function WordCard({ k, guide }: { k: KeyWord; guide: BookGuide }) {
   return (
     <li className="kw">
       <a className="kw-main" href={`#word-${k.id.toLowerCase()}`}>
-        <span className="greek kw-lemma" lang="grc">{k.lemma}</span>
+        <Orig id={k.id} text={k.lemma} className="kw-lemma" />
         <span className="kw-gloss"><strong>{k.translit}</strong> {k.gloss}{k.here ? <span className="fine"> · here usually “{k.here}”</span> : null}</span>
         <span className="kw-n">{k.n}×</span>
       </a>
       <p className="fine">
-        {k.n === k.nt ? "Every New Testament use is in this book." : `${pct(share)}% of its ${k.nt.toLocaleString()} New Testament uses are here.`}
+        {k.n === k.nt ? `Every ${tName(guide)} use is in this book.` : `${pct(share)}% of its ${k.nt.toLocaleString()} ${tName(guide)} uses are here.`}
         {k.tagged ? ` Strong's lists it under ${k.tagged}, ${k.id}.` : ""}
       </p>
       <details className="kw-refs">
@@ -104,7 +112,7 @@ function WordMap({ guide }: { guide: BookGuide }) {
         const max = Math.max(...k.byChapter.map((x, i) => x / guide.chapters[i].words));
         return (
         <div key={k.id} className="kw-map-row" role="row" style={cols}>
-          <span role="rowheader" className="kw-map-word"><span className="greek" lang="grc">{k.lemma}</span></span>
+          <span role="rowheader" className="kw-map-word"><Orig id={k.id} text={k.lemma} /></span>
           {k.byChapter.map((x, i) => (
             <span key={i} role="cell" className="kw-map-cell" title={`${k.translit} in chapter ${i + 1}: ${x}`} style={{ opacity: x ? 0.18 + 0.82 * Math.min(1, x / guide.chapters[i].words / max) : 0.06 }}>
               <span className="sr">{x}</span>
@@ -150,14 +158,15 @@ function bookGuideFor(g: BookGuide): Guide | undefined {
 function assembledSections(g: BookGuide): GuideSection[] {
   const s = (heading: string, kind: GuideSection["kind"], extra: Partial<GuideSection>): GuideSection => ({ id: newId(), heading, kind, origin: "assembled", ...extra });
   const out: GuideSection[] = [
-    s(`${g.name} at a glance`, "text", { body: `${plural(g.glance.chapters, "chapter")}, ${plural(g.glance.verses, "verse")}, ${g.glance.words.toLocaleString()} Greek words (the Nestle-Aland text as STEPBible tags it).` }),
+    s(`${g.name} at a glance`, "text", { body: `${plural(g.glance.chapters, "chapter")}, ${plural(g.glance.verses, "verse")}, ${g.glance.words.toLocaleString()} ${isOT(g) ? "Hebrew words (the Leningrad Codex as STEPBible's TAHOT gives it)" : "Greek words (the Nestle-Aland text as STEPBible tags it)"}.` }),
     s("In its own words", "crossrefs", { items: g.self.map((r) => ({ ref: at(g.book, r), text: "" })) }),
   ];
   const wit = g.witnesses.filter((w) => w.topic !== "background");
   if (wit.length) out.push(s("Early witnesses", "views", { items: wit.map((w) => ({ label: `${w.name}${w.viaName ? `, quoted by ${w.viaName}` : ""}, ${w.cite}`, text: `“${w.text}” (${w.edition}${w.page ? `, p. ${w.page}` : ""})` })) }));
-  out.push(s("Key words", "words", { items: g.keywords.map((k) => ({ label: `${k.lemma} (${k.translit})`, wordId: k.id, text: `${k.gloss}. ${k.n} times here, of ${k.nt} in the New Testament.` })) }));
+  out.push(s("Key words", "words", { items: g.keywords.map((k) => ({ label: `${k.lemma} (${k.translit})`, wordId: k.id, text: `${k.gloss}. ${k.n} times here, of ${k.nt} in the ${tName(g)}.` })) }));
   if (g.people.length) out.push(s("People named", "people", { items: g.people.map((p) => ({ label: p.name, personId: p.id, text: `${plural(p.verses, "verse")}, first at ${p.first}` })) }));
   if (g.links.quotes.length) out.push(s("Earlier Scripture quoted", "crossrefs", { items: g.links.quotes.map((q) => ({ label: at(g.book, q.at), ref: q.ref, text: `Shared wording: “${q.shared}”` })) }));
+  if (g.links.quotedBy.length) out.push(s("Quoted in the New Testament", "crossrefs", { items: g.links.quotedBy.map((q) => ({ label: at(g.book, q.at), ref: q.ref, text: `Shared wording: “${q.shared}”` })) }));
   if (g.textual.disputed.length) out.push(s("Disputed passages", "text", { items: g.textual.disputed.map((d) => ({ label: d.ref, text: `${d.label}. ${d.note}` })) }));
   return out;
 }
@@ -262,7 +271,9 @@ const SELF_INTRO: Record<BookGuide["selfKind"], string> = {
   opening: "The opening verse. The writer doesn't speak of himself or his book anywhere else.",
   writing: "The opening verse, and every verse where the writer speaks of writing.",
   listed: "The opening, and the passages where the writer speaks about his book.",
+  record: "The opening verse, and the verses that say who wrote these words down.",
 };
+const selfIntro = (g: BookGuide) => (g.selfKind === "opening" && isOT(g) ? "The opening verse. The book doesn't say who wrote it." : SELF_INTRO[g.selfKind]);
 
 // ---------- The page ----------
 const TOC: [string, string][] = [["glance", "At a glance"], ["own", "Its own words"], ["author", "Author and date"], ["received", "How it was received"], ["shape", "Shape"], ["words", "Key words"], ["people", "People"], ["scripture", "Scripture"], ["text", "Manuscripts"], ["chapters", "Chapters"], ["older", "Older introductions"], ["themes", "Themes and questions"], ["notes", "Notes"]];
@@ -270,7 +281,7 @@ const TOC: [string, string][] = [["glance", "At a glance"], ["own", "Its own wor
 export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testament?: string; greekName?: ReactNode }) {
   const { prefs, guides } = useData();
   const slug = slugOf(g.name);
-  const dating = useAsync(async () => (g.dating ? (await getChronology()).books.find((b) => b.book === g.name) : undefined), [g.name]);
+  const dating = useAsync(async () => (g.dating ? (await getChronology()).books.find((b) => b.book === (g.datingAs ?? g.name)) : undefined), [g.name]);
   const [henryOpen, setHenryOpen] = useState(false);
   const henry = useHenryChapters(g.book, henryOpen);
   const [allOnly, setAllOnly] = useState(false);
@@ -279,7 +290,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
   const author = g.witnesses.filter((w) => w.topic === "author");
   const received = g.witnesses.filter((w) => w.topic === "reception");
   const background = g.witnesses.filter((w) => w.topic === "background");
-  const toc = TOC.filter(([id]) => (id !== "received" || received.length) && (id !== "people" || g.people.length));
+  const toc = TOC.filter(([id]) => (id !== "received" || received.length) && (id !== "people" || g.people.length)).map(([id, label]) => [id, id === "text" && isOT(g) ? "Hebrew text" : label] as [string, string]);
   const go = (id: string) => {
     const el = document.getElementById(`bg-${id}`);
     if (!el) return;
@@ -295,10 +306,14 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
       const other = p.ref.replace(/ \d+:\d+.*$/, "");
       m.set(other, [...(m.get(other) ?? []), p]);
     }
-    return [...m.entries()];
+    // The book itself first, then the rest in Bible order.
+    const order = (name: string) => (name === g.name ? -1 : BOOKS.findIndex((x) => x.name === name));
+    return [...m.entries()].sort((x, y) => order(x[0]) - order(y[0]));
   }, [g]);
   const only = allOnly ? g.onlyHere : g.onlyHere.slice(0, 16);
   const readings = allReadings ? g.textual.readings : g.textual.readings.slice(0, 12);
+  const hb = g.textual.hebrew;
+  const hbReadings = hb ? (allReadings ? hb.readings : hb.readings.slice(0, 12)) : [];
 
   return (
     <div className="page prose book-guide">
@@ -315,18 +330,23 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
       <Sec id="glance" title="At a glance" basis={["counted"]}>
         <dl className="facts">
           <dt>Length</dt><dd>{plural(g.glance.chapters, "chapter")}, {plural(g.glance.verses, "verse")}</dd>
-          <dt>Greek words</dt><dd>{g.glance.words.toLocaleString()}, {pct(g.glance.words / g.glance.ntWords)}% of the New Testament{g.glance.wordsInBrackets ? `, including ${g.glance.wordsInBrackets} in double brackets` : ""}</dd>
+          <dt>{isOT(g) ? "Hebrew words" : "Greek words"}</dt><dd>{g.glance.words.toLocaleString()}, {pct(g.glance.words / g.glance.ntWords)}% of the {tName(g)}{g.glance.wordsInBrackets ? `, including ${g.glance.wordsInBrackets} in double brackets` : ""}</dd>
           <dt>Different words</dt><dd>{g.glance.distinct.toLocaleString()} nouns, verbs, adjectives and adverbs</dd>
           {greekName}
           {g.people.length > 0 && <><dt>People named</dt><dd>{g.people.length}</dd></>}
           {g.links.quotes.length > 0 && <><dt>Quotations</dt><dd>{plural(g.links.quotes.length, "quotation")} of earlier Scripture with matching wording</dd></>}
+          {g.links.quotedBy.length > 0 && <><dt>In the New Testament</dt><dd>{plural(new Set(g.links.quotedBy.map((q) => q.at)).size, "verse")} quoted with matching wording</dd></>}
         </dl>
         {g.renumbered.length > 0 && <p className="fine">Greek editions number {g.glance.greekVerses} verses. The Bibles in this app number {g.glance.verses}, joining {g.renumbered.map(([a, b]) => `${a} to ${b}`).join(" and ")}, so references here use their numbers.</p>}
-        <p className="fine">Words are counted in the Nestle-Aland wording as STEPBible's Tagged Greek New Testament gives it{g.textual.outsideCritical.length ? `, leaving out ${g.textual.outsideCritical.join(", ")}, which only the traditional editions have` : ""}. Other editions give slightly different totals.</p>
+        {isOT(g) ? (
+          <p className="fine">Words are counted in the Leningrad Codex as STEPBible's Translators Amalgamated Hebrew OT gives it, reading the scribes' marginal corrections (the Qere){hb?.added.length ? `, and leaving out the words at ${hb.added.map((x) => x.at).join(", ")} that the codex lacks` : ""}. A Hebrew word here includes its attached prefixes and suffixes ("and", "the", "his"). Other counts give slightly different totals.</p>
+        ) : (
+          <p className="fine">Words are counted in the Nestle-Aland wording as STEPBible's Tagged Greek New Testament gives it{g.textual.outsideCritical.length ? `, leaving out ${g.textual.outsideCritical.join(", ")}, which only the traditional editions have` : ""}. Other editions give slightly different totals.</p>
+        )}
         {g.glance.chapters > 1 && <ChapterBars guide={g} />}
       </Sec>
 
-      <Sec id="own" title="In its own words" basis={["counted"]} intro={`${SELF_INTRO[g.selfKind]} Shown in the ${translationInfo(prefs.translation).name}.`}>
+      <Sec id="own" title="In its own words" basis={["counted"]} intro={`${selfIntro(g)} Shown in the ${translationInfo(prefs.translation).name}.`}>
         <ul className="bg-verses">{g.self.map((cv) => <VerseLine key={cv} book={g.book} cv={cv} />)}</ul>
       </Sec>
 
@@ -336,6 +356,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
         {dating.data && (
           <div className="note">
             <strong>When it was written is disputed</strong>
+            {g.datingAs && <p className="fine">The views are given under {g.datingAs} for all five books of Moses.</p>}
             <ul className="fine-list">{dating.data.views.map((v) => <li key={v.label}><strong>{v.label}.</strong> {v.who}</li>)}</ul>
             <a className="link-btn" href="#dating">See the sources for each view</a>
           </div>
@@ -362,15 +383,15 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
         <AiDraft g={g} ask="outline" />
       </Sec>
 
-      <Sec id="words" title="Key words" basis={["counted"]} intro={`Words ${g.name} uses far more often than the rest of the New Testament, strongest first. ${g.name} has ${pct(g.glance.words / g.glance.ntWords)}% of the New Testament's words, so a word spread evenly would have about that share of its uses here. Tap a word for its lexicon entry and every use.`}>
+      <Sec id="words" title="Key words" basis={["counted"]} intro={`Words ${g.name} uses far more often than the rest of the ${tName(g)}, strongest first. ${g.name} has ${pct(g.glance.words / g.glance.ntWords)}% of the ${tName(g)}'s words, so a word spread evenly would have about that share of its uses here. Tap a word for its lexicon entry and every use.`}>
         <ul className="kw-list">{g.keywords.map((k) => <WordCard key={k.id} k={k} guide={g} />)}</ul>
         {g.onlyHere.length > 0 && (
           <>
-            <h3>Found only here in the New Testament <span className="count">{g.onlyHere.length}</span></h3>
+            <h3>Found only here in the {tName(g)} <span className="count">{g.onlyHere.length}</span></h3>
             <ul className="link-list">
               {only.map((w) => (
                 <li key={w.id}>
-                  <a href={`#word-${w.id.toLowerCase()}`}><span className="greek" lang="grc">{w.lemma}</span> {w.translit}</a> <span className="fine">{w.gloss}{w.name ? " (a name)" : ""}</span>
+                  <a href={`#word-${w.id.toLowerCase()}`}><Orig id={w.id} text={w.lemma} /> {w.translit}</a> <span className="fine">{w.gloss}{w.name ? " (a name)" : ""}</span>
                   <span className="shared">{w.refs.map((r, i) => <span key={r}>{i ? ", " : ""}<RefLink refText={at(g.book, r)}>{r}</RefLink></span>)}</span>
                 </li>
               ))}
@@ -386,8 +407,16 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
         </Sec>
       )}
 
-      <Sec id="scripture" title="Scripture it quotes and echoes" basis={["counted"]}>
-        {g.links.quotes.length > 0 ? (
+      <Sec id="scripture" title={isOT(g) ? "In the rest of Scripture" : "Scripture it quotes and echoes"} basis={["counted"]}>
+        {isOT(g) ? (
+          g.links.quotedBy.length > 0 ? (
+            <>
+              <h3>Quoted in the New Testament <span className="count">{g.links.quotedBy.length}</span></h3>
+              <ul className="link-list">{g.links.quotedBy.map((q, i) => <li key={i}><RefLink refText={at(g.book, q.at)}>{q.at}</RefLink> in <RefLink refText={q.ref} /><span className="shared">“{q.shared}”</span></li>)}</ul>
+              <p className="fine">Found by matching the wording of cross-references, five words or more. {g.links.shortQuotes > 0 ? `${plural(g.links.shortQuotes, "match", "matches")} under five words, or of a stock phrase (matched to several passages, or found in eight or more Old Testament verses), ${g.links.shortQuotes === 1 ? "is" : "are"} left out.` : ""} A shared phrase can still be an echo rather than a quotation.</p>
+            </>
+          ) : <p className="fine">No New Testament quotation with matching wording was found. A loose paraphrase can be missed.</p>
+        ) : g.links.quotes.length > 0 ? (
           <>
             <h3>Quotations with matching wording</h3>
             <ul className="link-list">{g.links.quotes.map((q, i) => <li key={i}><RefLink refText={at(g.book, q.at)}>{q.at}</RefLink> quotes <RefLink refText={q.ref} /><span className="shared">“{q.shared}”</span></li>)}</ul>
@@ -407,13 +436,40 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
         )}
         {g.links.allusions.length > 0 && (
           <details className="doctrine">
-            <summary>Possible links to the Old Testament <span className="count">{g.links.allusionCount}</span></summary>
+            <summary>{isOT(g) ? "Possible echoes in the New Testament" : "Possible links to the Old Testament"} <span className="count">{g.links.allusionCount}</span></summary>
             <p className="fine">Cross-references from OpenBible.info with no matching wording, the most voted first. Treat these as leads to check.</p>
             <ul className="link-list">{g.links.allusions.map((x, i) => <li key={i}><RefLink refText={at(g.book, x.at)}>{x.at}</RefLink> and <RefLink refText={x.ref} /></li>)}</ul>
           </details>
         )}
       </Sec>
 
+      {hb ? (
+      <Sec id="text" title="The Hebrew text" basis={["counted"]} intro="The Leningrad Codex, the oldest complete Hebrew Bible, sometimes writes one word (the Ketiv) while its margin tells the reader to read another (the Qere). Translators generally follow the Qere, and so does the text counted here.">
+        {hb.added.map((x) => (
+          <p key={x.at + x.kind} className="note"><RefLink refText={at(g.book, x.at)} />: <span className="hebrew" lang="he" dir="rtl">{x.hebrew}</span> “{x.english.replace(/[<>]/g, "")}” isn't in the Leningrad Codex. {x.kind === "X" ? "STEP's text adds it from the Septuagint, turned back into Hebrew as the BHS or BHK apparatus gives it." : "STEP's text restores it from a parallel passage."} These words aren't counted above.</p>
+        ))}
+        <p className="stat-row">
+          <span><strong>{hb.qere}</strong> words read differently from how they're written</span>
+          <span><strong>{hb.qereMinor}</strong> more where the difference may not change a translation</span>
+        </p>
+        {hb.readings.length > 0 && (
+          <>
+            <h3>Read one way, written another <span className="count">{hb.readings.length}</span></h3>
+            <ul className="variant-list">
+              {hbReadings.map((r, i) => (
+                <li key={i}>
+                  <RefLink refText={at(g.book, r.at)}>{r.at}</RefLink>{" "}
+                  Read <span className="orig hebrew" lang="he" dir="rtl">{r.read}</span> <span className="fine">“{r.english.replace(/[<>]/g, "")}”</span>
+                  <div className="fine">Written <span className="hebrew" lang="he" dir="rtl">{r.written}</span> {r.translit} “{r.writtenEnglish.replace(/[<>]/g, "")}”</div>
+                </li>
+              ))}
+            </ul>
+            <p className="fine">English glosses are word for word from STEPBible, with a slash between the parts of one Hebrew word.</p>
+            {hb.readings.length > hbReadings.length && <button type="button" className="btn small" onClick={() => setAllReadings(true)}>Show all {hb.readings.length}</button>}
+          </>
+        )}
+      </Sec>
+      ) : (
       <Sec id="text" title="Manuscripts and editions" basis={["counted"]} intro="Where the printed Greek editions differ: the critical editions (NA28, NA27, SBL, Westcott and Hort, Tregelles, Tyndale House) and the traditional ones (the Textus Receptus and the Byzantine text).">
         {g.textual.disputed.map((d) => (
           <div key={d.ref} className="note-card">
@@ -448,6 +504,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
           </>
         )}
       </Sec>
+      )}
 
       <Sec id="chapters" title="Chapter by chapter" basis={["counted", "quoted"]}>
         <button type="button" className="btn small" aria-pressed={henryOpen} onClick={() => setHenryOpen(!henryOpen)}>{henryOpen ? "Hide" : "Show"} Matthew Henry's summary of each chapter</button>
@@ -460,9 +517,9 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
                 <h3><a href={`#${readHash({ book: g.book, chapter: c.c })}`}>{g.glance.chapters === 1 ? g.name : `Chapter ${c.c}`}</a></h3>
                 <span className="fine">{plural(c.verses, "verse")} · {c.words.toLocaleString()} words</span>
               </div>
-              {c.keywords.length > 0 && <p className="fine">Key words: {c.keywords.map(([id, n], i) => { const k = g.keywords.find((x) => x.id === id); return <span key={id}>{i ? ", " : ""}<a href={`#word-${id.toLowerCase()}`} className="greek" lang="grc">{k?.lemma}</a> {n}</span>; })}</p>}
+              {c.keywords.length > 0 && <p className="fine">Key words: {c.keywords.map(([id, n], i) => { const k = g.keywords.find((x) => x.id === id); return <span key={id}>{i ? ", " : ""}<a href={`#word-${id.toLowerCase()}`}><Orig id={id} text={k?.lemma ?? ""} /></a> {n}</span>; })}</p>}
               {c.people.length > 0 && <p className="fine">People: {c.people.map((id, i) => <span key={id}>{i ? ", " : ""}<a href={`#person-${id}`}>{g.people.find((p) => p.id === id)?.name ?? id}</a></span>)}</p>}
-              {c.quotes.length > 0 && <p className="fine">Quotes: {c.quotes.map((r, i) => <span key={i}>{i ? ", " : ""}<RefLink refText={r} /></span>)}</p>}
+              {c.quotes.length > 0 && <p className="fine">{isOT(g) ? "Quoted in" : "Quotes"}: {c.quotes.map((r, i) => <span key={i}>{i ? ", " : ""}<RefLink refText={r} /></span>)}</p>}
               {henryOpen && (henry.loading ? <Loading /> : h ? <blockquote className="bg-quote henry"><Paras text={h.text} /></blockquote> : null)}
               <p className="ex-actions"><a href={`#${readHash({ book: g.book, chapter: c.c })}`}>Read</a><a href={`#on-${slug}-${c.c}`}>What writers said</a></p>
             </div>

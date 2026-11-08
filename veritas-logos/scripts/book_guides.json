@@ -1,6 +1,328 @@
 {
-  "_about": "What the book guides quote, and where from. Each witness names a CCEL volume, the id of the chapter in CCEL's ThML file, and the first and last words of the passage. scripts/build_bookguides.py takes the words between them from that file, so nothing here is typed out. 'topic' is author (who wrote it and why), reception (how the church received it) or background (people and writings the book's setting is often tied to). 'via' is the writer who quotes an earlier one. 'self' lists the passages where a narrative book's writer speaks about the book; letters are found by their first-person 'I write'. 'titles' heads a topic's group of witnesses. A note's 'quoted' phrases must be in a passage the guide quotes, its 'inBook' words in the book's Greek, and its 'notInBook' word must not be.",
+  "_about": "What the book guides quote, and where from. Each witness names a CCEL volume, the id of the chapter in CCEL's ThML file, and the first and last words of the passage. scripts/build_bookguides.py takes the words between them from that file, so nothing here is typed out. 'topic' is author (who wrote it and why), reception (how the church received it) or background (people and writings the book's setting is often tied to). 'via' is the writer who quotes an earlier one. 'source': 'josephus' takes the passage from the app's own Josephus (Whiston), by the section 'at' names. 'self' lists the passages where a narrative book's writer speaks about the book; letters are found by their first-person 'I write'. 'titles' heads a topic's group of witnesses. 'datingAs' shows another book's dating views (the books of Moses share Genesis's). A note's 'quoted' phrases must be in a passage the guide quotes, its 'inBook' words in the book's Greek, and its 'notInBook' word must not be.",
   "books": {
+    "1": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "For we have not an innumerable multitude of books among us",
+          "to": "the traditions of the origin of mankind till his death."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The first of these books is called Bresith",
+          "to": "which they properly call Thorath, that is law."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The twenty-two books of the Hebrews are the following",
+          "to": "‘These are the words’"
+        }
+      ],
+      "henry": {
+        "path": "volume-1/genesis/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "GENESIS"
+        ],
+        [
+          "smith",
+          "GENESIS"
+        ]
+      ]
+    },
+    "2": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "For we have not an innumerable multitude of books among us",
+          "to": "the traditions of the origin of mankind till his death."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The first of these books is called Bresith",
+          "to": "which they properly call Thorath, that is law."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The twenty-two books of the Hebrews are the following",
+          "to": "‘These are the words’"
+        }
+      ],
+      "henry": {
+        "path": "volume-1/exodus/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "EXODUS, BOOK OF"
+        ],
+        [
+          "smith",
+          "EXODUS"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "17:14",
+        "24:4",
+        "31:18",
+        "34:27-28"
+      ],
+      "datingAs": "Genesis"
+    },
+    "3": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "For we have not an innumerable multitude of books among us",
+          "to": "the traditions of the origin of mankind till his death."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The first of these books is called Bresith",
+          "to": "which they properly call Thorath, that is law."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The twenty-two books of the Hebrews are the following",
+          "to": "‘These are the words’"
+        }
+      ],
+      "henry": {
+        "path": "volume-1/leviticus/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "LEVITICUS"
+        ],
+        [
+          "smith",
+          "LEVITICUS"
+        ]
+      ],
+      "datingAs": "Genesis"
+    },
+    "4": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "For we have not an innumerable multitude of books among us",
+          "to": "the traditions of the origin of mankind till his death."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The first of these books is called Bresith",
+          "to": "which they properly call Thorath, that is law."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The twenty-two books of the Hebrews are the following",
+          "to": "‘These are the words’"
+        }
+      ],
+      "henry": {
+        "path": "volume-1/numbers/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "NUMBERS, BOOK OF"
+        ],
+        [
+          "smith",
+          "NUMBERS"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "33:2"
+      ],
+      "datingAs": "Genesis"
+    },
+    "5": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "For we have not an innumerable multitude of books among us",
+          "to": "the traditions of the origin of mankind till his death."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The first of these books is called Bresith",
+          "to": "which they properly call Thorath, that is law."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The twenty-two books of the Hebrews are the following",
+          "to": "‘These are the words’"
+        }
+      ],
+      "henry": {
+        "path": "volume-1/deuteronomy/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "DEUTERONOMY"
+        ],
+        [
+          "smith",
+          "DEUTERONOMY"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "31:9",
+        "31:22",
+        "31:24-26"
+      ],
+      "notes": {
+        "author": {
+          "text": "Deuteronomy 34 tells of Moses' death and burial. Josephus counts the five books as running \"till his death\".",
+          "quoted": [
+            "till his death"
+          ],
+          "inBook": [
+            "וימת"
+          ]
+        }
+      },
+      "datingAs": "Genesis"
+    },
     "40": {
       "witnesses": [
         {

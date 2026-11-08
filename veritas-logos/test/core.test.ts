@@ -770,8 +770,30 @@ test("people: every record is sound, and old saved ids still work", () => {
 test("book guides: counted figures, quoted witnesses and credits hold up", async () => {
   const { getBookGuide, guideBooks, guideDigest } = await import("../src/core/bookguide");
   const { henryCompletedBy } = await import("../src/core/writings");
-  // Every New Testament book has a guide.
-  assert.deepEqual(await guideBooks(), Array.from({ length: 27 }, (_, i) => 40 + i));
+  // The books of Moses, and every New Testament book.
+  assert.deepEqual(await guideBooks(), [1, 2, 3, 4, 5, ...Array.from({ length: 27 }, (_, i) => 40 + i)]);
+  // Genesis is counted in the Leningrad Codex: the Septuagint's "let us go into the field" (4:8) is listed, not counted,
+  // and each word is measured against the rest of the Old Testament.
+  const gen = (await getBookGuide(1))!;
+  assert.equal(gen.testament, "OT");
+  assert.deepEqual(gen.textual.hebrew?.added.map((x) => [x.at, x.kind]), [["4:8", "X"]]);
+  assert.equal(gen.chapters[3].words + 2, JSON.parse(fs.readFileSync("public/data/words/01.json", "utf8"))[3].flat().length);
+  const yalad = gen.keywords.find((k) => k.id === "H3205")!;
+  assert.equal(yalad.here, "fathered");
+  assert.ok(yalad.nt > yalad.n && yalad.translit === "yalad");
+  assert.equal(gen.selfKind, "opening");
+  assert.deepEqual((await getBookGuide(2))!.self.slice(0, 3), ["1:1", "17:14", "24:4"]);
+  // Where the New Testament quotes the book, and where the scribes' margin reads another word than the one written.
+  assert.ok((await getBookGuide(3))!.links.quotedBy.some((q) => q.at === "19:18" && q.ref === "Matthew 22:39"));
+  const deut = (await getBookGuide(5))!;
+  const r510 = deut.textual.hebrew!.readings.find((r) => r.at === "5:10")!;
+  assert.match(r510.english, /my/);
+  assert.match(r510.writtenEnglish, /his/);
+  assert.ok(deut.textual.hebrew!.readings.every((r) => r.translit === r.translit.toLowerCase()));
+  // The books of Moses share the dating views given under Genesis.
+  assert.equal(deut.datingAs, "Genesis");
+  assert.ok(deut.dating && gen.dating && gen.datingAs === undefined);
+  assert.ok(deut.witnesses.some((w) => w.writer === "josephus" && w.url === "#josephus-apion-1-1" && /five belong to Moses/.test(w.text)));
   const two = (await getBookGuide(63))!;
   assert.equal(two.glance.words, 245);
   // 2 John uses ἀλήθεια five times, all in verses 1 to 4.
@@ -830,7 +852,7 @@ test("book guides: counted figures, quoted witnesses and credits hold up", async
     assert.ok(g.self.every(real));
     for (const p of g.people) assert.ok(await getFigure(p.id), p.id);
     for (const w of g.witnesses) {
-      assert.match(w.url, /^https:\/\/ccel\.org\/ccel\/schaff\/(anf|npnf)\d+\.[a-z.]+\.html$/);
+      assert.match(w.url, /^(https:\/\/ccel\.org\/ccel\/schaff\/(anf|npnf)\d+\.[a-z.]+\.html|#josephus-[a-z]+-\d+-\d+)$/);
       assert.ok(w.text.length > 40 && w.edition && w.cite, w.cite);
       if (w.writer) assert.ok(await writerById(w.writer), w.writer);
     }

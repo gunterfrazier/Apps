@@ -223,7 +223,13 @@ export function BookPage({ slug }: { slug: string }) {
   if (!data) return <div className="page"><Loading /></div>;
   const m = data.meta;
   if (data.guide) {
-    const greekName = m?.greek ? <><dt>Greek name</dt><dd><span className="greek" lang="grc">{m.greek}</span> {m.greekTranslit}</dd></> : null;
+    // An Old Testament book's own name is its Hebrew one; the Greek is the Septuagint's, which English titles follow.
+    const greekName = (
+      <>
+        {m?.hebrew && <><dt>Hebrew name</dt><dd><span className="hebrew" lang="he" dir="rtl">{m.hebrew}</span> {m.hebrewTranslit}{m.hebrewMeaning ? `, “${m.hebrewMeaning}”` : ""}</dd></>}
+        {m?.greek && <><dt>Greek name</dt><dd><span className="greek" lang="grc">{m.greek}</span> {m.greekTranslit}</dd></>}
+      </>
+    );
     return <><BookGuideView g={data.guide} testament={m?.testament} greekName={greekName} /><div className="page"><ScholarshipLinks query={`${book.name} biblical studies`} /></div></>;
   }
   return (
