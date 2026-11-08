@@ -103,6 +103,7 @@ export function PeopleDataPage() {
       <List title="Summary sentences removed" intro="These sentences in a summary gave a person a family that the verses don't show." rows={data.bio_removed.map((x, i) => ({ key: String(i), main: x.sentence, sub: x.person }))} />
       <List title="People left out" intro="A source listed someone the verses don't support: a person a source added to fill out a count, or one inferred from a verse that doesn't refer to them." rows={(data.people_dropped ?? []).map((x, i) => ({ key: String(i), main: x.person, sub: `${x.why}.` }))} />
       <List title="Founders whose names became their people's" intro="Most verses that say Israel or Judah mean the nation or tribe. A founder's page lists the verses of his own story, and elsewhere only those that name him as a person, such as “Abraham, Isaac and Jacob”." rows={(data.eponyms ?? []).map((x, i) => ({ key: String(i), main: x.person, sub: `${x.kept} verses about him; ${x.people_verses.toLocaleString()} more use the name for his people.` }))} />
+      <List title="Verses corrected for the emperors" intro="The source files a few verses that say only “Caesar” under the wrong emperor, and a few under an emperor the verse doesn't mention." rows={(data.verse_fixes ?? []).map((x, i) => ({ key: String(i), main: `${x.ref}: ${x.from}`, sub: `${x.to ? `Moved to ${x.to === "Nero" ? "Nero (listed as Caesar)" : x.to}.` : "Removed."} ${x.why}.` }))} />
       <List title="Duplicates joined" intro="One person listed twice under different spellings. Links to either one lead to the same page." rows={(data.merged ?? []).map((x, i) => ({ key: String(i), main: x.person, sub: `Now part of ${x.into}.${x.why ? ` ${x.why}.` : ""}` }))} />
       <List title="Names changed to the Bible's" intro="The source filed these under a name that none of the bundled translations uses in their verses." rows={(data.renamed ?? []).map((x, i) => ({ key: String(i), main: x.name, sub: `${x.why}.` }))} />
       <p className="fine">{CREDIT}</p>
@@ -121,6 +122,7 @@ interface PeopleReport {
   people_dropped?: { person: string; why: string }[];
   merged?: { person: string; into: string; why?: string }[];
   eponyms?: { person: string; kept: number; people_verses: number }[];
+  verse_fixes?: { from: string; to: string; ref: string; why: string }[];
   renamed?: { person: string; name: string; why: string }[];
 }
 

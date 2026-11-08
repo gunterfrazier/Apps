@@ -784,9 +784,11 @@ def roles_of(p):
     return out
 
 
+# TIPNR's longer article is wrong for these, so its one-line summary is used.
+SHORT_BIO = {"Nero@Php.4.22-2Ti": "the article cites \"Philippians 4:22, 2 Timothy\" for Paul's letters, and 2 Timothy names Nero only in the traditional subscription"}
 def clean_bio(p, family):
     """TIPNR's summary, with its citations in plain form. A sentence that gives this person a family Scripture doesn't support is removed."""
-    text = p["article"] if len(p["verses"]) >= 4 else (p["short"] or p["article"])
+    text = p["article"] if len(p["verses"]) >= 4 and p["key"] not in SHORT_BIO else (p["short"] or p["article"])
     text = re.sub(r"<ref=\"([^\"]+)\">[^<]*</ref>", lambda m: nice(osis(m[1])) if osis(m[1]) else m[1], text)
     text = re.sub(r"<BR\s*/?>", "\n\n", text, flags=re.I)
     text = re.sub(r"<[^>]+>", "", text).strip()
@@ -912,6 +914,27 @@ for k, spans in EPONYMS.items():
     p.setdefault("group_verses", set()).update(tribe)
     report.setdefault("eponyms", []).append({"person": BORN_AS.get(k, p["name"]), "kept": len(p["verses"] - p["group_verses"]), "people_verses": len(tribe)})
 
+# Verses TIPNR files under the wrong emperor, checked by hand. Each is moved to the right person, or dropped when the
+# verse doesn't speak of anyone in the list.
+VERSE_FIXES = [
+    ("Augustus@Luk.2.1-Act", (42, 3, 1), None, "Luke 3:1's Caesar is \"Tiberius Caesar\", who is listed there already"),
+    ("Augustus@Luk.2.1-Act", (44, 27, 1), None, "Acts 27:1's \"Augustan cohort\" is the name of a unit, not a mention of the emperor"),
+    ("Nero@Php.4.22-2Ti", (55, 4, 22), None, "Nero is named only in the traditional subscription after 2 Timothy, not in the letter"),
+    *[("Claudius@Act.11.28-", (44, c, v), "Nero@Php.4.22-2Ti",
+       "Paul appeals to Caesar before Festus, and Josephus says Nero sent Festus to succeed Felix (Antiquities 20.8.9), after Claudius had died (20.8.1)")
+      for c, v in ((25, 8), (25, 10), (25, 11), (25, 12), (25, 21), (26, 32), (27, 24), (28, 19))],
+]
+for k, cv, to, why in VERSE_FIXES:
+    c_ = code(*cv)
+    if k not in tip or c_ not in tip[k]["verses"]:
+        raise SystemExit(f"VERSE_FIXES: TIPNR no longer gives {k} at {cv}; check the fix")
+    if to and to not in tip:
+        raise SystemExit(f"VERSE_FIXES: TIPNR has no {to}")
+    tip[k]["verses"].discard(c_)
+    if to:
+        tip[to]["verses"].add(c_)
+    report.setdefault("verse_fixes", []).append({"from": tip[k]["name"], "to": tip[to]["name"] if to else "", "ref": f"{NAMES[cv[0] - 1]} {cv[1]}:{cv[2]}", "why": why})
+
 people = {}
 for k, p in tip.items():
     up = direct_parents[k]
@@ -965,7 +988,7 @@ for k, p in tip.items():
         best = max(((len(found(n)), n) for n in p["forms"] if n != p["name"]), default=(0, ""))
         if best[0]:
             display = best[1]
-            alt = [x for x in [p["name"], *p["forms"]] if x != display]
+            alt = list(dict.fromkeys(x for x in [p["name"], *p["forms"]] if x != display))
             report.setdefault("renamed", []).append({"person": label(p), "name": display, "why": f"{p['name']} isn't the name in these verses"})
     if k in BORN_AS:
         display = BORN_AS[k]

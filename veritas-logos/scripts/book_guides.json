@@ -696,6 +696,682 @@
         ]
       ]
     },
+    "49": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "ignatius-of-antioch",
+          "work": "To the Ephesians",
+          "at": "12",
+          "vol": "anf01",
+          "div": "v.ii.xii",
+          "from": "Ye are initiated into the mysteries of the Gospel with Paul, the holy, the martyred, the deservedly most happy",
+          "to": "who in all his Epistles makes mention of you in Christ Jesus."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "polycarp-of-smyrna",
+          "work": "To the Philippians",
+          "at": "12",
+          "vol": "anf01",
+          "div": "iv.ii.xii",
+          "from": "For I trust that ye are well versed in the Sacred Scriptures",
+          "to": "Let not the sun go down upon your wrath.”"
+        },
+        {
+          "topic": "reception",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.17",
+          "vol": "anf03",
+          "div": "v.iv.vi.xvii",
+          "from": "We have it on the true tradition of the Church",
+          "to": "the apostle did in fact write to all?"
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "notes": {
+        "reception": {
+          "text": "Polycarp's two quotations, which he calls Scripture, are together the words of Ephesians 4:26. Tertullian says Marcion gave this letter the title \"to the Laodiceans\".",
+          "quoted": [
+            "It is declared then in these Scriptures",
+            "not to the Laodiceans"
+          ],
+          "inBook": [
+            "ἐπιδυέτω"
+          ]
+        }
+      },
+      "henry": {
+        "path": "volume-6/ephesians/_index.md",
+        "completedBy": "Samuel Rosewell"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "EPHESIANS, EPISTLE TO"
+        ],
+        [
+          "smith",
+          "EPHESIANS, THE EPISTLE TO THE"
+        ]
+      ]
+    },
+    "50": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "polycarp-of-smyrna",
+          "work": "To the Philippians",
+          "at": "3",
+          "vol": "anf01",
+          "div": "iv.ii.iii",
+          "from": "For neither I, nor any other such one, can come up to the wisdom of the blessed and glorified Paul.",
+          "to": "“is the mother of us all.”"
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/philippians/_index.md",
+        "completedBy": "William Harris"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "PHILIPPIANS, EPISTLE TO"
+        ],
+        [
+          "smith",
+          "PHILIPPIANS, EPISTLE TO THE"
+        ]
+      ]
+    },
+    "51": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.14",
+          "vol": "anf01",
+          "div": "ix.iv.xv",
+          "from": "That he was not merely a follower, but also a fellow-labourer of the apostles",
+          "to": "the beloved physician, greets you.”"
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        },
+        {
+          "topic": "background",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "There are also in circulation one to the Laodiceans",
+          "to": "for it is not suitable for gall to be mingled with honey."
+        },
+        {
+          "topic": "background",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.17",
+          "vol": "anf03",
+          "div": "v.iv.vi.xvii",
+          "from": "We have it on the true tradition of the Church",
+          "to": "the apostle did in fact write to all?"
+        }
+      ],
+      "notes": {
+        "background": {
+          "text": "Colossians 4:16 asks the church to read the letter \"from Laodicea\". The Muratorian fragment calls a letter to the Laodiceans circulating in its day a forgery, and Tertullian says Marcion gave the title \"to the Laodiceans\" to the letter the church knew as Ephesians.",
+          "quoted": [
+            "one to the Laodiceans",
+            "forged under the name of Paul",
+            "not to the Laodiceans"
+          ],
+          "inBook": [
+            "Λαοδικ"
+          ]
+        }
+      },
+      "titles": {
+        "background": "A letter to the Laodiceans"
+      },
+      "henry": {
+        "path": "volume-6/colossians/_index.md",
+        "completedBy": "William Harris"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "COLOSSIANS, EPISTLE TO THE"
+        ],
+        [
+          "smith",
+          "COLOSSIANS, THE EPISTLE TO THE"
+        ]
+      ]
+    },
+    "52": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "5.6",
+          "vol": "anf01",
+          "div": "ix.vii.vii",
+          "from": "And for this cause does the apostle, explaining himself",
+          "to": "to the coming of the Lord Jesus Christ.”"
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/1-thessalonians/_index.md",
+        "completedBy": "Daniel Mayo"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "THESSALONIANS, EPISTLES TO THE"
+        ],
+        [
+          "smith",
+          "THESSALONIANS, FIRST EPISTLE TO THE"
+        ]
+      ]
+    },
+    "53": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.7",
+          "vol": "anf01",
+          "div": "ix.iv.viii",
+          "from": "And again, in the Second to the Thessalonians, speaking of Antichrist",
+          "to": "and signs, and lying wonders.”"
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/2-thessalonians/_index.md",
+        "completedBy": "Daniel Mayo"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "THESSALONIANS, EPISTLES TO THE"
+        ],
+        [
+          "smith",
+          "THESSALONIANS, SECOND EPISTLE TO THE"
+        ]
+      ]
+    },
+    "54": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "He wrote, besides these, one to Philemon, and one to Titus, and two to Timothy",
+          "to": "in the regulation of ecclesiastical discipline."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "clement-of-alexandria",
+          "work": "Stromata",
+          "at": "2.11",
+          "vol": "anf02",
+          "div": "vi.iv.ii.xi",
+          "from": "As, then, philosophy has been brought into evil repute by pride and self-conceit",
+          "to": "the heretics reject the Epistles to Timothy."
+        },
+        {
+          "topic": "reception",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.21",
+          "vol": "anf03",
+          "div": "v.iv.vi.xxi",
+          "from": "To this epistle alone did its brevity avail",
+          "to": "even to the number of (St. Paul’s) epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        },
+        {
+          "topic": "background",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.4",
+          "vol": "npnf201",
+          "div": "iii.viii.iv",
+          "from": "Timothy, so it is recorded, was the first to receive the episcopate",
+          "to": "Titus of the churches in Crete."
+        }
+      ],
+      "notes": {
+        "reception": {
+          "text": "Clement says some heretics rejected the letters to Timothy because of the warning against knowledge \"falsely so called\" (1 Timothy 6:20). Tertullian says Marcion left out both letters to Timothy and the one to Titus.",
+          "quoted": [
+            "the heretics reject the Epistles to Timothy",
+            "he rejected the two epistles to Timothy and the one to Titus"
+          ],
+          "inBook": [
+            "ψευδωνύμου"
+          ]
+        }
+      },
+      "henry": {
+        "path": "volume-6/1-timothy/_index.md",
+        "completedBy": "Benjamin Andrews Atkinson"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "TIMOTHY, FIRST EPISTLE TO"
+        ],
+        [
+          "smith",
+          "TIMOTHY, EPISTLES OF PAUL TO"
+        ]
+      ]
+    },
+    "55": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "2.22",
+          "vol": "npnf201",
+          "div": "iii.vii.xxiii",
+          "from": "Thus after he had made his defense it is said that the apostle was sent again",
+          "to": "his first defense and his impending death."
+        },
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.3",
+          "vol": "anf01",
+          "div": "ix.iv.iv",
+          "from": "The blessed apostles, then, having founded and built up the Church",
+          "to": "Paul makes mention in the Epistles to Timothy."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "He wrote, besides these, one to Philemon, and one to Titus, and two to Timothy",
+          "to": "in the regulation of ecclesiastical discipline."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.21",
+          "vol": "anf03",
+          "div": "v.iv.vi.xxi",
+          "from": "To this epistle alone did its brevity avail",
+          "to": "even to the number of (St. Paul’s) epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/2-timothy/_index.md",
+        "completedBy": "Benjamin Andrews Atkinson"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "TIMOTHY, SECOND EPISTLE TO"
+        ],
+        [
+          "smith",
+          "TIMOTHY, EPISTLES OF PAUL TO"
+        ]
+      ]
+    },
+    "56": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "He wrote, besides these, one to Philemon, and one to Titus, and two to Timothy",
+          "to": "in the regulation of ecclesiastical discipline."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.21",
+          "vol": "anf03",
+          "div": "v.iv.vi.xxi",
+          "from": "To this epistle alone did its brevity avail",
+          "to": "even to the number of (St. Paul’s) epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        },
+        {
+          "topic": "background",
+          "writer": "clement-of-alexandria",
+          "work": "Stromata",
+          "at": "1.14",
+          "vol": "anf02",
+          "div": "vi.iv.i.xiv",
+          "from": "Epimenides the Cretan, whom Paul knew as a Greek prophet",
+          "to": "to make use of Greek poems."
+        },
+        {
+          "topic": "background",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.4",
+          "vol": "npnf201",
+          "div": "iii.viii.iv",
+          "from": "Timothy, so it is recorded, was the first to receive the episcopate",
+          "to": "Titus of the churches in Crete."
+        }
+      ],
+      "notes": {
+        "background": {
+          "text": "Titus 1:12 quotes \"one of their own prophets\" on the Cretans without naming him. Clement of Alexandria names him as Epimenides the Cretan.",
+          "quoted": [
+            "Epimenides the Cretan, whom Paul knew as a Greek prophet"
+          ],
+          "inBook": [
+            "Κρῆτες"
+          ]
+        }
+      },
+      "titles": {
+        "background": "Crete, in Clement and Eusebius"
+      },
+      "henry": {
+        "path": "volume-6/titus/_index.md",
+        "completedBy": "Jeremiah Smith"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "TITUS, EPISTLE TO"
+        ],
+        [
+          "smith",
+          "TITUS, EPISTLE TO"
+        ]
+      ]
+    },
+    "57": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "He wrote, besides these, one to Philemon, and one to Titus, and two to Timothy",
+          "to": "in the regulation of ecclesiastical discipline."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.21",
+          "vol": "anf03",
+          "div": "v.iv.vi.xxi",
+          "from": "To this epistle alone did its brevity avail",
+          "to": "even to the number of (St. Paul’s) epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/philemon/_index.md",
+        "completedBy": "Jeremiah Smith"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "PHILEMON, EPISTLE TO"
+        ],
+        [
+          "smith",
+          "PHILEMON, THE EPISTLE OF PAUL TO"
+        ]
+      ]
+    },
     "58": {
       "witnesses": [
         {
@@ -1409,6 +2085,148 @@
           "smith",
           "JUDE, EPISTLE OF"
         ]
+      ]
+    },
+    "66": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "justin-martyr",
+          "work": "Dialogue with Trypho",
+          "at": "81",
+          "vol": "anf01",
+          "div": "viii.iv.lxxxi",
+          "from": "And further, there was a certain man with us, whose name was John",
+          "to": "would likewise take place."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.18",
+          "vol": "npnf201",
+          "div": "iii.viii.xviii",
+          "from": "It is said that in this persecution the apostle and evangelist John",
+          "to": "at the end of the reign of Domitian.”"
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "9",
+          "vol": "npnf203",
+          "div": "v.iii.xi",
+          "from": "John, the apostle whom Jesus most loved",
+          "to": "afterwards wrote commentaries."
+        },
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "Therefore that he was called John, and that this book is the work of one John, I do not deny.",
+          "to": "that it is not his."
+        },
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "But I think that he was some other one of those in Asia",
+          "to": "each bearing the name of John."
+        },
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "I do not deny that the other writer saw a revelation",
+          "to": "in some places, solecisms."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "We receive also the Apocalypse of John and that of Peter",
+          "to": "will not have this latter read in the Church."
+        },
+        {
+          "topic": "reception",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "Some before us have set aside and rejected the book altogether",
+          "to": "wonder because I do not understand it."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.24",
+          "vol": "npnf201",
+          "div": "iii.viii.xxiv",
+          "from": "In regard to the Apocalypse, the opinions of most men are still divided.",
+          "to": "from the testimony of the ancients."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "but which others class with the accepted books."
+        }
+      ],
+      "notes": {
+        "author": {
+          "text": "Revelation calls its writer John (1:1, 1:4, 1:9 and 22:8) but doesn't say which John. Justin calls him one of the apostles, and Jerome, writing of the apostle John, says he wrote it on Patmos. Dionysius of Alexandria accepts that a John wrote it but, from its Greek, doubts he was the John who wrote the Gospel and the letter.",
+          "quoted": [
+            "one of the apostles of Christ",
+            "John, the apostle whom Jesus most loved",
+            "he was banished to the island of Patmos, and wrote the Apocalypse",
+            "But I cannot readily admit that he was the apostle"
+          ],
+          "inBook": [
+            "Ἰωάνν"
+          ]
+        }
+      },
+      "henry": {
+        "path": "volume-6/revelation/_index.md",
+        "completedBy": "William Tong"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "REVELATION, BOOK OF"
+        ],
+        [
+          "smith",
+          "REVELATION OF ST. JOHN"
+        ]
+      ],
+      "self": [
+        "1:1-3",
+        "1:9-11",
+        "22:8",
+        "22:18-19"
       ]
     }
   }

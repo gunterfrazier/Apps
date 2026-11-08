@@ -159,7 +159,7 @@ tl["rows"] = [r for r in tl["rows"] if r.get("id") in known or r.get("kind") == 
 json.dump(tl, open(f"{D}/timeline.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 
 name = lambda s: s
-short = {k: report[k] for k in ("counts", "overridden", "scripture_differs", "identity", "dates_overridden", "bio_removed", "people_dropped", "renamed", "merged", "eponyms") if k in report}
+short = {k: report[k] for k in ("counts", "overridden", "scripture_differs", "identity", "dates_overridden", "bio_removed", "people_dropped", "renamed", "merged", "eponyms", "verse_fixes") if k in report}
 short["secondary_count"] = len(report["secondary"])
 short["secondary"] = report["secondary"]
 short["unsupported"] = report["unsupported"]

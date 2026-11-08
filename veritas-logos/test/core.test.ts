@@ -770,7 +770,8 @@ test("people: every record is sound, and old saved ids still work", () => {
 test("book guides: counted figures, quoted witnesses and credits hold up", async () => {
   const { getBookGuide, guideBooks, guideDigest } = await import("../src/core/bookguide");
   const { henryCompletedBy } = await import("../src/core/writings");
-  assert.deepEqual(await guideBooks(), [40, 41, 42, 43, 44, 45, 46, 47, 48, 58, 59, 60, 61, 62, 63, 64, 65]);
+  // Every New Testament book has a guide.
+  assert.deepEqual(await guideBooks(), Array.from({ length: 27 }, (_, i) => 40 + i));
   const two = (await getBookGuide(63))!;
   assert.equal(two.glance.words, 245);
   // 2 John uses ἀλήθεια five times, all in verses 1 to 4.
@@ -794,6 +795,14 @@ test("book guides: counted figures, quoted witnesses and credits hold up", async
   // (Romans 16:22) and "I have written to you briefly", a different verb (Hebrews 13:22).
   const rom = (await getBookGuide(45))!, cor2 = (await getBookGuide(47))!, heb = (await getBookGuide(58))!;
   assert.ok(rom.self.includes("16:22") && cor2.self.includes("9:1") && heb.self.includes("13:22"));
+  // "As I wrote afore" (Ephesians 3:3); "you have no need for anyone to write to you" (1 Thessalonians 4:9, 5:1).
+  assert.ok((await getBookGuide(49))!.self.includes("3:3"));
+  assert.deepEqual((await getBookGuide(52))!.self, ["1:1", "4:9", "5:1"]);
+  const rev = (await getBookGuide(66))!;
+  assert.equal(rev.selfKind, "listed");
+  assert.match(rev.notes.author ?? "", /doesn't say which John/);
+  assert.ok(rev.witnesses.some((w) => w.writer === "dionysius-of-alexandria" && /solecisms/.test(w.text)));
+  assert.match((await getBookGuide(56))!.notes.background ?? "", /Epimenides/);
   // Hebrews names no writer; its note says so and rests on the passages quoted under it.
   assert.match(heb.notes.author ?? "", /doesn't name its writer/);
   assert.ok(heb.witnesses.some((w) => w.writer === "origen-of-alexandria" && /in truth, God knows/.test(w.text)));
@@ -802,7 +811,9 @@ test("book guides: counted figures, quoted witnesses and credits hold up", async
   assert.deepEqual(heb.links.quotes.filter((q) => q.at === "8:8").map((q) => q.ref), ["Jeremiah 31:31"]);
   assert.ok(!(await getBookGuide(59))!.links.quotes.some((q) => q.at === "5:10"));
   // Translators are credited from each work's own notice.
-  const credits = new Map((await Promise.all([46, 58, 65].map(getBookGuide))).flatMap((g) => g!.witnesses).map((w) => [w.cite, w.translator]));
+  const credits = new Map((await Promise.all([46, 54, 58, 65].map(getBookGuide))).flatMap((g) => g!.witnesses).map((w) => [w.cite, w.translator]));
+  assert.equal(credits.get("Against Marcion 5.21"), "trans. Peter Holmes");
+  assert.equal(credits.get("Stromata 2.11"), "trans. William Wilson");
   assert.equal(credits.get("1 Clement 47"), "trans. Alexander Roberts and James Donaldson");
   assert.equal(credits.get("On Modesty 20"), "trans. S. Thelwall");
   assert.equal(credits.get("Commentary on Matthew 10.17"), "trans. John Patrick");
@@ -855,6 +866,13 @@ test("people: a nation's name and another king's reign aren't given to the wrong
   const refs40 = JSON.parse(fs.readFileSync("public/data/links/40.json", "utf8"));
   assert.ok(!(refs40.p["2:6"] ?? []).includes("jacob-1"));
   assert.ok(refs40.p["8:11"].includes("jacob-1"));
+  // Paul's appeal to Caesar was heard under Nero, not Claudius; "Tiberius Caesar" isn't Augustus; 2 Timothy never names Nero.
+  const links = (b: number) => JSON.parse(fs.readFileSync(`public/data/links/${b}.json`, "utf8")).p;
+  assert.ok(links(44)["25:12"].includes("nero-php-4-22") && !links(44)["25:12"].includes("caesar-2"));
+  assert.ok(links(44)["18:2"].includes("caesar-2"));
+  assert.ok(!links(42)["3:1"].includes("caesar-augustus-1"));
+  assert.ok(!(links(55)["4:22"] ?? []).includes("nero-php-4-22"));
+  assert.equal(fig("nero-php-4-22").name, "Caesar");
   assert.equal(fig("judah-1").title, "Jacob's son living at the time of the Patriarchs");
   // "In the second year of Asa ... Nadab became king ... and he reigned two years": the reign is Nadab's, not Asa's.
   assert.ok(!fig("asa-1").facts.some((f: string) => /^Reigned/.test(f)));

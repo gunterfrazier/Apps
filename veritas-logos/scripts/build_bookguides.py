@@ -224,7 +224,7 @@ def self_refs(b, listed=None):
             c, a_, z = int(c), int(a_), int(z or a_)
             vs = [(c, v) for v in range(a_, z + 1)]
             toks = [t for (cc, vv) in vs for t in words[b][cc - 1][vv - 1]]
-            if item != "1:1" and not any(FIRST_PERSON.search(t[4] or "") or base_id(t[3]) in ("G1125", "G1989", "G975", "G976") for t in toks):
+            if item != "1:1" and not any(FIRST_PERSON.search(t[4] or "") or base_id(t[3]) in ("G1125", "G1989", "G4270", "G975", "G976") for t in toks):
                 fail(f"{NAME[b]} {item}: listed as the writer speaking about his book, but has no first-person word or word for writing")
             refs += [app_cv(b, cc, vv) for cc, vv in vs]
         return list(dict.fromkeys(refs))
@@ -233,13 +233,18 @@ def self_refs(b, listed=None):
         return refs
     for c, v, toks in verse_tokens(b):
         has_first = any(FIRST_PERSON.search(t[4] or "") for t in toks)   # a first-person verb, or "me", "us": "for me to write" (2 Corinthians 9:1)
+        has_second = any(re.search(r"-2[SP]$|^P-2", t[4] or "") for t in toks)
         for t in toks:
-            if base_id(t[3]) not in ("G1125", "G1989"):   # write; write a letter (Hebrews 13:22)
+            # write; write a letter (Hebrews 13:22); write before (Ephesians 3:3)
+            if base_id(t[3]) not in ("G1125", "G1989", "G4270"):
                 continue
             m = t[4] or ""
             finite_first = bool(re.search(r"-1[SP]$", m))
-            active = bool(re.match(r"^V-[PA]A[NP]", m))   # "writing", "to write"; not "written"
-            if finite_first or (active and has_first):
+            # "writing", "to write", "to be written": not a perfect ("it is written") and not a finite verb of
+            # someone else, and only beside "I", "we" or "you" ("you have no need for anyone to write to you",
+            # 1 Thessalonians 4:9 and 5:1).
+            infinitive = bool(re.match(r"^V-[PA][AMP][NP]", m))
+            if finite_first or (infinitive and (has_first or has_second)):
                 r = app_cv(b, c, v)
                 if r not in refs:
                     refs.append(r)
@@ -371,6 +376,7 @@ VOL_LABEL = {
     "npnf203": ("Nicene and Post-Nicene Fathers, Series 2, vol. 3, ed. Schaff and Wace (1890–1900)", "trans. Ernest Cushing Richardson"),
     "anf01": ("Ante-Nicene Fathers, vol. 1, ed. Roberts and Donaldson (1885–96)", ""),
     "anf02": ("Ante-Nicene Fathers, vol. 2, ed. Roberts and Donaldson (1885–96)", ""),
+    "anf03": ("Ante-Nicene Fathers, vol. 3, ed. Roberts and Donaldson (1885–96)", ""),
     "anf04": ("Ante-Nicene Fathers, vol. 4, ed. Roberts and Donaldson (1885–96)", ""),
     "anf05": ("Ante-Nicene Fathers, vol. 5, ed. Roberts and Donaldson (1885–96)", ""),
     "anf09": ("Ante-Nicene Fathers, vol. 9, ed. Allan Menzies", ""),
@@ -379,7 +385,8 @@ VOL_LABEL = {
 # edition that give it). The words are checked in that work's own text, so a credit is never typed in unseen.
 WORK_TRANSLATOR = [
     ("anf01", "ii", "trans. Alexander Roberts and James Donaldson", "the original editors and translators, Drs. Roberts and Donaldson"),
-    ("anf02", "vi.iv", "trans. William Wilson", "Translated by Rev. William Wilson"),
+    ("anf02", "vi", "trans. William Wilson", "narrated by our translator, Mr. Wilson"),
+    ("anf03", "v.iv", "trans. Peter Holmes", ["Five Books Against Marcion. [Translated by Dr. Holmes.]", "Very faithfully yours, Peter Holmes."]),
     ("anf04", "iii.iii", "trans. S. Thelwall", "Translated by the Rev. S. Thelwall"),
     ("anf04", "iii.viii", "trans. S. Thelwall", "Translated by the Rev. S. Thelwall"),
     ("anf04", "vi", "trans. Frederick Crombie", "Translated by the Rev. Frederick Crombie"),
@@ -392,8 +399,9 @@ def work_translator(v, div):
             inside = [s for s, i in divs if i == work or i.startswith(work + ".")]
             after = [s for s, i in divs if s > inside[-1] and not (i == work or i.startswith(work + "."))] if inside else []
             text = clean(raw[inside[0]: after[0] if after else len(raw)]) if inside else ""
-            if words not in text:
-                fail(f"{v} {work} doesn't say “{words}”")
+            for w_ in [words] if isinstance(words, str) else words:
+                if w_ not in text:
+                    fail(f"{v} {work} doesn't say “{w_}”")
             return credit
     return ""
 vols = {}
@@ -541,16 +549,18 @@ for b in sorted(map(int, a.books.split(",") if a.books else SPEC.keys())):
         got = witness(b, w)
         if got:
             guide["witnesses"].append(got[0])
-    book_words = [t[0] for _, _, toks in verse_tokens(b) for t in toks]
+    # The tagged text writes some accents with the old Greek-extended letters (ά as U+1F71); compare in one form.
+    nfc = lambda x: unicodedata.normalize("NFC", x)
+    book_words = [nfc(t[0]) for _, _, toks in verse_tokens(b) for t in toks]
     for k, note in spec.get("notes", {}).items():
         # A note may only say what the passages shown under it say, and what the Greek text itself shows.
         for q in note.get("quoted", []):
             if not any(q in w["text"] for w in guide["witnesses"]):
                 fail(f"{name}: the {k} note relies on “{q}”, which isn't in the passages quoted")
-        if note.get("notInBook") and any(note["notInBook"] in t for t in book_words):
+        if note.get("notInBook") and any(nfc(note["notInBook"]) in t for t in book_words):
             fail(f"{name}: the {k} note says the book doesn't name {note['notInBook']}, but it does")
         for g_ in note.get("inBook", []):
-            if not any(g_ in t for t in book_words):
+            if not any(nfc(g_) in t for t in book_words):
                 fail(f"{name}: the {k} note says the book names {g_}, but it doesn't")
         guide["notes"][k] = note["text"]
     guide["titles"] = spec.get("titles", {})
