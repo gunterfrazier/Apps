@@ -18,14 +18,22 @@ const vKey = (b: number, c: number, v: number) => `${b}:${c}:${v}`;
 const COLORS: HighlightColor[] = ["amber", "green", "blue", "rose"];
 
 // ---------- Read aloud ----------
+/** Read aloud uses the browser's own speech engine. Chrome, Safari, Edge and Firefox have one, but Android's in-app web
+ * view (what the Claude app and other apps show pages in, marked "; wv)" in its user agent) leaves it out. */
+const canSpeak = () => typeof window !== "undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined";
+const inAndroidWebView = () => typeof navigator !== "undefined" && /Android/.test(navigator.userAgent) && /; wv\)/.test(navigator.userAgent);
+const NO_SPEECH = () => inAndroidWebView()
+  ? "Read aloud isn't available here. Android's in-app viewer, which the Claude app uses, has no speech engine. Open Veritas Logos in Chrome to listen."
+  : "This browser has no speech engine, so it can't read aloud.";
+
 function speakLines(lines: { verse: number; text: string }[], onVerse: (v: number | null) => void) {
-  if (!("speechSynthesis" in window)) { toast("Your browser can't read aloud."); return () => {}; }
+  if (!canSpeak()) { toast(NO_SPEECH()); return () => {}; }
   const synth = window.speechSynthesis;
-  synth.cancel();
+  // Chrome can drop an utterance queued right after cancel(), so cancel only when something is playing.
+  if (synth.speaking || synth.pending) synth.cancel();
   const { voice, rate } = getData().prefs;
   let cancelled = false;
   let i = 0;
-  const voices = synth.getVoices();
   const next = () => {
     if (cancelled) return;
     if (i >= lines.length) { onVerse(null); return; }
@@ -33,11 +41,15 @@ function speakLines(lines: { verse: number; text: string }[], onVerse: (v: numbe
     if (!line.text) { next(); return; }
     const u = new SpeechSynthesisUtterance(line.text);
     u.rate = rate;
-    const chosen = voices.find((x) => x.name === voice);
+    // Voices load after the page does in Chrome, so look them up for each verse, not once at the start.
+    const chosen = voice ? synth.getVoices().find((x) => x.name === voice) : undefined;
     if (chosen) u.voice = chosen;
     u.onstart = () => onVerse(line.verse);
     u.onend = next;
-    u.onerror = () => onVerse(null);
+    u.onerror = (e) => {
+      onVerse(null);
+      if (!cancelled && e.error !== "interrupted" && e.error !== "canceled") toast(`Reading aloud stopped: the speech engine reported "${e.error}".`);
+    };
     synth.speak(u);
   };
   next();
@@ -342,7 +354,9 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
               <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => setPref("compare", t)} />
               <label className="label" htmlFor="text-size">Text size</label>
               <input id="text-size" type="range" min="15" max="28" value={prefs.textSize} onChange={(e) => setPref("textSize", Number(e.target.value))} />
-              <button type="button" className="btn small" onClick={toggleSpeak}>{speaking !== null ? "Stop reading" : "Read chapter aloud"}</button>
+              {canSpeak()
+                ? <button type="button" className="btn small" onClick={toggleSpeak}>{speaking !== null ? "Stop reading" : "Read chapter aloud"}</button>
+                : <p className="fine read-aloud-off">{NO_SPEECH()}</p>}
             </div>
           </details>
         </div>

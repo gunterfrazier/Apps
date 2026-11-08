@@ -105,6 +105,7 @@ Any passage, term, writer, event or creed is one tap from the others:
 - Echoes show shared words, not intent. The Septuagint here isn't tagged, so it's matched by word stems, and Psalms and Jeremiah aren't matched because their Greek numbering differs. Aramaic parts of Daniel and Ezra have fewer links.
 
 - A web page can't run while the phone has suspended it. AI work in a minimized app may pause and carries on when the app is opened again.
+- Read aloud uses the browser's own speech engine. Android's in-app viewer, which the Claude app uses there, has none, so the reader says so and points to Chrome. Chrome, Safari, Edge and Firefox can read aloud.
 - The packed data needs a browser from 2023 or later (Safari 16.4, Chrome 80, Firefox 113). An older browser shows a message asking for an update.
 
 - There is no sourced data yet for idioms, customs, or the first audience, so those rely on AI drafts. Public-domain works could be added as cited sources.
