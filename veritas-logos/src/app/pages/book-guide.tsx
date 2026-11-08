@@ -250,7 +250,7 @@ function BookNotes({ g }: { g: BookGuide }) {
   const tag = `book-${slugOf(g.name)}`;
   const note = notebook.find((n) => n.tags.includes(tag));
   const [text, setText] = useState(note?.body ?? "");
-  const timer = useRef<number>();
+  const timer = useRef<number | undefined>(undefined);
   useEffect(() => { if (note && note.body !== text && document.activeElement?.id !== "bg-notes-text") setText(note.body); }, [note?.body]);
   const save = (body: string) => {
     const now = new Date().toISOString();

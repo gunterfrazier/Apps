@@ -20,6 +20,8 @@ export interface Prefs {
   theme: Theme;
   textSize: number;
   voice: string;
+  /** Who reads aloud: the browser's own engine when it has one, or always the voice built into the app. */
+  readVoice: "device" | "builtin";
   rate: number;
   apiBase: string;
   apiKey: string;
@@ -43,7 +45,7 @@ export interface UserData {
 
 const KEY = "veritas.logos.v2";
 const defaults: UserData = {
-  prefs: { translation: DEFAULT_TRANSLATION, compare: "", lens: "all", theme: "system", textSize: 19, voice: "", rate: 1, apiBase: "", apiKey: "" },
+  prefs: { translation: DEFAULT_TRANSLATION, compare: "", lens: "all", theme: "system", textSize: 19, voice: "", readVoice: "device", rate: 1, apiBase: "", apiKey: "" },
   guides: [],
   highlights: {},
   bookmarks: [],
@@ -78,6 +80,7 @@ export function mergeData(raw: any): UserData {
       theme: p.theme === "light" || p.theme === "dark" ? p.theme : "system",
       textSize: typeof p.textSize === "number" ? Math.min(30, Math.max(14, p.textSize)) : 19,
       voice: typeof p.voice === "string" ? p.voice : "",
+      readVoice: p.readVoice === "builtin" ? "builtin" : "device",
       rate: typeof p.rate === "number" ? p.rate : 1,
       apiBase: typeof p.apiBase === "string" ? p.apiBase : "",
       apiKey: typeof p.apiKey === "string" ? p.apiKey : "",

@@ -6,7 +6,7 @@ A phone-first Bible study guide builder and reference tool, for personal use. It
 
 ## What's in it
 
-- **Reader:** full text of five translations (BSB, NHEB, KJV, ASV, YLT), side-by-side comparison, highlights, bookmarks, notes and read-aloud.
+- **Reader:** full text of five translations (BSB, NHEB, KJV, ASV, YLT), side-by-side comparison, highlights, bookmarks, notes and read-aloud. Read-aloud uses the browser's own voice, and where there's none (the Claude app on Android) a voice built into the app.
 - **Insights on any verse or passage:** where it's quoted, paralleled or possibly alluded to, where historic confessions cite it, and which Nave's topics cite it, plus an AI explanation of the first audience, idioms, culture, doctrines and theological lenses.
 - **Hebrew and Greek:** every word of every verse, with grammar, lexicon entries and a concordance.
 - **Study guide builder:** from any passage or topic, in four formats, in one step or through six guided steps. Guides can be edited, exported, shared by link and embedded.
@@ -29,7 +29,7 @@ Every section of a guide says where it came from: cited sources, AI draft or you
 
 ## How it's used today
 
-It runs as a private page in Claude. AI goes through your Claude account, and notes and guides are saved privately to that account, so no server, API key or separate bill is needed. To update it, run `npm run build` and publish `dist-artifact/index.html` with the files in `dist/`.
+It runs as a private page in Claude. AI goes through your Claude account, and notes and guides are saved privately to that account, so no server, API key or separate bill is needed. To update it, run `npm run build` and publish `dist-artifact/index.html` with the files in `dist/`, including `voice-worker.js` and `voice/`.
 
 ## Run it
 
@@ -44,6 +44,8 @@ npm run api          # website and API at http://localhost:8787
 `npm run dev` rebuilds the app on change at http://localhost:5173, without the API.
 
 `npm run build` packs the data files in `dist/data`, which takes them from about 240 MB to about 100 MB. Each is gzip-compressed, then base64-encoded into a JSON string, because Claude's artifact host serves `.json` files only as text. They keep their names, and the app and the server unpack them when they're read, so they work on any host without special settings. `public/data` stays plain, and `npm run dev` doesn't pack.
+
+The build also packs the built-in read-aloud voice into `dist/voice`: `public/voice/norman.bin` is split into three JSON pieces packed the same way (about 13 MB each, under the host's 16 MB limit for a text file), next to ONNX Runtime's `ort-wasm-simd-threaded.wasm`, which the host serves as it is, and `dist/voice-worker.js` runs them. Together they add about 55 MB, so the published app is about 158 MB of the host's 256 MB.
 
 Checks: `npm run typecheck`, `npm test`, `npm run data:check`.
 
@@ -87,6 +89,8 @@ test/          Automated tests
 - Quotations and parallels must share a run of wording, which is shown with each one.
 - Book guides are built by `scripts/build_bookguides.py` (`npm run data:books -- --sources ../sources`). The passages it quotes are listed in `scripts/book_guides.json` by their first and last words only, and the text between them is copied from CCEL's file, so a quote can't drift from the edition. Translators are credited from each work's own notice in the edition. The build stops if a passage, a dictionary entry, a translator's notice or the claim behind an editorial note can't be found: a note may only say what a quoted passage says and what the book's Greek shows.
 
+The read-aloud voice is built by `npm run data:voice -- --model <path>/en_US-norman-medium.onnx` (Python with `onnx`, `onnxruntime` and `numpy`), from the copy in k2-fsa/sherpa-onnx's `tts-models` release (`vits-piper-en_US-norman-medium.tar.bz2`). It stores the large weights as 16-bit floats, which halves the download, and stops if the rebuilt model's speech differs from the original's by more than rounding.
+
 Sources can still contain errors, and their chronology and family links reflect their editors' judgment. To rebuild, finish with `npm run data:echo`, `npm run data:people` and `npm run data:books -- --sources ../sources`, after `npm run data:build -- --sources ../sources`, `npm run data:writings -- --sources ../sources` and `npm run data:glossary -- --sources ../sources` (they need Python 3.11 or later and run after the first step because it clears `public/data`), which needs local copies of the sources listed in `DATA-LICENSES.md`.
 
 ## How the features connect
@@ -105,7 +109,8 @@ Any passage, term, writer, event or creed is one tap from the others:
 - Echoes show shared words, not intent. The Septuagint here isn't tagged, so it's matched by word stems, and Psalms and Jeremiah aren't matched because their Greek numbering differs. Aramaic parts of Daniel and Ezra have fewer links.
 
 - A web page can't run while the phone has suspended it. AI work in a minimized app may pause and carries on when the app is opened again.
-- Read aloud uses the browser's own speech engine. Android's in-app viewer, which the Claude app uses there, has none, so the reader says so and points to Chrome. Chrome, Safari, Edge and Firefox can read aloud.
+- Read aloud uses the browser's own speech engine in Chrome, Safari, Edge and Firefox. Android's in-app viewer, which the Claude app uses there, has none, so a voice built into the app reads instead: Norman, a Piper voice run by ONNX Runtime in a worker, with eSpeak NG for pronunciation. The first time, it downloads about 54 MB, which the browser keeps. Each time the app opens it takes a few seconds to get ready, and it runs on one thread, because a page in Claude can't use shared memory. Like any page, it stops when the phone locks or the app is minimized. Settings can choose it everywhere. It mispronounces some names, as eSpeak's rules guess them.
+- The built-in voice uses eSpeak NG, which is GPL-3.0. That's fine for personal use; check what it means before a public release.
 - The packed data needs a browser from 2023 or later (Safari 16.4, Chrome 80, Firefox 113). An older browser shows a message asking for an update.
 
 - There is no sourced data yet for idioms, customs, or the first audience, so those rely on AI drafts. Public-domain works could be added as cited sources.

@@ -8,7 +8,7 @@ import { aiDraft, detectAi, friendlyAiError, type AiMode } from "../ai-client";
 import { guideToDocx } from "../../core/docx";
 import { StudyNav } from "./notebook";
 import { EXPLORE_PRESETS } from "../../core/ai";
-import { ExegesisBlock, ExploreSheet, sectionText, useAiMode } from "./ai-explore";
+import { ExegesisBlock, ExploreSheet, JobError, JobProgress, sectionText, useAiMode } from "./ai-explore";
 import { PassageSearchBlock } from "./passage-search";
 import { symbolsHash } from "./symbols-link";
 import { draftKey, enqueueJob, exploreKey, markSeen, removeJob, useJob } from "../ai-jobs";

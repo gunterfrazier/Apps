@@ -5,6 +5,7 @@ import { ensureFigures } from "../../core/people";
 import { bookName } from "../../core/references";
 import { detectAi, resetAiDetection, type AiMode } from "../ai-client";
 import { IS_ARTIFACT, saveFile, copyText } from "../files";
+import { BUILT_IN, mb } from "../speech";
 import { mergeData, setPref, toast, update, useData, useSyncState, getData } from "../store";
 import { Empty, RefLink, TranslationSelect, LensSelect, useAsync } from "../ui";
 
@@ -63,6 +64,8 @@ export function LibraryPage() {
           <ul className="fine-list">{TRANSLATIONS.map((t) => <li key={t.id}><strong>{t.id}</strong> {t.name} ({t.year}). {t.style}.</li>)}</ul>
           <div><label className="label" htmlFor="set-lens">Theological lens</label><LensSelect id="set-lens" value={prefs.lens} onChange={(l) => setPref("lens", l)} /></div>
           <div><label className="label" htmlFor="set-theme">Appearance</label><select id="set-theme" value={prefs.theme} onChange={(e) => setPref("theme", e.target.value as "system" | "light" | "dark")}><option value="system">Match this device</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+          <div><label className="label" htmlFor="set-voice">Read-aloud voice</label><select id="set-voice" value={prefs.readVoice} onChange={(e) => setPref("readVoice", e.target.value === "builtin" ? "builtin" : "device")}><option value="device">This device's voice, when it has one</option>{BUILT_IN && <option value="builtin">{BUILT_IN.name}, built into Veritas Logos</option>}</select>
+            {BUILT_IN && <p className="fine">Where the browser has no voice, such as in the Claude app on Android, {BUILT_IN.name} reads. It downloads {mb(BUILT_IN.downloadBytes)} the first time and is kept in this browser.</p>}</div>
           <div><label className="label" htmlFor="set-rate">Read-aloud speed</label><select id="set-rate" value={prefs.rate} onChange={(e) => setPref("rate", Number(e.target.value))}>{[0.85, 1, 1.15, 1.3].map((r) => <option key={r} value={r}>{r}×</option>)}</select></div>
 
           <h3>AI assistant</h3>
@@ -125,6 +128,7 @@ function About() {
         <li><strong>Synopsis and editions:</strong> section order from Aland's Synopsis through aland-gospel-synopsis (MIT), and Greek edition differences from STEP Bible (CC BY 4.0).</li>
         <li><strong>Your glossary:</strong> your Theological Terms document, labeled as yours. It names no sources, so it isn't treated as a cited source. Entries tagged “Corrected” were reworded by Claude at your request and show your original wording. The rest are word for word.</li>
         <li><strong>Later teachers:</strong> Matthew Henry and Spurgeon's Treasury of David via LyteWord (CC0); Wesley's Explanatory Notes (public domain, structured by History of Methodism, CC BY 4.0); Calvin's Institutes, Luther on Galatians (Graebner's 1949 abridgment) and Edwards's sermons via Project Gutenberg. Spurgeon's sermons are an index that links out.</li>
+        <li><strong>Built-in read-aloud voice:</strong> Norman, a Piper voice by Bryce Beattie trained on LibriVox recordings (public domain), from rhasspy/piper-voices (MIT) via k2-fsa/sherpa-onnx. It's run by ONNX Runtime Web (MIT), with eSpeak NG (GPL-3.0) through phonemizer.js (Apache-2.0) turning text into phonemes.</li>
         <li><strong>New Testament dates:</strong> the years in Ussher's Annals of the World (1650), via BibleData. The captions are plain labels for the cited passages.</li>
       </ul>
       <p className="fine">A source can still contain errors, and its chronology and family links reflect its editors' judgment. Citations let you check them against the verses.</p>

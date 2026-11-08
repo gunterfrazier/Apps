@@ -5,6 +5,7 @@ import { newId } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
 import { BOOKS, bookName } from "../../core/references";
 import { copyText } from "../files";
+import { BUILT_IN, builtInSaved, canReadAloud, mb, NO_SPEECH, readAloud, usesBuiltIn, type SpeechStatus } from "../speech";
 import { readHash, type ReadRoute } from "../routes";
 import { getData, navigate, setPref, toast, update, useData, type HighlightColor } from "../store";
 import { ErrorNote, Loading, Sheet, Tag, TranslationSelect, RefLink, useAsync, Empty } from "../ui";
@@ -16,45 +17,6 @@ import { creedsCiting } from "../../core/scholar";
 
 const vKey = (b: number, c: number, v: number) => `${b}:${c}:${v}`;
 const COLORS: HighlightColor[] = ["amber", "green", "blue", "rose"];
-
-// ---------- Read aloud ----------
-/** Read aloud uses the browser's own speech engine. Chrome, Safari, Edge and Firefox have one, but Android's in-app web
- * view (what the Claude app and other apps show pages in, marked "; wv)" in its user agent) leaves it out. */
-const canSpeak = () => typeof window !== "undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined";
-const inAndroidWebView = () => typeof navigator !== "undefined" && /Android/.test(navigator.userAgent) && /; wv\)/.test(navigator.userAgent);
-const NO_SPEECH = () => inAndroidWebView()
-  ? "Read aloud isn't available here. Android's in-app viewer, which the Claude app uses, has no speech engine. Open Veritas Logos in Chrome to listen."
-  : "This browser has no speech engine, so it can't read aloud.";
-
-function speakLines(lines: { verse: number; text: string }[], onVerse: (v: number | null) => void) {
-  if (!canSpeak()) { toast(NO_SPEECH()); return () => {}; }
-  const synth = window.speechSynthesis;
-  // Chrome can drop an utterance queued right after cancel(), so cancel only when something is playing.
-  if (synth.speaking || synth.pending) synth.cancel();
-  const { voice, rate } = getData().prefs;
-  let cancelled = false;
-  let i = 0;
-  const next = () => {
-    if (cancelled) return;
-    if (i >= lines.length) { onVerse(null); return; }
-    const line = lines[i++];
-    if (!line.text) { next(); return; }
-    const u = new SpeechSynthesisUtterance(line.text);
-    u.rate = rate;
-    // Voices load after the page does in Chrome, so look them up for each verse, not once at the start.
-    const chosen = voice ? synth.getVoices().find((x) => x.name === voice) : undefined;
-    if (chosen) u.voice = chosen;
-    u.onstart = () => onVerse(line.verse);
-    u.onend = next;
-    u.onerror = (e) => {
-      onVerse(null);
-      if (!cancelled && e.error !== "interrupted" && e.error !== "canceled") toast(`Reading aloud stopped: the speech engine reported "${e.error}".`);
-    };
-    synth.speak(u);
-  };
-  next();
-  return () => { cancelled = true; synth.cancel(); onVerse(null); };
-}
 
 // ---------- Book and chapter picker ----------
 function Picker({ book, chapter, onPick, onClose }: { book: number; chapter: number; onPick: (b: number, c: number) => void; onClose: () => void }) {
@@ -275,7 +237,8 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   const chapter = route?.chapter ?? lastRead.chapter;
   const [picker, setPicker] = useState(false);
   const [sheet, setSheet] = useState<{ verse: number; end?: number } | null>(null);
-  const [speaking, setSpeaking] = useState<number | null>(null);
+  const [speech, setSpeech] = useState<SpeechStatus>({ state: "idle" });
+  const speaking = speech.state === "reading" ? speech.verse : null;
   const stopSpeak = useRef<(() => void) | null>(null);
   const translation = route?.translation ?? prefs.translation;
   const wide = useMedia("(min-width: 1100px)");
@@ -329,14 +292,25 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
     else if (book < 66) go(book + 1, 1);
   };
   const toggleSpeak = () => {
-    if (speaking !== null) { stopSpeak.current?.(); stopSpeak.current = null; return; }
+    if (speech.state !== "idle") { stopSpeak.current?.(); stopSpeak.current = null; return; }
     if (!verses) return;
-    stopSpeak.current = speakLines(verses, (v) => {
-      setSpeaking(v);
-      if (v) document.getElementById(`v${v}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    let last = 0;
+    stopSpeak.current = readAloud(verses, (s) => {
+      setSpeech(s);
+      if (s.state === "reading" && s.verse !== last) {
+        last = s.verse;
+        document.getElementById(`v${s.verse}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+      if (s.state === "idle") stopSpeak.current = null;
     });
-    setSpeaking(1);
   };
+  // Whether the built-in voice will read here, and whether it still has to download.
+  const builtIn = usesBuiltIn();
+  const { data: saved } = useAsync(() => (builtIn ? builtInSaved() : Promise.resolve(true)), [builtIn, speech.state === "idle"]);
+  const speechNote = speech.state === "downloading" ? `Downloading the voice: ${Math.round(speech.loaded / 1e6)} of ${mb(speech.total)}`
+    : speech.state === "preparing" ? "Getting the voice ready…"
+    : speech.state === "reading" ? `Reading verse ${speech.verse}`
+    : null;
   const compareInfo = useMemo(() => (prefs.compare ? translationInfo(prefs.compare) : null), [prefs.compare]);
   const inRange = (v: number) => route?.verse && v >= route.verse && v <= (route.verseEnd ?? route.verse);
 
@@ -354,12 +328,23 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
               <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => setPref("compare", t)} />
               <label className="label" htmlFor="text-size">Text size</label>
               <input id="text-size" type="range" min="15" max="28" value={prefs.textSize} onChange={(e) => setPref("textSize", Number(e.target.value))} />
-              {canSpeak()
-                ? <button type="button" className="btn small" onClick={toggleSpeak}>{speaking !== null ? "Stop reading" : "Read chapter aloud"}</button>
-                : <p className="fine read-aloud-off">{NO_SPEECH()}</p>}
+              {canReadAloud()
+                ? <button type="button" className="btn small" onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); toggleSpeak(); }}>{speech.state !== "idle" ? "Stop reading" : "Read chapter aloud"}</button>
+                : <p className="fine read-aloud-off">{NO_SPEECH}</p>}
+              {canReadAloud() && builtIn && BUILT_IN && speech.state === "idle" && (
+                <p className="fine read-aloud-off">{saved === false
+                  ? `${BUILT_IN.name}, the voice built into Veritas Logos, reads here. The first time, it downloads ${mb(BUILT_IN.downloadBytes)}, which this browser keeps.`
+                  : `${BUILT_IN.name}, the voice built into Veritas Logos, reads here.`}</p>
+              )}
             </div>
           </details>
         </div>
+        {speech.state !== "idle" && (
+          <div className="read-aloud-bar" role="status">
+            <span>{speechNote}</span>
+            <button type="button" className="btn small" onClick={toggleSpeak}>Stop</button>
+          </div>
+        )}
       </div>
 
       <div className="study-cta">

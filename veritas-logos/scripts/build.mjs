@@ -50,6 +50,38 @@ const packAll = (dir) => {
   }
 };
 if (!watch) packAll("dist/data");
+
+// The built-in read-aloud voice, for browsers without a speech engine (Android's in-app viewer). It's stored in
+// public/voice as one compact binary file (scripts/build_voice.py), which the host would turn away, so it's split
+// into pieces packed the same way as the data files, each well under the host's 16 MB limit for a text file.
+// ONNX Runtime's engine is a .wasm file, which the host serves as it is. src/voice/model.ts reverses the packing.
+const VOICE = "norman";
+const MAX_RAW_PIECE = 10_800_000;
+const packVoice = () => {
+  const manifest = JSON.parse(fs.readFileSync(`public/voice/${VOICE}.json`, "utf8"));
+  const raw = fs.readFileSync(`public/voice/${VOICE}.bin`);
+  fs.rmSync(`dist/voice/${VOICE}.bin`);
+  const pieces = [];
+  const step = Math.ceil(raw.length / Math.ceil(raw.length / MAX_RAW_PIECE));
+  for (let at = 0, n = 1; at < raw.length; at += step, n++) {
+    const part = raw.subarray(at, at + step);
+    const packed = Buffer.from(JSON.stringify(zlib.gzipSync(part, { level: 9 }).toString("base64")));
+    if (packed.length > 15_000_000) throw new Error(`voice piece ${n} is ${packed.length} bytes, over the host's limit`);
+    if (!zlib.gunzipSync(Buffer.from(JSON.parse(packed.toString()), "base64")).equals(part)) throw new Error(`voice piece ${n} doesn't unpack to its bytes`);
+    const file = `${VOICE}-${n}.json`;
+    fs.writeFileSync(`dist/voice/${file}`, packed);
+    pieces.push({ file, bytes: packed.length });
+  }
+  const engineFile = "ort-wasm-simd-threaded.wasm";
+  fs.copyFileSync(`node_modules/onnxruntime-web/dist/${engineFile}`, `dist/voice/${engineFile}`);
+  const engineVersion = JSON.parse(fs.readFileSync("node_modules/onnxruntime-web/package.json", "utf8")).version;
+  const engineBytes = fs.statSync(`dist/voice/${engineFile}`).size;
+  Object.assign(manifest, { pieces, engineFile, engineBytes, engineVersion });
+  fs.writeFileSync(`dist/voice/${VOICE}.json`, JSON.stringify(manifest));
+  const downloadBytes = engineBytes + pieces.reduce((a, p) => a + p.bytes, 0);
+  return { id: manifest.id, name: manifest.name, sha256: manifest.sha256, engineVersion, manifest: `voice/${VOICE}.json`, downloadBytes };
+};
+const voice = packVoice();
 fs.writeFileSync("dist/index.html", shell("Veritas Logos", "app"));
 fs.writeFileSync("dist/embed.html", shell("Veritas Logos", "embed"));
 
@@ -62,14 +94,14 @@ const options = {
   jsx: "automatic",
   outdir: "dist",
   inject: [],
-  define: { "process.env.NODE_ENV": watch ? '"development"' : '"production"' },
+  define: { "process.env.NODE_ENV": watch ? '"development"' : '"production"', __VOICE__: JSON.stringify(voice) },
   logLevel: "warning",
 };
 const cssEntry = 'import "../app/styles.css";\n';
 fs.mkdirSync("src/.gen", { recursive: true });
 fs.writeFileSync("src/.gen/app-entry.ts", 'import "../app/styles.css";\nimport "../app/main";\n');
 fs.writeFileSync("src/.gen/embed-entry.ts", `${cssEntry}import "../embed/embed-styles.css";\nimport "../embed/embed";\n`);
-options.entryPoints = { app: "src/.gen/app-entry.ts", embed: "src/.gen/embed-entry.ts" };
+options.entryPoints = { app: "src/.gen/app-entry.ts", embed: "src/.gen/embed-entry.ts", "voice-worker": "src/voice/worker.ts" };
 
 if (watch) {
   const ctx = await esbuild.context(options);
@@ -81,7 +113,7 @@ if (watch) {
   await esbuild.build({ entryPoints: ["server/server.ts"], bundle: true, platform: "node", format: "esm", target: "node22", outfile: "dist-server/server.js", external: ["node:*"], banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" }, logLevel: "warning" });
   const size = (p) => (fs.statSync(p).isDirectory() ? fs.readdirSync(p).reduce((a, f) => a + size(path.join(p, f)), 0) : fs.statSync(p).size);
   const count = (p) => (fs.statSync(p).isDirectory() ? fs.readdirSync(p).reduce((a, f) => a + count(path.join(p, f)), 0) : 1);
-  console.log(`dist: ${count("dist")} files, ${(size("dist") / 1e6).toFixed(1)} MB. app.js ${(fs.statSync("dist/app.js").size / 1e3).toFixed(0)} KB, embed.js ${(fs.statSync("dist/embed.js").size / 1e3).toFixed(0)} KB`);
+  console.log(`dist: ${count("dist")} files, ${(size("dist") / 1e6).toFixed(1)} MB. app.js ${(fs.statSync("dist/app.js").size / 1e3).toFixed(0)} KB, embed.js ${(fs.statSync("dist/embed.js").size / 1e3).toFixed(0)} KB, voice ${(size("dist/voice") / 1e6).toFixed(1)} MB + voice-worker.js ${(fs.statSync("dist/voice-worker.js").size / 1e3).toFixed(0)} KB`);
 }
 
 // The private preview page published to Claude: no document skeleton of its own, and hosted features switched off.

@@ -23,6 +23,14 @@ The published copies in `dist/data` are gzip-compressed and base64-encoded to sa
 
 **Left out on purpose:** NIV, ESV, NASB, NLT and CJB are under copyright, so the prototype's text labeled with those names was removed. To offer them, get permission from each publisher or use a licensed Bible API, then add a loader in `src/core/bible.ts`. Darby's translation was also left out because the available copy has corrupted text.
 
+**Built-in read-aloud voice** (`public/voice`, used where the browser has no speech engine):
+
+| Part | Source | License |
+|---|---|---|
+| Norman voice (`en_US-norman-medium`) | Trained by Bryce Beattie on LibriVox recordings; published in [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices); this copy from [k2-fsa/sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models) | Recordings public domain (model card); piper-voices MIT. The app stores the weights as 16-bit floats, which is its only change |
+| ONNX Runtime Web 1.31.1 | [microsoft/onnxruntime](https://github.com/microsoft/onnxruntime) | MIT |
+| eSpeak NG, through phonemizer.js 1.2.1 | [espeak-ng](https://github.com/espeak-ng/espeak-ng), [xenova/phonemizer.js](https://github.com/xenova/phonemizer.js) | eSpeak NG: GPL-3.0. phonemizer.js: Apache-2.0. GPL-3.0 needs a look before a public release, since the app ships eSpeak NG inside `voice-worker.js` |
+
 This is a summary, not legal advice. Check the license terms yourself before a public launch, especially if the app will ever charge money.
 
 ## Church Fathers and later teachers
