@@ -579,17 +579,39 @@ mark { background: var(--hl-amber); color: inherit; border-radius: 2px; }
 .kw-n { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink-2); }
 .kw-refs summary { cursor: pointer; font-size: .8rem; color: var(--ink-3); }
 .kw-refs .chips { gap: .15rem .5rem; }
+/* Book-guide graphs. Chapter numbers sit on their own axis, so they never crowd the bars or squares. */
+.ch-axis { position: relative; height: 1.1rem; font-size: .68rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.ch-axis span { position: absolute; top: 1px; transform: translateX(-50%); white-space: nowrap; }
+.ch-chart { margin: .6rem 0 .3rem; }
+.ch-chart figcaption { margin-top: .1rem; }
+.ch-bars { display: flex; align-items: flex-end; gap: 2px; height: 80px; }
+.ch-bars.mid { gap: 1px; }
+.ch-bars.dense { gap: 0; }
+.ch-bar { flex: 1; min-width: 0; height: 100%; display: flex; align-items: flex-end; justify-content: center; background: none; border: 0; padding: 0; cursor: pointer; }
+.ch-fill { width: 100%; max-width: 26px; background: var(--accent); border-radius: 2px 2px 0 0; opacity: .75; }
+.ch-bars.dense .ch-fill { border-radius: 0; }
+.ch-bar:hover .ch-fill, .ch-bar:focus-visible .ch-fill { opacity: 1; background: var(--accent-strong); }
 .kw-map { margin: .6rem 0; font-size: .8rem; }
-.kw-map-row { display: grid; gap: 2px; align-items: center; margin-bottom: 2px; }
-.kw-map-word { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kw-map-num { text-align: center; color: var(--ink-3); font-size: .68rem; font-variant-numeric: tabular-nums; }
-.kw-map-cell { height: 18px; border-radius: 3px; background: var(--accent); }
-/* Psalms: 150 columns fit a phone only without gaps, with every 25th chapter numbered. */
-.kw-map.dense { overflow: hidden; }
-.kw-map.dense .kw-map-row { gap: 0; }
+.kw-map .kw-map-rows { list-style: none; margin: 0; padding: 0; }
+.kw-map-row { display: grid; grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr); gap: .6rem; align-items: center; margin-bottom: 4px; }
+.kw-map-word { min-width: 0; color: inherit; text-decoration: none; overflow-wrap: anywhere; line-height: 1.25; }
+.kw-map-word .greek { font-size: 1rem; }
+.kw-map-word .hebrew { font-size: 1.15rem; }
+.kw-map-en { color: var(--ink-2); }
+a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
+.kw-map-strip { display: grid; gap: 2px; height: 16px; min-width: 0; }
+.kw-map-cell { border-radius: 2px; background: var(--accent); }
+.kw-map.mid .kw-map-strip { gap: 1px; }
+.kw-map.dense .kw-map-strip { gap: 0; }
 .kw-map.dense .kw-map-cell { border-radius: 0; }
-.kw-map.dense .kw-map-num { visibility: hidden; overflow: visible; }
-.kw-map.dense .kw-map-num:nth-child(2), .kw-map.dense .kw-map-num:nth-child(25n+1):not(:last-child) { visibility: visible; }
+.kw-map-foot { margin-top: 2px; }
+.kw-map-foot .kw-map-word { color: var(--ink-3); font-size: .72rem; }
+/* On a phone, each word goes on its own line above its squares, so the squares get the full width. */
+@media (max-width: 600px) {
+  .kw-map-row { grid-template-columns: minmax(0, 1fr); gap: 2px; margin-bottom: .55rem; }
+  .kw-map-foot { margin-top: -.3rem; }
+  .kw-map-foot .kw-map-word { display: none; }
+}
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .bg-ch h3 { margin: .3rem 0; }
 .bg-ch p { margin: .25rem 0; }

@@ -98,47 +98,70 @@ function WordCard({ k, guide }: { k: KeyWord; guide: BookGuide }) {
   );
 }
 
-/** Where each key word falls, chapter by chapter. */
+/** Which chapters an axis numbers, so the numbers never crowd on a phone: every chapter in a short book, then
+ * every 5th, 10th or 25th. */
+const axisStep = (n: number) => (n <= 16 ? 1 : n <= 40 ? 5 : n <= 80 ? 10 : 25);
+/** Spacing between bars and squares: none once a phone has only a pixel or two for each chapter. */
+const density = (n: number) => (n > 60 ? " dense" : n > 30 ? " mid" : "");
+
+/** Chapter numbers under a graph, each centered on its chapter. */
+function ChapterAxis({ n }: { n: number }) {
+  const step = axisStep(n);
+  const marks = Array.from({ length: n }, (_, i) => i + 1).filter((c) => c === 1 || c % step === 0);
+  // Centered on its chapter, but kept inside the graph's edges.
+  const at = (c: number) => { const half = String(c).length * 0.32; return `clamp(${half}em, ${((c - 0.5) / n) * 100}%, calc(100% - ${half}em))`; };
+  return <div className="ch-axis" aria-hidden="true">{marks.map((c) => <span key={c} style={{ left: at(c) }}>{c}</span>)}</div>;
+}
+
+/** A key word's English: its lexicon gloss, with STEP's "base: sense" form read as a list. */
+const english = (k: KeyWord) => k.gloss.replace(/\s*:\s*/g, ", ");
+
+/** Where each key word falls, chapter by chapter. On a phone each word sits on its own line above its row of
+ * squares, so the squares get the full width. */
 function WordMap({ guide }: { guide: BookGuide }) {
   const n = guide.glance.chapters;
   if (n < 2) return null;
-  const cols = { gridTemplateColumns: `minmax(4.5rem, 6.5rem) repeat(${n}, minmax(0, 1fr))` };
+  const strip = { gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` };
   return (
-    <div className={`kw-map${n > 60 ? " dense" : ""}`} role="table" aria-label="Key words by chapter">
-      <div className="kw-map-row" role="row" style={cols}>
-        <span role="columnheader" className="kw-map-word fine">Chapter</span>
-        {guide.chapters.map((c) => <span key={c.c} role="columnheader" className="kw-map-num">{c.c}</span>)}
-      </div>
-      {guide.keywords.map((k) => {
-        const max = Math.max(...k.byChapter.map((x, i) => x / guide.chapters[i].words));
-        return (
-        <div key={k.id} className="kw-map-row" role="row" style={cols}>
-          <span role="rowheader" className="kw-map-word"><Orig id={k.id} text={k.lemma} /></span>
-          {k.byChapter.map((x, i) => (
-            <span key={i} role="cell" className="kw-map-cell" title={`${k.translit} in chapter ${i + 1}: ${x}`} style={{ opacity: x ? 0.18 + 0.82 * Math.min(1, x / guide.chapters[i].words / max) : 0.06 }}>
-              <span className="sr">{x}</span>
-            </span>
-          ))}
-        </div>
-        );
-      })}
-      <p className="fine">Where each key word is used most, for the length of each chapter. Each row is shaded on its own scale, so the darkest square is where that word is densest.</p>
+    <div className={`kw-map${density(n)}`}>
+      <ul className="kw-map-rows" aria-label="Key words by chapter">
+        {guide.keywords.map((k) => {
+          const dens = k.byChapter.map((x, i) => x / guide.chapters[i].words);
+          const max = Math.max(...dens);
+          const top = dens.map((d, i) => [d, i + 1]).filter(([d]) => d > 0).sort((a, b) => b[0] - a[0]).slice(0, 3).map(([, c]) => c).sort((a, b) => a - b);
+          return (
+            <li key={k.id} className="kw-map-row">
+              <a className="kw-map-word" href={`#word-${k.id.toLowerCase()}`}><Orig id={k.id} text={k.lemma} /> <span className="kw-map-en">{english(k)}</span></a>
+              <span className="kw-map-strip" style={strip} role="img" aria-label={`${k.translit}, “${english(k)}”: ${k.n} uses, densest in chapter${top.length > 1 ? "s" : ""} ${top.join(", ")}`}>
+                {k.byChapter.map((x, i) => (
+                  <span key={i} className="kw-map-cell" title={`${k.translit} in chapter ${i + 1}: ${x}`} style={{ opacity: x ? 0.18 + 0.82 * Math.min(1, dens[i] / max) : 0.06 }} />
+                ))}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="kw-map-row kw-map-foot" aria-hidden="true"><span className="kw-map-word fine">Chapter</span><ChapterAxis n={n} /></div>
+      <p className="fine">Where each key word is used most, for the length of each chapter. Each row is shaded on its own scale, so the darkest square is where that word is densest. Tap a word for its lexicon entry.</p>
     </div>
   );
 }
 
 function ChapterBars({ guide }: { guide: BookGuide }) {
+  const n = guide.chapters.length;
   const max = Math.max(...guide.chapters.map((c) => c.words));
   return (
-    // Psalms has 150 chapters: on a phone the bars only fit with a 1px gap.
-    <div className={`c-bars${guide.chapters.length > 60 ? " dense" : ""}`} role="list" aria-label="Words in each chapter">
-      {guide.chapters.map((c) => (
-        <button key={c.c} type="button" role="listitem" className="c-bar" onClick={() => navigate(readHash({ book: guide.book, chapter: c.c }))} aria-label={`Chapter ${c.c}: ${c.verses} verses, ${c.words} words`} title={`Chapter ${c.c}: ${c.words} words`}>
-          <span className="c-fill" style={{ height: `${Math.max(4, (c.words / max) * 80)}px` }} />
-          <span className="c-label">{c.c}</span>
-        </button>
-      ))}
-    </div>
+    <figure className="ch-chart">
+      <div className={`ch-bars${density(n)}`} role="list" aria-label="Words in each chapter">
+        {guide.chapters.map((c) => (
+          <button key={c.c} type="button" role="listitem" className="ch-bar" onClick={() => navigate(readHash({ book: guide.book, chapter: c.c }))} aria-label={`Chapter ${c.c}: ${c.verses} verses, ${c.words} words`} title={`Chapter ${c.c}: ${c.words} words`}>
+            <span className="ch-fill" style={{ height: `${Math.max(4, (c.words / max) * 100)}%` }} />
+          </button>
+        ))}
+      </div>
+      <ChapterAxis n={n} />
+      <figcaption className="fine">Words in each chapter. Tap a bar to read that chapter.</figcaption>
+    </figure>
   );
 }
 
