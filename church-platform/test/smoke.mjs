@@ -1,0 +1,307 @@
+// Clicks through every feature at phone size and fails on any script error.
+// Run: node build.mjs && node test/smoke.mjs   (needs Playwright; set CHROME=/path/to/chrome if it can't find a browser)
+import { createRequire } from "node:module";
+import { createServer } from "node:http";
+import { readFileSync, existsSync, mkdirSync } from "node:fs";
+import { join, dirname, extname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+let playwright;
+try { playwright = require("playwright"); } catch { playwright = require(join(process.env.PLAYWRIGHT_DIR || "/opt/npm-tools/node_modules", "playwright")); }
+
+const here = dirname(fileURLToPath(import.meta.url));
+const root = join(here, "..", "dist");
+const shots = join(here, "..", ".shots");
+mkdirSync(shots, { recursive: true });
+const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".webmanifest": "application/manifest+json" };
+const server = createServer((req, res) => {
+  const p = join(root, decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/\/$/, "/index.html"));
+  if (!p.startsWith(root) || !existsSync(p)) { res.writeHead(404); return res.end(); }
+  res.writeHead(200, { "content-type": types[extname(p)] || "application/octet-stream" }); res.end(readFileSync(p));
+}).listen(0);
+const base = `http://localhost:${server.address().port}/`;
+
+const browser = await playwright.chromium.launch({ executablePath: process.env.CHROME || (existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : undefined) });
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, acceptDownloads: true });
+const page = await ctx.newPage();
+page.setDefaultTimeout(+process.env.STEP_TIMEOUT || 8000);
+const errors = [];
+page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
+page.on("console", (m) => { if (m.type() === "error" && !/fonts\.g|Failed to load resource|ERR_/.test(m.text())) errors.push(`console: ${m.text()}`); });
+await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+
+let current = "";
+const step = async (name, fn) => { current = name; try { await fn(); } catch (e) { errors.push(`${name}: ${e.message.split("\n")[0]}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); } };
+const shot = (name) => page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
+const goTo = async (hash) => { await page.evaluate((h) => { location.hash = h; }, hash); await page.waitForTimeout(90); };
+const text = () => page.textContent("#app");
+const expectText = async (s) => { const t = await text(); if (!t.includes(s)) throw new Error(`expected "${s}" on #${await page.evaluate(() => location.hash.slice(1))}`); };
+const sheetSubmit = () => page.click("#scrim form button.btn:not([type=button])");
+const sheetGone = () => page.waitForSelector("#scrim", { state: "detached", timeout: 4000 });
+
+await page.goto(base + "#event-riverside-e1");
+await step("welcome", async () => {
+  await shot("01-welcome");
+  await page.fill("input[name=name]", "Gunter Frazier");
+  await page.fill("input[name=email]", "gunter@example.com");
+  await page.click("form[data-form=welcome] button");
+  await page.waitForSelector("h1:has-text('Thanksgiving potluck')"); // the link they arrived with
+});
+await step("join as basic member", async () => {
+  await goTo("church-riverside"); await page.click("[data-act=join-church]");
+  await page.waitForSelector(".home-top"); await shot("02-home");
+  await goTo("me"); await expectText("Member");
+  if (await page.$('a[href="#admin"]')) throw new Error("a new member should not see Admin");
+});
+await step("campus filter", async () => {
+  await goTo("home"); await page.click(".home-top [data-act=pick-campus]");
+  await page.click('#scrim [data-id="riverside-east"]');
+  await expectText("East campus");
+  const t = await text(); if (t.includes("Staff offices")) throw new Error("private location shown to a member");
+  await page.click(".home-top [data-act=pick-campus]"); await page.click('#scrim [data-id="all"]');
+});
+await step("household", async () => {
+  for (const [name, birth, notes] of [["Ellie", "2019-04-02", "Peanut allergy"], ["Sam", "2022-02-10", ""]]) {
+    await goTo("household"); await page.click("[data-act=person-edit]:not([data-id])");
+    await page.fill("#scrim input[name=name]", name); await page.fill("#scrim input[name=birth]", birth); await page.fill("#scrim input[name=notes]", notes);
+    await sheetSubmit(); await sheetGone();
+  }
+});
+await step("classes and kids registration", async () => {
+  await goTo("classes"); await shot("03-classes");
+  await goTo("gathering-riverside-pre9"); await page.click("[data-act=g-register]");
+  await sheetSubmit(); await sheetGone(); await expectText("Registered");
+  await goTo("gathering-riverside-couples"); await page.click("[data-act=g-register]");
+  await sheetSubmit(); await sheetGone(); await expectText("Waiting for approval");
+  await goTo("gathering-riverside-eastside"); await page.click("[data-act=g-register]"); await sheetSubmit(); await sheetGone();
+  await goTo("gathering-riverside-staffprayer"); if ((await page.evaluate(() => location.hash)) !== "#connect") throw new Error("private-location group reachable by a member");
+});
+await step("event with kids", async () => {
+  await goTo("event-riverside-e4"); await page.click("[data-act=event-register]");
+  await page.check('#scrim input[name=kids] >> nth=0'); await sheetSubmit(); await sheetGone(); await expectText("You're going");
+});
+await step("parent portal", async () => {
+  await goTo("parents"); await expectText("Preschool, 9:00"); await expectText("Advent family night");
+  await page.click("[data-act=parent-checkin] >> nth=1");
+  await page.waitForSelector("form[data-form=checkin]");
+  await page.click("form[data-form=checkin] button.btn"); await page.waitForSelector(".kidtag .code");
+  await goTo("parents"); await expectText("Checked in"); await shot("04-parents");
+  await page.click("[data-act=parent-checkout]"); await page.click("[data-act=parent-checkout-yes]"); await sheetGone();
+});
+await step("chat", async () => {
+  await goTo("chat"); await expectText("Eastside young adults"); await expectText("Preschool, 9:00: parents");
+  await goTo("thread-g-riverside-eastside"); await page.fill("#msg", "See you Tuesday!"); await page.press("#msg", "Enter");
+  await page.waitForSelector(".msg.mine"); await shot("05-chat");
+  await goTo("directory"); await page.click("#dir-list a.row >> nth=0"); await page.click("[data-act=dm-start]"); await page.waitForSelector("form[data-form=chat-send]");
+});
+await step("prayer and giving", async () => {
+  await goTo("connect"); await page.click("[data-act=prayer-new]");
+  await page.fill("#scrim textarea[name=text]", "<b>Pray</b> for our <script>alert(1)</script> trip"); await sheetSubmit(); await sheetGone();
+  if (!(await page.textContent("#main .prayer >> nth=0")).includes("<script>")) throw new Error("user text was not escaped");
+  await goTo("give"); await page.click("[data-act=give-preset][data-n='100']"); await page.click("#give-btn");
+  await page.click("#scrim form[data-form=give-confirm] button"); await page.waitForSelector("#scrim [data-to=history]");
+  await page.click("[data-act=close-sheet]");
+});
+await step("become primary", async () => {
+  await goTo("me"); await page.click("[data-act=demo-primary]"); await page.waitForSelector("text=Account details"); await shot("06-admin");
+});
+await step("roles", async () => {
+  await goTo("admin-roles"); await shot("07-roles");
+  await goTo("role-media"); await page.check('input[name=p][value="manage.content"]'); await page.click("form[data-form=role-save] button.btn");
+  await page.waitForSelector("text=Roles run from most to least");
+  await page.click("[data-act=role-new]"); await page.fill("#scrim input[name=name]", "Campus pastor"); await page.selectOption("#scrim select[name=from]", "pastor"); await sheetSubmit();
+  await page.waitForSelector("form[data-form=role-save]"); await page.check('input[name=p][value="checkin.station"]'); await page.click("form[data-form=role-save] button.btn");
+  await goTo("admin-people"); await page.click('[data-act=member-edit][data-user="u-teresa"]');
+  const opt = await page.$$eval("#scrim select[name=roleId] option", (os) => os.find((o) => o.textContent === "Campus pastor").value);
+  await page.selectOption("#scrim select[name=roleId]", opt); await page.check('#scrim input[name=access][value=some]'); await page.check('#scrim input[name=locs][value="riverside-office"]');
+  await sheetSubmit(); await sheetGone(); await expectText("Campus pastor");
+});
+await step("locations", async () => {
+  await goTo("admin-locations"); await page.click("[data-act=loc-edit]:not([data-id])");
+  await page.fill("#scrim input[name=name]", "North campus"); await page.fill("#scrim input[name=code]", "east"); await sheetSubmit();
+  await page.waitForSelector("#scrim .err"); await page.fill("#scrim input[name=code]", "NORTH");
+  await page.check('#scrim input[name=visibility][value=private]', { force: true }); await page.fill("#scrim input[name=time0]", "10:30");
+  await page.fill("#scrim textarea[name=rooms]", "Room A\nRoom B"); await sheetSubmit(); await sheetGone(); await expectText("NORTH");
+});
+await step("features and defaults", async () => {
+  await goTo("admin-features"); await page.uncheck("input[name=m_giving]"); await page.click("form[data-form=admin-features] button.btn");
+  if (await page.$('.tabs a[href="#give"]')) throw new Error("Give tab still shown with giving off");
+  await page.check("input[name=m_giving]"); await page.selectOption("select[name=roleId]", "member"); await page.click("form[data-form=admin-features] button.btn");
+});
+await step("account and landing page", async () => {
+  await goTo("admin-account"); await page.setInputFiles('input[data-field="logo"]', join(root, "icons", "icon-192.png"));
+  await page.waitForSelector('[data-preview="logo"] img'); await page.fill('input[name="s_instagram"]', "https://instagram.com/example"); await page.click("form[data-form=admin-account] button.btn");
+  await goTo("admin-page"); await page.click("[data-act=block-add]"); await page.click('[data-act=block-new][data-type="hero"]');
+  await page.setInputFiles('#scrim input[data-field="image"]', join(root, "icons", "icon-512.png")); await page.waitForSelector('#scrim [data-preview="image"] img');
+  await page.fill("#scrim input[name=title]", "Welcome home"); await page.fill("#scrim input[name=buttonLabel]", "Plan a visit"); await page.fill("#scrim input[name=buttonUrl]", "not a link");
+  await sheetSubmit(); await page.waitForSelector("#scrim .err"); await page.fill("#scrim input[name=buttonUrl]", "#events"); await sheetSubmit(); await sheetGone();
+  await page.click('[data-act=block-move][data-dir="-1"] >> nth=-1');
+  await goTo("page-riverside"); await expectText("Welcome home"); await shot("08-landing");
+});
+await step("banner designer", async () => {
+  await goTo("admin-banner"); await page.waitForSelector("#banner-preview .banner");
+  await page.fill("input[name=headline]", "Come home"); await page.fill("input[name=sub]", "Sundays at 9 and 11");
+  const jsClick = (sel) => page.$eval(sel, (el) => el.click());
+  await jsClick('input[name=style][value=script]'); await jsClick('input[name=preset][value=dusk]');
+  if (!(await page.textContent("#banner-preview .bn-head")).includes("Come home")) throw new Error("preview didn't update");
+  await page.click('[data-act=banner-graphic-add][data-builtin="cross"]'); await page.waitForSelector('input[name="g2_size"]');
+  if ((await page.inputValue("input[name=headline]")) !== "Come home") throw new Error("unsaved edits were lost when adding a graphic");
+  await page.fill('input[name="g2_size"]', "40"); await page.dispatchEvent('input[name="g2_size"]', "input");
+  await page.setInputFiles("input[data-change=banner-graphic-upload]", join(root, "icons", "icon-192.png")); await page.waitForSelector('input[name="g3_size"]');
+  await jsClick('input[name=bgType][value=image]'); await page.click("form[data-form=banner-save] button.btn:not([type=button])");
+  await page.waitForSelector("form[data-form=banner-save] .err");
+  await page.setInputFiles('input[data-field="bgImage"]', join(root, "icons", "icon-512.png")); await page.waitForFunction(() => document.querySelector("#banner-preview .banner").style.background.includes("url"));
+  await shot("22-banner-designer");
+  await page.click("form[data-form=banner-save] button.btn:not([type=button])"); await page.waitForSelector(".home-top .banner");
+  if (!(await page.textContent(".home-top .bn-head")).includes("Come home")) throw new Error("banner not saved");
+  await shot("23-home-new-banner");
+});
+await step("webhooks and embeds", async () => {
+  await goTo("admin-integrations"); await page.click("[data-act=hook-edit]:not([data-id])");
+  await page.fill("#scrim input[name=url]", "https://example.com/hooks/church"); await sheetSubmit(); await sheetGone();
+  await page.click("[data-act=hook-edit][data-id]"); await page.click("#scrim [data-act=hook-test]"); await page.waitForSelector("[data-act=hook-log]");
+  await page.click("[data-act=embed-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "Church store"); await page.fill("#scrim input[name=url]", "https://example.com/store"); await sheetSubmit(); await sheetGone();
+  await goTo("connect"); await page.click("[data-act=prayer-new]"); await page.fill("#scrim textarea[name=text]", "Webhook check"); await sheetSubmit(); await sheetGone();
+  await goTo("admin-integrations"); await expectText("prayer.created"); await page.click("[data-act=hook-log] >> nth=0"); await page.waitForSelector("#scrim pre.code"); await shot("09-webhook");
+});
+await step("sermon builder", async () => {
+  await goTo("docs-sermon"); await page.click('a[href="#build-riverside-doc-vine"]'); await shot("10-builder");
+  await page.click('[data-act=dblock-new][data-type="point"]'); await page.fill("#scrim textarea[name=text]", "Stay connected this week"); await page.fill("#scrim textarea[name=notes]", "Pause here"); await sheetSubmit(); await sheetGone();
+  await page.click("[data-act=block-vis] >> nth=0");
+  await page.click('[data-act=dblock-new][data-type="scripture"]'); await page.fill("#scrim input[name=ref]", "Ps 23"); await page.click("#scrim [data-act=fill-bible]");
+  await page.waitForFunction(() => document.querySelector("#scrim textarea[name=text]").value.includes("shepherd"));
+  await sheetSubmit(); await sheetGone();
+  await goTo("resource-riverside-doc-vine"); await expectText("Private"); await shot("11-presenter-page");
+  await goTo("outline-riverside-doc-vine"); await expectText("You can't manufacture fruit");
+});
+await step("present a sermon", async () => {
+  await goTo("present-doc-riverside-doc-vine"); await page.waitForSelector("#stage"); await shot("12-present");
+  for (let i = 0; i < 40 && await page.$('[data-act="pres-go"][data-d="1"]:not([disabled])'); i++) await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("b"); await page.keyboard.press("l");
+  await page.click('[data-act=pres-mode][data-mode="scroll"]'); await page.waitForSelector(".scroll-slides"); await page.click('[data-act=pres-mode][data-mode="slideshow"]');
+});
+await step("service plan and songs", async () => {
+  await goTo("services"); await page.click('a[href="#service-riverside-svc-1"]'); await shot("13-service-plan");
+  await page.click("[data-act=seg-edit] >> nth=0"); await page.click("#scrim [data-act=item-save]"); await sheetSubmit(); await sheetGone();
+  await page.click("[data-act=seg-add]"); await page.click('[data-act=seg-new][data-type="creed"]'); await page.fill("#scrim textarea[name=text]", "We believe in God the Father\n\nAnd in Jesus Christ"); await sheetSubmit(); await sheetGone();
+  await goTo("present-service-riverside-svc-1"); await page.waitForSelector("#stage");
+  let n = 0; for (; n < 120 && await page.$('[data-act="pres-go"][data-d="1"]:not([disabled])'); n++) await page.click('[data-act="pres-go"][data-d="1"]');
+  if (n < 15) throw new Error(`only ${n} slides in the service`);
+  await page.click('[data-act=pres-jump][data-i="3"]'); await shot("14-present-service");
+  await goTo("songs"); await page.click("[data-act=song-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "New song"); await page.fill("#scrim textarea[name=lyrics]", "[Verse]\nLine one\nLine two"); await sheetSubmit();
+  await page.waitForSelector("#scrim .err"); await page.fill("#scrim input[name=copyright]", "© 2024 Example Music"); await sheetSubmit(); await sheetGone();
+  await goTo("services"); await page.click("[data-act=plan-new]"); await page.selectOption("#scrim select[name=from]", "library"); await sheetSubmit(); await page.waitForSelector("text=Order of service");
+});
+const titles = (sel = "#sort-list > [data-index] .block-top b") => page.$$eval(sel, (bs) => bs.map((b) => b.textContent.trim()));
+async function drag(fromIndex, toIndex) {
+  const h = await page.$(`#sort-list > [data-index="${fromIndex}"] [data-drag]`), target = await page.$(`#sort-list > [data-index="${toIndex}"]`);
+  await h.scrollIntoViewIfNeeded(); const a = await h.boundingBox(); const b = await target.boundingBox();
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await page.mouse.down();
+  const y = toIndex > fromIndex ? b.y + b.height * 0.8 : b.y + b.height * 0.2;
+  for (let i = 1; i <= 8; i++) await page.mouse.move(a.x + a.width / 2, a.y + (y - a.y) * i / 8);
+  await page.mouse.up(); await page.waitForTimeout(120);
+}
+await step("reorder, sections and layouts in a service plan", async () => {
+  await goTo("service-riverside-svc-1");
+  const before = await titles();
+  await drag(1, 3);
+  const after = await titles();
+  if (after[3] !== before[1]) throw new Error(`drag didn't move the segment: ${after.slice(0, 5).join(" | ")}`);
+  await page.click('[data-act=seg-edit][data-i="3"]'); await page.selectOption("#scrim select[name=_pos]", "1"); await sheetSubmit(); await sheetGone();
+  if ((await titles())[1] !== before[1]) throw new Error("position picker didn't move the segment back");
+  const iAmazing = (await titles()).indexOf("Amazing Grace");
+  await page.click(`[data-act=seg-edit][data-i="${iAmazing}"]`); await page.uncheck('#scrim input[name=sections][value="Verse 2"]'); await sheetSubmit(); await sheetGone();
+  await expectText("Verse 1, Verse 3");
+  const iRead = (await titles()).indexOf("Scripture reading");
+  await page.click(`[data-act=seg-edit][data-i="${iRead}"]`); await page.click("#scrim [data-act=item-save]");
+  await page.fill("#scrim input[name=name]", "Vine reading, short"); await page.check('#scrim input[name=p_mode][value=some]', { force: true });
+  for (const v of ["5", "6", "7", "8"]) await page.uncheck(`#scrim input[name=p_keys][value="${v}"]`);
+  await sheetSubmit(); await sheetGone();
+  await goTo("library"); await expectText("Vine reading, short"); await expectText("John 15:1-4");
+  await goTo("service-riverside-svc-1"); await page.click("[data-act=layout-save]");
+  await page.fill("#scrim input[name=name]", "Test layout");
+  await page.check('#scrim input[name=i0_mode][value=empty]', { force: true }); await page.check('#scrim input[name=i1_mode][value=skip]', { force: true });
+  await page.check('#scrim input[name=i5_mode][value=some]', { force: true }); await page.uncheck('#scrim input[name=i5_keys][value="1"]');
+  await sheetSubmit(); await sheetGone();
+  await goTo("layouts-service"); await expectText("Test layout"); await expectText("Standard Sunday"); await shot("19-layouts");
+  await page.click("[data-act=layout-open] >> text=Test layout"); await page.fill("#scrim input[name=name]", "Test layout renamed"); await page.click("#scrim form[data-form=layout-rename] button"); await sheetGone();
+  await page.click("[data-act=layout-open] >> text=Test layout renamed"); await page.click('#scrim [data-act=plan-new]');
+  await page.fill("#scrim input[name=date]", "2026-12-20"); await sheetSubmit(); await page.waitForSelector("#sort-list");
+  const n = (await titles()).length; if (n !== 12) throw new Error(`plan from layout has ${n} segments, expected 12`);
+  await page.click("[data-act=layout-insert]"); await page.click('#scrim [data-act=layout-insert-go] >> nth=0'); await sheetGone();
+  await shot("20-plan-from-layout");
+  await goTo("present-service-riverside-svc-1"); await page.waitForSelector("#stage");
+  for (let i = 0; i < 80 && await page.$('[data-act="pres-go"][data-d="1"]:not([disabled])'); i++) await page.keyboard.press("ArrowRight");
+});
+await step("reorder and layouts in the sermon builder", async () => {
+  await goTo("build-riverside-doc-vine");
+  const before = await titles(); await drag(0, 2);
+  if ((await titles())[2] !== before[0]) throw new Error("builder drag didn't move the item");
+  await page.focus('#sort-list > [data-index="2"] [data-drag]'); await page.keyboard.press("ArrowUp");
+  if ((await titles())[1] !== before[0]) throw new Error("keyboard reorder didn't move the item");
+  await page.click('[data-act=dblock-edit][data-i="1"]'); await page.click("#scrim [data-act=item-save]"); await page.fill("#scrim input[name=name]", "Opening keynote"); await sheetSubmit(); await sheetGone();
+  await page.click("[data-act=layout-save]"); await page.fill("#scrim input[name=name]", "Vine outline");
+  await page.check('#scrim input[name=i0_mode][value=empty]', { force: true }); await sheetSubmit(); await sheetGone();
+  await goTo("docs-sermon"); await page.click("[data-act=new-doc]");
+  await page.fill("#scrim input[name=title]", "From a layout"); await page.fill("#scrim input[name=passage]", "Romans 12:1-2");
+  await page.selectOption("#scrim select[name=from]", { label: "Three-point sermon" }); await sheetSubmit();
+  await page.waitForFunction(() => document.body.textContent.includes("living sacrifice"));
+  const n = (await titles()).length; if (n !== 7) throw new Error(`doc from layout has ${n} items, expected 7`);
+  await page.click("[data-act=saved-blocks]"); await page.click("#scrim [data-act=saved-block-add] >> text=Opening keynote"); await sheetGone();
+  await shot("21-doc-from-layout");
+});
+await step("lesson builder", async () => {
+  await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
+  await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));
+  await page.click('[data-act=dblock-new][data-type="question"]'); await page.fill("#scrim textarea[name=text]", "What did God make first?"); await sheetSubmit(); await sheetGone();
+  await page.click("[data-act=doc-publish]");
+});
+await step("classes admin", async () => {
+  await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");
+  await page.fill("#scrim input[name=name]", "Kindergarten, 11:00"); await page.check('#scrim input[name=days][value="0"]'); await page.fill("#scrim input[name=time]", "11:00");
+  await page.fill("#scrim input[name=room]", "Room 106"); await page.fill("#scrim input[name=ageMin]", "5"); await page.fill("#scrim input[name=ageMax]", "6");
+  await page.check('#scrim input[name=leaders][value="u-linda"]'); await sheetSubmit(); await sheetGone(); await expectText("Kindergarten, 11:00");
+  await page.click("[data-act=admin-edit]:not([data-id])"); await page.fill("#scrim input[name=name]", "Baptism class"); await page.check('#scrim input[name=kind][value=once]', { force: true }); await sheetSubmit();
+  await page.waitForSelector("#scrim .err"); await page.fill("#scrim input[name=date]", "2026-12-12"); await sheetSubmit(); await sheetGone();
+});
+await step("qr make and scan", async () => {
+  await goTo("qr"); await page.selectOption("select[name=target]", "register-gathering-riverside-pre9"); await page.waitForSelector("#qr-card svg"); await shot("15-qr");
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=qr-png]")]);
+  const file = join(shots, "qr.png"); await dl.saveAs(file);
+  await goTo("scan"); await page.setInputFiles("input[data-change=scan-file]", file);
+  await page.waitForFunction(() => location.hash === "#gathering-riverside-pre9", null, { timeout: 8000 });
+});
+await step("admin content and roster", async () => {
+  for (const k of ["news", "events", "sermons", "plans"]) { await goTo(`admin-${k}`); await page.click(`[data-act=admin-edit][data-kind=${k}] >> nth=1`); await sheetSubmit(); await sheetGone(); }
+  for (const k of ["checkin", "giving", "prayer", "cards", "people"]) await goTo(`admin-${k}`);
+  await goTo("live"); await goTo("ministry"); await shot("16-ministry");
+});
+await step("register a church", async () => {
+  await goTo("start"); await page.fill("input[name=name]", "Grace Point Church");
+  await page.fill("input[name=locName0]", "Downtown"); await page.fill("input[name=locCode0]", "DT");
+  await page.click("[data-act=add-start-loc]"); await page.fill("input[name=locName1]", "Westside"); await page.fill("input[name=locCode1]", "dt");
+  await page.click("form[data-form=start-church] button.btn:not([type=button])"); await page.waitForSelector("form[data-form=start-church] .err");
+  await page.fill("input[name=locCode1]", "WEST"); await page.check('input[name=locVis1][value=private]', { force: true });
+  await page.click("form[data-form=start-church] button.btn:not([type=button])"); await page.waitForSelector("text=Getting started");
+  await expectText("Primary: Gunter Frazier (you)");
+  for (const h of ["home", "word", "plans", "notes", "events", "connect", "classes", "groups", "directory", "give", "history", "checkin", "live", "alerts", "me", "chat", "parents", "admin-roles", "admin-locations", "admin-page"]) await goTo(h);
+  await shot("17-new-church");
+});
+await step("basic role is limited", async () => {
+  await goTo("home"); await page.click("[data-act=open-switcher]"); await page.click('#scrim [data-id="riverside"]'); await page.waitForSelector(".home-top");
+  await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
+  await goTo("admin"); await expectText("doesn't include this");
+  await goTo("docs-sermon"); if ((await page.evaluate(() => location.hash)) !== "#me" && (await page.evaluate(() => location.hash)) !== "#ministry") { /* redirected */ }
+});
+await step("persists after reload", async () => {
+  await page.reload(); await page.waitForSelector("#app");
+  await goTo("household"); await expectText("Ellie");
+});
+await step("dark mode", async () => {
+  await page.emulateMedia({ colorScheme: "dark" }); await goTo("home"); await shot("18-dark");
+});
+
+await browser.close(); server.close();
+if (errors.length) { console.error(`FAILED (${errors.length})\n` + errors.join("\n")); process.exit(1); }
+console.log("All screens rendered without errors. Screenshots in .shots/");
