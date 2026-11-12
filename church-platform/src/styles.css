@@ -884,3 +884,52 @@ mark { background: color-mix(in srgb, #ffd43b 55%, transparent); color: inherit;
 .booth { --surface: #1d2220; --sunken: #262c29; --ink: #eef1ee; --ink-2: #b8c2bb; --ink-3: #8f9a93; --line: #343c38; --brand-soft: #2a302d; --brand-ink: #eef1ee; background: #0d100f; color: var(--ink); }
 .booth-main { max-width: 760px; margin: 0 auto; padding: 22px 16px 48px; }
 .booth-main h1 { font-size: clamp(1.5rem, 4vw, 2rem); margin: 4px 0 2px; }
+
+/* ---------- Song sections ---------- */
+/* Each kind of section keeps one color everywhere: editor, song list and the presenter's buttons. Labels always name it too. */
+.pt-intro { --pt: #8b95a7; } .pt-verse { --pt: #3b82f6; } .pt-prechorus { --pt: #8b5cf6; } .pt-chorus { --pt: #e0457b; }
+.pt-bridge { --pt: #10b981; } .pt-outro { --pt: #64748b; } .pt-custom { --pt: #f59e0b; }
+.sp-head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 20px 0 8px; }
+.sp-h { font: 700 1.05rem var(--display); margin: 0; }
+h3.sp-h:not(:first-child) { margin-top: 18px; }
+.sp-head-row .sp-h { margin: 0; }
+.sp-paste { background: var(--sunken); border-radius: var(--r-l); padding: 12px 12px 14px; margin-bottom: 12px; }
+.sp-list { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 10px; }
+.sp { background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--pt); border-radius: 14px; padding: 8px 10px 10px; }
+.sp.dragging { box-shadow: var(--sh-2); position: relative; z-index: 2; }
+.sp-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.sp-type select, .sp-label input, .sp-new input { font: 600 .95rem var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-height: 40px; box-sizing: border-box; }
+.sp-type select { padding-right: 26px; }
+.sp-label { flex: 1; min-width: 0; }
+.sp-label input { width: 100%; }
+.sp textarea { min-height: 0; display: block; width: 100%; box-sizing: border-box; font: 1rem/1.5 var(--serif); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; resize: vertical; }
+.sp textarea:focus, .sp input:focus, .sp select:focus, .sp-new input:focus { outline: 2px solid var(--brand); outline-offset: 1px; }
+.sp-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 8px; }
+.sp-chip { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 12px 0 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 .88rem var(--sans); cursor: pointer; }
+.sp-chip[class*="pt-"] { border-color: color-mix(in srgb, var(--pt) 50%, var(--line)); }
+.sp-chip svg.i { width: 15px; height: 15px; color: var(--pt, var(--ink-2)); }
+button.sp-chip:hover { background: color-mix(in srgb, var(--pt, var(--ink)) 9%, var(--surface)); }
+.sp-new { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sp-order { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-order li.sp-chip { cursor: default; padding-right: 3px; background: color-mix(in srgb, var(--pt) 14%, var(--surface)); }
+.sp-order li.faint { font-size: .9rem; padding: 6px 0; }
+.sp-order button { border: 0; background: transparent; color: inherit; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
+.sp-order button:hover { background: color-mix(in srgb, var(--pt) 22%, transparent); }
+.sp-order button svg.i { width: 14px; height: 14px; color: var(--ink-2); }
+.part-strip { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 7px; }
+.part-strip i { width: 16px; height: 5px; border-radius: 3px; background: var(--pt); }
+/* Presenter: one button per section of the song on screen. */
+.song-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: #151918; border-radius: 14px; padding: 10px 10px 12px; }
+.song-bar-t { display: flex; align-items: center; gap: 6px; width: 100%; color: #9aa59e; font: 600 .9rem var(--display); }
+.song-bar-t .linkish { margin-left: auto; color: #9ecbff; }
+.sec-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 14px 0 10px; border-radius: 12px; border: 1.5px solid color-mix(in srgb, var(--pt) 60%, #343c38); background: color-mix(in srgb, var(--pt) 18%, #1d2220); color: #eef1ee; font: 600 .95rem var(--sans); cursor: pointer; }
+.sec-chip:hover { background: color-mix(in srgb, var(--pt) 30%, #1d2220); }
+.sec-chip kbd { font: 600 .72rem var(--sans); color: #9aa59e; background: #0d100f; border-radius: 6px; padding: 2px 6px; }
+.sec-chip.extra { border-style: dashed; background: transparent; }
+.sec-chip.on { background: #eef1ee; color: #111; border-color: var(--pt); box-shadow: inset 6px 0 0 var(--pt); }
+.sec-chip.on kbd { background: #d7ddd8; color: #333; }
+.live-tag { font-weight: 700; color: #ffd43b; margin-right: 2px; }
+.slide-pick .pt-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pt); align-self: center; flex: none; margin-left: -4px; }
+@media (min-width: 900px) { .song-bar { grid-column: 1; } }
+.sp-type { flex: 0 0 auto; }
+.sp-type select { width: auto; max-width: 140px; min-height: 40px; }

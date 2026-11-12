@@ -197,28 +197,98 @@ Actions["lib-new-type"] = (el) => segmentEditor({ lib: "" }, { type: el.dataset.
 Actions["lib-delete"] = (el) => { S.remove("library", el.dataset.id); closeSheet(); render(); };
 
 // ----- Songs -----
-/** "[Verse 1]\n..." -> [{ label, lines }]. Without labels, each blank-line-separated stanza is its own section. */
-function songSections(lyrics) {
-  const out = []; let cur = null;
-  String(lyrics || "").split("\n").forEach((line) => {
-    const m = line.trim().match(/^\[(.+)\]$/);
-    if (m) { cur = { label: m[1].trim(), lines: [] }; out.push(cur); return; }
-    if (!line.trim()) { if (cur && cur.lines.length && !cur.label.startsWith("Part")) { /* stanza break inside a labeled section */ cur.lines.push(""); } else if (cur?.lines.length) cur = null; return; }
-    if (!cur) { cur = { label: `Part ${out.length + 1}`, lines: [] }; out.push(cur); }
-    cur.lines.push(line.trim());
-  });
-  out.forEach((s) => { while (s.lines.length && !s.lines[s.lines.length - 1]) s.lines.pop(); });
-  return out.filter((s) => s.lines.length);
+// A song is a list of sections, each with a kind (intro, verse, pre-chorus, chorus, bridge, outro, or one of the
+// church's own like "Tag"), a label people can change, and its words; plus the order the band sings them in.
+// In the presenter, each section is a button, so the screen shows just the part being sung.
+const SONG_PART_TYPES = { intro: "Intro", verse: "Verse", prechorus: "Pre-chorus", chorus: "Chorus", bridge: "Bridge", outro: "Outro" };
+const sameLabel = (a, b) => String(a ?? "").trim().toLowerCase() === String(b ?? "").trim().toLowerCase();
+const escRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** The kind of section a label names: "Verse 2" is a verse, "Pre-Chorus" a pre-chorus, "Tag" is the church's own. */
+function partTypeOf(label) {
+  const l = String(label || "").toLowerCase().replace(/[^a-z]/g, "");
+  if (/^intro/.test(l)) return "intro";
+  if (/^prechorus/.test(l)) return "prechorus";
+  if (/^(chorus|refrain)/.test(l)) return "chorus";
+  if (/^verse/.test(l)) return "verse";
+  if (/^bridge/.test(l)) return "bridge";
+  if (/^(outro|ending)/.test(l)) return "outro";
+  return "custom";
 }
-function songSlides(song, only) {
-  const secs = songSections(song.lyrics);
-  const order = String(song.order || "").split(",").map((x) => x.trim()).filter(Boolean);
-  let seq = order.length ? order.map((o) => secs.find((s) => s.label.toLowerCase() === o.toLowerCase())).filter(Boolean) : secs;
-  if (only?.length) seq = seq.filter((s) => only.some((l) => l.toLowerCase() === s.label.toLowerCase()));
+/** Names of the church's own kinds of section, from its songs: "Tag", "Interlude"... */
+function customPartNames(extra = []) {
+  const names = new Map();
+  [...S.list("songs").flatMap((s) => s.parts || []), ...extra].filter((p) => p.type === "custom").forEach((p) => {
+    const n = p.label.replace(/\s+\d+[a-z]?$/i, "").trim(); if (n && !names.has(n.toLowerCase())) names.set(n.toLowerCase(), n);
+  });
+  return [...names.values()].sort((a, b) => a.localeCompare(b));
+}
+const HEADING = /^(intro|verse|pre-?\s?chorus|chorus|refrain|bridge|outro|ending|tag|interlude|instrumental|vamp|turnaround|coda)(\s*\d+[a-z]?)?\s*:?$/i;
+function lyricHeading(line, custom) {
+  const t = line.trim(), m = t.match(/^\[(.+)\]$/);
+  if (m) return m[1].trim();
+  if (HEADING.test(t) || custom.some((n) => new RegExp(`^${escRe(n)}(\\s*\\d+)?\\s*:?$`, "i").test(t))) return t.replace(/\s*:$/, "");
+  return null;
+}
+/** Pasted lyrics -> sections. Headings can be [Verse 1], or a line on its own like "Chorus" (as SongSelect copies them).
+ *  Stanzas without a heading become Verse 1, Verse 2... A blank line inside a section starts a new slide. */
+function parseLyrics(text, custom = [], idFor = () => uid()) {
+  const out = []; let cur = null, gap = false;
+  String(text || "").replace(/\r/g, "").split("\n").forEach((line) => {
+    const h = lyricHeading(line, custom);
+    if (h) { cur = { type: partTypeOf(h), label: h, lines: [] }; out.push(cur); gap = false; return; }
+    if (!line.trim()) { gap = true; return; }
+    if (!cur || (gap && cur.unlabeled)) { cur = { type: "verse", label: "", lines: [], unlabeled: true }; out.push(cur); }
+    else if (gap && cur.lines.length) cur.lines.push("");
+    gap = false; cur.lines.push(line.trim());
+  });
+  const parts = [];
+  out.forEach((p) => {
+    const lyrics = p.lines.join("\n").trim(), dup = parts.find((x) => p.label && sameLabel(x.label, p.label));
+    if (dup && (!lyrics || lyrics === dup.lyrics)) return; // "[Chorus]" again just means sing it again
+    const label = p.label && !dup ? p.label : nextPartLabel(p.type, parts, p.label.replace(/\s+\d+$/, ""));
+    parts.push({ id: idFor(parts.length), type: p.type, label, lyrics });
+  });
+  return parts;
+}
+/** The next free label for a new section: Verse 3, Chorus, Chorus 2, Tag... */
+function nextPartLabel(type, parts, name) {
+  const base = type === "custom" ? (name || "Section") : SONG_PART_TYPES[type];
+  const taken = new Set(parts.map((p) => p.label.trim().toLowerCase()));
+  if (type === "verse") { for (let n = 1; ; n++) if (!taken.has(`verse ${n}`)) return `Verse ${n}`; }
+  if (!taken.has(base.toLowerCase())) return base;
+  for (let n = 2; ; n++) if (!taken.has(`${base} ${n}`.toLowerCase())) return `${base} ${n}`;
+}
+/** A song's sections. Songs saved before sections existed are read from their [Label] lyrics. */
+const songParts = (song) => song.parts || parseLyrics(song.lyrics, [], (i) => `p${i}`);
+/** Labels in the order they're sung. An empty order means straight through. */
+function songOrder(song) {
+  const parts = songParts(song);
+  const order = (Array.isArray(song.order) ? song.order : String(song.order || "").split(",")).map((x) => x.trim()).filter((l) => l && parts.some((p) => sameLabel(p.label, l)));
+  return order.length ? order : parts.map((p) => p.label);
+}
+const partsToLyrics = (parts) => parts.map((p) => `[${p.label}]\n${p.lyrics}`.trim()).join("\n\n");
+function songFooter(song) {
   const c = S.church();
-  const footer = song.publicDomain ? `${song.title}${song.author ? `, ${song.author}` : ""}. Public domain.` : [song.title, song.author, song.copyright, song.ccliSong ? `CCLI song ${song.ccliSong}` : "", c.ccli ? `CCLI license ${c.ccli}` : ""].filter(Boolean).join(". ");
-  // Split long sections into slides of at most 4 lines.
-  return seq.flatMap((s) => { const lines = s.lines.filter(Boolean); const chunks = []; for (let i = 0; i < lines.length; i += 4) chunks.push(lines.slice(i, i + 4)); return chunks.map((l) => ({ kind: "lyrics", title: song.title, body: l.join("\n"), label: s.label, footer })); });
+  return song.publicDomain ? `${song.title}${song.author ? `, ${song.author}` : ""}. Public domain.` : [song.title, song.author, song.copyright, song.ccliSong ? `CCLI song ${song.ccliSong}` : "", c.ccli ? `CCLI license ${c.ccli}` : ""].filter(Boolean).join(". ");
+}
+/** One section's slides. Each stanza is its own slide, split evenly when it's longer than four lines.
+ *  A section without words is instrumental: the intro shows the song's title, others a clear screen. */
+function songPartSlides(song, p, footer = songFooter(song)) {
+  const base = { title: song.title, label: p.label, partType: p.type, songId: song.id };
+  const stanzas = String(p.lyrics || "").split(/\n\s*\n/).map((st) => st.split("\n").map((l) => l.trim()).filter(Boolean)).filter((l) => l.length);
+  if (!stanzas.length) return [p.type === "intro" ? { ...base, kind: "title", body: song.author || "", instrumental: true, footer } : { ...base, kind: "lyrics", body: "", instrumental: true }];
+  return stanzas.flatMap((lines) => {
+    const n = Math.ceil(lines.length / 4), size = Math.ceil(lines.length / n), out = [];
+    for (let i = 0; i < lines.length; i += size) out.push({ ...base, kind: "lyrics", body: lines.slice(i, i + size).join("\n"), footer });
+    return out;
+  });
+}
+/** Slides for the whole song in its order, or only some sections. occ numbers each time a section is sung; chunk is the slide within it. */
+function songSlides(song, only) {
+  const parts = songParts(song), footer = songFooter(song);
+  let seq = songOrder(song).map((l) => parts.find((p) => sameLabel(p.label, l))).filter(Boolean);
+  if (only?.length) seq = seq.filter((p) => only.some((l) => sameLabel(l, p.label)));
+  return seq.flatMap((p, occ) => songPartSlides(song, p, footer).map((x, chunk) => ({ ...x, occ, chunk })));
 }
 
 Screens.songs = () => {
@@ -229,36 +299,163 @@ Screens.songs = () => {
     body: html`${demoNote(html`Most worship songs are copyrighted. Project them under your church's <b>CCLI license</b> (add its number under Account details) and get lyrics from CCLI SongSelect. Hymns published before 1929 are public domain.`)}
       ${canPlan() ? html`<div class="btns"><button class="btn" data-act="song-edit">${icon("plus")}Add a song</button></div>` : ""}
       <label class="field"><span class="sr">Search songs</span><input type="search" placeholder="Search songs" data-input="filter-rows" data-target="#song-list" data-empty="#song-none"></label>
-      <div class="rows" id="song-list">${list.map((s) => html`<button class="row" data-act="song-edit" data-id="${s.id}" data-search="${s.title} ${s.author}"><span class="lead-ic">${icon("music")}</span><span class="body"><span class="t">${s.title}</span><span class="s">${s.author || "Unknown author"}, ${plural(songSlides(s).length, "slide")}${s.publicDomain ? ", public domain" : s.ccliSong ? `, CCLI ${s.ccliSong}` : ""}</span></span>${icon(canPlan() ? "edit" : "chev")}</button>`)}</div>
+      <div class="rows" id="song-list">${list.map((s) => html`<button class="row" data-act="song-edit" data-id="${s.id}" data-search="${s.title} ${s.author}"><span class="lead-ic">${icon("music")}</span><span class="body"><span class="t">${s.title}</span><span class="s">${s.author || "Unknown author"}, ${plural(songParts(s).length, "section")}${s.publicDomain ? ", public domain" : s.ccliSong ? `, CCLI ${s.ccliSong}` : ""}</span>
+        <span class="part-strip" aria-hidden="true">${songOrder(s).map((l) => { const p = songParts(s).find((x) => sameLabel(x.label, l)); return html`<i class="pt-${p.type}" title="${p.label}"></i>`; })}</span></span>${icon(canPlan() ? "edit" : "chev")}</button>`)}</div>
       <div id="song-none" class="empty" ${attr(list.length, "hidden")}><p>${list.length ? "No songs match." : "No songs yet."}</p></div>`,
   };
 };
+
+// ----- Song editor: sections, labels and order, kept in a draft until Save -----
+let songEd = null;
+const partTypeName = (t) => SONG_PART_TYPES[t] || "Custom";
+const orderIsStraight = () => songEd.order.join() === songEd.parts.map((p) => p.id).join();
+function songPartsHtml() {
+  const e = songEd, ro = e.ro, custom = customPartNames(e.parts);
+  const addChip = (type, name) => html`<button type="button" class="sp-chip pt-${type}" data-act="sp-add" data-type="${type}" data-name="${name || ""}">${icon("plus")}${name || SONG_PART_TYPES[type]}</button>`;
+  return html`
+    <div class="sp-head-row"><h3 class="sp-h">Sections</h3>${ro ? "" : html`<button type="button" class="btn ghost sm" data-act="song-paste" aria-expanded="${!!e.paste}">${icon("edit")}${e.paste ? "Close" : "Paste the whole song"}</button>`}</div>
+    ${e.paste && !ro ? html`<div class="sp-paste">
+      <label class="field"><span>Paste the lyrics</span><textarea name="pasteText" style="min-height:180px;font-family:var(--serif)" placeholder="Verse 1&#10;First line&#10;Second line&#10;&#10;Chorus&#10;...">${e.pasteText || ""}</textarea>
+        <small>Headings on their own line, like Verse 1, Pre-chorus or [Bridge], start a new section. Lyrics copied from SongSelect already have them.${e.parts.length ? " This replaces the sections below." : ""}</small></label>
+      <button type="button" class="btn sm" data-act="song-split">${icon("layers")}Split into sections</button></div>` : ""}
+    ${e.parts.length ? html`<ol class="sp-list" id="sp-list">${e.parts.map((p, i) => html`<li class="sp pt-${p.type}" data-index="${i}">
+      <div class="sp-top">${ro ? "" : dragHandle(`Move ${p.label || "this section"}`)}
+        <label class="sp-type"><span class="sr">Kind of section</span><select data-sp="type" data-i="${i}" ${attr(ro, "disabled")}>${Object.entries(SONG_PART_TYPES).map(([k, n]) => html`<option value="${k}" ${attr(p.type === k, "selected")}>${n}</option>`)}<option value="custom" ${attr(p.type === "custom", "selected")}>Custom</option></select></label>
+        <label class="sp-label"><span class="sr">Label</span><input type="text" value="${p.label}" data-sp="label" data-i="${i}" maxlength="30" placeholder="Label" ${attr(ro, "readonly")}></label>
+        ${ro ? "" : html`<button type="button" class="icon-btn sm" data-act="sp-remove" data-i="${i}" aria-label="Remove ${p.label}">${icon("trash")}</button>`}</div>
+      <label class="sr" for="sp-words-${p.id}">Words for ${p.label}</label>
+      <textarea id="sp-words-${p.id}" data-sp="lyrics" data-i="${i}" rows="${Math.min(10, Math.max(2, String(p.lyrics || "").split("\n").length))}" placeholder="${p.type === "intro" || p.type === "outro" ? "Leave empty if it's instrumental" : "Words. A blank line starts a new slide."}" ${attr(ro, "readonly")}>${p.lyrics || ""}</textarea>
+    </li>`)}</ol>` : html`<p class="faint">${e.paste ? "Or add the sections one at a time:" : "Add the song's sections one at a time, or paste the whole song."}</p>`}
+    ${ro ? "" : html`<div class="sp-add" role="group" aria-label="Add a section">${Object.keys(SONG_PART_TYPES).map((k) => addChip(k))}${custom.map((n) => addChip("custom", n))}
+      ${e.adding ? html`<span class="sp-new"><label class="sr" for="sp-custom-name">Name of the new kind of section</label><input id="sp-custom-name" type="text" maxlength="24" placeholder="Tag, Interlude, Vamp..."><button type="button" class="btn sm" data-act="sp-custom-add">Add</button><button type="button" class="linkish" data-act="sp-custom">Cancel</button></span>`
+        : html`<button type="button" class="sp-chip" data-act="sp-custom">${icon("plus")}Custom...</button>`}</div>`}
+    <h3 class="sp-h">Order</h3>
+    <p class="faint" style="margin:0 0 8px">How the band sings it.${ro ? "" : " Tap a section below to add it to the end; tap × to take one out."}</p>
+    <div id="sp-order">${songOrderHtml()}</div>`;
+}
+function songOrderHtml() {
+  const e = songEd, ro = e.ro, byId = (id) => e.parts.find((p) => p.id === id);
+  return html`<ol class="sp-order" aria-label="Order">${e.order.map((id, k) => { const p = byId(id); return p ? html`<li class="sp-chip pt-${p.type}">${p.label || partTypeName(p.type)}${ro ? "" : html`<button type="button" data-act="sp-order-remove" data-k="${k}" aria-label="Take out ${p.label} (number ${k + 1})">${icon("x")}</button>`}</li>` : ""; })}${e.order.length ? "" : html`<li class="faint">Nothing yet</li>`}</ol>
+    ${ro || !e.parts.length ? "" : html`<div class="sp-add" role="group" aria-label="Add to the order">${e.parts.map((p) => html`<button type="button" class="sp-chip ghost pt-${p.type}" data-act="sp-order-add" data-id="${p.id}">${icon("plus")}${p.label || partTypeName(p.type)}</button>`)}
+      ${orderIsStraight() ? "" : html`<button type="button" class="linkish" data-act="sp-order-reset">Sing straight through</button>`}</div>`}`;
+}
+function songFormHtml() {
+  const e = songEd, ro = e.ro;
+  return html`<form data-form="song-save" data-input="song-ed" data-change="song-ed" novalidate>
+    <label class="field"><span>Title</span><input type="text" name="title" value="${e.title}" required maxlength="80" ${attr(ro, "readonly")}></label>
+    ${ro ? "" : html`<div class="btns" style="margin:0 0 6px"><button type="button" class="btn ghost sm" data-act="song-find" data-site="songselect">${icon("search")}Find on SongSelect</button><button type="button" class="btn ghost sm" data-act="song-find" data-site="hymnary">${icon("search")}Find a hymn</button></div>
+    <p class="faint" style="margin-top:0">Opens a search in a new tab. Copy the lyrics you're licensed to use back into Paste the whole song.</p>`}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><label class="field"><span>Author</span><input type="text" name="author" value="${e.author}" maxlength="80" ${attr(ro, "readonly")}></label>
+      <label class="field"><span>CCLI song number</span><input type="text" name="ccliSong" value="${e.ccliSong}" maxlength="12" ${attr(ro, "readonly")}></label></div>
+    <label class="field"><span>Copyright line</span><input type="text" name="copyright" value="${e.copyright}" maxlength="160" placeholder="© 2010 Publisher Name" ${attr(ro, "readonly")}></label>
+    <label class="check"><input type="checkbox" name="publicDomain" ${attr(e.publicDomain, "checked")} ${attr(ro, "disabled")}><span>This song is in the public domain</span></label>
+    <div id="song-ed">${songPartsHtml()}</div>
+    ${ro ? "" : html`<div class="btns"><button class="btn">Save song</button>${e.id ? html`<button type="button" class="btn danger" data-act="song-delete" data-id="${e.id}">Delete</button>` : ""}</div>`}</form>`;
+}
+function redrawSongEd(focus) {
+  const box = $("#song-ed"); if (!box || !songEd) return;
+  box.innerHTML = flat(songPartsHtml());
+  makeSortable($("#sp-list"), (from, to, kb) => {
+    const straight = orderIsStraight();
+    if (!moveItem(songEd.parts, from, to)) return;
+    if (straight) songEd.order = songEd.parts.map((p) => p.id);
+    redrawSongEd(kb ? `#sp-list > [data-index="${to}"] [data-drag]` : null);
+  });
+  if (focus) $(focus)?.focus();
+}
 Actions["song-edit"] = (el) => {
-  const s = S.get("songs", el.dataset.id) || { publicDomain: false, lyrics: "", order: "" };
-  const ro = !canPlan();
-  openSheet(s.id ? s.title : "Add a song", html`<form data-form="song-save" novalidate><input type="hidden" name="id" value="${s.id || ""}">
-    <label class="field"><span>Title</span><input type="text" name="title" value="${s.title || ""}" required maxlength="80" ${attr(ro, "readonly")}></label>
-    <div class="btns" style="margin:0 0 6px"><button type="button" class="btn ghost sm" data-act="song-find" data-site="songselect">${icon("search")}Find on SongSelect</button><button type="button" class="btn ghost sm" data-act="song-find" data-site="hymnary">${icon("search")}Find a hymn</button></div>
-    <p class="faint" style="margin-top:0">Opens a search in a new tab. Copy the lyrics you're licensed to use back into the box below.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><label class="field"><span>Author</span><input type="text" name="author" value="${s.author || ""}" maxlength="80" ${attr(ro, "readonly")}></label>
-      <label class="field"><span>CCLI song number</span><input type="text" name="ccliSong" value="${s.ccliSong || ""}" maxlength="12" ${attr(ro, "readonly")}></label></div>
-    <label class="field"><span>Copyright line</span><input type="text" name="copyright" value="${s.copyright || ""}" maxlength="160" placeholder="© 2010 Publisher Name" ${attr(ro, "readonly")}></label>
-    <label class="check"><input type="checkbox" name="publicDomain" ${attr(s.publicDomain, "checked")} ${attr(ro, "disabled")}><span>This song is in the public domain</span></label>
-    <label class="field"><span>Lyrics</span><textarea name="lyrics" style="min-height:220px;font-family:var(--serif)" placeholder="[Verse 1]&#10;First line&#10;Second line&#10;&#10;[Chorus]&#10;..." ${attr(ro, "readonly")}>${s.lyrics || ""}</textarea><small>Label sections in brackets, like [Verse 1] or [Chorus]. Long sections split into slides of four lines.</small></label>
-    <label class="field"><span>Order</span><input type="text" name="order" value="${s.order || ""}" placeholder="Verse 1, Chorus, Verse 2, Chorus" ${attr(ro, "readonly")}><small>Leave blank to sing straight through.</small></label>
-    ${!ro ? html`<div class="btns"><button class="btn">Save song</button>${s.id ? html`<button type="button" class="btn danger" data-act="song-delete" data-id="${s.id}">Delete</button>` : ""}</div>` : ""}</form>`, { wide: true });
+  const s = S.get("songs", el.dataset.id);
+  const parts = s ? songParts(s).map((p) => ({ ...p, id: s.parts ? p.id : uid(), orig: p.label })) : [];
+  const order = s ? songOrder(s).map((l) => parts.find((p) => sameLabel(p.label, l))?.id).filter(Boolean) : [];
+  songEd = { id: s?.id || "", title: s?.title || "", author: s?.author || "", ccliSong: s?.ccliSong || "", copyright: s?.copyright || "", publicDomain: !!s?.publicDomain, parts, order, ro: !canPlan(), paste: !s, pasteText: "", adding: false };
+  openSheet(s ? s.title : "Add a song", songFormHtml(), { wide: true });
+  redrawSongEd();
+};
+Inputs["song-ed"] = (form, ev) => {
+  const t = ev.target, e = songEd; if (!e) return;
+  if (["title", "author", "ccliSong", "copyright", "pasteText"].includes(t.name)) e[t.name] = t.value;
+  if (t.name === "publicDomain") e.publicDomain = t.checked;
+  const p = e.parts[+t.dataset.i]; if (!p || !t.dataset.sp) return;
+  if (t.dataset.sp === "lyrics") p.lyrics = t.value;
+  if (t.dataset.sp === "label") { p.label = t.value; $("#sp-order").innerHTML = flat(songOrderHtml()); }
+  if (t.dataset.sp === "type" && ev.type === "change") {
+    const was = p.type; p.type = t.value;
+    // A label that just named the old kind ("Verse 2") follows the new kind; one the person typed stays.
+    const old = was === "custom" ? null : new RegExp(`^${escRe(SONG_PART_TYPES[was])}(\\s+\\d+)?$`, "i");
+    if (!p.label.trim() || (old && old.test(p.label.trim()))) p.label = nextPartLabel(p.type, e.parts.filter((x) => x !== p), p.type === "custom" ? "Section" : "");
+    redrawSongEd(`[data-sp="type"][data-i="${t.dataset.i}"]`);
+  }
+};
+Actions["sp-add"] = (el) => {
+  const e = songEd, straight = orderIsStraight(), type = el.dataset.type;
+  const p = { id: uid(), type, label: nextPartLabel(type, e.parts, el.dataset.name), lyrics: "" };
+  e.parts.push(p); if (straight) e.order.push(p.id);
+  redrawSongEd(`#sp-words-${p.id}`);
+};
+Actions["sp-custom"] = () => { songEd.adding = !songEd.adding; redrawSongEd(songEd.adding ? "#sp-custom-name" : null); };
+Actions["sp-custom-add"] = () => {
+  const name = $("#sp-custom-name")?.value.trim().replace(/\s+/g, " ");
+  if (!name) { $("#sp-custom-name")?.focus(); return; }
+  songEd.adding = false; Actions["sp-add"]({ dataset: { type: partTypeOf(name) === "custom" ? "custom" : partTypeOf(name), name } });
+};
+document.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.id === "sp-custom-name") { ev.preventDefault(); Actions["sp-custom-add"](); } });
+Actions["sp-remove"] = (el) => {
+  const e = songEd, [p] = e.parts.splice(+el.dataset.i, 1);
+  e.order = e.order.filter((id) => id !== p.id);
+  redrawSongEd(); toast(`${p.label || "Section"} removed`);
+};
+Actions["sp-order-add"] = (el) => { songEd.order.push(el.dataset.id); $("#sp-order").innerHTML = flat(songOrderHtml()); };
+Actions["sp-order-remove"] = (el) => { songEd.order.splice(+el.dataset.k, 1); $("#sp-order").innerHTML = flat(songOrderHtml()); $("#sp-order [data-act=sp-order-remove]")?.focus(); };
+Actions["sp-order-reset"] = () => { songEd.order = songEd.parts.map((p) => p.id); $("#sp-order").innerHTML = flat(songOrderHtml()); };
+Actions["song-paste"] = () => { songEd.paste = !songEd.paste; redrawSongEd(songEd.paste ? "#song-ed textarea[name=pasteText]" : null); };
+Actions["song-split"] = () => {
+  const e = songEd, parts = parseLyrics(e.pasteText, customPartNames(e.parts));
+  if (!parts.length) { toast("Paste the lyrics first"); $("#song-ed textarea[name=pasteText]")?.focus(); return; }
+  // Sections that keep a label keep their place in plans that pick sections.
+  parts.forEach((p) => { const was = e.parts.find((x) => sameLabel(x.label, p.label)); if (was?.orig) p.orig = was.orig; });
+  Object.assign(e, { parts, order: parts.map((p) => p.id), paste: false, pasteText: "" });
+  redrawSongEd(); toast(`Split into ${plural(parts.length, "section")}`);
 };
 Actions["song-find"] = (el) => {
   const title = $("#scrim input[name=title]")?.value || "";
   const url = el.dataset.site === "hymnary" ? `https://hymnary.org/search?qu=${encodeURIComponent(title)}` : `https://songselect.ccli.com/search/results?search=${encodeURIComponent(title)}`;
   const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
 };
+/** When a section is renamed or removed, plans and saved segments that sing only some sections follow along. */
+function renameSongSections(songId, map) {
+  const walk = (o) => {
+    if (!o || typeof o !== "object") return;
+    if (Array.isArray(o)) { o.forEach(walk); return; }
+    if (o.songId === songId && Array.isArray(o.sections)) {
+      o.sections = o.sections.map((l) => (map.has(l.trim().toLowerCase()) ? map.get(l.trim().toLowerCase()) : l)).filter(Boolean);
+      if (!o.sections.length) delete o.sections;
+    }
+    Object.values(o).forEach(walk);
+  };
+  ["services", "library", "layouts"].forEach((k) => walk(S.list(k)));
+}
 Forms["song-save"] = (d, f) => {
+  const e = songEd; if (!e) return;
   if (!d.title) return formError(f, "Give the song a title.");
-  if (!d.lyrics) return formError(f, "Add the lyrics.");
+  if (!e.parts.length && e.pasteText?.trim()) Actions["song-split"]();
+  if (!e.parts.length) return formError(f, "Add the song's sections, or paste the lyrics and choose Split into sections.");
+  if (e.parts.some((p) => !p.label.trim())) return formError(f, "Every section needs a label.");
+  const dup = e.parts.find((p, i) => e.parts.findIndex((x) => sameLabel(x.label, p.label)) !== i);
+  if (dup) return formError(f, `Two sections are called "${dup.label.trim()}". Give each its own label, like Chorus and Chorus 2.`);
+  if (!e.parts.some((p) => p.lyrics.trim())) return formError(f, "Add the words to at least one section.");
+  if (!e.order.length) return formError(f, "Add at least one section to the order.");
   if (!d.publicDomain && !d.copyright && !d.ccliSong) return formError(f, "Add the copyright line or CCLI song number, or mark the song public domain.");
-  const rec = { title: d.title, author: d.author, ccliSong: d.ccliSong, copyright: d.copyright, publicDomain: !!d.publicDomain, lyrics: d.lyrics, order: d.order };
-  if (d.id) S.update("songs", d.id, rec); else S.add("songs", rec);
-  closeSheet(); toast("Song saved"); render();
+  const parts = e.parts.map((p) => ({ id: p.id, type: p.type, label: p.label.trim().replace(/\s+/g, " "), lyrics: p.lyrics.replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim() }));
+  const labels = e.order.map((id) => parts.find((p) => p.id === id)?.label).filter(Boolean);
+  const straight = labels.join("\n") === parts.map((p) => p.label).join("\n");
+  const rec = { title: d.title, author: d.author, ccliSong: d.ccliSong, copyright: d.copyright, publicDomain: !!d.publicDomain, parts, order: straight ? [] : labels, lyrics: partsToLyrics(parts) };
+  if (e.id) {
+    const map = new Map();
+    const before = songParts(S.get("songs", e.id));
+    before.forEach((b) => { const now = e.parts.find((p) => p.orig && sameLabel(p.orig, b.label)); map.set(b.label.trim().toLowerCase(), now ? now.label.trim() : null); });
+    renameSongSections(e.id, map);
+    S.update("songs", e.id, rec);
+  } else S.add("songs", rec);
+  songEd = null; closeSheet(); toast("Song saved"); render();
 };
-Actions["song-delete"] = (el) => { S.remove("songs", el.dataset.id); closeSheet(); render(); };
+Actions["song-delete"] = (el) => { S.remove("songs", el.dataset.id); songEd = null; closeSheet(); render(); };

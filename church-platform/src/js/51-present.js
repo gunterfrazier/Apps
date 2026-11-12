@@ -91,12 +91,30 @@ function slideHtml(s, c = S.church()) {
   return html`<div class="slide k-${s.kind}"${bg}>${body}${s.footer ? html`<div class="slide-foot">${s.footer}</div>` : ""}</div>`;
 }
 
-const pres = { key: "", index: 0, black: false, logo: false, mode: "slideshow", segKey: "", segAt: 0, startedAt: 0, msg: "", cc: false, captions: "", transcript: [] };
+// live: a song section the operator picked that isn't next in the plan ({ label, i, returnTo, slides }). It plays, then the plan carries on after returnTo.
+const pres = { key: "", index: 0, live: null, black: false, logo: false, mode: "slideshow", segKey: "", segAt: 0, startedAt: 0, msg: "", cc: false, captions: "", transcript: [] };
+/** What's on screen and what comes next, including a song section picked on the fly. Followers use this too. */
+function liveAt(slides, st) {
+  const L = st?.live;
+  if (L?.slides?.length) { const i = clamp(L.i || 0, 0, L.slides.length - 1); return { cur: L.slides[i], next: L.slides[i + 1] || slides[L.returnTo + 1] }; }
+  const i = clamp(st?.index || 0, 0, Math.max(0, slides.length - 1));
+  return { cur: slides[i], next: slides[i + 1] };
+}
+/** Buttons for each section of the song on screen. Sections not in today's plan are dashed; they play, then the plan carries on. */
+function songBar(slides, cur) {
+  const song = cur?.songId && S.get("songs", cur.songId); if (!song) return "";
+  const planned = new Set(slides.filter((s) => s.segIndex === cur.segIndex && s.songId === song.id).map((s) => s.label.toLowerCase()));
+  return html`<div class="song-bar" role="group" aria-label="Sections of ${song.title}">
+    <span class="song-bar-t">${icon("music")}${song.title}${pres.live ? html`<button type="button" class="linkish" data-act="pres-unlive">Back to the plan</button>` : ""}</span>
+    ${songParts(song).map((p, k) => { const on = sameLabel(p.label, cur.label), inPlan = planned.has(p.label.toLowerCase());
+      return html`<button type="button" class="sec-chip pt-${p.type} ${on ? "on" : ""} ${inPlan ? "" : "extra"}" data-act="pres-section" data-song="${song.id}" data-label="${p.label}" aria-pressed="${on}" title="${inPlan ? `Go to ${p.label}` : `${p.label} isn't in today's plan. It plays, then the plan carries on.`}">${k < 9 ? html`<kbd>${k + 1}</kbd>` : ""}${p.label}</button>`; })}
+  </div>`;
+}
 let presChannel = null;
 try { presChannel = "BroadcastChannel" in window ? new BroadcastChannel("our-faithful-present") : null; } catch { presChannel = null; }
 const presLoc = (key) => { const [k, ...r] = key.split("-"); return S.get(k === "doc" ? "docs" : "services", r.join("-"))?.locationId || null; };
 function presBroadcast() {
-  const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "" };
+  const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, live: pres.live, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "" };
   try { presChannel?.postMessage(msg); } catch {}
   if (Backend.on) Backend.broadcast(msg);
 }
@@ -113,13 +131,13 @@ Screens.present = (tail) => {
   const [kind, ...rest] = tail.split("-"); const id = rest.join("-");
   const data = slidesFor(kind, id);
   if (!data || !S.isMember() || !(S.can("present") || (kind === "doc" && canEditDoc(S.get("docs", id))))) return { redirect: "ministry" };
-  if (pres.key !== tail) Object.assign(pres, { key: tail, index: 0, black: false, logo: false, msg: "", startedAt: Date.now(), segKey: "" });
+  if (pres.key !== tail) Object.assign(pres, { key: tail, index: 0, live: null, black: false, logo: false, msg: "", startedAt: Date.now(), segKey: "" });
   const { slides } = data;
   pres.index = clamp(pres.index, 0, slides.length - 1);
   // Each part of the service gets its own timer, starting when its first slide comes up.
   const segKey = `${tail}:${slides[pres.index]?.segIndex ?? slides[pres.index]?.section}`;
   if (pres.segKey !== segKey) Object.assign(pres, { segKey, segAt: Date.now() });
-  const cur = timedSlide(slides[pres.index], pres.segAt), next = slides[pres.index + 1];
+  const at = liveAt(slides, pres), cur = timedSlide(at.cur, pres.segAt), next = at.next, L = pres.live;
   const shown = pres.black ? { kind: "black" } : pres.logo ? { kind: "logo" } : cur;
   const stageMode = pres.mode === "stage";
   let lastSection = null;
@@ -132,9 +150,9 @@ Screens.present = (tail) => {
       : html`<div class="present-main">
         ${stageMode ? stageMonitor(data, pres) : html`<div class="stage" id="stage" aria-live="polite" aria-label="Slide ${pres.index + 1} of ${slides.length}">${slideHtml(shown)}</div>`}
         <div class="present-controls">
-          <button class="btn ghost" data-act="pres-go" data-d="-1" aria-label="Previous slide" ${attr(pres.index === 0, "disabled")}>${icon("prev")}</button>
-          <span class="present-count">${pres.index + 1} / ${slides.length}</span>
-          <button class="btn" data-act="pres-go" data-d="1" aria-label="Next slide" ${attr(pres.index >= slides.length - 1, "disabled")}>${icon("next")}Next</button>
+          <button class="btn ghost" data-act="pres-go" data-d="-1" aria-label="Previous slide" ${attr(!L && pres.index === 0, "disabled")}>${icon("prev")}</button>
+          <span class="present-count">${L ? html`<b class="live-tag">${L.label}</b> ${L.i + 1} / ${L.slides.length}` : `${pres.index + 1} / ${slides.length}`}</span>
+          <button class="btn" data-act="pres-go" data-d="1" aria-label="Next slide" ${attr(!next, "disabled")}>${icon("next")}Next</button>
           <button class="btn ghost" data-act="pres-black" aria-pressed="${pres.black}" aria-label="Black screen" title="Black screen (B)">${icon("black")}<span class="lbl">Black</span></button>
           <button class="btn ghost" data-act="pres-logo" aria-pressed="${pres.logo}" aria-label="Logo screen" title="Logo screen (L)">${icon("church")}<span class="lbl">Logo</span></button>
           <button class="btn ghost" data-act="pres-full" aria-label="Full screen" title="Full screen (F)">${icon("expand")}<span class="lbl">Full screen</span></button>
@@ -143,6 +161,7 @@ Screens.present = (tail) => {
           <button class="btn ghost" data-act="pres-overlay" data-key="${tail}" aria-label="Livestream overlay">${icon("live")}<span class="lbl">Overlay</span></button>
           <button class="btn ghost" data-act="pres-captions" aria-pressed="${pres.cc}" aria-label="Live captions">${icon("chat")}<span class="lbl">Captions</span></button>
         </div>
+        ${songBar(slides, at.cur)}
         ${pres.cc ? html`<p class="cc-live" aria-live="polite"><b>Captions</b> <span data-captions>${pres.captions || "Listening..."}</span></p>` : ""}
         <div class="present-side">
           ${stageMode ? html`<div><b class="faint">The audience sees</b><div class="stage mini">${slideHtml(shown)}</div></div>` : html`<div class="present-notes"><b>Notes</b><p>${cur?.notes || "No notes for this slide."}</p></div>`}
@@ -151,7 +170,7 @@ Screens.present = (tail) => {
             ${pres.msg ? html`<button type="button" class="linkish" data-act="stage-msg-clear">Clear "${pres.msg}"</button>` : html`<small class="faint">Shows on the stage display, not the audience screen.</small>`}</form>
           ${stageMode ? "" : next ? html`<div><b class="faint">Next</b><div class="stage mini">${slideHtml(next)}</div></div>` : html`<p class="faint">This is the last slide.</p>`}
         </div>
-        <div class="slide-list">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<p class="slide-sec">${s.section}</p>`) : ""}<button class="slide-pick ${i === pres.index ? "on" : ""}" data-act="pres-jump" data-i="${i}"><span>${i + 1}</span>${slideLabel(s)}</button>`)}</div>
+        <div class="slide-list">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<p class="slide-sec">${s.section}</p>`) : ""}<button class="slide-pick ${!L && i === pres.index ? "on" : ""}" data-act="pres-jump" data-i="${i}"><span>${i + 1}</span>${s.partType ? html`<i class="pt-dot pt-${s.partType}" aria-hidden="true"></i>` : ""}${slideLabel(s)}</button>`)}</div>
       </div>`}</div>`,
     after() {
       presBroadcast();
@@ -162,11 +181,37 @@ Screens.present = (tail) => {
   };
 };
 function slideLabel(s) {
+  if (s.instrumental) return `${s.label}: ${s.kind === "title" ? `${s.title}, instrumental` : "instrumental, clear screen"}`;
   return s.kind === "logo" ? "Logo" : s.kind === "lyrics" ? `${s.label}: ${s.body.split("\n")[0]}` : s.kind === "scripture" ? s.ref : s.kind === "qr" ? `QR: ${s.title}` : s.kind === "media" ? s.body || "Picture" : (s.title || s.body || "").split("\n")[0].slice(0, 60);
 }
-const presMove = (d) => { pres.index += d; pres.black = pres.logo = false; render(); };
+const presMove = (d) => {
+  pres.black = pres.logo = false;
+  const L = pres.live;
+  if (!L) pres.index += d;
+  else { L.i += d; if (L.i >= L.slides.length) { pres.live = null; pres.index = L.returnTo + 1; } else if (L.i < 0) { pres.live = null; pres.index = L.returnTo; } }
+  render();
+};
 Actions["pres-go"] = (el) => presMove(+el.dataset.d);
-Actions["pres-jump"] = (el) => { pres.index = +el.dataset.i; pres.black = pres.logo = false; render(); };
+Actions["pres-jump"] = (el) => { pres.index = +el.dataset.i; pres.live = null; pres.black = pres.logo = false; render(); };
+Actions["pres-unlive"] = () => { if (pres.live) { pres.index = pres.live.returnTo; pres.live = null; render(); } };
+/** Show one section of the song now. Later in the plan: skip ahead to it. Already sung, on screen now, or not planned: play it, then carry on after the section that was showing. */
+Actions["pres-section"] = (el) => {
+  const data = routeData(pres.key), song = S.get("songs", el.dataset.song); if (!data || !song) return;
+  const { slides } = data, label = el.dataset.label, here = pres.live ? pres.live.returnTo : pres.index;
+  const cur = pres.live ? pres.live.slides[pres.live.i] : slides[here], seg = cur?.segIndex;
+  pres.black = pres.logo = false;
+  const onNow = sameLabel(cur?.label, label) && cur?.songId === song.id;
+  let end = here;
+  if (!pres.live && slides[here]?.occ != null) while (slides[end + 1] && slides[end + 1].segIndex === seg && slides[end + 1].occ === slides[here].occ) end++;
+  const ahead = onNow ? -1 : slides.findIndex((s, i) => i > here && s.segIndex === seg && s.songId === song.id && s.chunk === 0 && sameLabel(s.label, label));
+  if (ahead >= 0) { pres.live = null; pres.index = ahead; }
+  else {
+    const p = songParts(song).find((x) => sameLabel(x.label, label)); if (!p) return;
+    const extra = songPartSlides(song, p).map((x, chunk) => ({ ...x, chunk, section: cur?.section, segIndex: seg, minutes: cur?.minutes }));
+    pres.live = { label: p.label, i: 0, returnTo: pres.live ? pres.live.returnTo : end, slides: extra };
+  }
+  render();
+};
 Actions["pres-black"] = () => { pres.black = !pres.black; pres.logo = false; render(); };
 Actions["pres-logo"] = () => { pres.logo = !pres.logo; pres.black = false; render(); };
 Actions["pres-mode"] = (el) => { pres.mode = el.dataset.mode; render(); };
@@ -178,7 +223,8 @@ Actions["pres-window"] = (el) => {
 document.addEventListener("keydown", (e) => {
   if (!document.body.classList.contains("presenting") || pres.mode === "scroll" || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if (["ArrowRight", "PageDown", " "].includes(e.key)) { e.preventDefault(); if ($('[data-act="pres-go"][data-d="1"]:not([disabled])')) presMove(1); }
-  else if (["ArrowLeft", "PageUp"].includes(e.key)) { e.preventDefault(); if (pres.index > 0) presMove(-1); }
+  else if (["ArrowLeft", "PageUp"].includes(e.key)) { e.preventDefault(); if (pres.live || pres.index > 0) presMove(-1); }
+  else if (/^[1-9]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) { const chip = $$(".song-bar .sec-chip")[+e.key - 1]; if (chip) { e.preventDefault(); chip.click(); } }
   else if (e.key.toLowerCase() === "b") Actions["pres-black"]();
   else if (e.key.toLowerCase() === "l") Actions["pres-logo"]();
   else if (e.key.toLowerCase() === "f") Actions["pres-full"]();
@@ -187,7 +233,7 @@ let touchX = null;
 document.addEventListener("touchstart", (e) => { if (e.target.closest("#stage")) touchX = e.touches[0].clientX; }, { passive: true });
 document.addEventListener("touchend", (e) => {
   if (touchX == null) return; const dx = e.changedTouches[0].clientX - touchX; touchX = null;
-  if (Math.abs(dx) > 50) { if (dx < 0 && $('[data-act="pres-go"][data-d="1"]:not([disabled])')) presMove(1); else if (dx > 0 && pres.index > 0) presMove(-1); }
+  if (Math.abs(dx) > 50) { if (dx < 0 && $('[data-act="pres-go"][data-d="1"]:not([disabled])')) presMove(1); else if (dx > 0 && (pres.live || pres.index > 0)) presMove(-1); }
 });
 
 // The audience display: just the slide, kept in step with the operator through BroadcastChannel.
@@ -196,7 +242,7 @@ Screens.display = (tail) => {
   const [kind, ...rest] = tail.split("-"); const id = rest.join("-");
   const draw = (state = { index: 0 }) => {
     const data = slidesFor(kind, id);
-    const s = !data ? null : state.black ? { kind: "black" } : state.logo ? { kind: "logo" } : timedSlide(data.slides[clamp(state.index, 0, data.slides.length - 1)], state.segAt);
+    const s = !data ? null : state.black ? { kind: "black" } : state.logo ? { kind: "logo" } : timedSlide(liveAt(data.slides, state).cur, state.segAt);
     applyBrand();
     $("#app").innerHTML = flat(html`<div class="display"><div class="stage">${slideHtml(s)}</div></div>`);
   };

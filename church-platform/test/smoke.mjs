@@ -190,7 +190,7 @@ await step("service plan and songs", async () => {
   let n = 0; for (; n < 120 && await page.$('[data-act="pres-go"][data-d="1"]:not([disabled])'); n++) await page.click('[data-act="pres-go"][data-d="1"]');
   if (n < 15) throw new Error(`only ${n} slides in the service`);
   await page.click('[data-act=pres-jump][data-i="3"]'); await shot("14-present-service");
-  await goTo("songs"); await page.click("[data-act=song-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "New song"); await page.fill("#scrim textarea[name=lyrics]", "[Verse]\nLine one\nLine two"); await sheetSubmit();
+  await goTo("songs"); await page.click("[data-act=song-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "New song"); await page.fill("#scrim textarea[name=pasteText]", "[Verse]\nLine one\nLine two"); await sheetSubmit();
   await page.waitForSelector("#scrim .err"); await page.fill("#scrim input[name=copyright]", "© 2024 Example Music"); await sheetSubmit(); await sheetGone();
   await goTo("services"); await page.click("[data-act=plan-new]"); await page.selectOption("#scrim select[name=from]", "library"); await sheetSubmit(); await page.waitForSelector("text=Order of service");
 });
@@ -305,6 +305,41 @@ await step("release at pickup", async () => {
   await page.fill("form[data-form=checkout] input[name=code]", code); await page.click("form[data-form=checkout] button");
   await page.waitForSelector('#scrim [data-act=release][data-name="Sue Bell"]'); await page.waitForTimeout(300); await shot("28-release");
   await page.click('#scrim [data-act=release][data-name="Sue Bell"]'); await sheetGone(); await expectText("Picked up by Sue");
+});
+await step("song sections", async () => {
+  await goTo("songs"); await page.click("[data-act=song-edit][data-id=riverside-song-assurance]"); await page.waitForSelector("#sp-list");
+  if ((await page.$$("#sp-list > .sp")).length !== 6) throw new Error("Blessed Assurance should open with 6 sections");
+  const iCh = (await page.$$eval("#sp-list [data-sp=label]", (xs) => xs.map((x) => x.value))).indexOf("Chorus");
+  await page.fill(`#sp-list [data-sp=label][data-i="${iCh}"]`, "Refrain");
+  await page.click("#scrim [data-act=sp-custom]"); await page.fill("#sp-custom-name", "Tag"); await page.press("#sp-custom-name", "Enter");
+  await page.waitForSelector("#sp-list > .sp.pt-custom"); await page.fill("#sp-list > .sp.pt-custom textarea", "Praising my Savior all the day long");
+  await page.click('#sp-order [data-act=sp-order-add] >> text=Tag');
+  const order = await page.$$eval("#sp-order .sp-order li", (xs) => xs.map((x) => x.textContent.trim()));
+  if (order.filter((x) => x === "Refrain").length !== 3 || order.at(-1) !== "Tag") throw new Error(`order: ${order.join(", ")}`);
+  await page.selectOption('#sp-list [data-sp=type][data-i="0"]', "verse"); // the intro becomes a verse and follows its kind
+  if ((await page.inputValue('#sp-list [data-sp=label][data-i="0"]')) !== "Verse 4") throw new Error("changing the kind didn't relabel");
+  await page.selectOption('#sp-list [data-sp=type][data-i="0"]', "intro");
+  await shot("50-song-sections"); await sheetSubmit(); await sheetGone();
+  // Pasted lyrics with plain headings split into sections.
+  await page.click("[data-act=song-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "Split test");
+  await page.fill("#scrim textarea[name=pasteText]", "Verse 1\nOne\nTwo\n\nPre-Chorus\nThree\n\nChorus\nFour\nFive\n\nBridge\nSix\n\nOutro"); await page.click("#scrim [data-act=song-split]");
+  const kinds = await page.$$eval("#sp-list > .sp", (xs) => xs.map((x) => [...x.classList].find((c) => c.startsWith("pt-"))));
+  if (kinds.join() !== "pt-verse,pt-prechorus,pt-chorus,pt-bridge,pt-outro") throw new Error(`split kinds: ${kinds.join()}`);
+  await page.check("#scrim input[name=publicDomain]"); await sheetSubmit(); await sheetGone();
+  // The presenter: section buttons, skipping ahead, and playing a section again.
+  const tv = await ctx.newPage(); await tv.setViewportSize({ width: 1280, height: 720 }); tv.on("pageerror", (e) => errors.push(`display: ${e.message}`));
+  await tv.goto(base + "#display-service-riverside-svc-1"); await tv.waitForSelector(".display .stage");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await goTo("present-service-riverside-svc-1"); await page.click(".slide-pick >> text=Intro: Blessed Assurance"); await page.waitForSelector(".song-bar .sec-chip.on");
+  await page.keyboard.press("3"); // Refrain: next one in the plan
+  if ((await page.textContent(".song-bar .sec-chip.on")).trim().replace(/^\d/, "") !== "Refrain") throw new Error("key 3 didn't go to the refrain");
+  await page.click(".song-bar .sec-chip >> text=Verse 1"); await page.waitForSelector(".live-tag");
+  await tv.waitForFunction(() => document.querySelector(".display .slide-lyrics")?.textContent.startsWith("Blessed assurance"));
+  await shot("51-present-sections");
+  await page.click('[data-act="pres-go"][data-d="1"]'); // Verse 1 is one slide, so the plan carries on after the refrain
+  if (await page.$(".live-tag")) throw new Error("still on the added section");
+  if (!(await page.textContent("#stage")).includes("Perfect submission, perfect delight")) throw new Error("didn't carry on with Verse 2");
+  await tv.close(); await page.setViewportSize({ width: 390, height: 844 });
 });
 await step("digital signage", async () => {
   await goTo("signs"); await page.waitForSelector(".sign-card"); await shot("40-signs");

@@ -52,6 +52,16 @@ const loc = (churchId, key, o) => ({ id: `${churchId}-${key}`, visibility: "publ
 const svc = (day, time, label) => ({ id: `${day}-${time}`, day, time, label });
 
 const PD_SONGS = [
+  { key: "assurance", title: "Blessed Assurance", author: "Fanny Crosby", copyright: "Public domain",
+    parts: [
+      { id: "intro", type: "intro", label: "Intro", lyrics: "" },
+      { id: "v1", type: "verse", label: "Verse 1", lyrics: "Blessed assurance, Jesus is mine!\nO what a foretaste of glory divine!\nHeir of salvation, purchase of God,\nBorn of His Spirit, washed in His blood." },
+      { id: "ch", type: "chorus", label: "Chorus", lyrics: "This is my story, this is my song,\nPraising my Savior all the day long;\n\nThis is my story, this is my song,\nPraising my Savior all the day long." },
+      { id: "v2", type: "verse", label: "Verse 2", lyrics: "Perfect submission, perfect delight,\nVisions of rapture now burst on my sight;\nAngels descending bring from above\nEchoes of mercy, whispers of love." },
+      { id: "v3", type: "verse", label: "Verse 3", lyrics: "Perfect submission, all is at rest,\nI in my Savior am happy and blest,\nWatching and waiting, looking above,\nFilled with His goodness, lost in His love." },
+      { id: "outro", type: "outro", label: "Outro", lyrics: "" },
+    ],
+    order: ["Intro", "Verse 1", "Chorus", "Verse 2", "Chorus", "Verse 3", "Chorus", "Outro"] },
   { key: "amazing", title: "Amazing Grace", author: "John Newton", copyright: "Public domain", lyrics: "[Verse 1]\nAmazing grace! How sweet the sound\nThat saved a wretch like me!\nI once was lost, but now am found;\nWas blind, but now I see.\n\n[Verse 2]\n'Twas grace that taught my heart to fear,\nAnd grace my fears relieved;\nHow precious did that grace appear\nThe hour I first believed.\n\n[Verse 3]\nThrough many dangers, toils and snares,\nI have already come;\n'Tis grace hath brought me safe thus far,\nAnd grace will lead me home.", order: "Verse 1, Verse 2, Verse 3" },
   { key: "holy", title: "Holy, Holy, Holy", author: "Reginald Heber", copyright: "Public domain", lyrics: "[Verse 1]\nHoly, holy, holy! Lord God Almighty!\nEarly in the morning our song shall rise to Thee;\nHoly, holy, holy, merciful and mighty!\nGod in three Persons, blessed Trinity!", order: "Verse 1" },
   { key: "doxology", title: "Doxology", author: "Thomas Ken", copyright: "Public domain", lyrics: "[Doxology]\nPraise God, from whom all blessings flow;\nPraise Him, all creatures here below;\nPraise Him above, ye heavenly host;\nPraise Father, Son, and Holy Ghost. Amen.", order: "Doxology" },
@@ -298,7 +308,7 @@ function buildSeed() {
   ];
 
   // ----- Songs, saved segments and a service plan -----
-  const songs = PD_SONGS.map((s) => ({ id: `riverside-song-${s.key}`, churchId: "riverside", title: s.title, author: s.author, copyright: s.copyright, ccliSong: "", publicDomain: true, lyrics: s.lyrics, order: s.order }));
+  const songs = PD_SONGS.map((s) => ({ id: `riverside-song-${s.key}`, churchId: "riverside", title: s.title, author: s.author, copyright: s.copyright, ccliSong: "", publicDomain: true, lyrics: s.lyrics || partsToLyrics(s.parts), order: s.order, ...(s.parts ? { parts: s.parts.map((p) => ({ ...p, id: `riverside-song-${s.key}-${p.id}` })) } : {}) }));
   const seg = (type, title, minutes, content = {}, o = {}) => ({ id: uid(), type, title, minutes, leader: "", notes: "", show: true, content, ...o });
   const library = [
     seg("welcome", "Welcome", 3, { text: "Welcome to Riverside! Grab a coffee, and make sure you've met someone new today." }, { leader: "Marcus Bell" }),
@@ -312,7 +322,7 @@ function buildSeed() {
     segments: [
       seg("welcome", "Welcome", 3, library[0].content, { leader: "Marcus Bell", notes: "Mention the parking lot shuttle." }),
       seg("call", "Call to worship", 2, { ref: "Psalm 95:1-2", text: BSB["Psalm 95:1-2"] }, { leader: "Marcus Bell" }),
-      seg("song", "Holy, Holy, Holy", 4, { songId: "riverside-song-holy" }, { leader: "Worship team" }),
+      seg("song", "Blessed Assurance", 4, { songId: "riverside-song-assurance" }, { leader: "Worship team" }),
       seg("song", "Amazing Grace", 5, { songId: "riverside-song-amazing" }, { leader: "Worship team", notes: "Key of G. Acapella on verse 3." }),
       seg("prayer", "Pastoral prayer", 4, { text: "Prayer for our church, our city and those who are hurting." }, { leader: "Pastor Dana Whitfield", show: false }),
       seg("scripture", "Scripture reading", 3, { ref: "John 15:1-8", text: BSB["John 15:1-8"] }, { leader: "Teresa Martinez" }),
