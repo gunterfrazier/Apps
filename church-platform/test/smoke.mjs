@@ -100,7 +100,7 @@ await step("prayer and giving", async () => {
   await page.fill("#scrim textarea[name=text]", "<b>Pray</b> for our <script>alert(1)</script> trip"); await sheetSubmit(); await sheetGone();
   if (!(await page.textContent("#main .prayer >> nth=0")).includes("<script>")) throw new Error("user text was not escaped");
   await goTo("give"); await page.click("[data-act=give-preset][data-n='100']"); await page.click("#give-btn");
-  await page.click("#scrim form[data-form=give-confirm] button"); await page.waitForSelector("#scrim [data-to=history]");
+  await page.click("#scrim [data-act=pay-test]"); await page.waitForSelector("#scrim [data-to=history]");
   await page.click("[data-act=close-sheet]");
 });
 await step("become primary", async () => {
@@ -329,6 +329,108 @@ await step("reports", async () => {
   await page.click(".viz[data-viz=att] summary"); await page.waitForSelector(".viz[data-viz=att] .mini-table");
   await page.emulateMedia({ colorScheme: "dark" }); await goTo("reports"); await shot("32-reports-dark"); await page.emulateMedia({ colorScheme: "light" });
 });
+async function signPad(sel = ".sig-pad") {
+  const c = await page.$(sel); await c.evaluate((el) => el.scrollIntoView({ block: "center" })); await page.waitForTimeout(80); const b = await c.boundingBox();
+  await page.mouse.move(b.x + 30, b.y + 90); await page.mouse.down();
+  for (let i = 1; i <= 10; i++) await page.mouse.move(b.x + 30 + i * 18, b.y + 90 - (i % 2 ? 25 : 0));
+  await page.mouse.up();
+}
+await step("paid event and permission slip", async () => {
+  await goTo("event-riverside-e7"); await expectText("Student $85"); await page.click("[data-act=event-register]");
+  await page.fill('#scrim input[name="t_t-student"]', "1"); await page.check('#scrim input[name=kids] >> nth=0');
+  await page.waitForSelector("#scrim [data-total]:has-text('$85')"); await sheetSubmit();
+  await page.waitForSelector("#scrim [data-act=pay-test]"); await shot("33-checkout"); await page.click("#scrim [data-act=pay-test]");
+  await page.waitForSelector("form[data-form=form-submit]"); await expectText("Youth retreat permission slip");
+  await page.click("form[data-form=form-submit] button.btn:not([type=button])"); await page.waitForSelector("form[data-form=form-submit] .err");
+  await page.fill("form[data-form=form-submit] input[name=f_q3]", "Pat Frazier"); await page.fill("form[data-form=form-submit] input[name=f_q4]", "(555) 010-2000");
+  await page.check('form[data-form=form-submit] input[name=f_q5][value=Yes]', { force: true }); await page.check('form[data-form=form-submit] input[name=f_q6][value=No]', { force: true });
+  await signPad(); await shot("34-permission-slip");
+  await page.click("form[data-form=form-submit] button.btn:not([type=button])"); await page.waitForSelector(".done-panel");
+  await page.click(".done-panel [data-act=form-finish]"); await page.waitForSelector("text=permission slip done");
+  await page.click("[data-act=event-cancel]"); await page.click('#scrim [data-act=event-cancel][data-sure="1"]'); await sheetGone(); await page.waitForSelector("text=Get tickets");
+});
+await step("form builder and responses", async () => {
+  await goTo("forms"); await expectText("Volunteer application"); await page.click("[data-act=form-new]"); await page.click('#scrim [data-act=form-create][data-t="slip"]');
+  await page.waitForSelector("#sort-list"); await page.click("[data-act=field-add]"); await page.click('#scrim [data-act=field-new][data-type="choice"]');
+  await page.fill("#scrim input[name=label]", "T-shirt size"); await page.fill("#scrim textarea[name=options]", "Small\nMedium\nLarge"); await page.check("#scrim input[name=required]"); await sheetSubmit(); await sheetGone();
+  await expectText("Small, Medium, Large"); await drag(9, 1); await shot("35-form-builder");
+  await page.click("[data-act=form-settings]"); await page.fill("#scrim input[name=title]", "Lock-in permission slip"); await page.fill("#scrim input[name=fee]", "10"); await page.check("#scrim input[name=listed]"); await sheetSubmit(); await sheetGone();
+  await page.click('a:has-text("Preview")'); await page.waitForSelector("form[data-form=form-submit]");
+  for (const inp of await page.$$("form[data-form=form-submit] input[type=tel]")) await inp.fill("(555) 010-3000");
+  for (const n of await page.$$eval("form[data-form=form-submit] .radios input[name^=f_]", (xs) => [...new Set(xs.map((x) => x.name))])) await page.check(`form[data-form=form-submit] input[name="${n}"] >> nth=0`, { force: true });
+  for (const inp of await page.$$("form[data-form=form-submit] input[type=text][name^=f_]")) if (!(await inp.inputValue())) await inp.fill("Pat Frazier");
+  await signPad(); await page.click("form[data-form=form-submit] button.btn:not([type=button])");
+  await page.waitForSelector("#scrim [data-act=pay-test]"); await page.click("#scrim [data-act=pay-test]"); await page.waitForSelector(".done-panel");
+  await page.click(".done-panel [data-act=form-finish]"); await page.waitForTimeout(100);
+  const id = await page.evaluate(() => location.hash); if (id !== "#forms") throw new Error(`after Done went to ${id}`);
+  await page.click('a.row:has-text("Lock-in permission slip")'); await page.click('a:has-text("1 response")'); await page.click("[data-act=response-open]");
+  await page.waitForSelector("#scrim .sig-img"); await shot("36-response"); await page.click("#scrim [data-act=close-sheet]");
+  await goTo("connect"); await page.click('nav.seg a[href="#forms"]'); await page.waitForSelector("text=Volunteer application");
+});
+await step("room booking", async () => {
+  await goTo("rooms"); await expectText("Wedding rehearsal"); await page.click("[data-act=room-approve]"); await expectText("Your bookings").catch(() => {});
+  await page.click('[data-act=room-request][data-room="Room 104"]'); await page.fill("#scrim input[name=title]", "Parent meeting");
+  const sunday = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+  await page.fill("#scrim input[name=date]", sunday); await page.fill("#scrim input[name=start]", "09:30"); await page.fill("#scrim input[name=end]", "10:00");
+  await page.dispatchEvent("#scrim input[name=end]", "change"); await page.waitForSelector("#scrim .room-msg.warn"); await shot("37-room-conflict");
+  await sheetSubmit(); await page.waitForSelector("#scrim .err");
+  await page.click("#scrim [data-act=room-switch] >> nth=0"); await page.waitForSelector("#scrim .room-msg.ok"); await sheetSubmit(); await sheetGone();
+  await expectText("Parent meeting"); await shot("38-rooms");
+});
+await step("sermon archive, transcript and podcast", async () => {
+  await goTo("word"); await page.fill("input[data-input=sermon-search]", "Tuesday"); await page.waitForSelector("#sermon-list .snippet mark");
+  await shot("39-sermon-search"); await page.click("#sermon-list a.row >> nth=0"); await page.waitForSelector("details.transcript");
+  await page.click("details.transcript summary"); await page.fill("input[data-input=transcript-search]", "friends"); await page.waitForSelector(".tx-body mark");
+  await page.click('a:has-text("Media and transcript")'); await page.waitForSelector("form[data-form=media-save]");
+  await page.fill("textarea[name=transcript]", "WEBVTT\n\n00:00:05.000 --> 00:00:09.000\nWelcome back, church.\n\n00:01:10.000 --> 00:01:15.000\nTurn with me to Psalm 23.");
+  await page.click("form[data-form=media-save] button.btn:not([type=button])"); await page.waitForSelector("details.transcript");
+  await page.click("details.transcript summary"); await page.waitForSelector(".tx-t:has-text('1:10')"); await shot("40-transcript");
+  await goTo("podcast"); await page.fill("form[data-form=podcast-save] input[name=email]", "media@riverside.example"); await page.click("form[data-form=podcast-save] button");
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=podcast-download]")]);
+  const xml = readFileSync(await dl.path(), "utf8");
+  if (!xml.includes("<enclosure") || !xml.includes("Remain in my love") || !xml.includes("media@riverside.example")) throw new Error("podcast feed is missing episodes or the owner email");
+});
+await step("AI drafts", async () => {
+  await page.evaluate(() => { window.__aiStub = async (p) => p.includes("Sunday school lesson")
+    ? { bigIdea: "Jesus loves us first so we can love others.", story: "Jesus ate a special meal with his friends and told them a story about a vine.", questions: ["Who did Jesus call his friends?", "How can you love someone this week?"], activity: { name: "Paper vine", supplies: "Green paper, tape", steps: "Make a vine with a leaf for each child." }, memoryVerse: "As the Father has loved Me, so have I loved you.", memoryRef: "John 15:9", parents: "Today we learned Jesus calls us friends. Ask: how did you show love today?" }
+    : p.includes("summary of this sermon") ? { summary: "Jesus calls us friends and asks us to love one another.", outline: ["Love has a source", "Obedience keeps love at home", "Friends love one another"] }
+    : { questions: [{ kind: "notice", text: "What does Jesus say about his Father's love?" }, { kind: "mean", text: "Why does he call us friends and not servants?" }, { kind: "apply", text: "Who will you love in a concrete way this week?" }], prayer: "Ask God to help you remain in his love." }; });
+  await goTo("word"); await page.fill("input[data-input=sermon-search]", "Remain in my love"); await page.click("#sermon-list a.row >> nth=0");
+  await page.click("[data-act=ai-questions]"); await page.waitForSelector("#scrim .ai-list"); await shot("41-ai-questions");
+  await page.click("#scrim [data-act=ai-to-study]"); await page.waitForSelector("#sort-list"); await expectText("Why does he call us friends");
+  await page.click("[data-act=ai-build]"); await page.waitForSelector("#scrim [data-act=ai-add]"); await page.click("#scrim [data-act=ai-add]"); await sheetGone();
+  await page.goBack(); await page.waitForSelector("[data-act=ai-lesson]"); await page.click("[data-act=ai-lesson]"); await sheetSubmit();
+  await page.waitForSelector("text=Jesus loves us first"); await shot("42-ai-lesson");
+  await page.evaluate(() => { delete window.__aiStub; });
+});
+await step("settings: Spanish, text size and notifications", async () => {
+  await goTo("settings"); await page.click('[data-act=set-lang][data-v="es"]'); await page.waitForSelector("text=Idioma");
+  await goTo("home"); await page.waitForSelector('nav.tabs >> text=Inicio'); await shot("43-home-es");
+  await goTo("events"); await expectText("Eventos"); await goTo("checkin"); await expectText("Registrar");
+  await goTo("event-riverside-e8"); await expectText("Comprar boletos"); await shot("44-event-es");
+  await goTo("settings"); await page.check('input[name=text][value="xl"]', { force: true });
+  if (!(await page.evaluate(() => document.documentElement.classList.contains("text-xl")))) throw new Error("text size didn't apply");
+  await page.click('label.switch-row:has-text("Más contraste") input'); await shot("45-settings-es");
+  await page.click('[data-act=set-lang][data-v="en"]'); await page.waitForSelector("text=Language");
+  await page.check('input[name=text][value="m"]', { force: true }); await page.click('label.switch-row:has-text("More contrast") input');
+  await page.click('label.switch-row:has-text("Messages") input');
+  await goTo("chat"); await page.click(".rows a.row >> nth=0"); await page.fill("#msg", "See you Sunday!"); await page.press("#msg", "Enter");
+  await goTo("sermon-riverside-s0").catch(() => {}); await goTo("word"); await page.click("#sermon-list a.row >> nth=0"); await page.waitForSelector("[data-act=listen]");
+  await goTo("admin-news"); await page.click("[data-act=admin-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "Parking lot closed Sunday");
+  await page.fill("#scrim textarea[name=body]", "Use the east lot and the shuttle."); await page.check("#scrim input[name=push]"); await sheetSubmit(); await sheetGone();
+  await goTo("alerts"); await expectText("Parking lot closed Sunday");
+});
+await step("giving statements as PDF", async () => {
+  await goTo("history"); const [mine] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=statement-pdf] >> nth=0")]);
+  const p1 = join(shots, "statement.pdf"); await mine.saveAs(p1);
+  await goTo("admin-giving"); await expectText("Year-end statements"); await page.selectOption("#stmt-year", { index: 1 });
+  const [all] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=statements-all]")]);
+  const p2 = join(shots, "statements-all.pdf"); await all.saveAs(p2);
+  for (const f of [p1, p2]) if (!readFileSync(f).subarray(0, 5).toString().startsWith("%PDF")) throw new Error(`${f} is not a PDF`);
+  await page.fill("form[data-form=give-settings] input[name=number]", "(770) 555-0199"); await page.fill("form[data-form=give-settings] input[name=taxId]", "58-1234567");
+  await page.click("form[data-form=give-settings] button"); await goTo("give"); await expectText("Text to give");
+  await page.click("[data-act=stripe-connect]").catch(() => {}); await goTo("give-riverside~75"); await page.waitForSelector("#give-btn:has-text('$75')");
+});
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));
@@ -378,6 +480,34 @@ await step("persists after reload", async () => {
 });
 await step("dark mode", async () => {
   await page.emulateMedia({ colorScheme: "dark" }); await goTo("home"); await shot("18-dark");
+});
+
+await step("backend sync round trip", async () => {
+  // Runs the Supabase adapter against an in-memory stand-in for the database: what it writes, it must read back the same,
+  // and right after reading nothing should look changed.
+  await page.goto(base + "?debug#home"); await page.waitForSelector("#app");
+  const r = await page.evaluate(async () => {
+    const { S, Backend, RECORD_KINDS, SPLIT } = window.__app;
+    const before = JSON.parse(JSON.stringify(S.state));
+    Backend.user = { id: S.me().id, email: "test@example.com" };
+    const db = {};
+    Backend.rows().forEach((row) => (db[row.table] ||= []).push(JSON.parse(row.json)));
+    const query = (rows) => { let out = rows.slice(); const q = { select: () => q, order: () => q, eq: (k, v) => { out = out.filter((x) => x[k] === v); return q; }, in: (k, vs) => { out = out.filter((x) => vs.includes(x[k])); return q; },
+      range: async (a, b) => ({ data: out.slice(a, b + 1), error: null }), maybeSingle: async () => ({ data: out[0] || null }), single: async () => ({ data: out[0] || null }) }; return q; };
+    Backend.client = { from: (t) => query(db[t] || []), rpc: async () => ({ data: [] }) };
+    await Backend.pull(before.current);
+    const after = S.state, diffs = [];
+    const mine = Backend.loaded;
+    for (const k of RECORD_KINDS) { const a = before[k].filter((x) => mine.has(x.churchId)).length, b = after[k].length; if (a !== b) diffs.push(`${k}: ${a} then ${b}`); }
+    for (const [k, spec] of Object.entries(SPLIT)) before[k].filter((x) => mine.has(x.churchId)).forEach((x) => { const y = after[k].find((z) => z.id === x.id); if ((x[spec.field] || []).length !== (y?.[spec.field] || []).length) diffs.push(`${k} ${x.id} ${spec.field}`); });
+    Object.values(before.churches).forEach((c) => { const d = after.churches[c.id]; if (!d || (mine.has(c.id) && d.roles.length !== c.roles.length) || d.locations.length !== c.locations.length || d.funds?.length !== c.funds?.length) diffs.push(`church ${c.id}`); });
+    if (after.memberships.length !== before.memberships.length) diffs.push("memberships");
+    const changed = Backend.rows().filter((row) => Backend.snap.get(row.key) !== row.json).map((row) => row.key);
+    return { diffs, changed: changed.slice(0, 5), rows: Backend.snap.size };
+  });
+  if (r.diffs.length) throw new Error(`round trip lost data: ${r.diffs.slice(0, 6).join("; ")}`);
+  if (r.changed.length) throw new Error(`rows look changed right after loading: ${r.changed.join(", ")}`);
+  if (r.rows < 500) throw new Error(`only ${r.rows} rows`);
 });
 
 await browser.close(); server.close();

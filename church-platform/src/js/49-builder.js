@@ -109,6 +109,7 @@ Screens.build = (id) => {
         <button class="btn ghost sm" data-act="doc-details" data-id="${d.id}">${icon("edit")}Details</button>
         <button class="btn ghost sm" data-act="layout-save" data-kind="doc" data-id="${d.id}">${icon("layers")}Save as layout</button>
         <button class="btn ghost sm" data-act="doc-publish" data-id="${d.id}">${d.published ? "Unpublish" : "Publish"}</button>
+        ${canAI() ? html`<button class="btn ghost sm" data-act="ai-build" data-id="${d.id}">${icon("bolt")}${d.kind === "lesson" && !d.blocks.some((b) => b.type !== "scripture") ? "Draft this lesson" : "Draft questions"}</button>` : ""}
       </div>
       <p class="faint">${d.kind === "sermon" ? "Published sermons can be followed by members during the service." : d.kind === "lesson" ? `Published lessons show to the class${d.shareWithParents ? " and in parents' portal" : ""}.` : "Published guides show on the group's page."} Items marked private never appear on screen or to members.</p>
 
@@ -247,7 +248,7 @@ Screens.outline = (id) => {
     title: d.title, back: g ? `gathering-${g.id}` : "word",
     body: html`<p style="margin:16px 0 4px"><span class="tag brand">${DOC_KINDS[d.kind].label}</span>${g ? html` <span class="tag">${g.name}</span>` : ""}</p><h1>${d.title}</h1>
       <p class="muted">${[d.passage, fmtDay(fromIsoDay(d.date))].filter(Boolean).join(", ")}</p>
-      ${canEditDoc(d) ? html`<div class="btns"><a class="btn ghost sm" href="#build-${d.id}">${icon("edit")}Edit</a></div>` : ""}
+      <div class="btns">${listenBtn(`doc:${d.id}`)}${canEditDoc(d) ? html`<a class="btn ghost sm" href="#build-${d.id}">${icon("edit")}Edit</a>` : ""}</div>
       <div class="outline-view">${blocks.map((b) => {
         switch (b.type) {
           case "scripture": return html`<blockquote class="scripture-block"><p>${b.text || ""}</p><cite>${b.ref} ${b.translation || ""}</cite></blockquote>`;

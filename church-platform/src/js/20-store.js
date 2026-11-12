@@ -15,7 +15,7 @@ const S = {
       this.state = saved;
       // Added after the first v2 release: named layouts and saved builder items.
       const seed = buildSeed();
-      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups"]) if (!saved[k]) saved[k] = seed[k];
+      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings"]) if (!saved[k]) saved[k] = seed[k];
       saved.me.pickups ||= [];
       Object.values(seed.users).forEach((u) => { const mine = saved.users[u.id]; if (!mine) { if (u.guestOf) saved.users[u.id] = u; } else if (!mine.family) Object.assign(mine, { family: u.family, pickups: u.pickups }); });
       Object.values(saved.churches).forEach((c) => {
@@ -35,8 +35,9 @@ const S = {
   },
   _timer: 0,
   save() { clearTimeout(this._timer); this._timer = setTimeout(() => this.flush(), 150); },
-  flush() {
+  flush(skipSync) {
     clearTimeout(this._timer); this._timer = 0;
+    if (!skipSync && typeof Backend !== "undefined" && Backend.on) Backend.sync();
     const data = JSON.stringify(this.state);
     try { localStorage.setItem(PLATFORM.storageKey, data); }
     catch (e) {
@@ -132,8 +133,12 @@ const S = {
 // ---------- In-app notifications ----------
 /** Adds a notification for one person. Their bell shows it; on the live app it is also sent as a push notification. */
 function notify(userId, n, churchId = S.state.current) {
-  S.state.notifications.unshift({ id: uid(), churchId, userId, at: new Date().toISOString(), read: false, ...n });
-  S.state.notifications = S.state.notifications.slice(0, 300); S.save();
+  const mine = userId === S.me().id;
+  if (mine && !wantsNotify(n)) return;
+  const rec = { id: uid(), churchId, userId, at: new Date().toISOString(), read: false, ...n };
+  S.state.notifications.unshift(rec);
+  S.state.notifications = S.state.notifications.slice(0, 600); S.save();
+  if (mine) Push.local(rec);
 }
 const myNotifications = () => S.state.notifications.filter((n) => n.userId === S.me().id && n.churchId === S.state.current);
 
@@ -146,6 +151,7 @@ const WEBHOOK_EVENTS = [
   ["gift.created", "A gift is made"], ["checkin.created", "A child is checked in"], ["checkin.completed", "A child is checked out"],
   ["volunteer.scheduled", "Someone is asked to serve"], ["volunteer.responded", "A volunteer accepts or declines"],
   ["followup.created", "Someone new needs follow-up"], ["attendance.recorded", "Attendance is recorded for a service"],
+  ["form.submitted", "Someone fills in a form"], ["room.booked", "A room is booked or requested"],
 ];
 async function hmacHex(secret, text) {
   try {
@@ -157,6 +163,8 @@ async function hmacHex(secret, text) {
 }
 async function emit(event, data, churchId) {
   const c = S.church(churchId);
+  // With Supabase, the server signs and sends: the app only queues the event (see supabase/functions/webhooks).
+  if (typeof Backend !== "undefined" && Backend.on) { if (c) { S.state.deliveries.unshift({ id: uid(), churchId: c.id, event, data, at: new Date().toISOString(), status: "queued", outbox: true }); S.save(); } return; }
   const hooks = (c?.integrations?.webhooks || []).filter((h) => h.active && h.events.includes(event));
   for (const h of hooks) {
     const body = JSON.stringify({ id: uid(), event, church: { id: c.id, handle: c.handle }, at: new Date().toISOString(), data });
@@ -190,7 +198,8 @@ function upcomingEvents() {
   return S.visible("events").filter((e) => new Date(e.end) > now).sort((a, b) => new Date(a.start) - new Date(b.start));
 }
 const myRegistration = (e) => e.registrations.find((r) => r.by === S.me().id);
-const registeredCount = (e) => e.registrations.reduce((n, r) => n + (r.count || 1), 0);
+// _count comes from the server for sign-ups other people can't see one by one.
+const registeredCount = (e) => Math.max(e._count || 0, e.registrations.reduce((n, r) => n + (r.count || 1), 0));
 const sermonsSorted = () => S.visible("sermons").sort((a, b) => new Date(b.date) - new Date(a.date));
 const newsSorted = () => S.visible("news").sort((a, b) => new Date(b.at) - new Date(a.at));
 const unreadNews = () => newsSorted().filter((n) => !S.state.seen.includes(n.id));
@@ -222,7 +231,7 @@ function scheduleText(g) {
   const startsLater = s.startDate && fromIsoDay(s.startDate) > new Date();
   return `${dayNames(s.days || [])} at ${timeLabel(s.time)}${span}${startsLater ? `, starting ${fmtShort(fromIsoDay(s.startDate))}` : ""}${s.endDate ? `, through ${fmtShort(fromIsoDay(s.endDate))}` : ""}`;
 }
-const gCount = (g) => g.sampleCount + g.members.filter((m) => m.status === "in").length;
+const gCount = (g) => g.sampleCount + Math.max(g._count || 0, g.members.filter((m) => m.status === "in").length);
 const gFull = (g) => g.capacity && gCount(g) >= g.capacity;
 const myEntries = (g) => g.members.filter((m) => m.userId === S.me().id);
 const isLeader = (g) => g.leaders.includes(S.me().id);

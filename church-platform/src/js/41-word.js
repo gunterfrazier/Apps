@@ -19,7 +19,7 @@ function veritasPanel(passage, topic, label = "Study this passage") {
 Screens.word = () => {
   if (!S.on("sermons")) return { redirect: S.on("plans") ? "plans" : "home" };
   const list = sermonsSorted();
-  const series = [...new Set(list.map((s) => s.series))];
+  const books = [...new Set(list.map((s) => parseRef(s.passage)?.book).filter(Boolean))];
   return {
     title: "Word", tab: "word",
     body: html`${seg(wordSeg(), "word")}
@@ -28,9 +28,10 @@ Screens.word = () => {
         <div style="display:flex;gap:8px"><input type="search" name="ref" placeholder="John 3:16" data-input="bible-ref" autocomplete="off"><a class="btn" id="bible-open" href="${Veritas.home()}" target="_blank" rel="noopener">Open</a></div>
         <small id="bible-hint">Opens in Veritas Logos.</small></label></form>` : ""}
       ${S.on("live") ? html`<a class="row panel" href="#live" style="margin-top:12px;padding:12px 16px"><span class="lead-ic">${icon("live")}</span><span class="body"><span class="t">Watch live</span><span class="s">Stream services as they happen</span></span>${icon("chev")}</a>` : ""}
-      <label class="field"><span class="sr">Search sermons</span><input type="search" placeholder="Search sermons, passages, speakers" data-input="filter-rows" data-target="#sermon-list" data-empty="#sermon-none"></label>
-      <div id="sermon-list">${series.map((name) => html`<section class="sec" style="margin-top:18px"><h2 class="sec-head">${name}</h2><div class="rows">${list.filter((s) => s.series === name).map(sermonRow)}</div></section>`)}</div>
-      <div id="sermon-none" class="empty" ${list.length ? raw("hidden") : ""}><p>${list.length ? "No sermons match that search." : "No sermons have been posted yet."}</p></div>`,
+      <label class="field"><span class="sr">Search sermons</span><input type="search" placeholder="Search titles, passages, speakers and what was said" data-input="sermon-search" value="${sermonQuery}"></label>
+      ${books.length > 1 ? html`<div class="chips" role="group" aria-label="Filter by book">${books.map((b) => html`<button class="chip" data-act="sermon-book" data-book="${b}" aria-pressed="${b === sermonBook}">${b}</button>`)}</div>` : ""}
+      <div id="sermon-list">${sermonResults()}</div>
+      ${canMedia() ? html`<div class="btns"><a class="btn ghost sm" href="#podcast">${icon("music")}Podcast feed</a></div>` : ""}`,
   };
 };
 Inputs["bible-ref"] = (el) => {
@@ -53,19 +54,20 @@ Screens.sermon = (id) => {
       <p class="faint" style="margin:16px 0 2px">${s.series}</p>
       <h1>${s.title}</h1>
       <p class="muted" style="margin-top:4px">${s.speaker}, ${fmtDay(s.date)}${s.time ? ` at ${timeLabel(s.time)}` : ""}${s.locationId && multiCampus() ? `, ${locName(s.locationId)}` : ""}</p>
-      <div class="player">
-        ${s.mediaUrl ? html`<a class="play" href="${s.mediaUrl}" target="_blank" rel="noopener" aria-label="Play ${s.title}">${icon("play")}</a>` : html`<span class="play" aria-disabled="true">${icon("play")}</span>`}
-        <div><b>${s.mediaUrl ? "Watch or listen" : "Recording not posted"}</b><small>${s.minutes} minutes${s.mediaUrl ? "" : ". Admins can add a video or audio link."}</small></div>
-      </div>
+      ${sermonMedia(s)}
       <div class="btns">
         <button class="btn ${saved ? "soft" : "ghost"} sm" data-act="toggle-save" data-id="${s.id}" aria-pressed="${saved}">${icon("bookmark")}${saved ? "Saved" : "Save"}</button>
-        <button class="btn ghost sm" data-act="copy" data-done="Sermon details copied" data-text="${`${s.title} (${s.passage}), ${s.speaker}, ${S.church().name}, ${fmtShort(s.date)}`}">${icon("share")}Share</button>
+        <button class="btn ghost sm" data-act="copy" data-done="Sermon details copied" data-text="${`${s.title} (${s.passage}), ${s.speaker}, ${S.church().name}, ${fmtShort(s.date)}\n${appLink(`sermon-${s.id}`)}`}">${icon("share")}Share</button>
+        ${canMedia() ? html`<a class="btn ghost sm" href="#media-${s.id}">${icon("edit")}Media and transcript</a>` : ""}
       </div>
+      ${canAI() ? html`<div class="ai-row"><span class="ai-label">${icon("bolt")}Veritas Logos can draft</span><button class="btn ghost sm" data-act="ai-questions" data-id="${s.id}">Discussion questions</button>${S.can("build.lessons") ? html`<button class="btn ghost sm" data-act="ai-lesson" data-id="${s.id}">A kids lesson</button>` : ""}</div>` : ""}
       ${s.summary ? html`<p class="lead" style="margin-top:18px">${s.summary}</p>` : ""}
       <p><span class="faint">Scripture</span><br><span class="scripture" style="font-size:1.2rem">${s.passage}</span></p>
+      <div class="btns" style="margin-top:0">${listenBtn(`passage:${s.passage}`, "Listen to the passage")}${s.summary || s.transcript?.length ? listenBtn(`sermon:${s.id}`, "Listen to the sermon") : ""}</div>
       ${veritasPanel(s.passage, s.topic)}
       ${s.outline?.length ? html`<section class="sec"><h2>Outline</h2><ol class="outline">${s.outline.map((p) => html`<li>${p}</li>`)}</ol></section>` : ""}
       ${s.docId && S.get("docs", s.docId) ? html`<div class="btns"><a class="btn ghost sm" href="#outline-${s.docId}">${icon("note")}Full sermon outline</a></div>` : ""}
+      ${transcriptSection(s)}
       <section class="sec"><div class="sec-head"><h2>My notes</h2><span class="faint" id="note-status" aria-live="polite">${note?.at ? `Saved ${ago(note.at)}` : ""}</span></div>
         <label class="sr" for="note">Notes for ${s.title}</label>
         <textarea class="notes" id="note" data-input="sermon-note" data-id="${s.id}" placeholder="Write what stood out, questions to ask your group, a verse to memorize...">${note?.text || ""}</textarea>

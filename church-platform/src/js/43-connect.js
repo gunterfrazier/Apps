@@ -1,5 +1,5 @@
 // ---------- Connect: prayer wall, classes and Sunday school, small groups, directory ----------
-const connectSeg = () => [["connect", "Prayer", S.on("prayer")], ["classes", "Classes", S.on("classes")], ["groups", "Groups", S.on("groups")], ["directory", "Directory", S.on("directory") && S.can("use.directory")]];
+const connectSeg = () => [["connect", "Prayer", S.on("prayer")], ["classes", "Classes", S.on("classes")], ["groups", "Groups", S.on("groups")], ["directory", "Directory", S.on("directory") && S.can("use.directory")], ["forms", "Forms", S.list("forms").some((f) => f.listed && formOpen(f))]];
 let prayerFilter = "open";
 
 function needMember(what) {

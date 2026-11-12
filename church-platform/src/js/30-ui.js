@@ -41,7 +41,7 @@ const CHURCH_SCOPED = ["home", "give", "checkin", "parents", "serve", "live", "e
 /** Which church a deep link belongs to, so links and QR codes switch the app to it. */
 function churchForRoute(head, tail) {
   if (!tail) return null;
-  if (CHURCH_SCOPED.includes(head) && S.state.churches[tail]) return tail;
+  if (CHURCH_SCOPED.includes(head) && S.state.churches[tail.split("~")[0]]) return tail.split("~")[0];
   if (head === "register") { const [k, ...r] = tail.split("-"); return S.get(k === "event" ? "events" : "gatherings", r.join("-"))?.churchId || null; }
   const kind = { event: "events", gathering: "gatherings", sermon: "sermons", outline: "docs", plan: "plans" }[head];
   return kind ? S.get(kind, tail)?.churchId || null : null;
@@ -54,7 +54,10 @@ function render() {
   const owner = churchForRoute(head, tail);
   if (owner && owner !== S.state.current) { S.state.current = owner; S.save(); }
   const me = S.me();
-  if (!me.name && head !== "welcome" && head !== "page") { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
+  if (Backend.on && !Backend.user && head !== "page") { if (head !== "signin") pendingRoute = pendingRoute || route; head = "signin"; tail = ""; }
+  else if (Backend.on && !Backend.ready && head !== "page") { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Loading your churches...</div>`); return; }
+  else if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
+  else if (!me.name && head !== "welcome" && head !== "page") { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
   else if (!S.church() && !OPEN_ROUTES.includes(head)) { head = "churches"; tail = ""; }
   applyBrand();
   let view;
@@ -63,11 +66,16 @@ function render() {
   if (view.redirect) { go(view.redirect); return; }
   document.body.classList.toggle("presenting", !!view.present);
   document.body.classList.toggle("kiosk-mode", !!view.kiosk);
-  app.innerHTML = view.page ? flat(view.page) : flat(html`
+  app.innerHTML = view.page ? flat(view.page) : flat(html`<a class="skip" href="#main" data-act="skip">${lang() === "es" ? "Saltar al contenido" : "Skip to content"}</a>
     ${view.band ? view.band : bar(view.title, view.back)}
     <main class="view" id="main" tabindex="-1">${view.body}</main>
     ${tabs(view.tab)}`);
-  if (route !== lastRoute) { window.scrollTo(0, 0); lastRoute = route; }
+  if (route !== lastRoute) {
+    window.scrollTo(0, 0);
+    // Move keyboard and screen reader focus to the new screen, except on the first load.
+    if (lastRoute !== null && !view.page) $("#main")?.focus({ preventScroll: true });
+    lastRoute = route;
+  }
   view.after?.();
 }
 let pendingRoute = null;
@@ -238,6 +246,7 @@ document.addEventListener("input", (e) => { const el = e.target.closest("[data-i
 document.addEventListener("change", (e) => { const el = e.target.closest("[data-change]"); if (el) Inputs[el.dataset.change]?.(el, e); });
 
 Actions["close-sheet"] = () => closeSheet();
+Actions["skip"] = () => $("#main")?.focus();
 Actions["go"] = (el) => { closeSheet(true); go(el.dataset.to); };
 Actions["copy"] = (el) => copyText(el.dataset.text, el.dataset.done || "Copied");
 

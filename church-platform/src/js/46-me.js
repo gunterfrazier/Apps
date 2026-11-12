@@ -2,7 +2,7 @@
 let installPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; });
 
-const MINISTRY_PERMS = ["build.sermons", "build.lessons", "build.studies", "services.plan", "present", "checkin.station", "qr.create", "lead.groups", "teach.classes", "schedule.teams"];
+const MINISTRY_PERMS = ["book.rooms", "build.sermons", "build.lessons", "build.studies", "services.plan", "present", "checkin.station", "qr.create", "lead.groups", "teach.classes", "schedule.teams"];
 const ADMIN_PERMS = ["manage.followup", "view.reports", "manage.content", "manage.sermons", "manage.classes", "manage.prayer", "manage.people", "view.giving", "manage.page", "manage.integrations", "manage.locations", "manage.roles", "manage.church"];
 const hasMinistryTools = () => S.isMember() && S.canAny(MINISTRY_PERMS);
 const hasAdminTools = () => S.isMember() && S.canAny(ADMIN_PERMS);
@@ -34,6 +34,7 @@ Screens.me = () => {
           ${S.on("checkin") ? row("#checkin", "kid", "Check in", "Kids and volunteers") : ""}
           ${S.on("giving") ? row("#history", "give", "Giving history", "Gifts and year-end statements") : ""}
           ${S.on("chat") && S.can("use.chat") ? row("#chat", "chat", "Messages") : ""}
+          ${row("#settings", "gear", "Settings", "Language, text size, read aloud and notifications")}
           ${row("#scan", "scan", "Scan a QR code")}
           ${S.on("sermons") ? row("#notes", "note", "Sermon notes") : ""}
         </div></section>
@@ -59,11 +60,11 @@ Screens.me = () => {
           : html`<p style="margin:0">Once the app is on its own website, open it in Chrome and choose <b>Install app</b> or <b>Add to Home screen</b> from the menu.</p>`}
       </div></section>` : ""}
 
-      <section class="sec"><h2 class="sec-head">Preview tools</h2><div class="rows">
+      ${Backend.on ? html`<section class="sec"><div class="rows"><button class="row" data-act="sign-out"><span class="lead-ic">${icon("x")}</span><span class="body"><span class="t">Sign out</span><span class="s">${S.me().email}</span></span></button></div></section>` : html`<section class="sec"><h2 class="sec-head">Preview tools</h2><div class="rows">
         ${S.isMember() ? html`<button class="row" data-act="demo-role"><span class="lead-ic">${icon("key")}</span><span class="body"><span class="t">Try a different role</span><span class="s">See ${c.name} as a member, teacher, media coordinator or administrator</span></span>${icon("chev")}</button>` : ""}
         ${S.isMember() && !S.isPrimary() ? html`<button class="row" data-act="demo-primary"><span class="lead-ic">${icon("star")}</span><span class="body"><span class="t">Become the primary account holder</span><span class="s">Take over ${c.name}'s account in this preview</span></span>${icon("chev")}</button>` : ""}
         <button class="row" data-act="demo-reset"><span class="lead-ic">${icon("info")}</span><span class="body"><span class="t">Reset sample data</span><span class="s">Start over with fresh sample churches</span></span>${icon("chev")}</button>
-      </div><p class="faint">${PLATFORM.name} preview. Everything is saved in this browser only.</p></section>`,
+      </div><p class="faint">${PLATFORM.name} preview. Everything is saved in this browser only.</p></section>`}`,
   };
 };
 Actions["profile-edit"] = () => {
@@ -125,6 +126,7 @@ Screens.ministry = () => {
     S.can("services.plan") && row("#services", "list", "Service plans", "Order of service, saved segments and who leads what"),
     S.can("services.plan") && row("#songs", "music", "Songs and lyrics", "Your song library, with CCLI details"),
     S.can("schedule.teams") && row("#teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when"),
+    (S.can("book.rooms") || S.can("manage.locations")) && row("#rooms", "door", "Rooms", "See what's free and request a room"),
     S.can("present") && row("#services", "screen", "Present", "Slides, the stage display, countdowns, livestream overlay and captions"),
     S.can("checkin.station") && row("#admin-checkin", "kid", "Check-in station", "Rosters by room and pickup by code"),
     S.can("qr.create") && row("#qr", "qr", "QR codes", "Link to events, classes, registration and check-in"),

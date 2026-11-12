@@ -12,6 +12,14 @@ function myChannels() {
   S.state.channels.filter((c) => c.churchId === cid && c.members.includes(me)).forEach((c) => list.push({ id: c.id, kind: "dm", name: c.members.filter((x) => x !== me).map((x) => S.userName(x)).join(", "), sub: "Direct message", members: c.members }));
   return list;
 }
+/** Who a chat reaches, for notifications. */
+function channelPeople(ch) {
+  const g = ch.gathering, ids = (xs) => [...new Set(xs.filter(Boolean))];
+  if (ch.kind === "dm") return ch.members;
+  if (ch.kind === "group") return ids([...g.leaders, ...g.members.filter((m) => m.status === "in").map((m) => m.userId)]);
+  if (ch.kind === "parents") return ids([...g.leaders, ...g.members.filter((m) => m.childId).map((m) => m.userId)]);
+  return S.members().map((m) => m.userId).filter((u) => S.role(S.state.current, u)?.perms["chat.leaders"]);
+}
 const channelMessages = (id) => S.state.messages.filter((m) => m.channelId === id).sort((a, b) => a.at.localeCompare(b.at));
 function isUnread(ch) { const last = channelMessages(ch.id).filter((m) => m.by !== S.me().id).pop(); return !!last && (!S.state.chatSeen[ch.id] || last.at > S.state.chatSeen[ch.id]); }
 function unreadChats() { try { return myChannels().filter(isUnread).length; } catch { return 0; } }
@@ -59,6 +67,8 @@ Screens.thread = (id) => {
 Forms["chat-send"] = (d, f) => {
   if (!d.text) return;
   S.state.messages.push({ id: uid(), channelId: d.ch, by: S.me().id, text: d.text, at: new Date().toISOString() });
+  const ch = myChannels().find((c) => c.id === d.ch);
+  if (ch) channelPeople(ch).filter((u) => u !== S.me().id).forEach((u) => notify(u, { kind: "chat", title: ch.kind === "dm" ? S.me().name : `${S.me().name} in ${ch.name}`, body: d.text.slice(0, 120), link: `#thread-${d.ch}` }));
   S.save(); render(); $("#msg")?.focus();
 };
 document.addEventListener("keydown", (e) => {

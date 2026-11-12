@@ -17,8 +17,15 @@ const ADMIN = {
       { name: "body", label: "Details", type: "textarea", required: true, max: 1000 },
       { name: "locationId", label: "Who sees it", type: "location" },
       { name: "urgent", label: "Important: show it as an alert at the top of Home", type: "checkbox" },
+      { name: "push", label: "Also send it as a notification to everyone who can see it", type: "checkbox", get: () => false },
     ],
     save: (d, r) => ({ title: d.title, body: d.body, urgent: !!d.urgent, locationId: d.locationId || null, at: r?.at || new Date().toISOString() }),
+    after: (n, d) => {
+      if (!d.push) return;
+      const people = S.members().filter((m) => !n.locationId || S.role(m.churchId, m.userId)?.id === "admin" || S.isPrimary(m.churchId, m.userId) || m.locations === "all" || S.location(n.locationId)?.visibility !== "private" || (Array.isArray(m.locations) && m.locations.includes(n.locationId)));
+      people.forEach((m) => notify(m.userId, { kind: "news", title: n.title, body: n.body.slice(0, 140), link: "#alerts" }));
+      toast(`Sent to ${plural(people.length, "person", "people")}`);
+    },
   },
   events: {
     title: "Events", one: "event", icon: "calendar", perm: "manage.content",
@@ -35,10 +42,24 @@ const ADMIN = {
       { name: "signup", label: "People sign up for this event", type: "checkbox" },
       { name: "kids", label: "Parents can register their kids", type: "checkbox" },
       { name: "capacity", label: "Spots available", type: "number", hint: "Leave at 0 for no limit.", get: (r) => r.capacity || 0 },
+      { name: "tickets", label: "Tickets", type: "textarea", max: 600, get: (r) => (r.tickets || []).map((t) => [t.name, t.price, t.limit || ""].filter((x) => x !== "").join(", ")).join("\n"),
+        hint: "For paid events, one ticket type per line: name, price, and how many there are (optional). Example: Adult, 15. Leave blank for a free sign-up." },
+      { name: "formId", label: "Form to fill in after signing up", type: "select", options: () => [["", "None"], ...S.list("forms").map((f) => [f.id, f.title])], hint: "Use this for permission slips. Build forms under Admin, Forms." },
     ],
-    check: (d) => new Date(d.end) <= new Date(d.start) ? "The event has to end after it starts." : null,
-    save: (d, r) => ({ title: d.title, category: d.category || "Community", start: fromLocalInput(d.start), end: fromLocalInput(d.end), locationId: d.locationId || null, location: d.location, description: d.description, signup: !!d.signup, kids: !!d.kids, capacity: Math.max(0, +d.capacity || 0), registrations: r?.registrations || [] }),
-    extra: (e) => e.signup && e.registrations.length ? html`<div class="panel" style="margin-bottom:8px"><b>${registeredCount(e)} signed up</b>${e.registrations.map((r) => html`<p class="faint" style="margin:4px 0">${r.name}${r.count > 1 ? `, party of ${r.count}` : ""}${r.kids?.length ? `, ${plural(r.kids.length, "child", "children")}` : ""}${r.email ? `, ${r.email}` : ""}</p>`)}</div>` : "",
+    check: (d, rec) => {
+      if (new Date(d.end) <= new Date(d.start)) return "The event has to end after it starts.";
+      const t = parseTickets(d.tickets, rec); if (t.error) return t.error;
+      if (t.list.length && !d.signup) return "Turn on sign-ups to sell tickets.";
+      if (d.locationId && d.location) {
+        const hits = roomUses(d.locationId, d.location, new Date(d.start).getTime(), new Date(d.end).getTime()).filter((u) => !(u.kind === "event" && u.id === rec?.id));
+        if (hits.length) return `${d.location} is in use then for ${hits[0].title} (${fmtTime(hits[0].start)} to ${fmtTime(hits[0].end)}). Choose another room or time.`;
+      }
+      return null;
+    },
+    save: (d, r) => ({ title: d.title, category: d.category || "Community", start: fromLocalInput(d.start), end: fromLocalInput(d.end), locationId: d.locationId || null, location: d.location, description: d.description, signup: !!d.signup, kids: !!d.kids, capacity: Math.max(0, +d.capacity || 0), registrations: r?.registrations || [], tickets: parseTickets(d.tickets, r).list, formId: d.formId || null }),
+    after: (e) => { S.list("forms").forEach((f) => { if (f.id === e.formId) f.eventId = e.id; else if (f.eventId === e.id) f.eventId = null; }); },
+    extra: (e) => e.signup && e.registrations.length ? html`<div class="panel" style="margin-bottom:8px"><div style="display:flex;gap:8px;align-items:center;justify-content:space-between"><b>${registeredCount(e)} signed up${e.tickets?.length ? `, ${money(e.registrations.reduce((n, r) => n + (r.paid && r.paid.status !== "refunded" ? r.total || 0 : 0), 0))} paid` : ""}</b><button type="button" class="btn ghost sm" data-act="event-csv" data-id="${e.id}">${icon("download")}CSV</button></div>
+      ${e.registrations.map((r) => html`<p class="faint" style="margin:4px 0">${r.name}${r.count > 1 ? `, party of ${r.count}` : ""}${r.tickets ? `, ${ticketSummary(e, r)}` : ""}${r.kids?.length ? `, ${plural(r.kids.length, "child", "children")}` : ""}${r.total ? `, ${paidLabel(r.paid)}` : ""}${e.formId ? `, ${formsDoneText(e, r)}` : ""}${r.email ? `, ${r.email}` : ""}</p>`)}</div>` : "",
   },
   sermons: {
     title: "Sermons", one: "sermon", icon: "play", perm: "manage.sermons",
@@ -56,11 +77,13 @@ const ADMIN = {
       { name: "summary", label: "Summary", type: "textarea", max: 500 },
       { name: "outline", label: "Outline", type: "lines", hint: "One point per line." },
       { name: "docId", label: "Sermon builder outline", type: "select", options: () => [["", "None"], ...S.list("docs").filter((d) => d.kind === "sermon").map((d) => [d.id, `${d.title} (${fmtShort(fromIsoDay(d.date))})`])], hint: "Members can follow the on-screen parts of a built sermon." },
-      { name: "mediaUrl", label: "Video or audio link", type: "url", hint: "YouTube, Vimeo, a podcast episode or an audio file." },
+      { name: "videoUrl", label: "Video link", type: "url", get: (r) => sermonVideo(r), hint: "YouTube, Vimeo or Facebook. Add a transcript under Media and transcript on the sermon's page." },
+      { name: "audioUrl", label: "Audio file for the podcast", type: "url", get: (r) => sermonAudio(r), hint: "An MP3 or M4A link." },
       { name: "minutes", label: "Length in minutes", type: "number", get: (r) => r.minutes || 35 },
     ],
     check: (d) => !parseRef(d.passage) ? "That passage doesn't look like a Bible reference. Try a form like John 15:1-8." : null,
-    save: (d) => ({ title: d.title, series: d.series || "Messages", speaker: d.speaker, date: dateToIso(d.date), time: d.time, locationId: d.locationId || null, passage: d.passage, topic: d.topic, summary: d.summary, outline: d.outline, docId: d.docId || null, mediaUrl: d.mediaUrl, minutes: +d.minutes || 35 }),
+    save: (d, r) => ({ title: d.title, series: d.series || "Messages", speaker: d.speaker, date: dateToIso(d.date), time: d.time, locationId: d.locationId || null, passage: d.passage, topic: d.topic, summary: d.summary, outline: d.outline, docId: d.docId || null, videoUrl: d.videoUrl, audioUrl: d.audioUrl, mediaUrl: d.videoUrl || d.audioUrl, minutes: +d.minutes || 35, transcript: r?.transcript || [], audioBytes: r?.audioBytes || 0 }),
+    tools: () => html`<a class="btn ghost" href="#podcast">${icon("music")}Podcast feed</a>`,
   },
   plans: {
     title: "Reading plans", one: "reading plan", icon: "book", perm: "manage.sermons",
@@ -176,10 +199,13 @@ Screens.admin = (section) => {
         row("checkin.station", "admin-checkin", "kid", "Check-in roster", "Kids in each room, allergy alerts, pickup and volunteers on duty"),
         row("checkin.station", "kiosk", "screen", "Check-in kiosk", "A self check-in station that prints name tags"),
         row("schedule.teams", "teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when"),
+        row("manage.locations", "rooms", "door", "Rooms", (() => { const n = S.list("bookings").filter((b) => b.status === "requested").length; return n ? `${plural(n, "request")} waiting for approval` : "Book rooms and see what's in use"; })(),
+          (() => { const n = S.list("bookings").filter((b) => b.status === "requested").length; return n ? html`<span class="tag warn">${n}</span>` : null; })()),
         row("manage.prayer", "admin-cards", "inbox", "Connect cards", openCards ? `${openCards} waiting for follow-up` : "None waiting", openCards ? html`<span class="tag warn">${openCards}</span>` : null),
         row("manage.prayer", "admin-prayer", "pray", "Prayer requests", `${S.list("prayers").filter((p) => p.private).length} private, ${S.list("prayers").filter((p) => p.hidden).length} hidden`),
       ])}
-      ${sec("Content", Object.entries(ADMIN).map(([k, a]) => row(a.perm, `admin-${k}`, a.icon, a.title, plural(count(k), a.one, a.many || a.one + "s"))))}
+      ${sec("Content", [...Object.entries(ADMIN).map(([k, a]) => row(a.perm, `admin-${k}`, a.icon, a.title, plural(count(k), a.one, a.many || a.one + "s"))),
+        row("manage.content", "forms", "note", "Forms", `${plural(S.list("forms").length, "form")}: sign-ups, permission slips and applications`)])}
       ${sec("People", [
         row("manage.followup", "followup", "people", "Follow-up", (() => { const n = S.list("followups").filter((f) => f.status === "new").length; return n ? `${plural(n, "new person", "new people")} not reached yet` : "Everyone's been reached"; })(),
           (() => { const n = S.list("followups").filter((f) => f.status === "new").length; return n ? html`<span class="tag warn">${n}</span>` : null; })()),
@@ -195,7 +221,7 @@ function adminList(kind) {
   const list = S.visible(kind, { ignoreCampus: true }).sort(a.sort);
   return {
     title: a.title, back: "admin",
-    body: html`<div class="btns" style="margin-top:16px"><button class="btn" data-act="admin-edit" data-kind="${kind}">${icon("plus")}Add ${a.one}</button></div>
+    body: html`<div class="btns" style="margin-top:16px"><button class="btn" data-act="admin-edit" data-kind="${kind}">${icon("plus")}Add ${a.one}</button>${a.tools ? a.tools() : ""}</div>
       <div class="rows" style="margin-top:14px">${list.length ? list.map((r) => { const [t, s] = a.row(r); return html`<button class="row" data-act="admin-edit" data-kind="${kind}" data-id="${r.id}"><span class="body"><span class="t">${t}</span><span class="s">${s}</span></span>${icon("edit")}</button>`; })
         : empty(`No ${a.many || a.one + "s"} yet.`)}</div>`,
   };
@@ -217,10 +243,11 @@ Forms["admin-save"] = (d, f, fd) => {
   });
   const missing = a.fields.find((x) => x.required && (Array.isArray(d[x.name]) ? !d[x.name].length : !d[x.name]));
   if (missing) return formError(f, `Fill in "${missing.label}".`);
-  const problem = a.check?.(d);
+  const problem = a.check?.(d, rec);
   if (problem) return formError(f, problem);
   const data = a.save(d, rec);
-  if (rec) S.update(kind, rec.id, data); else S.add(kind, data);
+  const saved = rec ? S.update(kind, rec.id, data) : S.add(kind, data);
+  a.after?.(saved, d, rec);
   closeSheet(); toast(rec ? "Saved" : "Added"); render();
 };
 Actions["admin-delete"] = (el) => {
@@ -448,6 +475,7 @@ Actions["loc-edit"] = (el) => {
       <label><input type="radio" name="visibility" value="public" ${attr(l.visibility !== "private", "checked")}><span>Public</span></label>
       <label><input type="radio" name="visibility" value="private" ${attr(l.visibility === "private", "checked")}><span>Private</span></label></div></fieldset>
     <label class="field"><span>Rooms</span><textarea name="rooms" placeholder="Room 104&#10;Fellowship hall">${(l.rooms || []).join("\n")}</textarea><small>One per line. Classes and events pick from these.</small></label>
+    <label class="field"><span>Room where services meet</span><input type="text" name="serviceRoom" value="${l.serviceRoom ?? (l.rooms || [])[0] ?? ""}" maxlength="60"><small>Room booking keeps it free for 90 minutes from each service time. Leave blank to skip.</small></label>
     <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Services</legend>
       ${svcs.map((s, i) => html`<div style="display:grid;grid-template-columns:1.1fr .9fr 1.4fr;gap:8px;margin-bottom:8px">
         <select name="day${i}" aria-label="Day">${DAYS.map((d, n) => html`<option value="${n}" ${attr(n === s.day, "selected")}>${d}</option>`)}</select>
@@ -464,7 +492,7 @@ Forms["loc-save"] = (d, f) => {
   if (d.liveUrl && !isUrl(d.liveUrl)) return formError(f, "The livestream link should start with https://");
   const services = [];
   for (let i = 0; i < 30 && `time${i}` in d; i++) if (d[`time${i}`]) services.push(svc(+d[`day${i}`], d[`time${i}`], d[`label${i}`] || "Worship service"));
-  const rec = { name: d.name, code, address: d.address, visibility: d.visibility || "public", rooms: d.rooms.split("\n").map((x) => x.trim()).filter(Boolean), services: services.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)), liveUrl: d.liveUrl };
+  const rec = { name: d.name, code, address: d.address, visibility: d.visibility || "public", rooms: d.rooms.split("\n").map((x) => x.trim()).filter(Boolean), serviceRoom: d.serviceRoom, services: services.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)), liveUrl: d.liveUrl };
   if (d.id) Object.assign(S.location(d.id), rec); else c.locations.push({ id: `${c.id}-${code.toLowerCase()}-${uid().slice(-3)}`, ...rec });
   S.save(); closeSheet(); toast("Location saved"); render();
 };
@@ -543,7 +571,20 @@ AdminScreens.giving = () => {
   const funds = [...c.funds, { id: "", name: "", description: "" }];
   return {
     title: "Giving", back: "admin",
-    body: html`${demoNote("Totals include sample gifts and anything given in this preview. No money has moved.")}
+    body: html`${Pay.live() ? "" : demoNote("Totals include sample gifts and test gifts. No money has moved.")}
+      <section class="sec" style="margin-top:12px"><h2 class="sec-head">Online giving</h2><div class="panel">
+        ${c.stripe?.chargesEnabled ? html`<p style="margin-top:0">${icon("check")} Stripe is connected. Gifts, tickets and form fees go straight to ${c.name}'s Stripe account${PLATFORM.platformFeePercent ? `, less a ${PLATFORM.platformFeePercent}% platform fee` : ""}.</p><button class="btn ghost sm" data-act="stripe-connect">${icon("link")}Open Stripe settings</button>`
+          : c.stripe?.accountId ? html`<p style="margin-top:0">Stripe needs a few more details before gifts can come in.</p><button class="btn sm" data-act="stripe-connect">Finish setting up Stripe</button>`
+          : html`<p style="margin-top:0">Connect a Stripe account to take real gifts by card and bank account, sell tickets and collect form fees. Money goes straight to ${c.name}. Stripe sends receipts.</p><button class="btn sm" data-act="stripe-connect">${icon("give")}Connect Stripe</button>`}
+        <form data-form="give-settings" novalidate style="margin-top:14px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Text-to-give number</span><input type="tel" name="number" value="${c.textGive?.number || ""}" placeholder="(770) 555-0199"><small>A Twilio number pointed at your sms function.</small></label>
+            <label class="field"><span>Keyword</span><input type="text" name="keyword" value="${c.textGive?.keyword || "GIVE"}" maxlength="20"></label></div>
+          <label class="field"><span>Tax ID (EIN) for statements</span><input type="text" name="taxId" value="${c.taxId || ""}" maxlength="20" placeholder="12-3456789"></label>
+          <button class="btn ghost sm">Save</button></form></div></section>
+      <section class="sec"><h2 class="sec-head">Year-end statements</h2><div class="panel">
+        <label class="field" style="margin-top:0"><span>Year</span><select id="stmt-year">${[y, y - 1, y - 2].map((n) => html`<option ${attr(n === (now.getMonth() < 2 ? y - 1 : y), "selected")}>${n}</option>`)}</select></label>
+        <div class="btns"><button class="btn sm" data-act="statements-all" data-year="${y}">${icon("download")}All statements (PDF)</button><button class="btn ghost sm" data-act="statements-csv">${icon("download")}Gifts (CSV)</button></div>
+        <p class="faint">One page or more per giver, with the church's details and tax note. Members can download their own under Giving history.</p></div></section>
       <div class="stat"><div><b>${money(sum(thisMonth))}</b><span>This month</span></div><div><b>${money(sum(thisYear))}</b><span>This year</span></div></div>
       <section class="sec"><h2 class="sec-head">By fund this year</h2><div class="rows">${c.funds.map((f) => { const t = sum(thisYear.filter((g) => g.fundId === f.id)); return html`<div class="row"><span class="body"><span class="t">${f.name}</span><span class="progress" style="display:block;margin-top:6px"><i style="width:${sum(thisYear) ? Math.round(t / sum(thisYear) * 100) : 0}%"></i></span></span><b>${money(t)}</b></div>`; })}</div></section>
       <section class="sec"><h2 class="sec-head">Recent gifts</h2><div class="rows">${recent.length ? recent.map((g) => html`<div class="row"><span class="body"><span class="t">${g.name}</span><span class="s">${fundName(g.fundId)}, ${fmtShort(g.at)}${g.frequency !== "once" ? `, ${FREQ[g.frequency].toLowerCase()}` : ""}</span></span><b>${money(g.amount)}</b></div>`) : empty("No gifts yet.")}</div></section>
@@ -552,6 +593,15 @@ AdminScreens.giving = () => {
           <input type="text" name="name${i}" value="${f.name}" placeholder="${f.id ? "" : "Add a fund"}" aria-label="Fund name" maxlength="40"><input type="text" name="desc${i}" value="${f.description}" aria-label="Description" maxlength="80"></div>`)}
         <p class="faint">Clear a name to remove that fund. Past gifts keep their fund.</p><button class="btn">Save funds</button></form></section>`,
   };
+};
+Forms["give-settings"] = (d, f) => {
+  if (d.number && digits(d.number).length < 10) return formError(f, "Enter the full text-to-give number, with area code.");
+  S.updateChurch({ textGive: d.number ? { number: d.number, keyword: (d.keyword || "GIVE").toUpperCase() } : null, taxId: d.taxId }); toast("Saved"); render();
+};
+Actions["stripe-connect"] = async () => {
+  if (typeof Backend === "undefined" || !Backend.on) { openSheet("Connect Stripe", html`<p style="margin-top:0">Stripe connects once the app is on your own website with Supabase set up. SETUP.md walks through it: create a Stripe account for the platform, turn on Connect, and add the keys to your server functions.</p><p class="muted">After that, this button takes ${S.church().name} to Stripe to verify its bank account. It takes about ten minutes.</p><button class="btn block" data-act="close-sheet">OK</button>`); return; }
+  try { toast("Opening Stripe..."); const { url } = await Backend.call("stripe-connect", { churchId: S.state.current, returnTo: location.href }); location.href = url; }
+  catch (e) { toast(`Stripe couldn't open: ${e.message || "try again"}`); }
 };
 Forms["admin-funds"] = (d, f) => {
   const c = S.church(), funds = [];
