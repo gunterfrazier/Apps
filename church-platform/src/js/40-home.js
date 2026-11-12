@@ -26,6 +26,7 @@ Screens.welcome = () => {
       <button class="btn block">Create my account</button>
     </form>
     ${Backend.on ? "" : html`<p class="faint" style="margin-top:14px;text-align:center">This preview keeps everything in this browser. Nothing is sent anywhere, and no real money moves.</p>`}
+    <p style="text-align:center;margin-top:10px"><a class="linkish" href="#pair">${icon("lock")}Set up a church device</a></p>
   </div></div>` };
 };
 Forms.welcome = (d, f) => {

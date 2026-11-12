@@ -35,7 +35,7 @@ function applyBrand() {
   document.title = c ? `${c.name} | ${PLATFORM.name}` : PLATFORM.name;
 }
 
-const OPEN_ROUTES = ["welcome", "churches", "start", "church", "page", "display"];
+const OPEN_ROUTES = ["welcome", "churches", "start", "church", "page", "display", "pair"];
 // Screens that take a church ID after the dash (#give-riverside), so a QR code opens the right church.
 const CHURCH_SCOPED = ["home", "give", "checkin", "parents", "serve", "live", "events", "classes", "groups", "connect"];
 /** Which church a deep link belongs to, so links and QR codes switch the app to it. */
@@ -50,15 +50,19 @@ function render() {
   const app = $("#app");
   let { route, head, tail } = splitRoute();
   document.documentElement.classList.toggle("overlay-page", head === "overlay");
-  if (head === "display" || head === "stage" || head === "overlay") { Screens[head](tail); return; }
   const owner = churchForRoute(head, tail);
   if (owner && owner !== S.state.current) { S.state.current = owner; S.save(); }
   const me = S.me();
   if (Backend.failed) { app.innerHTML = flat(html`<div class="loading" role="alert"><div style="text-align:center;max-width:320px"><p>Can't reach ${PLATFORM.name} right now. Check your connection and try again.</p><button class="btn" data-act="reload">Try again</button></div></div>`); return; }
-  if (Backend.on && !Backend.user && head !== "page") { if (head !== "signin") pendingRoute = pendingRoute || route; head = "signin"; tail = ""; }
-  else if (Backend.on && !Backend.ready && head !== "page") { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Loading your churches...</div>`); return; }
-  else if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
-  else if (!me.name && head !== "welcome" && head !== "page") { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
+  const signedOutOk = head === "page" || head === "pair";
+  if (Backend.on && !Backend.user && !signedOutOk) { if (head !== "signin") pendingRoute = pendingRoute || route; head = "signin"; tail = ""; }
+  else if (Backend.on && !Backend.ready && !signedOutOk) { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Loading your churches...</div>`); return; }
+  // A church device only goes to its own screens.
+  const away = head !== "pair" && deviceGate(head, tail);
+  if (away) { go(away); return; }
+  if (head === "display" || head === "stage" || head === "overlay") { Screens[head](tail); return; }
+  if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
+  else if (!me.name && head !== "welcome" && !signedOutOk && !thisDevice()) { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
   else if (!S.church() && !OPEN_ROUTES.includes(head)) { head = "churches"; tail = ""; }
   applyBrand();
   let view;

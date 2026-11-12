@@ -60,6 +60,7 @@ const routeData = (tail) => { const [kind, ...rest] = tail.split("-"); return sl
 
 /** #stage-service-ID: a full-screen stage display for a second screen, following the operator. */
 Screens.stage = (tail) => {
+  if (tail === "follow") return startFollow("stage");
   let st = { index: 0, segAt: Date.now(), startedAt: Date.now() };
   const draw = () => { applyBrand(); $("#app").innerHTML = flat(stageMonitor(routeData(tail), st, true)); };
   document.body.classList.add("presenting");
@@ -77,6 +78,7 @@ function overlayHtml(s, st = {}) {
 }
 /** #overlay-service-ID: see-through lower thirds for streaming software, following the operator. */
 Screens.overlay = (tail) => {
+  if (tail === "follow") return startFollow("overlay");
   let st = { index: 0 };
   const draw = () => {
     const data = routeData(tail);

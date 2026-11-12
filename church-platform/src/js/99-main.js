@@ -15,4 +15,4 @@ try {
 } catch { /* not available here */ }
 
 // For local testing only: open the app with ?debug to reach the store from the console.
-if (/[?&]debug\b/.test(location.search)) window.__app = { S, roomUses, bookingConflicts, meetingTimes, Backend, RECORD_KINDS, SPLIT };
+if (/[?&]debug\b/.test(location.search)) window.__app = { S, roomUses, bookingConflicts, meetingTimes, Backend, RECORD_KINDS, SPLIT, signPlay, render };

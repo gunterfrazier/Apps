@@ -94,12 +94,21 @@ function slideHtml(s, c = S.church()) {
 const pres = { key: "", index: 0, black: false, logo: false, mode: "slideshow", segKey: "", segAt: 0, startedAt: 0, msg: "", cc: false, captions: "", transcript: [] };
 let presChannel = null;
 try { presChannel = "BroadcastChannel" in window ? new BroadcastChannel("koinonia-present") : null; } catch { presChannel = null; }
+const presLoc = (key) => { const [k, ...r] = key.split("-"); return S.get(k === "doc" ? "docs" : "services", r.join("-"))?.locationId || null; };
 function presBroadcast() {
-  const msg = { key: pres.key, index: pres.index, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "" };
+  const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "" };
   try { presChannel?.postMessage(msg); } catch {}
   if (Backend.on) Backend.broadcast(msg);
 }
 
+// Leaving the presenter tells following screens to go back to their idle playlist or logo.
+window.addEventListener("hashchange", (e) => {
+  const was = new URL(e.oldURL).hash;
+  if (!was.startsWith("#present-") || location.hash.startsWith("#present-")) return;
+  const msg = { key: was.slice(9), loc: presLoc(was.slice(9)), ended: true, church: S.state.current };
+  try { presChannel?.postMessage(msg); } catch {}
+  if (Backend.on) Backend.broadcast(msg);
+});
 Screens.present = (tail) => {
   const [kind, ...rest] = tail.split("-"); const id = rest.join("-");
   const data = slidesFor(kind, id);
@@ -117,7 +126,7 @@ Screens.present = (tail) => {
   return {
     present: true,
     page: html`<div class="present ${pres.mode}">
-      <header class="present-bar"><a class="icon-btn" href="#${data.back}" aria-label="Back">${icon("back")}</a><b class="present-title">${data.title}</b>
+      <header class="present-bar"><a class="icon-btn" href="#${thisDevice() ? "booth" : data.back}" aria-label="Back">${icon("back")}</a><b class="present-title">${data.title}</b>
         <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a><a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a></nav></header>
       ${pres.mode === "scroll" ? html`<div class="scroll-slides">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<h2 class="sec-head" style="color:#fff;margin-top:22px">${s.section}</h2>`) : ""}<div class="stage" aria-label="Slide ${i + 1}">${slideHtml(s)}</div>${s.notes ? html`<p class="scroll-notes">${icon("lock")} ${s.notes}</p>` : ""}`)}</div>`
       : html`<div class="present-main">
@@ -183,6 +192,7 @@ document.addEventListener("touchend", (e) => {
 
 // The audience display: just the slide, kept in step with the operator through BroadcastChannel.
 Screens.display = (tail) => {
+  if (tail === "follow") return startFollow("display");
   const [kind, ...rest] = tail.split("-"); const id = rest.join("-");
   const draw = (state = { index: 0 }) => {
     const data = slidesFor(kind, id);

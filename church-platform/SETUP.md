@@ -33,6 +33,7 @@ At this point the app runs on its own site, still in browser-only mode. Install 
 
 1. Sign up at [supabase.com](https://supabase.com) and create a project. Pick the region nearest your churches and save the database password somewhere safe.
 2. Open **SQL Editor**, paste all of `church-platform/supabase/schema.sql`, and select **Run**. It creates the tables, the security rules and a public `media` bucket for logos and sermon audio.
+   Already ran an earlier `schema.sql` (version 3)? Run `church-platform/supabase/upgrade-4.sql` once instead. It updates the security rules for digital signage and church devices and leaves your data alone.
 3. Your project's address and **publishable key** (`sb_publishable_...`, under **Project Settings, API Keys**) are already in `public/config.js` for the project `iigterjskwnqmnoysbha`. If you ever make a new project, change them there.
 
 The publishable key is safe to publish: it can only do what the security rules allow for each signed-in person. The **secret** key (`sb_secret_...`) and the database password are different: never put them in the app, in GitHub, or in a chat. The server functions get the secret key from Supabase on their own.
@@ -168,7 +169,23 @@ Under **Admin, Sermons, Podcast feed**, fill in the show details and cover art, 
 3. In Twilio, set the number's **A message comes in** webhook to the same `SMS_PUBLIC_URL` (HTTP POST).
 4. In the app, **Admin, Giving**: enter the number and a keyword. People text `GIVE 50` and get a link to finish the gift. One number can serve one church.
 
-## 12. Check that everything works
+## 12. Church devices: kiosks, signage and screens
+
+Kiosks, lobby screens, presentation and stage screens and the booth computer sign in as devices, with their own accounts, so nobody leaves a staff login on a shared screen.
+
+```bash
+supabase functions deploy device-pair
+```
+
+1. In the app, **Admin, Screens and devices, Add a device**. Choose what it does, its location, and an exit code if you want one. You get a 6-character code that lasts 30 minutes.
+2. On the device, open the app and choose **Set up a church device** (under the sign-in box), or scan the QR code next to the code. Enter the code. The device signs in and goes straight to its screen.
+3. To sign a device out, open it in **Screens and devices** and choose **Remove device**. Its account is deleted and the screen goes back to sign-in.
+
+Each device gets only what its job needs: a kiosk can check kids in, presentation and stage screens and the booth can present, and a signage screen can only read its church's playlists and public information. Device accounts don't appear in the member directory or the people list. Codes are single-use and expire; a wrong code is refused after a short pause.
+
+For signage, make a playlist under **Admin, Digital signage** first, then add a **Signage screen** device that plays it.
+
+## 13. Check that everything works
 
 - [ ] Two people on different phones join the same church and see each other's prayer requests and chat messages.
 - [ ] A member can't open **Admin**, and a teacher sees only their own classes in the lesson builder.
@@ -176,6 +193,7 @@ Under **Admin, Sermons, Podcast feed**, fill in the show details and cover art, 
 - [ ] Turning on push and posting an announcement with **Also send it as a notification** reaches a phone with the app closed.
 - [ ] A webhook pointed at [webhook.site](https://webhook.site) receives `member.joined` with a valid signature.
 - [ ] The kiosk finds a family and prints a name tag on your label printer.
+- [ ] A paired presentation screen on another computer shows the booth's slides as you move through them, and goes back to its logo or playlist when you close the presenter.
 
 ## Troubleshooting
 

@@ -198,6 +198,8 @@ Screens.admin = (section) => {
       ${sec("Sunday", [
         row("checkin.station", "admin-checkin", "kid", "Check-in roster", "Kids in each room, allergy alerts, pickup and volunteers on duty"),
         row("checkin.station", "kiosk", "screen", "Check-in kiosk", "A self check-in station that prints name tags"),
+        row("manage.devices", "devices", "lock", "Screens and devices", (() => { const d = S.list("devices"), w = d.filter((x) => x.status !== "paired").length; return d.length ? `${plural(d.length - w, "device")} signed in${w ? `, ${w} waiting to pair` : ""}` : "Sign in kiosks, presentation screens, stage displays and booth computers"; })()),
+        row("manage.devices", "signs", "image", "Digital signage", plural(S.list("signage").length, "playlist")),
         row("schedule.teams", "teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when"),
         row("manage.locations", "rooms", "door", "Rooms", (() => { const n = S.list("bookings").filter((b) => b.status === "requested").length; return n ? `${plural(n, "request")} waiting for approval` : "Book rooms and see what's in use"; })(),
           (() => { const n = S.list("bookings").filter((b) => b.status === "requested").length; return n ? html`<span class="tag warn">${n}</span>` : null; })()),

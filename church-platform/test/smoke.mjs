@@ -306,6 +306,76 @@ await step("release at pickup", async () => {
   await page.waitForSelector('#scrim [data-act=release][data-name="Sue Bell"]'); await page.waitForTimeout(300); await shot("28-release");
   await page.click('#scrim [data-act=release][data-name="Sue Bell"]'); await sheetGone(); await expectText("Picked up by Sue");
 });
+await step("digital signage", async () => {
+  await goTo("signs"); await page.waitForSelector(".sign-card"); await shot("40-signs");
+  await page.click(".sign-card >> nth=0"); await page.waitForSelector(".sign-preview .sg-stage");
+  await page.click("[data-act=sign-add]"); await page.click('#scrim [data-act=sign-new-slide][data-type="text"]');
+  await page.fill("#scrim input[name=title]", "Coffee is on us"); await page.fill("#scrim textarea[name=body]", "Grab a cup in the cafe before the service."); await sheetSubmit(); await sheetGone();
+  await expectText("Coffee is on us"); await shot("41-sign-edit");
+  await goTo("signs"); await page.click("[data-act=sign-new]"); await page.fill("#scrim input[name=name]", "Kids hallway");
+  await page.check("#scrim input[name=orientation][value=portrait]", { force: true }); await page.uncheck("#scrim input[name=starter]", { force: true }); await sheetSubmit();
+  await page.waitForSelector(".sign-preview .sg-stage.portrait");
+  await page.click("[data-act=sign-add]"); await page.click('#scrim [data-act=sign-new-slide][data-type="verse"]'); await page.fill("#scrim input[name=ref]", "isaiah 40:31"); await sheetSubmit(); await sheetGone();
+  await page.click("[data-act=sign-add]"); await page.click('#scrim [data-act=sign-new-slide][data-type="qr"]'); await page.fill("#scrim input[name=title]", "New here?"); await sheetSubmit(); await sheetGone();
+  await expectText("Isaiah 40:31"); await shot("42-sign-portrait");
+  await goTo("signage-sign-lobby"); await page.waitForSelector(".sign-player .sg-stage");
+  if (!(await page.evaluate(() => document.body.classList.contains("presenting")))) throw new Error("player isn't full screen");
+});
+// Screens and kiosks open in other tabs, like separate devices would.
+const tab = async (w, h) => { const p = await ctx.newPage(); await p.setViewportSize({ width: w, height: h }); p.on("pageerror", (e) => errors.push(`device tab: ${e.message}`)); return p; };
+const pairNew = async (type, fill = async () => {}) => {
+  await goTo("devices"); await page.click("[data-act=device-new]"); await page.locator(`#scrim input[name=type][value=${type}]`).evaluate((el) => el.click());
+  await fill(); await sheetSubmit(); await page.waitForSelector("#scrim .pair-code"); return (await page.textContent("#scrim .pair-code")).trim();
+};
+await step("signage player slides", async () => {
+  const tv = await tab(1280, 720);
+  await tv.goto(base + "?debug#signage-sign-lobby"); await tv.waitForSelector(".sign-player .sg-stage"); await tv.waitForTimeout(800);
+  const n = await tv.evaluate(() => __app.signPlay.slides.length);
+  if (n < 6) throw new Error(`lobby playlist has only ${n} slides`);
+  for (let i = 0; i < n; i++) { await tv.evaluate((x) => { __app.signPlay.i = x; __app.render(); }, i); await tv.waitForTimeout(800); await tv.screenshot({ path: join(shots, `43-sign-${i}-${await tv.evaluate(() => __app.signPlay.slides[__app.signPlay.i].kind)}.png`) }); }
+  await tv.close();
+});
+await step("pair a kiosk", async () => {
+  const code = await pairNew("kiosk", () => page.fill("#scrim input[name=exitPin]", "2468")); await shot("44-pair-sheet");
+  const k = await tab(1024, 768); await k.goto(base + "#pair"); await k.fill("input[name=code]", code.toLowerCase()); await k.click("form[data-form=pair] button");
+  await k.waitForSelector(".keypad"); await k.screenshot({ path: join(shots, "45-kiosk-device.png") });
+  await page.waitForSelector("#scrim", { state: "detached" }); // the admin's pairing sheet closes by itself
+  await k.evaluate(() => { location.hash = "home"; }); await k.waitForTimeout(150);
+  if ((await k.evaluate(() => location.hash)) !== "#kiosk") throw new Error("kiosk device left its screen");
+  await k.click("[data-act=device-exit]"); await k.fill("#scrim input[name=pin]", "1111"); await k.click("#scrim form button.btn.danger"); await k.waitForSelector("#scrim .form-error, #scrim [role=alert]");
+  await k.fill("#scrim input[name=pin]", "2468"); await k.click("#scrim form button.btn.danger"); await k.waitForSelector(".home-top");
+  await k.close();
+  await goTo("devices"); await expectText("Check-in kiosk"); await expectText("Online");
+});
+await step("screens follow the booth", async () => {
+  const code = await pairNew("display"); await page.click("#scrim [data-act=close-sheet]");
+  const scr = await tab(1280, 720); await scr.goto(base + `#pair-${code}`); await scr.click("form[data-form=pair] button");
+  await scr.waitForSelector(".display .slide.k-logo");
+  const code2 = await pairNew("stage"); await page.click("#scrim [data-act=close-sheet]");
+  const mon = await tab(1280, 720); await mon.goto(base + `#pair-${code2}`); await mon.click("form[data-form=pair] button"); await mon.waitForSelector(".display, .sign-player");
+  await goTo("present-service-riverside-svc-1"); await page.waitForSelector("#stage .slide");
+  await scr.waitForSelector(".display .slide:not(.k-logo)"); await mon.waitForSelector(".stage-mon.full");
+  await page.click('[data-act=pres-jump][data-i="3"]'); await page.waitForTimeout(250);
+  await scr.screenshot({ path: join(shots, "46-display-follows.png") }); await mon.screenshot({ path: join(shots, "47-stage-follows.png") });
+  await goTo("home"); await scr.waitForSelector(".display .slide.k-logo"); await mon.waitForSelector(".display .slide.k-logo");
+  await scr.close(); await mon.close();
+});
+await step("booth and signage devices", async () => {
+  const code = await pairNew("booth"); await page.click("#scrim [data-act=close-sheet]");
+  const b = await tab(1280, 800); await b.goto(base + `#pair-${code}`); await b.click("form[data-form=pair] button");
+  await b.waitForSelector(".booth-main .row"); await b.screenshot({ path: join(shots, "48-booth.png") });
+  await b.click(".booth-main a.row >> nth=0"); await b.waitForSelector(".present-main");
+  if ((await b.getAttribute(".present-bar a.icon-btn", "href")) !== "#booth") throw new Error("booth back link");
+  await b.evaluate(() => { location.hash = "devices"; }); await b.waitForTimeout(150);
+  if ((await b.evaluate(() => location.hash)) !== "#booth") throw new Error("booth device left its screens");
+  await b.close();
+  const code2 = await pairNew("signage", () => page.selectOption("#scrim select[name=playlistId]", "sign-lobby")); await page.click("#scrim [data-act=close-sheet]");
+  const s = await tab(1280, 720); await s.goto(base + `#pair-${code2}`); await s.click("form[data-form=pair] button");
+  await s.waitForSelector(".sign-player .sg-stage"); if ((await s.evaluate(() => location.hash)) !== "#signage-sign-lobby") throw new Error("signage device didn't start its playlist");
+  await page.click(".row:has-text('Signage screen')"); await page.click("#scrim [data-act=device-remove]"); await page.click("#scrim [data-act=device-remove-yes]");
+  await s.waitForFunction(() => !document.body.classList.contains("device-mode")); await s.close();
+  await goTo("devices"); await shot("49-devices");
+});
 await step("pickups and allergies at home", async () => {
   await goTo("household"); await page.click("[data-act=person-edit][data-id] >> nth=0");
   await page.fill("#scrim input[name=allergies]", "Penicillin"); await sheetSubmit(); await sheetGone(); await expectText("Allergy: Penicillin");

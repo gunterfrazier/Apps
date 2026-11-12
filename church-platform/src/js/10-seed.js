@@ -24,9 +24,9 @@ function defaultRoles() {
   const pick = (...keys) => Object.fromEntries(["use.prayer", "use.directory", "use.chat", "use.checkin", ...keys].map((k) => [k, true]));
   return [
     { id: "admin", name: "Administrator", rank: 90, perms: all, builtin: true },
-    { id: "pastor", name: "Pastor", rank: 70, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "build.sermons", "chat.leaders", "services.plan", "present", "qr.create", "manage.content", "manage.sermons", "manage.prayer", "book.rooms", "schedule.teams", "manage.followup", "view.reports") },
-    { id: "staff", name: "Ministry staff", rank: 60, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "chat.leaders", "services.plan", "checkin.station", "qr.create", "manage.content", "manage.classes", "book.rooms", "schedule.teams", "manage.followup", "view.reports") },
-    { id: "media", name: "Media coordinator", rank: 40, perms: pick("present", "services.plan", "qr.create", "schedule.teams") },
+    { id: "pastor", name: "Pastor", rank: 70, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "build.sermons", "chat.leaders", "services.plan", "present", "qr.create", "manage.content", "manage.sermons", "manage.prayer", "book.rooms", "schedule.teams", "manage.followup", "view.reports", "manage.devices") },
+    { id: "staff", name: "Ministry staff", rank: 60, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "chat.leaders", "services.plan", "checkin.station", "qr.create", "manage.content", "manage.classes", "book.rooms", "schedule.teams", "manage.followup", "view.reports", "manage.devices") },
+    { id: "media", name: "Media coordinator", rank: 40, perms: pick("present", "services.plan", "qr.create", "schedule.teams", "manage.devices") },
     { id: "teacher", name: "Teacher", rank: 30, perms: pick("teach.classes", "build.lessons", "build.studies", "book.rooms") },
     { id: "leader", name: "Group leader", rank: 30, perms: pick("lead.groups", "build.studies", "book.rooms") },
     { id: "checkin", name: "Check-in team", rank: 20, perms: pick("checkin.station") },
@@ -421,7 +421,7 @@ function buildSeed() {
     churches: Object.fromEntries(churches.map((c) => [c.id, c])),
     sermons, events, news, prayers, gatherings, plans, gifts, docs, songs, library, services, layouts, savedBlocks,
     channels: [], messages, chatSeen: {}, deliveries: [], teamMembers, blockouts, notifications: [],
-    cards, checkins: [], serving: [], recurring: [], attendance, followups, forms: formsSeed, formResponses, bookings,
+    cards, checkins: [], serving: [], recurring: [], attendance, followups, forms: formsSeed, formResponses, bookings, devices: [], signage: signageSeed(),
     notes: {}, progress: {}, saved: [], seen: [],
   };
 }
