@@ -62,6 +62,7 @@ function render() {
   catch (err) { console.error(err); view = { title: "Something went wrong", body: html`<div class="panel" style="margin-top:16px"><p>This screen couldn't load. Your data is safe.</p><a class="btn" href="#home">Go home</a></div>` }; }
   if (view.redirect) { go(view.redirect); return; }
   document.body.classList.toggle("presenting", !!view.present);
+  document.body.classList.toggle("kiosk-mode", !!view.kiosk);
   app.innerHTML = view.page ? flat(view.page) : flat(html`
     ${view.band ? view.band : bar(view.title, view.back)}
     <main class="view" id="main" tabindex="-1">${view.body}</main>

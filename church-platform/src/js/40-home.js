@@ -276,6 +276,8 @@ Forms["connect-card"] = (d, f) => {
   if (!d.contact) return formError(f, "Add an email or phone number so someone can reach you.");
   const rec = S.add("cards", { by: S.me().id, name: S.me().name, reason: d.reason, message: d.message, contact: d.contact, at: new Date().toISOString(), handled: false });
   emit("card.created", { name: rec.name, reason: rec.reason, message: rec.message, contact: rec.contact });
+  const email = d.contact.includes("@") ? d.contact : S.me().email, phone = d.contact.includes("@") ? S.me().phone : d.contact;
+  startFollowup({ personId: S.me().id, name: S.me().name, email, phone, source: "card", cardId: rec.id, reason: d.reason, message: d.message });
   closeSheet(); toast(`Sent to ${S.church().name}`);
 };
 

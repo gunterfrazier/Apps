@@ -173,12 +173,20 @@ Screens.admin = (section) => {
         row("manage.integrations", "admin-integrations", "bolt", "Webhooks and embeds", `${plural(c.integrations.webhooks.length, "webhook")}, ${plural(c.integrations.embeds.length, "embedded page")}`),
       ])}
       ${sec("Sunday", [
-        row("checkin.station", "admin-checkin", "kid", "Check-in roster", "Kids in each room and volunteers on duty"),
+        row("checkin.station", "admin-checkin", "kid", "Check-in roster", "Kids in each room, allergy alerts, pickup and volunteers on duty"),
+        row("checkin.station", "kiosk", "screen", "Check-in kiosk", "A self check-in station that prints name tags"),
+        row("schedule.teams", "teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when"),
         row("manage.prayer", "admin-cards", "inbox", "Connect cards", openCards ? `${openCards} waiting for follow-up` : "None waiting", openCards ? html`<span class="tag warn">${openCards}</span>` : null),
         row("manage.prayer", "admin-prayer", "pray", "Prayer requests", `${S.list("prayers").filter((p) => p.private).length} private, ${S.list("prayers").filter((p) => p.hidden).length} hidden`),
       ])}
       ${sec("Content", Object.entries(ADMIN).map(([k, a]) => row(a.perm, `admin-${k}`, a.icon, a.title, plural(count(k), a.one, a.many || a.one + "s"))))}
-      ${sec("Reports", [row("view.giving", "admin-giving", "give", "Giving", "Totals by fund, recent gifts and funds")])}`,
+      ${sec("People", [
+        row("manage.followup", "followup", "people", "Follow-up", (() => { const n = S.list("followups").filter((f) => f.status === "new").length; return n ? `${plural(n, "new person", "new people")} not reached yet` : "Everyone's been reached"; })(),
+          (() => { const n = S.list("followups").filter((f) => f.status === "new").length; return n ? html`<span class="tag warn">${n}</span>` : null; })()),
+      ])}
+      ${sec("Reports", [
+        S.can("view.reports") || S.can("view.giving") ? html`<a class="row" href="#reports"><span class="lead-ic">${icon("calendar")}</span><span class="body"><span class="t">Reports</span><span class="s">${S.can("view.reports") ? "Attendance, new people" : ""}${S.can("view.reports") && S.can("view.giving") ? " and giving" : S.can("view.giving") ? "Giving" : ""}, with charts and CSV downloads</span></span>${icon("chev")}</a>` : "",
+        row("view.giving", "admin-giving", "give", "Gifts and funds", "Recent gifts, statements and funds")])}`,
   };
 };
 
@@ -506,7 +514,9 @@ AdminScreens.checkin = () => {
     body: html`<label class="field" style="margin-top:16px"><span>Service</span><select data-change="roster-service">${keys.map((k) => html`<option value="${k}" ${attr(k === current, "selected")}>${label(k)}</option>`)}</select></label>
       <form data-form="checkout" class="panel" novalidate><label class="field" style="margin-top:0"><span>Check out with a pickup code</span><div style="display:flex;gap:8px"><input type="text" name="code" maxlength="3" autocomplete="off" style="text-transform:uppercase;font-family:var(--serif);font-size:1.3rem;letter-spacing:.1em"><button class="btn">Check out</button></div></label></form>
       <div class="stat" style="margin-top:12px"><div><b>${kidsHere.filter((x) => !x.out).length}</b><span>Kids in rooms</span></div><div><b>${vols.length}</b><span>Volunteers on duty</span></div></div>
-      ${c.kidsRooms.map((r) => { const list = kidsHere.filter((x) => x.room === r.name); return list.length ? html`<section class="sec"><h2 class="sec-head">${r.name}</h2><div class="rows">${list.map((k) => html`<div class="row"><span class="body"><span class="t">${k.childName}</span><span class="s">Parent: ${k.parentName}${k.notes ? html`, <b style="color:var(--warn)">${k.notes}</b>` : ""}</span></span>${k.out ? html`<span class="tag">${k.outBy === "parent" ? "Picked up (parent)" : "Picked up"}</span>` : html`<span class="code tag brand" style="font-size:1rem">${k.code}</span>`}</div>`)}</div></section>` : ""; })}
+      <div class="btns"><a class="btn sm" href="#kiosk">${icon("screen")}Open the check-in kiosk</a></div>
+      ${(() => { const al = kidsHere.filter((x) => !x.out && x.allergies); return al.length ? html`<div class="allergy-note" style="margin-top:12px">${icon("info")}<span><b>Allergy alerts.</b> ${al.map((x) => `${x.childName} (${x.room}): ${x.allergies}`).join(". ")}.</span></div>` : ""; })()}
+      ${c.kidsRooms.map((r) => { const list = kidsHere.filter((x) => x.room === r.name); return list.length ? html`<section class="sec"><h2 class="sec-head">${r.name}</h2><div class="rows">${list.map((k) => html`<div class="row"><span class="body"><span class="t">${k.childName}</span><span class="s">Parent: ${k.parentName}${k.via === "kiosk" ? ", kiosk" : ""}</span>${careHtml(k)}</span>${k.out ? html`<span class="tag">${k.outBy === "parent" ? "Picked up (parent)" : k.outBy === "staff" ? "Picked up" : `Picked up by ${firstName(k.outBy)}`}</span>` : html`<span class="code tag brand" style="font-size:1rem">${k.code}</span>`}</div>`)}</div></section>` : ""; })}
       ${!kidsHere.length ? html`<div class="rows" style="margin-top:14px">${empty("No kids checked in for this service yet.")}</div>` : ""}
       ${vols.length ? html`<section class="sec"><h2 class="sec-head">Volunteers</h2><div class="rows">${vols.map((v) => html`<div class="row"><span class="body"><span class="t">${v.name}</span><span class="s">${v.team}</span></span></div>`)}</div></section>` : ""}
       ${S.can("qr.create") ? html`<div class="btns"><button class="btn ghost sm" data-act="qr-for" data-target="checkin-${c.id}" data-label="Check in your kids">${icon("qr")}QR code for the check-in desk</button></div>` : ""}`,
@@ -518,8 +528,7 @@ Forms.checkout = (d, f) => {
   const code = (d.code || "").toUpperCase();
   const hits = S.list("checkins").filter((x) => x.serviceKey === rosterService && x.code === code && !x.out);
   if (!hits.length) return formError(f, `No kids checked in with code ${code || "(blank)"} for this service.`);
-  checkOut(hits, "staff");
-  toast(`${listJoin(hits.map((x) => x.childName))} picked up`); render();
+  f.reset(); releaseSheet(hits);
 };
 
 // ----- Giving -----

@@ -265,7 +265,7 @@ await step("volunteer scheduling", async () => {
   await goTo("serving"); await page.click('.ask-card [data-act=ask-no] >> nth=0'); await page.fill("#scrim input[name=note]", "Sick that week"); await sheetSubmit(); await sheetGone();
   await expectText("Can't serve"); await page.click('.ask-card [data-act=ask-yes] >> nth=0'); await expectText("Confirmed");
   await goTo("team-0"); await page.click("[data-act=team-edit]"); await page.fill("#scrim textarea[name=positions]", "Worship leader\nVocals\nKeys\nGuitar\nBass\nDrums"); await sheetSubmit(); await sheetGone(); await expectText("Bass");
-  await goTo("teams"); await page.click("[data-act=team-new]"); await page.fill("#scrim input[name=name]", "Hospitality"); await page.fill("#scrim textarea[name=positions]", "Welcome table"); await sheetSubmit(); await sheetGone(); await expectText("Welcome table");
+  await goTo("teams"); await page.click("[data-act=team-new]"); await page.fill("#scrim input[name=name]", "Hospitality"); await page.fill("#scrim textarea[name=positions]", "Welcome table"); await sheetSubmit(); await sheetGone(); await page.waitForSelector("text=Welcome table");
   await goTo("alerts"); await expectText("Announcements");
 });
 await step("stage display, countdown and overlay", async () => {
@@ -284,6 +284,50 @@ await step("stage display, countdown and overlay", async () => {
   await goTo("overlay-service-riverside-svc-1"); await page.waitForSelector(".ov-frame");
   await goTo("home"); await page.waitForSelector(".home-top");
   if (await page.evaluate(() => document.documentElement.classList.contains("overlay-page") || document.body.classList.contains("presenting"))) throw new Error("overlay or presenting styles stuck after leaving");
+});
+await step("check-in kiosk", async () => {
+  await goTo("kiosk"); await page.click("form[data-form=kiosk-start] button"); await page.waitForSelector(".keypad");
+  for (const k of "0142") await page.click(`.keypad [data-k="${k}"]`);
+  await page.click(".kiosk-fam >> nth=0"); await page.waitForSelector(".kid-tile"); await expectText("Peanuts"); await shot("26-kiosk-kids");
+  await page.click("[data-act=kiosk-checkin]"); await page.waitForSelector(".kiosk-done");
+  const n = await page.$$eval(".label-sheet .label", (x) => x.length); if (n !== 3) throw new Error(`expected 3 tags, got ${n}`);
+  await shot("27-kiosk-tags");
+  await page.click(".kiosk-done [data-act=kiosk-reset]"); await page.fill("#kq", "alva"); await page.waitForSelector(".kiosk-fam"); await page.fill("#kq", "");
+  await page.click("[data-act=kiosk-guest]"); await page.fill("input[name=name]", "Rosa Diaz"); await page.fill("input[name=phone]", "(770) 555-0199");
+  await page.fill("input[name=kid0]", "Ava"); await page.fill("input[name=allergy0]", "Eggs"); await page.click("[data-act=kiosk-more]"); await page.fill("input[name=kid1]", "Leo");
+  await page.click("form[data-form=kiosk-guest] button.btn:not([type=button])"); await page.waitForSelector(".kiosk-done"); await expectText("Allergy: Eggs");
+  await page.click("[data-act=kiosk-exit]"); await page.click("#scrim [data-act=kiosk-leave]"); await page.waitForSelector("form[data-form=checkout]");
+});
+await step("release at pickup", async () => {
+  await expectText("Allergy alerts");
+  const code = await page.$eval(".row:has-text('Nora Bell') .code", (e) => e.textContent.trim());
+  await page.fill("form[data-form=checkout] input[name=code]", code); await page.click("form[data-form=checkout] button");
+  await page.waitForSelector('#scrim [data-act=release][data-name="Sue Bell"]'); await page.waitForTimeout(300); await shot("28-release");
+  await page.click('#scrim [data-act=release][data-name="Sue Bell"]'); await sheetGone(); await expectText("Picked up by Sue");
+});
+await step("pickups and allergies at home", async () => {
+  await goTo("household"); await page.click("[data-act=person-edit][data-id] >> nth=0");
+  await page.fill("#scrim input[name=allergies]", "Penicillin"); await sheetSubmit(); await sheetGone(); await expectText("Allergy: Penicillin");
+  await page.click("[data-act=pickup-edit]:not([data-id])"); await page.fill("#scrim input[name=name]", "Grandpa Joe"); await page.fill("#scrim input[name=relation]", "Grandfather"); await sheetSubmit(); await sheetGone();
+  await expectText("Grandpa Joe");
+});
+await step("newcomer follow-up", async () => {
+  await goTo("followup"); await expectText("Priya Shah"); await expectText("Rosa Diaz"); await shot("29-followup");
+  await page.click('a.row:has-text("Priya Shah")'); await page.waitForSelector(".step-row");
+  await page.click(".step-row >> nth=0"); await expectText("Contacted");
+  await page.fill("form[data-form=follow-note] textarea", "Texted a welcome and the newcomers lunch date."); await page.click("form[data-form=follow-note] button");
+  await expectText("newcomers lunch date"); await page.selectOption("select[data-change=follow-assign]", { index: 1 });
+  await page.click('[data-act=follow-status][data-v="connected"]'); await shot("30-guest");
+  await goTo("followup"); await page.click("[data-act=follow-new]"); await page.fill("#scrim input[name=name]", "Walk-in visitor"); await sheetSubmit(); await page.waitForSelector(".step-row");
+  await goTo("followup"); await page.click("[data-act=follow-steps]"); await sheetSubmit(); await sheetGone();
+});
+await step("reports", async () => {
+  await goTo("reports"); await expectText("Average week"); await expectText("By fund");
+  await page.hover(".viz[data-viz=att] .viz-col >> nth=6"); await page.waitForSelector(".viz[data-viz=att] .viz-tip:not([hidden])"); await shot("31-reports");
+  await page.selectOption("select[data-change=report-range]", "12m"); await page.waitForSelector(".viz[data-viz=give] .viz-col");
+  await page.click("[data-act=att-record]"); await page.fill("#scrim input[name=adults]", "180"); await page.fill("#scrim input[name=online]", "64"); await sheetSubmit(); await sheetGone();
+  await page.click(".viz[data-viz=att] summary"); await page.waitForSelector(".viz[data-viz=att] .mini-table");
+  await page.emulateMedia({ colorScheme: "dark" }); await goTo("reports"); await shot("32-reports-dark"); await page.emulateMedia({ colorScheme: "light" });
 });
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");

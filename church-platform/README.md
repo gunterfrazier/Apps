@@ -22,6 +22,7 @@ A phone-first church app that many churches share. People create an account, fin
 - Parent portal: each child's classes, groups and events, the teacher and room, what the class is learning, and check-in and check-out.
 - Chat: group and class chats, teacher and parent chats, leadership chat and direct messages.
 - Prayer wall, member directory, giving, kids and volunteer check-in, Watch live with the order of service, and a QR code scanner.
+- Households with allergies (printed in bold on name tags and flagged for teachers), care notes, and the people allowed to pick up each family's kids, with photos.
 
 **Ministry tools**, by permission
 - Sermon builder, Sunday school lesson builder (for teachers assigned to a class) and Bible study guide builder. Add Scripture (filled from the BSB or KJV), points, keynotes, media, text, questions, cues that can show a QR code, and private notes. Each block is shown on screen or kept private, with its own speaker notes. The presenter page lists every block with its slide number and notes, plus your resource notes.
@@ -43,9 +44,16 @@ A phone-first church app that many churches share. People create an account, fin
 - Livestream overlay: a see-through page for OBS, vMix or Streamlabs that puts lyrics, Scripture and live captions in a lower third.
 - Live captions turn the preacher's words into text with the browser's speech recognition (Chrome, Edge or Safari) and show them on the overlay.
 
+**Kids check-in kiosk, new people and reports**
+- A self check-in kiosk for a tablet at the kids area. Families find themselves by the last four digits of their phone or their last name, tap who's here and get a name tag for each child plus a pickup tag with the same code. First-time families add themselves as guests in a minute. An optional exit code keeps kids from leaving kiosk mode, and the kiosk returns to the start if a family walks away.
+- Name tags in three label sizes (4 × 2 in, 2.25 × 1.25 in and 62 × 29 mm), with allergies in a black band.
+- At pickup, staff enter the code and see the parents, family and authorized pickups with photos, then choose who the kids were released to. Rosters show allergy alerts for each room.
+- Newcomer follow-up: connect cards, first-time kiosk families and new members land in one list. Each person gets the church's next steps as a checklist, someone to follow up (who's notified), call, text and email buttons, a status and a notes log.
+- Reports: weekly or monthly attendance (in the room, kids and online), new people and how they came, and giving by week or month and by fund. Every chart has a hover readout, a table view and a CSV download. Record head counts after each service; kids check-ins are counted for you.
+
 **For admins**
 - A landing page built from blocks: banners, graphics and photos you upload, information, buttons and links, video, embedded pages, events, classes, service times and social links.
-- Webhooks for eleven events, signed with HMAC-SHA256, with a message log. Embedded pages listed in the app.
+- Webhooks for thirteen events, signed with HMAC-SHA256, with a message log. Embedded pages listed in the app.
 - Announcements, events, sermons, reading plans, classes and groups, prayer moderation, connect cards, check-in rosters, people, and giving reports.
 
 ### Song lyrics and copyright
@@ -96,10 +104,10 @@ src/js/10-seed.js     Sample churches, people, roles, classes, builder documents
 src/js/20-store.js    Data store, roles and location access, webhooks, schedules
 src/js/30-ui.js       Router, layout, location filter, embeds, sheets
 src/js/31-banner.js   Home banner and its designer
-src/js/40-58          Screens: home and Watch live, word, events, connect (classes, groups, prayer, directory),
+src/js/40-61          Screens: home and Watch live, word, events, connect (classes, groups, prayer, directory),
                       give, check-in, me and ministry tools, admin, landing page, builders, service plans and songs,
                       presentation, chat, QR, webhooks and embeds, parent portal, layouts, volunteers,
-                      stage display and livestream overlay
+                      stage display and livestream overlay, check-in kiosk, follow-up, reports
 public/               Manifest, service worker, icons, QR reader
 supabase/schema.sql   Database schema with security rules
 test/smoke.mjs        End-to-end check
@@ -108,7 +116,7 @@ test/smoke.mjs        End-to-end check
 ## Known limits
 
 - Downloadable calendar files (.ics) aren't offered; Google Calendar links are.
-- Kids check-in shows name tags on the phone. Printing labels at a kiosk needs a label printer integration.
+- Name tags print through the browser's print dialog to whatever label printer the kiosk device uses. To print without the dialog, run Chrome with `--kiosk --kiosk-printing` and set the label printer as the default. Tags don't print in the preview.
 - The stage display, display window and overlay follow the operator through the browser, so they need to run on the same computer. Once Supabase Realtime is connected, they can run on any device.
 - Live captions depend on the browser's speech recognition, which sends audio to the browser maker's service, and need a microphone the browser is allowed to use.
 - Recordings and livestreams play by opening or framing the church's video link. Saving audio for offline listening needs the church to host its files on the same site.

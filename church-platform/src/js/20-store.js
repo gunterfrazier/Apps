@@ -15,7 +15,9 @@ const S = {
       this.state = saved;
       // Added after the first v2 release: named layouts and saved builder items.
       const seed = buildSeed();
-      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications"]) if (!saved[k]) saved[k] = seed[k];
+      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups"]) if (!saved[k]) saved[k] = seed[k];
+      saved.me.pickups ||= [];
+      Object.values(seed.users).forEach((u) => { const mine = saved.users[u.id]; if (!mine) { if (u.guestOf) saved.users[u.id] = u; } else if (!mine.family) Object.assign(mine, { family: u.family, pickups: u.pickups }); });
       Object.values(saved.churches).forEach((c) => {
         c.positions ||= JSON.parse(JSON.stringify(DEFAULT_POSITIONS));
         // Give built-in roles the permissions added in later versions.
@@ -75,6 +77,7 @@ const S = {
       this.state.memberships.push({ churchId: id, userId: this.me().id, roleId: c.defaults.roleId, locations: [...(c.defaults.locations || [])], listed: !!c.defaults.listInDirectory, joined: new Date().toISOString() });
       this.state.current = id;
       emit("member.joined", { name: this.me().name, email: this.me().email }, id);
+      startFollowup({ personId: this.me().id, name: this.me().name, email: this.me().email, phone: this.me().phone, source: "joined", reason: "Joined the church in the app" });
     }
     this.state.current = id; this.save();
   },
@@ -142,6 +145,7 @@ const WEBHOOK_EVENTS = [
   ["event.registered", "Someone signs up for an event"], ["gathering.registered", "Someone registers for a class or group"],
   ["gift.created", "A gift is made"], ["checkin.created", "A child is checked in"], ["checkin.completed", "A child is checked out"],
   ["volunteer.scheduled", "Someone is asked to serve"], ["volunteer.responded", "A volunteer accepts or declines"],
+  ["followup.created", "Someone new needs follow-up"], ["attendance.recorded", "Attendance is recorded for a service"],
 ];
 async function hmacHex(secret, text) {
   try {

@@ -3,7 +3,7 @@ let installPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; });
 
 const MINISTRY_PERMS = ["build.sermons", "build.lessons", "build.studies", "services.plan", "present", "checkin.station", "qr.create", "lead.groups", "teach.classes", "schedule.teams"];
-const ADMIN_PERMS = ["manage.content", "manage.sermons", "manage.classes", "manage.prayer", "manage.people", "view.giving", "manage.page", "manage.integrations", "manage.locations", "manage.roles", "manage.church"];
+const ADMIN_PERMS = ["manage.followup", "view.reports", "manage.content", "manage.sermons", "manage.classes", "manage.prayer", "manage.people", "view.giving", "manage.page", "manage.integrations", "manage.locations", "manage.roles", "manage.church"];
 const hasMinistryTools = () => S.isMember() && S.canAny(MINISTRY_PERMS);
 const hasAdminTools = () => S.isMember() && S.canAny(ADMIN_PERMS);
 const accessText = (m) => !m ? "" : m.locations === "all" ? "All locations" : (S.locations().filter((l) => l.visibility !== "private" || m.locations.includes(l.id)).map((l) => l.name).join(", ") || "Public locations");

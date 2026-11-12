@@ -111,7 +111,7 @@ const PERMS = [
   ["Managing", "manage.prayer", "Moderate prayer and read connect cards"],
   ["Managing", "manage.people", "Members and the directory"],
   ["Managing", "manage.followup", "Follow up with new people"],
-  ["Managing", "view.reports", "Attendance, guest and giving reports"],
+  ["Managing", "view.reports", "Attendance and new-people reports"],
   ["Managing", "view.giving", "Giving reports and funds"],
   ["Managing", "manage.page", "Landing page, branding and links"],
   ["Managing", "manage.integrations", "Webhooks and embedded pages"],

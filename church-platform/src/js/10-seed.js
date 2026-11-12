@@ -83,7 +83,17 @@ function buildSeed() {
     ["bill", "Bill Henderson", "The Hendersons", "(937) 555-0133"], ["sam", "Sam Lindqvist", "Sam and Kari Lindqvist", "(828) 555-0110"],
     ["grace", "Grace Mwangi", "Grace Mwangi", "(828) 555-0124"], ["abby", "Abby Ross", "Abby and Tom Ross", "(828) 555-0181"],
   ];
-  const users = Object.fromEntries(people.map(([k, name, household, phone]) => [`u-${k}`, { id: `u-${k}`, name, household, phone, email: `${k}@example.com` }]));
+  const users = Object.fromEntries(people.map(([k, name, household, phone]) => [`u-${k}`, { id: `u-${k}`, name, household, phone, email: `${k}@example.com`, family: [], pickups: [] }]));
+  // Families with kids, for the check-in kiosk and staff rosters.
+  const yearsAgo = (y, m = 0) => { const d = new Date(now); d.setFullYear(d.getFullYear() - y); d.setMonth(d.getMonth() - m); return isoDay(d); };
+  const kid = (name, y, m, allergies = "", notes = "") => ({ id: uid(), name, kind: "child", birth: yearsAgo(y, m), allergies, notes });
+  users["u-marcus"].family = [{ id: uid(), name: "Joy Bell", kind: "adult", birth: "", allergies: "", notes: "" }, kid("Eli Bell", 6, 2), kid("Nora Bell", 3, 5, "Peanuts")];
+  users["u-marcus"].pickups = [{ id: uid(), name: "Sue Bell", relation: "Grandmother", phone: "(770) 555-0190", photo: "" }];
+  users["u-daniel"].family = [kid("Theo Kim", 9, 1)];
+  users["u-mark"].family = [kid("Ivy Reed", 4, 8, "", "Asthma. Inhaler in her bag")];
+  users["u-ana"].family = [kid("Mateo Alvarez", 7, 4), kid("Sofia Alvarez", 2, 2, "Dairy")];
+  users["u-ana"].pickups = [{ id: uid(), name: "Luis Alvarez", relation: "Father", phone: "(770) 555-0158", photo: "" }];
+  users["u-james"].family = [kid("Chidi Okafor", 5, 0, "Tree nuts")];
   const memberships = [];
   const mem = (churchId, k, roleId, locations = "all", listed = true) => memberships.push({ churchId, userId: `u-${k}`, roleId, locations, listed, joined: daysAgo(400) });
   mem("riverside", "dana", "admin"); mem("riverside", "marcus", "pastor"); mem("riverside", "linda", "teacher", ["riverside-main"]);
@@ -322,6 +332,43 @@ function buildSeed() {
     asg("Kids", "Preschool teacher", "linda", "accepted"), asg("Kids", "Check-in desk", "ana", "declined", "Out of town that weekend")];
   const blockouts = [{ id: uid(), churchId: "riverside", userId: "u-ana", from: nextSunday, to: nextSunday, note: "Visiting family" }];
 
+  // ----- History for reports: weekly attendance, a year of giving, and newcomers being followed up -----
+  const rnd = (n) => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+  const pastSunday = (w) => { const d = new Date(now); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() || 7) - 7 * (w - 1)); return isoDay(d); };
+  const attendance = [];
+  const sizes = { "riverside-main@09:00": [150, 34, 70], "riverside-main@11:00": [205, 46, 95], "riverside-east@10:00": [72, 18, 0], "cornerstone-main@10:00": [104, 15, 32], "newhope-main@10:30": [52, 10, 0] };
+  for (let w = 1; w <= 52; w++) Object.entries(sizes).forEach(([k, [a, kd, o]], j) => {
+    const [locationId, time] = k.split("@"), date = pastSunday(w), grow = 1 + 0.003 * (52 - w), r = (n) => 0.9 + 0.2 * rnd(w * 31 + j * 7 + n);
+    attendance.push({ id: uid(), churchId: locationId.split("-")[0], serviceKey: `${date}T${time}@${locationId}`, date, time, locationId,
+      adults: Math.round(a * grow * r(1)), kids: Math.round(kd * grow * r(2)), online: Math.round(o * r(3)), by: "sample" });
+  });
+  const givers = { riverside: ["Dana Whitfield", "Daniel Kim", "Jordan King", "Ana Alvarez", "Priya Shah", "The Okoro family"], cornerstone: ["James Okafor", "Elena Ortiz"], newhope: ["Sam Lindqvist"] };
+  churches.forEach((c) => [...donors[c.id], ...givers[c.id]].forEach((name, i) => {
+    for (let d = 45; d < 380; d += 7 + Math.floor(rnd(i * 13 + d) * 14)) {
+      gifts.push({ id: `${c.id}-hist${i}-${d}`, churchId: c.id, by: null, name, fundId: c.funds[rnd(i + d) < 0.8 ? 0 : (i + d) % c.funds.length].id, amount: [20, 25, 40, 50, 75, 100, 120, 150, 250][Math.floor(rnd(i * 7 + d * 3) * 9)], frequency: i % 3 === 0 ? "monthly" : "once", method: i % 2 ? "bank" : "card", at: daysAgo(d, 3), sample: true });
+    }
+  }));
+  // Guests who came through the kiosk or a connect card, and where their follow-up stands.
+  users["g-nguyen"] = { id: "g-nguyen", name: "Thao Nguyen", household: "The Nguyen family", phone: "(770) 555-0177", email: "thao.nguyen@example.com", guestOf: ["riverside"], firstVisit: daysAgo(9),
+    family: [kid("Lan Nguyen", 8, 0, "Shellfish"), kid("Minh Nguyen", 5, 3)], pickups: [] };
+  const STEPS = ["Send a welcome text or email", "Pastor or staff phone call", "Invite to a newcomers lunch", "Help them join a group or team"];
+  const steps = (done, by = "u-dana", at = daysAgo(1)) => STEPS.map((label, i) => ({ id: uid(), label, done: i < done, doneAt: i < done ? at : null, by: i < done ? by : null }));
+  const cards = [
+    { id: "card-priya", churchId: "riverside", by: null, name: "Priya Shah", reason: "I'm new here", message: "We just moved from Atlanta and are looking for a church home with a good kids program.", contact: "priya.shah@example.com, (770) 555-0131", at: daysAgo(2, 3), handled: false },
+    { id: "card-maria", churchId: "riverside", by: null, name: "Maria Lopez", reason: "I want to be baptized", message: "", contact: "(770) 555-0148", at: daysAgo(5), handled: false },
+  ];
+  const fu = (o) => ({ id: uid(), churchId: "riverside", status: "new", assignedTo: "u-dana", notes: [], personId: null, phone: "", email: "", message: "", steps: steps(0), ...o });
+  const followups = [
+    fu({ name: "Priya Shah", source: "card", cardId: "card-priya", reason: "I'm new here", message: cards[0].message, email: "priya.shah@example.com", phone: "(770) 555-0131", assignedTo: "u-marcus", at: cards[0].at }),
+    fu({ name: "Maria Lopez", source: "card", cardId: "card-maria", reason: "I want to be baptized", phone: "(770) 555-0148", assignedTo: "u-marcus", at: cards[1].at }),
+    fu({ name: "Thao Nguyen", personId: "g-nguyen", source: "kiosk", reason: "First visit, checked in Lan and Minh", phone: "(770) 555-0177", email: "thao.nguyen@example.com", status: "contacted", steps: steps(2, "u-dana", daysAgo(6)), at: daysAgo(9),
+      notes: [{ id: uid(), by: "u-dana", at: daysAgo(6), text: "Called Thursday. They loved the kids wing. Invited them to the newcomers lunch." }] }),
+    fu({ name: "Owen Carter", source: "joined", reason: "Joined the church in the app", email: "owen.carter@example.com", status: "connected", steps: steps(4, "u-marcus", daysAgo(10)), at: daysAgo(24) }),
+    fu({ name: "Ben Foster", source: "card", reason: "I have a question", phone: "(770) 555-0129", status: "closed", steps: steps(1, "u-dana", daysAgo(45)), at: daysAgo(48), notes: [{ id: uid(), by: "u-dana", at: daysAgo(40), text: "Moved closer to family in Athens. Sent him a church there." }] }),
+    ...["Hannah Price", "Luis Romero", "The Patel family", "Grace Odom", "Carlos Vega", "Megan Holt", "Isaac Brown"].map((name, i) =>
+      fu({ name, source: ["card", "kiosk", "joined"][i % 3], reason: ["I'm new here", "First visit with kids", "Joined the church in the app"][i % 3], status: i % 4 === 3 ? "closed" : "connected", steps: steps(i % 4 === 3 ? 1 : 4, "u-marcus", daysAgo(30 + i * 18)), at: daysAgo(35 + i * 20) })),
+  ];
+
   const messages = [
     { id: uid(), channelId: "g-riverside-eastside", by: "u-daniel", text: "We're at our place Tuesday at 7. Bring a side dish if you can!", at: daysAgo(1, 4) },
     { id: uid(), channelId: "g-riverside-eastside", by: "u-teresa", text: "I'll bring a salad.", at: daysAgo(1, 2) },
@@ -332,12 +379,12 @@ function buildSeed() {
 
   return {
     v: 2,
-    me: { id: "me-" + uid(), name: "", email: "", phone: "", household: [] },
+    me: { id: "me-" + uid(), name: "", email: "", phone: "", household: [], pickups: [] },
     users, memberships, current: null, campus: {},
     churches: Object.fromEntries(churches.map((c) => [c.id, c])),
     sermons, events, news, prayers, gatherings, plans, gifts, docs, songs, library, services, layouts, savedBlocks,
     channels: [], messages, chatSeen: {}, deliveries: [], teamMembers, blockouts, notifications: [],
-    cards: [], checkins: [], serving: [], recurring: [],
+    cards, checkins: [], serving: [], recurring: [], attendance, followups,
     notes: {}, progress: {}, saved: [], seen: [],
   };
 }
