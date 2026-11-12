@@ -1,0 +1,210 @@
+// Runs the built app the way the published site runs: under a sub-path (/Apps/, like GitHub Pages) and connected to
+// Supabase. Supabase itself is simulated here (sign-in codes and an in-memory copy of the tables), so this checks the
+// app's own live-mode wiring: signing in, a new account, registering a church, data surviving a reload, signing out.
+// It doesn't check the real project's security rules or server functions; SETUP.md step 12 lists those checks.
+// Run: node build.mjs && node test/live.mjs   (needs Playwright, and npm to fetch supabase-js the first time)
+import { createRequire } from "node:module";
+import { createServer } from "node:http";
+import { readFileSync, existsSync, mkdirSync } from "node:fs";
+import { join, dirname, extname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
+import { tmpdir } from "node:os";
+
+const require = createRequire(import.meta.url);
+let playwright;
+try { playwright = require("playwright"); } catch { playwright = require(join(process.env.PLAYWRIGHT_DIR || "/opt/npm-tools/node_modules", "playwright")); }
+const here = dirname(fileURLToPath(import.meta.url)), root = join(here, "..", "dist"), shots = join(here, "..", ".shots");
+mkdirSync(shots, { recursive: true });
+
+// The app loads supabase-js from jsDelivr; serve the same version from npm instead.
+const backendSrc = readFileSync(join(here, "..", "src", "js", "70-backend.js"), "utf8");
+const version = backendSrc.match(/supabase-js@([\d.]+)/)[1];
+const cache = join(tmpdir(), `supabase-js-${version}`), bundle = join(cache, "supabase.esm.js");
+if (!existsSync(bundle)) {
+  mkdirSync(cache, { recursive: true });
+  execSync(`npm install --silent --prefix "${cache}" @supabase/supabase-js@${version} esbuild`, { stdio: "inherit" });
+  execSync(`"${join(cache, "node_modules", ".bin", "esbuild")}" "${join(cache, "node_modules", "@supabase", "supabase-js")}" --bundle --format=esm --platform=browser --outfile="${bundle}" --log-level=warning`, { stdio: "inherit" });
+}
+const config = readFileSync(join(root, "config.js"), "utf8");
+const supabaseUrl = (config.match(/supabaseUrl:\s*"([^"]+)"/) || [])[1];
+if (!supabaseUrl) { console.log("dist/config.js doesn't name a Supabase project, so there's no live mode to test."); process.exit(0); }
+const supaHost = new URL(supabaseUrl).host;
+
+const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".webmanifest": "application/manifest+json" };
+const server = createServer((req, res) => {
+  const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  if (!path.startsWith("/Apps/")) { res.writeHead(404); return res.end(); }
+  const p = join(root, path.slice(6).replace(/^$|\/$/, "index.html"));
+  if (!p.startsWith(root) || !existsSync(p)) { res.writeHead(404); return res.end(); }
+  res.writeHead(200, { "content-type": types[extname(p)] || "application/octet-stream" }); res.end(readFileSync(p));
+}).listen(0);
+const base = `http://localhost:${server.address().port}/Apps/`;
+
+// ----- A small stand-in for Supabase: auth codes, and tables kept in memory -----
+const db = {};
+const keys = { records: ["kind", "id"], memberships: ["church_id", "user_id"], roles: ["church_id", "key"], profile_private: ["user_id"], families: ["user_id"], push_subscriptions: ["endpoint"] };
+const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+const uid = "11111111-2222-4333-8444-555555555555", exp = Math.floor(Date.now() / 1000) + 3600;
+const user = { id: uid, aud: "authenticated", role: "authenticated", email: "tester@example.com", email_confirmed_at: new Date().toISOString(), app_metadata: { provider: "email" }, user_metadata: {}, created_at: new Date().toISOString() };
+const users = { [uid]: user }, passwords = {};
+const sessionFor = (u) => ({ access_token: `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: u.id, exp, role: "authenticated", aud: "authenticated", email: u.email })}.x`, token_type: "bearer", expires_in: 3600, expires_at: exp, refresh_token: `r-${u.id}`, user: u });
+const session = sessionFor(user);
+const caller = (req) => { try { return users[JSON.parse(Buffer.from((req.headers().authorization || "").split(".")[1] || "", "base64url").toString()).sub] || null; } catch { return null; } };
+// What the device-pair server function does: a new account for the device, with a device membership.
+function pairDevice(code) {
+  const dev = (db.records || []).find((r) => r.kind === "devices" && r.data.code === code);
+  if (!dev) return [404, { error: "That code didn't work." }];
+  const id = `dddddddd-0000-4000-8000-${String(Object.keys(users).length).padStart(12, "0")}`, email = `device-${dev.id}@devices.our-faithful.invalid`;
+  users[id] = { ...user, id, email }; passwords[email] = { id, password: "pw" };
+  (db.profiles ||= []).push({ id, name: dev.data.name });
+  (db.profile_private ||= []).push({ user_id: id, data: { current: dev.church_id } });
+  (db.memberships ||= []).push({ church_id: dev.church_id, user_id: id, role_key: `device:${dev.data.type}`, locations: "all", listed: false });
+  Object.assign(dev, { owner: id, data: { ...dev.data, status: "paired", deviceUser: id, code: null, pairedAt: new Date().toISOString(), lastSeen: new Date().toISOString() } });
+  return [200, { email, password: "pw", deviceId: dev.id }];
+}
+const filterRows = (rows, params) => {
+  for (const [col, v] of params) {
+    if (["select", "order", "offset", "limit", "on_conflict", "columns"].includes(col)) continue;
+    if (v.startsWith("eq.")) rows = rows.filter((r) => String(r[col]) === v.slice(3));
+    else if (v.startsWith("in.(")) { const set = v.slice(4, -1).split(",").map((x) => x.replace(/^"|"$/g, "")); rows = rows.filter((r) => set.includes(String(r[col]))); }
+  }
+  return rows;
+};
+const calls = new Set();
+async function supabase(route) {
+  const req = route.request(), u = new URL(req.url()), m = req.method();
+  const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*", "access-control-expose-headers": "*" };
+  if (m === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+  const json = (status, body, extra = {}) => route.fulfill({ status, headers: { ...cors, "content-type": "application/json", ...extra }, body: body === undefined ? "" : JSON.stringify(body) });
+  const p = u.pathname; calls.add(`${m} ${p.replace(/\/rest\/v1\//, "/")}`);
+  if (p === "/auth/v1/otp") return json(200, {});
+  if (p === "/auth/v1/verify") return json(200, session);
+  if (p === "/auth/v1/token") { const b = JSON.parse(req.postData() || "{}"), d = passwords[b.email]; return u.searchParams.get("grant_type") === "password" ? (d && d.password === b.password ? json(200, sessionFor(users[d.id])) : json(400, { error: "invalid_grant", error_description: "Invalid login credentials" })) : json(200, session); }
+  if (p === "/auth/v1/user") return json(200, caller(req) || user);
+  if (p === "/auth/v1/logout") return route.fulfill({ status: 204, headers: cors });
+  if (p.startsWith("/rest/v1/rpc/")) return json(200, []);
+  if (p === "/functions/v1/device-pair") { const b = JSON.parse(req.postData() || "{}"); if (b.action === "pair") { const [status, body] = pairDevice(String(b.code).toUpperCase()); return json(status, body); } return json(200, { ok: true }); }
+  if (p.startsWith("/functions/v1/")) return json(200, { ok: true });
+  if (!p.startsWith("/rest/v1/")) return json(404, { message: "not simulated" });
+  const table = p.slice(9), rows = (db[table] ||= []), params = [...u.searchParams];
+  if (m === "GET") {
+    const out = filterRows(rows, params), off = +(u.searchParams.get("offset") || 0), lim = u.searchParams.get("limit");
+    const page = lim ? out.slice(off, off + +lim) : out.slice(off);
+    if ((req.headers().accept || "").includes("vnd.pgrst.object")) return page.length === 1 ? json(200, page[0]) : json(406, { code: "PGRST116", details: `The result contains ${page.length} rows`, message: "JSON object requested, multiple (or no) rows returned" });
+    return json(200, page, { "content-range": `${off}-${off + page.length - 1}/*` });
+  }
+  if (m === "POST") {
+    const body = [].concat(JSON.parse(req.postData() || "[]")), cols = (u.searchParams.get("on_conflict") || (keys[table] || ["id"]).join(",")).split(",");
+    for (const r of body) { const at = rows.findIndex((x) => cols.every((c) => String(x[c]) === String(r[c]))); if (at >= 0) rows[at] = { ...rows[at], ...r }; else rows.push(r); }
+    return json(201, (req.headers().prefer || "").includes("return=representation") ? body : undefined);
+  }
+  if (m === "PATCH") { const body = JSON.parse(req.postData() || "{}"); filterRows(rows, params).forEach((r) => Object.assign(r, body)); return json(204); }
+  if (m === "DELETE") { const gone = new Set(filterRows(rows, params)); db[table] = rows.filter((r) => !gone.has(r)); return json(204); }
+  return json(405, { message: "method not simulated" });
+}
+
+const browser = await playwright.chromium.launch({ executablePath: process.env.CHROME || (existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : undefined) });
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+// Playwright tries the newest route first, so the catch-all goes in first: nothing leaves this machine.
+await ctx.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+await ctx.route(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", headers: { "access-control-allow-origin": "*" }, body: readFileSync(bundle) }));
+await ctx.route((url) => url.host === supaHost, supabase);
+const page = await ctx.newPage();
+page.setDefaultTimeout(+process.env.STEP_TIMEOUT || 10000);
+const errors = [];
+page.on("pageerror", (e) => errors.push(e.message));
+page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|WebSocket|realtime/i.test(m.text())) errors.push(`console: ${m.text()}`); });
+let failed = 0;
+const shot = (name) => page.screenshot({ path: join(shots, `live-${name}.png`) });
+async function step(name, fn) {
+  try { await fn(); console.log(`ok   ${name}`); }
+  catch (e) { failed++; console.log(`FAIL ${name}: ${e.message.split("\n")[0]}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); }
+}
+const appText = () => page.textContent("#app");
+
+await step("opens at /Apps/ and asks to sign in by email", async () => {
+  await page.goto(base + "?debug");
+  await page.waitForSelector("form[data-form=signin-email]");
+  if (await page.$("form[data-form=welcome]")) throw new Error("shows the browser-only welcome form");
+  if (!(await page.title()).includes("Our Faithful")) throw new Error(`title is ${await page.title()}`);
+  await shot("1-signin");
+});
+await step("app files load under the sub-path", async () => {
+  for (const f of ["manifest.webmanifest", "icons/icon-192.png", "sw.js", "config.js", "bible/BSB-nt.json"]) { const r = await page.request.get(base + f); if (!r.ok()) throw new Error(`${f}: ${r.status()}`); }
+  const scope = await page.evaluate(() => Promise.race([navigator.serviceWorker.ready.then((r) => r.scope), new Promise((ok) => setTimeout(() => ok("not ready"), 8000))]));
+  if (!scope.endsWith("/Apps/")) throw new Error(`service worker scope: ${scope}`);
+});
+await step("device pairing opens without signing in", async () => {
+  await page.click("a[href='#pair']"); await page.waitForSelector("form[data-form=pair]");
+  await page.goBack(); await page.waitForSelector("form[data-form=signin-email]");
+});
+await step("signs in with an emailed code", async () => {
+  await page.fill("form[data-form=signin-email] input[name=email]", "tester@example.com"); await page.click("form[data-form=signin-email] button.btn");
+  await page.waitForSelector("form[data-form=signin-code]"); await shot("2-code");
+  await page.fill("form[data-form=signin-code] input[name=code]", "123456"); await page.click("form[data-form=signin-code] button.btn");
+  await page.waitForSelector("form[data-form=welcome]"); // a new account gives its name first
+  await page.fill("form[data-form=welcome] input[name=name]", "Test Person"); await page.click("form[data-form=welcome] button.btn");
+  await page.waitForFunction(() => /church/i.test(document.querySelector("#app").textContent) && !document.querySelector("form[data-form=welcome]"));
+  await shot("3-churches");
+});
+await step("registers a church and it saves to the database", async () => {
+  await page.evaluate(() => { location.hash = "start"; });
+  await page.fill("input[name=name]", "Test Fellowship"); await page.fill("input[name=locName0]", "Main"); await page.fill("input[name=locCode0]", "MAIN");
+  await page.click("form[data-form=start-church] button.btn:not([type=button])"); await page.waitForSelector("text=Getting started");
+  await page.waitForFunction(() => true); await page.waitForTimeout(1500); // sync runs shortly after a change
+  if (!(db.churches || []).some((c) => /Test Fellowship/.test(JSON.stringify(c)))) {
+    const st = await page.evaluate(async () => { const B = __app.Backend; let err = null; try { B.pushing = false; await B.flush(); } catch (e) { err = String(e.stack || e).slice(0, 500); } return { ready: B.ready, on: B.on, user: !!B.user, snap: B.snap?.size, rows: (() => { try { return B.rows().length; } catch (e) { return "rows threw: " + e.message; } })(), err }; });
+    throw new Error(`church not saved; tables: ${Object.keys(db).join(", ")}; ${JSON.stringify(st)}`);
+  }
+  if (!(db.memberships || []).some((m) => m.user_id === uid)) throw new Error("membership not saved");
+  if (!(db.profiles || []).some((p) => p.id === uid && /Test Person/.test(JSON.stringify(p)))) throw new Error("profile name not saved");
+  await shot("4-church");
+});
+await step("adds an announcement, which survives a reload", async () => {
+  await page.evaluate(() => { location.hash = "admin-news"; }); await page.waitForTimeout(400);
+  const add = await page.$("[data-act=admin-new], [data-act=news-new], button:has-text('Add')"); if (!add) throw new Error("no add button on the announcements screen");
+  await add.click(); await page.waitForSelector("#scrim form");
+  await page.fill("#scrim input[name=title]", "Coffee after the service"); const body = await page.$("#scrim textarea[name=body]"); if (body) await body.fill("Join us in the lobby.");
+  await page.click("#scrim form button.btn:not([type=button]):not(.danger)"); await page.waitForSelector("#scrim", { state: "detached" }); await page.waitForTimeout(1500);
+  if (!(db.records || []).some((r) => r.kind === "news" && /Coffee after the service/.test(JSON.stringify(r.data)))) throw new Error("announcement not saved");
+  await page.reload(); await page.waitForSelector(".home-top, .tabbar, nav", { timeout: 15000 });
+  await page.evaluate(() => { location.hash = "home"; }); await page.waitForTimeout(800);
+  if (!(await appText()).includes("Coffee after the service")) throw new Error("announcement missing after reload");
+  if (!(await appText()).includes("Test Fellowship")) throw new Error("church missing after reload");
+  await shot("5-after-reload");
+});
+await step("pairs a presentation screen as a device", async () => {
+  await page.evaluate(() => { location.hash = "devices"; }); await page.click("[data-act=device-new]");
+  await page.locator("#scrim input[name=type][value=display]").evaluate((el) => el.click());
+  await page.click("#scrim form button.btn:not([type=button])"); await page.waitForSelector("#scrim .pair-code");
+  const code = (await page.textContent("#scrim .pair-code")).trim(); await page.waitForTimeout(1200); // saved to the database
+  await page.click("#scrim [data-act=close-sheet]");
+  const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await ctx2.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await ctx2.route(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", headers: { "access-control-allow-origin": "*" }, body: readFileSync(bundle) }));
+  await ctx2.route((url) => url.host === supaHost, supabase);
+  const tv = await ctx2.newPage(); tv.on("pageerror", (e) => errors.push(`device: ${e.message}`));
+  await tv.goto(base + `#pair-${code}`); await tv.waitForSelector("form[data-form=pair]"); await tv.click("form[data-form=pair] button.btn");
+  await tv.waitForSelector(".display .slide", { timeout: 15000 });
+  if ((await tv.evaluate(() => location.hash)) !== "#display-follow") throw new Error(`device went to ${await tv.evaluate(() => location.hash)}`);
+  await tv.evaluate(() => { location.hash = "admin"; }); await tv.waitForTimeout(400);
+  if ((await tv.evaluate(() => location.hash)) !== "#display-follow") throw new Error("the device left its screen");
+  await tv.screenshot({ path: join(shots, "live-6-device.png") });
+  await page.waitForTimeout(300); await page.reload(); await page.evaluate(() => { location.hash = "devices"; }); await page.waitForTimeout(800);
+  if (!/Online/.test(await appText())) throw new Error("the admin doesn't see the device online");
+  await ctx2.close();
+});
+await step("signs out", async () => {
+  await page.evaluate(() => window.__signOutForTest?.() || null);
+  await page.evaluate(() => { location.hash = "me"; }); await page.waitForTimeout(400);
+  const out = await page.$("[data-act=signout], [data-act=sign-out], button:has-text('Sign out')"); if (!out) throw new Error("no sign-out button on Me");
+  await out.click(); const yes = await page.$("#scrim [data-act=signout-yes], #scrim button:has-text('Sign out')"); if (yes) await yes.click();
+  await page.waitForSelector("form[data-form=signin-email]");
+});
+
+console.log(`\nSupabase calls: ${[...calls].sort().join(", ")}`);
+if (errors.length) { console.log(`\nPage errors:\n${[...new Set(errors)].join("\n")}`); failed++; }
+await browser.close(); server.close();
+console.log(failed ? `\n${failed} problem(s).` : "\nLive mode works end to end against the simulated Supabase.");
+process.exit(failed ? 1 : 0);
