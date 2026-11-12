@@ -95,7 +95,9 @@ const pres = { key: "", index: 0, black: false, logo: false, mode: "slideshow", 
 let presChannel = null;
 try { presChannel = "BroadcastChannel" in window ? new BroadcastChannel("koinonia-present") : null; } catch { presChannel = null; }
 function presBroadcast() {
-  try { presChannel?.postMessage({ key: pres.key, index: pres.index, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "" }); } catch {}
+  const msg = { key: pres.key, index: pres.index, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "" };
+  try { presChannel?.postMessage(msg); } catch {}
+  if (Backend.on) Backend.broadcast(msg);
 }
 
 Screens.present = (tail) => {
@@ -190,5 +192,6 @@ Screens.display = (tail) => {
   };
   document.body.classList.add("presenting");
   draw();
+  if (Backend.on) Backend.onBroadcast((m) => presChannel?.onmessage?.({ data: m }));
   if (presChannel) presChannel.onmessage = (e) => { if (e.data?.key === tail && location.hash === `#display-${tail}`) { S.load(); if (e.data.church) S.state.current = e.data.church; draw(e.data); } };
 };

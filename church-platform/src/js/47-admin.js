@@ -571,7 +571,20 @@ AdminScreens.giving = () => {
   const funds = [...c.funds, { id: "", name: "", description: "" }];
   return {
     title: "Giving", back: "admin",
-    body: html`${demoNote("Totals include sample gifts and anything given in this preview. No money has moved.")}
+    body: html`${Pay.live() ? "" : demoNote("Totals include sample gifts and test gifts. No money has moved.")}
+      <section class="sec" style="margin-top:12px"><h2 class="sec-head">Online giving</h2><div class="panel">
+        ${c.stripe?.chargesEnabled ? html`<p style="margin-top:0">${icon("check")} Stripe is connected. Gifts, tickets and form fees go straight to ${c.name}'s Stripe account${PLATFORM.platformFeePercent ? `, less a ${PLATFORM.platformFeePercent}% platform fee` : ""}.</p><button class="btn ghost sm" data-act="stripe-connect">${icon("link")}Open Stripe settings</button>`
+          : c.stripe?.accountId ? html`<p style="margin-top:0">Stripe needs a few more details before gifts can come in.</p><button class="btn sm" data-act="stripe-connect">Finish setting up Stripe</button>`
+          : html`<p style="margin-top:0">Connect a Stripe account to take real gifts by card and bank account, sell tickets and collect form fees. Money goes straight to ${c.name}. Stripe sends receipts.</p><button class="btn sm" data-act="stripe-connect">${icon("give")}Connect Stripe</button>`}
+        <form data-form="give-settings" novalidate style="margin-top:14px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Text-to-give number</span><input type="tel" name="number" value="${c.textGive?.number || ""}" placeholder="(770) 555-0199"><small>A Twilio number pointed at your sms function.</small></label>
+            <label class="field"><span>Keyword</span><input type="text" name="keyword" value="${c.textGive?.keyword || "GIVE"}" maxlength="20"></label></div>
+          <label class="field"><span>Tax ID (EIN) for statements</span><input type="text" name="taxId" value="${c.taxId || ""}" maxlength="20" placeholder="12-3456789"></label>
+          <button class="btn ghost sm">Save</button></form></div></section>
+      <section class="sec"><h2 class="sec-head">Year-end statements</h2><div class="panel">
+        <label class="field" style="margin-top:0"><span>Year</span><select id="stmt-year">${[y, y - 1, y - 2].map((n) => html`<option ${attr(n === (now.getMonth() < 2 ? y - 1 : y), "selected")}>${n}</option>`)}</select></label>
+        <div class="btns"><button class="btn sm" data-act="statements-all" data-year="${y}">${icon("download")}All statements (PDF)</button><button class="btn ghost sm" data-act="statements-csv">${icon("download")}Gifts (CSV)</button></div>
+        <p class="faint">One page or more per giver, with the church's details and tax note. Members can download their own under Giving history.</p></div></section>
       <div class="stat"><div><b>${money(sum(thisMonth))}</b><span>This month</span></div><div><b>${money(sum(thisYear))}</b><span>This year</span></div></div>
       <section class="sec"><h2 class="sec-head">By fund this year</h2><div class="rows">${c.funds.map((f) => { const t = sum(thisYear.filter((g) => g.fundId === f.id)); return html`<div class="row"><span class="body"><span class="t">${f.name}</span><span class="progress" style="display:block;margin-top:6px"><i style="width:${sum(thisYear) ? Math.round(t / sum(thisYear) * 100) : 0}%"></i></span></span><b>${money(t)}</b></div>`; })}</div></section>
       <section class="sec"><h2 class="sec-head">Recent gifts</h2><div class="rows">${recent.length ? recent.map((g) => html`<div class="row"><span class="body"><span class="t">${g.name}</span><span class="s">${fundName(g.fundId)}, ${fmtShort(g.at)}${g.frequency !== "once" ? `, ${FREQ[g.frequency].toLowerCase()}` : ""}</span></span><b>${money(g.amount)}</b></div>`) : empty("No gifts yet.")}</div></section>
@@ -580,6 +593,15 @@ AdminScreens.giving = () => {
           <input type="text" name="name${i}" value="${f.name}" placeholder="${f.id ? "" : "Add a fund"}" aria-label="Fund name" maxlength="40"><input type="text" name="desc${i}" value="${f.description}" aria-label="Description" maxlength="80"></div>`)}
         <p class="faint">Clear a name to remove that fund. Past gifts keep their fund.</p><button class="btn">Save funds</button></form></section>`,
   };
+};
+Forms["give-settings"] = (d, f) => {
+  if (d.number && digits(d.number).length < 10) return formError(f, "Enter the full text-to-give number, with area code.");
+  S.updateChurch({ textGive: d.number ? { number: d.number, keyword: (d.keyword || "GIVE").toUpperCase() } : null, taxId: d.taxId }); toast("Saved"); render();
+};
+Actions["stripe-connect"] = async () => {
+  if (typeof Backend === "undefined" || !Backend.on) { openSheet("Connect Stripe", html`<p style="margin-top:0">Stripe connects once the app is on your own website with Supabase set up. SETUP.md walks through it: create a Stripe account for the platform, turn on Connect, and add the keys to your server functions.</p><p class="muted">After that, this button takes ${S.church().name} to Stripe to verify its bank account. It takes about ten minutes.</p><button class="btn block" data-act="close-sheet">OK</button>`); return; }
+  try { toast("Opening Stripe..."); const { url } = await Backend.call("stripe-connect", { churchId: S.state.current, returnTo: location.href }); location.href = url; }
+  catch (e) { toast(`Stripe couldn't open: ${e.message || "try again"}`); }
 };
 Forms["admin-funds"] = (d, f) => {
   const c = S.church(), funds = [];

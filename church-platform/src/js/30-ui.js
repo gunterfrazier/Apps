@@ -41,7 +41,7 @@ const CHURCH_SCOPED = ["home", "give", "checkin", "parents", "serve", "live", "e
 /** Which church a deep link belongs to, so links and QR codes switch the app to it. */
 function churchForRoute(head, tail) {
   if (!tail) return null;
-  if (CHURCH_SCOPED.includes(head) && S.state.churches[tail]) return tail;
+  if (CHURCH_SCOPED.includes(head) && S.state.churches[tail.split("~")[0]]) return tail.split("~")[0];
   if (head === "register") { const [k, ...r] = tail.split("-"); return S.get(k === "event" ? "events" : "gatherings", r.join("-"))?.churchId || null; }
   const kind = { event: "events", gathering: "gatherings", sermon: "sermons", outline: "docs", plan: "plans" }[head];
   return kind ? S.get(kind, tail)?.churchId || null : null;
@@ -54,7 +54,10 @@ function render() {
   const owner = churchForRoute(head, tail);
   if (owner && owner !== S.state.current) { S.state.current = owner; S.save(); }
   const me = S.me();
-  if (!me.name && head !== "welcome" && head !== "page") { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
+  if (Backend.on && !Backend.user && head !== "page") { if (head !== "signin") pendingRoute = pendingRoute || route; head = "signin"; tail = ""; }
+  else if (Backend.on && !Backend.ready && head !== "page") { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Loading your churches...</div>`); return; }
+  else if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
+  else if (!me.name && head !== "welcome" && head !== "page") { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
   else if (!S.church() && !OPEN_ROUTES.includes(head)) { head = "churches"; tail = ""; }
   applyBrand();
   let view;

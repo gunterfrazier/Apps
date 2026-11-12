@@ -25,7 +25,7 @@ Screens.welcome = () => {
       <label class="field"><span>Email</span><input type="email" name="email" autocomplete="email"><small>Optional. Churches use it for giving receipts and group updates.</small></label>
       <button class="btn block">Create my account</button>
     </form>
-    <p class="faint" style="margin-top:14px;text-align:center">This preview keeps everything in this browser. Nothing is sent anywhere, and no real money moves.</p>
+    ${Backend.on ? "" : html`<p class="faint" style="margin-top:14px;text-align:center">This preview keeps everything in this browser. Nothing is sent anywhere, and no real money moves.</p>`}
   </div></div>` };
 };
 Forms.welcome = (d, f) => {

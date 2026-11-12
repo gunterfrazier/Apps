@@ -100,7 +100,7 @@ await step("prayer and giving", async () => {
   await page.fill("#scrim textarea[name=text]", "<b>Pray</b> for our <script>alert(1)</script> trip"); await sheetSubmit(); await sheetGone();
   if (!(await page.textContent("#main .prayer >> nth=0")).includes("<script>")) throw new Error("user text was not escaped");
   await goTo("give"); await page.click("[data-act=give-preset][data-n='100']"); await page.click("#give-btn");
-  await page.click("#scrim form[data-form=give-confirm] button"); await page.waitForSelector("#scrim [data-to=history]");
+  await page.click("#scrim [data-act=pay-test]"); await page.waitForSelector("#scrim [data-to=history]");
   await page.click("[data-act=close-sheet]");
 });
 await step("become primary", async () => {
@@ -420,6 +420,17 @@ await step("settings: Spanish, text size and notifications", async () => {
   await page.fill("#scrim textarea[name=body]", "Use the east lot and the shuttle."); await page.check("#scrim input[name=push]"); await sheetSubmit(); await sheetGone();
   await goTo("alerts"); await expectText("Parking lot closed Sunday");
 });
+await step("giving statements as PDF", async () => {
+  await goTo("history"); const [mine] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=statement-pdf] >> nth=0")]);
+  const p1 = join(shots, "statement.pdf"); await mine.saveAs(p1);
+  await goTo("admin-giving"); await expectText("Year-end statements"); await page.selectOption("#stmt-year", { index: 1 });
+  const [all] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=statements-all]")]);
+  const p2 = join(shots, "statements-all.pdf"); await all.saveAs(p2);
+  for (const f of [p1, p2]) if (!readFileSync(f).subarray(0, 5).toString().startsWith("%PDF")) throw new Error(`${f} is not a PDF`);
+  await page.fill("form[data-form=give-settings] input[name=number]", "(770) 555-0199"); await page.fill("form[data-form=give-settings] input[name=taxId]", "58-1234567");
+  await page.click("form[data-form=give-settings] button"); await goTo("give"); await expectText("Text to give");
+  await page.click("[data-act=stripe-connect]").catch(() => {}); await goTo("give-riverside~75"); await page.waitForSelector("#give-btn:has-text('$75')");
+});
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));
@@ -469,6 +480,34 @@ await step("persists after reload", async () => {
 });
 await step("dark mode", async () => {
   await page.emulateMedia({ colorScheme: "dark" }); await goTo("home"); await shot("18-dark");
+});
+
+await step("backend sync round trip", async () => {
+  // Runs the Supabase adapter against an in-memory stand-in for the database: what it writes, it must read back the same,
+  // and right after reading nothing should look changed.
+  await page.goto(base + "?debug#home"); await page.waitForSelector("#app");
+  const r = await page.evaluate(async () => {
+    const { S, Backend, RECORD_KINDS, SPLIT } = window.__app;
+    const before = JSON.parse(JSON.stringify(S.state));
+    Backend.user = { id: S.me().id, email: "test@example.com" };
+    const db = {};
+    Backend.rows().forEach((row) => (db[row.table] ||= []).push(JSON.parse(row.json)));
+    const query = (rows) => { let out = rows.slice(); const q = { select: () => q, order: () => q, eq: (k, v) => { out = out.filter((x) => x[k] === v); return q; }, in: (k, vs) => { out = out.filter((x) => vs.includes(x[k])); return q; },
+      range: async (a, b) => ({ data: out.slice(a, b + 1), error: null }), maybeSingle: async () => ({ data: out[0] || null }), single: async () => ({ data: out[0] || null }) }; return q; };
+    Backend.client = { from: (t) => query(db[t] || []), rpc: async () => ({ data: [] }) };
+    await Backend.pull(before.current);
+    const after = S.state, diffs = [];
+    const mine = Backend.loaded;
+    for (const k of RECORD_KINDS) { const a = before[k].filter((x) => mine.has(x.churchId)).length, b = after[k].length; if (a !== b) diffs.push(`${k}: ${a} then ${b}`); }
+    for (const [k, spec] of Object.entries(SPLIT)) before[k].filter((x) => mine.has(x.churchId)).forEach((x) => { const y = after[k].find((z) => z.id === x.id); if ((x[spec.field] || []).length !== (y?.[spec.field] || []).length) diffs.push(`${k} ${x.id} ${spec.field}`); });
+    Object.values(before.churches).forEach((c) => { const d = after.churches[c.id]; if (!d || (mine.has(c.id) && d.roles.length !== c.roles.length) || d.locations.length !== c.locations.length || d.funds?.length !== c.funds?.length) diffs.push(`church ${c.id}`); });
+    if (after.memberships.length !== before.memberships.length) diffs.push("memberships");
+    const changed = Backend.rows().filter((row) => Backend.snap.get(row.key) !== row.json).map((row) => row.key);
+    return { diffs, changed: changed.slice(0, 5), rows: Backend.snap.size };
+  });
+  if (r.diffs.length) throw new Error(`round trip lost data: ${r.diffs.slice(0, 6).join("; ")}`);
+  if (r.changed.length) throw new Error(`rows look changed right after loading: ${r.changed.join(", ")}`);
+  if (r.rows < 500) throw new Error(`only ${r.rows} rows`);
 });
 
 await browser.close(); server.close();

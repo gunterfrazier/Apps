@@ -1,0 +1,49 @@
+# Builds the Koinonia church app and publishes it with GitHub Pages.
+# Runs when church-platform changes on main, or by hand from the Actions tab. Set these repository variables first
+# (Settings, Secrets and variables, Actions, Variables): SUPABASE_URL, SUPABASE_ANON_KEY, VAPID_PUBLIC_KEY, APP_URL.
+name: Publish Koinonia
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["church-platform/**", "veritas-logos/public/data/bible/**"]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        working-directory: church-platform
+        run: node build.mjs
+      - name: Write config.js
+        working-directory: church-platform/dist
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          node -e 'const e = process.env; require("fs").writeFileSync("config.js", "window.KOINONIA_CONFIG = " + JSON.stringify({ supabaseUrl: e.SUPABASE_URL || "", supabaseAnonKey: e.SUPABASE_ANON_KEY || "", vapidPublicKey: e.VAPID_PUBLIC_KEY || "", appUrl: e.APP_URL || "" }) + ";\n")'
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: church-platform/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

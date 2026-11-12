@@ -64,6 +64,7 @@ Screens.stage = (tail) => {
   const draw = () => { applyBrand(); $("#app").innerHTML = flat(stageMonitor(routeData(tail), st, true)); };
   document.body.classList.add("presenting");
   draw();
+  if (Backend.on) Backend.onBroadcast((m) => presChannel?.onmessage?.({ data: m }));
   if (presChannel) presChannel.onmessage = (e) => { if (e.data?.key === tail && location.hash === `#stage-${tail}`) { S.load(); if (e.data.church) S.state.current = e.data.church; st = e.data; draw(); } };
 };
 
@@ -83,6 +84,7 @@ Screens.overlay = (tail) => {
   };
   document.documentElement.classList.add("overlay-page");
   draw();
+  if (Backend.on) Backend.onBroadcast((m) => presChannel?.onmessage?.({ data: m }));
   if (presChannel) presChannel.onmessage = (e) => {
     if (e.data?.key !== tail || location.hash !== `#overlay-${tail}`) return;
     S.load(); if (e.data.church) S.state.current = e.data.church;

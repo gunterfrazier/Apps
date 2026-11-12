@@ -197,6 +197,13 @@ Forms["form-submit"] = async (d, form, fd) => {
   const child = f.perChild ? kids().find((k) => k.id === d._child) : null;
   if (f.perChild && !child) return formError(form, "Choose which child this is for.");
   const me = S.me();
+  if (Pay.live() && f.fee) {
+    if (child) S.state.formResponses = S.state.formResponses.filter((r) => !(r.formId === f.id && r.by === me.id && r.childId === child.id));
+    const pending = S.add("formResponses", { formId: f.id, by: me.id, name: me.name, email: me.email, childId: child?.id || null, childName: child?.name || "", answers, paid: { status: "pending" }, at: new Date().toISOString() });
+    await savePending();
+    Pay.checkout({ title: `${f.title}${child ? ` for ${firstName(child.name)}` : ""}`, lines: [{ label: f.title, amount: f.fee }], kind: "form", ref: pending.id, email: me.email });
+    return;
+  }
   const paid = await Pay.checkout({ title: `${f.title}${child ? ` for ${firstName(child.name)}` : ""}`, lines: [{ label: f.title, amount: f.fee || 0 }], kind: "form", ref: f.id, email: me.email });
   if (!paid) return formError(form, "Payment was cancelled. Your answers are still here.");
   if (child) S.state.formResponses = S.state.formResponses.filter((r) => !(r.formId === f.id && r.by === me.id && r.childId === child.id));

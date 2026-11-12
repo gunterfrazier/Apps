@@ -10,10 +10,10 @@ const Pay = {
    * lines: [{ label, amount, qty }]. kind: "gift" | "event" | "form". ref: the record the payment is for.
    * Resolves { status: "paid" | "test", ref, at } or null if the person cancels.
    */
-  checkout({ title, lines, kind, ref, email, recurring }) {
+  checkout({ title, lines, kind, ref, email, recurring, frequency, method }) {
     const total = lines.reduce((n, l) => n + l.amount * (l.qty || 1), 0);
     if (total <= 0) return Promise.resolve({ status: "free", ref: "", at: new Date().toISOString() });
-    if (this.live()) return Backend.checkout({ churchId: S.state.current, title, lines, kind, ref, email, recurring, returnTo: location.hash.slice(1) });
+    if (this.live()) return Backend.checkout({ churchId: S.state.current, title, lines, kind, ref, email, frequency: frequency || "once", method: method || "card", returnTo: location.hash.slice(1) });
     return new Promise((resolve) => {
       payPending = resolve;
       openSheet("Checkout", html`<div class="pay-sheet">
@@ -28,4 +28,14 @@ const Pay = {
 let payPending = null;
 Actions["pay-test"] = () => { const r = payPending; payPending = null; closeSheet(true); r?.({ status: "test", ref: `test_${uid()}`, at: new Date().toISOString() }); };
 Actions["pay-cancel"] = () => { const r = payPending; payPending = null; closeSheet(); r?.(null); };
-const paidLabel = (p) => !p ? "Not paid" : p.status === "paid" ? `Paid ${fmtShort(p.at)}` : p.status === "test" ? "Paid (test)" : p.status === "refunded" ? "Refunded" : p.status === "door" ? "Pay at the door" : p.status === "free" ? "Free" : "Not paid";
+const paidLabel = (p) => !p ? "Not paid" : p.status === "paid" ? `Paid ${fmtShort(p.at)}` : p.status === "test" ? "Paid (test)" : p.status === "refunded" ? "Refunded" : p.status === "door" ? "Pay at the door" : p.status === "free" ? "Free" : p.status === "pending" ? "Payment not finished" : "Not paid";
+/** With live payments the page leaves for Stripe, so the sign-up or response is saved first as pending and the payment webhook marks it paid. */
+async function savePending() { S.flush(); if (typeof Backend !== "undefined" && Backend.on) { clearTimeout(Backend.timer); await Backend.flush(); } }
+// Stripe sends people back to #paid-gift, #paid-event or #paid-form. The payment webhook records it; refresh to show it.
+let paidRefreshed = false;
+Screens.paid = (kind) => {
+  if (!paidRefreshed && typeof Backend !== "undefined" && Backend.ready) { paidRefreshed = true; setTimeout(() => Backend.pull().then(() => { if (location.hash.startsWith("#paid")) render(); }), 2500); }
+  const text = { gift: "Your gift is on its way to the church. Stripe emails your receipt.", event: "You're in. Your receipt is in your email.", form: "Your form and payment are in." }[kind] || "Payment received.";
+  return { title: "Thank you", back: "home", body: html`<div class="panel done-panel" style="margin-top:18px"><span class="big-check">${icon("check")}</span><h1>Thank you!</h1><p class="muted">${text}</p>
+    <div class="btns" style="justify-content:center"><a class="btn" href="#${kind === "gift" ? "history" : kind === "event" ? "events" : "home"}">${kind === "gift" ? "See giving history" : "Done"}</a></div></div>` };
+};

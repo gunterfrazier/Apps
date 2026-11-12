@@ -60,11 +60,11 @@ Screens.me = () => {
           : html`<p style="margin:0">Once the app is on its own website, open it in Chrome and choose <b>Install app</b> or <b>Add to Home screen</b> from the menu.</p>`}
       </div></section>` : ""}
 
-      <section class="sec"><h2 class="sec-head">Preview tools</h2><div class="rows">
+      ${Backend.on ? html`<section class="sec"><div class="rows"><button class="row" data-act="sign-out"><span class="lead-ic">${icon("x")}</span><span class="body"><span class="t">Sign out</span><span class="s">${S.me().email}</span></span></button></div></section>` : html`<section class="sec"><h2 class="sec-head">Preview tools</h2><div class="rows">
         ${S.isMember() ? html`<button class="row" data-act="demo-role"><span class="lead-ic">${icon("key")}</span><span class="body"><span class="t">Try a different role</span><span class="s">See ${c.name} as a member, teacher, media coordinator or administrator</span></span>${icon("chev")}</button>` : ""}
         ${S.isMember() && !S.isPrimary() ? html`<button class="row" data-act="demo-primary"><span class="lead-ic">${icon("star")}</span><span class="body"><span class="t">Become the primary account holder</span><span class="s">Take over ${c.name}'s account in this preview</span></span>${icon("chev")}</button>` : ""}
         <button class="row" data-act="demo-reset"><span class="lead-ic">${icon("info")}</span><span class="body"><span class="t">Reset sample data</span><span class="s">Start over with fresh sample churches</span></span>${icon("chev")}</button>
-      </div><p class="faint">${PLATFORM.name} preview. Everything is saved in this browser only.</p></section>`,
+      </div><p class="faint">${PLATFORM.name} preview. Everything is saved in this browser only.</p></section>`}`,
   };
 };
 Actions["profile-edit"] = () => {

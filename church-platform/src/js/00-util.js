@@ -8,6 +8,9 @@ const PLATFORM = {
   appUrl: "https://claude.ai/artifact/Htwf4rcWd3CBDK1Yw97j25",
   storageKey: "koinonia-v2",
   color: "#4250d6",
+  // Filled in by config.js on your own website (see SETUP.md). Empty means the app keeps data in the browser.
+  supabaseUrl: "", supabaseAnonKey: "", vapidPublicKey: "", platformFeePercent: 0,
+  ...(typeof window !== "undefined" && window.KOINONIA_CONFIG ? window.KOINONIA_CONFIG : {}),
 };
 /** True inside the Claude preview frame, where other sites can't be framed and cameras, popups and service workers are off. */
 const IN_PREVIEW = /claude/i.test(location.hostname);

@@ -50,7 +50,7 @@ Screens.event = (id) => {
       ${e.signup ? html`<div class="panel" style="margin-top:16px">
         ${reg ? html`<p style="margin-top:0"><span class="tag ok">You're going</span> ${reg.tickets ? ticketSummary(e, reg) : reg.count > 1 ? `${reg.count} people in your party` : ""}${reg.kids?.length ? `, including ${listJoin(reg.kids.map((k) => S.me().household.find((p) => p.id === k)?.name).filter(Boolean))}` : ""}.${reg.total ? ` ${paidLabel(reg.paid)}, ${money(reg.total)}.` : ""}</p>
             ${eventFormPanel(e, reg)}
-            <div class="btns">${reg.total ? html`<button class="btn danger" data-act="event-cancel" data-id="${e.id}">Cancel and refund</button>` : html`<button class="btn ghost" data-act="event-register" data-id="${e.id}">Change</button><button class="btn danger" data-act="event-cancel" data-id="${e.id}">Cancel my spot</button>`}</div>`
+            <div class="btns">${reg.paid?.status === "pending" ? html`<button class="btn" data-act="event-pay" data-id="${e.id}">${icon("give")}Finish paying ${money(reg.total)}</button><button class="btn ghost" data-act="event-cancel" data-id="${e.id}" data-sure="1">Cancel</button>` : reg.total ? html`<button class="btn danger" data-act="event-cancel" data-id="${e.id}">Cancel and refund</button>` : html`<button class="btn ghost" data-act="event-register" data-id="${e.id}">Change</button><button class="btn danger" data-act="event-cancel" data-id="${e.id}">Cancel my spot</button>`}</div>`
           : left !== null && left <= 0 ? html`<p style="margin:0"><b>This event is full.</b></p>`
           : html`<button class="btn block" data-act="event-register" data-id="${e.id}">${e.tickets?.length ? "Get tickets" : "Sign up"}</button>`}
       </div>` : ""}
@@ -159,9 +159,13 @@ Forms["event-tickets"] = async (d, f, fd) => {
   if (e.capacity && registeredCount(e) + count > e.capacity) return formError(f, `Only ${e.capacity - registeredCount(e)} spots are left.`);
   const lines = e.tickets.filter((t) => tickets[t.id]).map((t) => ({ label: t.name, amount: t.price, qty: tickets[t.id] }));
   const total = lines.reduce((n, l) => n + l.amount * l.qty, 0);
-  const paid = await Pay.checkout({ title: e.title, lines, kind: "event", ref: e.id, email: d.email });
+  if (Pay.live() && total > 0) {
+    e.registrations = [...e.registrations.filter((r) => r.by !== me.id), { id: `${e.id}~${me.id}`, by: me.id, name: d.name, email: d.email, count, kids: fd.getAll("kids"), tickets, total, paid: { status: "pending" }, at: new Date().toISOString() }];
+    await savePending();
+  }
+  const paid = await Pay.checkout({ title: e.title, lines, kind: "event", ref: `${e.id}~${me.id}`, email: d.email });
   if (!paid) return formError(f, "Payment was cancelled. Nothing was charged.");
-  const reg = { by: me.id, name: d.name, email: d.email, count, kids: fd.getAll("kids"), tickets, total, paid, at: new Date().toISOString() };
+  const reg = { id: `${e.id}~${me.id}`, by: me.id, name: d.name, email: d.email, count, kids: fd.getAll("kids"), tickets, total, paid, at: new Date().toISOString() };
   e.registrations = [...e.registrations.filter((r) => r.by !== me.id), reg];
   if (d.email && !me.email) me.email = d.email;
   emit("event.registered", { event: e.title, eventId: e.id, name: d.name, count, kids: reg.kids.length, total, paid: paid.status });
@@ -169,6 +173,10 @@ Forms["event-tickets"] = async (d, f, fd) => {
   const { form, need } = formsNeeded(e, reg);
   if (form && need.length) { toast(`You're in. Next: ${form.title}`); formChild = need[0]; formDone = null; go(`form-${form.id}`); }
   else { toast("You're in. See you there!"); render(); }
+};
+Actions["event-pay"] = (el) => {
+  const e = S.get("events", el.dataset.id), r = myRegistration(e);
+  Pay.checkout({ title: e.title, lines: e.tickets.filter((t) => r.tickets?.[t.id]).map((t) => ({ label: t.name, amount: t.price, qty: r.tickets[t.id] })), kind: "event", ref: r.id, email: r.email });
 };
 Actions["event-cancel"] = (el) => {
   const e = S.get("events", el.dataset.id), reg = myRegistration(e);

@@ -107,16 +107,19 @@ Edit the files in `src/`, not `dist/`. `src/vendor/qrcode.js` (MIT) and `public/
 
 ## Going live
 
-The app is complete on screen. These parts need outside services before real churches use it:
+The preview runs everything in one browser. [SETUP.md](SETUP.md) walks through connecting real services, step by step:
 
-1. **Host it.** Upload `dist/` to any static host (GitHub Pages, Netlify, Cloudflare Pages). On its own site it installs to the home screen, works offline through `public/sw.js`, frames embedded pages and videos, uses the camera to scan QR codes, and opens a second display window for presentations. Bump `VERSION` in `sw.js` with each release.
-2. **Shared data and sign-in.** Today data lives in one browser, so people can't see each other's posts, sign-ups or messages. Create a Supabase project, run `supabase/schema.sql`, and replace the body of the `S` store in `src/js/20-store.js` with Supabase calls. The schema mirrors the app: church accounts with a primary owner, roles with permissions, locations with public or private visibility, and row-level security that checks permissions and location access on every table. Members get published sermons and lessons through `published_doc()`, which strips private blocks and notes. Use Supabase Storage for logos and uploaded images, and Supabase Realtime for chat.
-3. **Real giving.** Use Stripe Connect: each church connects its own Stripe account, the app sends gifts to Stripe Checkout, and a server function records completed payments in `gifts` from Stripe's webhook.
-4. **Webhook delivery.** Database triggers or server functions add rows to `webhook_deliveries`, and a small worker posts each one with the `X-Koinonia-Signature: t=timestamp,v1=signature` header and retries failures. Receivers check the signature with HMAC-SHA256 of `timestamp.body` and the webhook's secret.
-5. **Push notifications.** Web Push (VAPID keys and a server function) or a service such as OneSignal, for announcements and new messages.
-6. **App stores (optional).** For Google Play, wrap the site with Bubblewrap (a Trusted Web Activity). For the App Store, wrap it with Capacitor.
+1. **Host it** on GitHub Pages with the included workflow (`.github/workflows/koinonia-pages.yml`), or any static host.
+2. **Shared data and sign-in** with Supabase: run `supabase/schema.sql`, turn on email codes, and put the project's URL and public key in `config.js`. `src/js/70-backend.js` then signs people in, loads what each person may see, writes only what changed, and follows other people's changes live. Row-level security in the schema checks each person's role and location access on every read and write.
+3. **Real giving** with Stripe Connect: each church connects its own account; Checkout handles cards, Apple Pay, Google Pay and bank accounts; a webhook records gifts, recurring gifts, tickets, form fees and refunds. Text-to-give works through a Twilio number. Year-end statements download as PDFs.
+4. **Push notifications** with Web Push (VAPID keys and a database webhook).
+5. **AI drafts** through your own Anthropic API key, with a daily limit per person.
+6. **Schedules** for webhook delivery and reminders, with pg_cron.
+7. **Podcast feed** at a public address for Apple Podcasts and Spotify.
 
-Before launch, write a privacy policy that covers children's names, birthdays and care notes, prayer requests, messages and giving records.
+The server functions are in `supabase/functions/`: `checkout`, `stripe-webhook`, `stripe-connect`, `refund`, `recurring`, `push`, `reminders`, `webhooks`, `ai`, `podcast` and `sms`.
+
+Before launch, write a privacy policy that covers children's names, birthdays, allergies and pickup photos, prayer requests, messages and giving records.
 
 ## Project layout
 
@@ -128,20 +131,25 @@ src/js/10-seed.js     Sample churches, people, roles, classes, builder documents
 src/js/20-store.js    Data store, roles and location access, webhooks, schedules
 src/js/30-ui.js       Router, layout, location filter, embeds, sheets
 src/js/31-banner.js   Home banner and its designer
-src/js/40-68          Screens: home and Watch live, word, events, connect (classes, groups, prayer, directory),
+src/js/40-69          Screens: home and Watch live, word, events, connect (classes, groups, prayer, directory),
                       give, check-in, me and ministry tools, admin, landing page, builders, service plans and songs,
                       presentation, chat, QR, webhooks and embeds, parent portal, layouts, volunteers,
                       stage display and livestream overlay, check-in kiosk, follow-up, reports,
-                      payments, forms, rooms, sermon media and podcast, AI drafts, settings, Spanish
-public/               Manifest, service worker, icons, QR reader
-supabase/schema.sql   Database schema with security rules
+                      payments, forms, rooms, sermon media and podcast, AI drafts, settings, Spanish, PDF statements
+src/js/70-backend.js  Supabase sign-in and sync (off in the preview and until config.js names a project)
+public/               Manifest, service worker (offline and push), icons, QR reader, config.example.js
+supabase/schema.sql   Database tables and security rules
+supabase/functions/   Server functions: payments, push, reminders, webhooks, AI, podcast, text-to-give
+supabase/cron.sql     Schedules for webhooks and reminders
+SETUP.md              Step-by-step guide to going live
 test/smoke.mjs        End-to-end check
 ```
 
 ## Known limits
 
 - Downloadable calendar files (.ics) aren't offered; Google Calendar links are.
+- With Supabase, each person's app loads everything they may see at their churches. That suits churches with up to a few thousand people; larger ones would need screens that load page by page.
 - Name tags print through the browser's print dialog to whatever label printer the kiosk device uses. To print without the dialog, run Chrome with `--kiosk --kiosk-printing` and set the label printer as the default. Tags don't print in the preview.
-- The stage display, display window and overlay follow the operator through the browser, so they need to run on the same computer. Once Supabase Realtime is connected, they can run on any device.
+- The stage display, display window and overlay follow the operator through the browser on the same computer, and through Supabase Realtime on any device once it's connected.
 - Live captions depend on the browser's speech recognition, which sends audio to the browser maker's service, and need a microphone the browser is allowed to use.
 - Recordings and livestreams play by opening or framing the church's video link. Saving audio for offline listening needs the church to host its files on the same site.
