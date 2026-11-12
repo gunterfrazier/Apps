@@ -173,6 +173,12 @@ function buildSeed() {
     ev("riverside", "e4", "Advent family night", at(5, "18:30", 2), 2, "main", "Kids wing", "Kids", "Crafts, carols and an Advent wreath to take home.", { signup: true, capacity: 60, kids: true }),
     ev("riverside", "e5", "East campus game night", at(5, "19:00", 1), 2.5, "east", "Auditorium", "Community", "Board games, snacks and a chili cook-off.", { signup: true, capacity: 80, kids: true }),
     ev("riverside", "e6", "Staff planning retreat", at(1, "09:00", 2), 7, "office", "Conference room", "Staff", "Calendar and budget planning for next year."),
+    ev("riverside", "e7", "Youth winter retreat", at(5, "17:00", 6), 48, null, "Camp Westminster, Conyers", "Youth", "A weekend in the woods for 6th to 12th graders: worship, small groups, a ropes course and too much hot chocolate. The price covers lodging, meals and the bus.",
+      { signup: true, kids: true, capacity: 70, tickets: [{ id: "t-student", name: "Student", price: 85, limit: 60 }, { id: "t-leader", name: "Adult leader", price: 40, limit: 10 }], formId: "riverside-form-retreat",
+        registrations: [{ by: "u-daniel", name: "Daniel Kim", email: "daniel@example.com", count: 2, kids: [], tickets: { "t-student": 1, "t-leader": 1 }, total: 125, paid: { status: "test", ref: "test_seed1", at: daysAgo(4) }, at: daysAgo(4) },
+          { by: "u-ana", name: "Ana Alvarez", email: "ana@example.com", count: 1, kids: [], tickets: { "t-student": 1 }, total: 85, paid: { status: "test", ref: "test_seed2", at: daysAgo(2) }, at: daysAgo(2) }] }),
+    ev("riverside", "e8", "Christmas dinner theater", at(6, "18:00", 4), 2.5, "main", "Fellowship hall", "Community", "Dinner, a family-friendly play by the drama team and carols to finish. Tickets help cover the meal.",
+      { signup: true, kids: true, capacity: 120, tickets: [{ id: "t-adult", name: "Adult", price: 15, limit: 0 }, { id: "t-child", name: "Child, 12 and under", price: 8, limit: 0 }] }),
     ev("cornerstone", "e1", "Thanksgiving Eve service", at(3, "19:00", 1), 1.5, "main", "Sanctuary", "Worship", "Hymns, testimonies and a time of thanksgiving."),
     ev("cornerstone", "e2", "Romans study night", at(2, "19:00"), 1.5, "main", "Room 104", "Classes", "Going deeper into Sunday's passage with Pastor James.", { signup: true, capacity: 40 }),
     ev("cornerstone", "e3", "Christmas choir rehearsal", at(4, "18:30"), 2, "main", "Choir room", "Worship", "All voices welcome. No audition needed."),
@@ -369,6 +375,26 @@ function buildSeed() {
       fu({ name, source: ["card", "kiosk", "joined"][i % 3], reason: ["I'm new here", "First visit with kids", "Joined the church in the app"][i % 3], status: i % 4 === 3 ? "closed" : "connected", steps: steps(i % 4 === 3 ? 1 : 4, "u-marcus", daysAgo(30 + i * 18)), at: daysAgo(35 + i * 20) })),
   ];
 
+  // ----- Forms, a room calendar -----
+  const formsSeed = [
+    { id: "riverside-form-retreat", churchId: "riverside", title: "Youth retreat permission slip", description: "One for each student going to the winter retreat.", perChild: true, fee: 0, open: true, closes: "", listed: false, eventId: "riverside-e7", notify: "u-daniel", by: "u-daniel", created: daysAgo(10),
+      fields: [{ id: "q1", type: "heading", label: "About your student", help: "", required: false, options: [] }, { id: "q2", type: "textarea", label: "Allergies and medications", help: "Anything leaders should know, and when medicine is due.", required: false, options: [] },
+        { id: "q3", type: "text", label: "Emergency contact name", help: "", required: true, options: [] }, { id: "q4", type: "phone", label: "Emergency contact phone", help: "", required: true, options: [] },
+        { id: "q5", type: "yesno", label: "May leaders give over-the-counter medicine, like ibuprofen, if needed?", help: "", required: true, options: [] },
+        { id: "q6", type: "yesno", label: "May we use photos of your student in church slides and social media?", help: "", required: true, options: [] },
+        { id: "q7", type: "signature", label: "Parent or guardian signature", help: "I give permission for my student to attend the retreat and for leaders to get emergency medical care if I can't be reached.", required: true, options: [] }] },
+    { id: "riverside-form-volunteer", churchId: "riverside", title: "Volunteer application", description: "Tell us where you'd like to serve. Someone from that team will be in touch.", perChild: false, fee: 0, open: true, closes: "", listed: true, eventId: null, notify: "u-dana", by: "u-dana", created: daysAgo(30),
+      fields: [{ id: "v1", type: "phone", label: "Best phone number", help: "", required: true, options: [] }, { id: "v2", type: "checkboxes", label: "Where would you like to serve?", help: "", required: true, options: DEFAULT_TEAMS },
+        { id: "v3", type: "choice", label: "How often can you serve?", help: "", required: false, options: ["Every week", "Twice a month", "Once a month", "Now and then"] }, { id: "v4", type: "textarea", label: "Tell us a little about yourself", help: "", required: false, options: [] }] },
+  ];
+  const formResponses = [{ id: uid(), churchId: "riverside", formId: "riverside-form-volunteer", by: "u-teresa", name: "Teresa Martinez", email: "teresa@example.com", childId: null, childName: "", answers: { v1: "(770) 555-0163", v2: ["Worship", "Greeters"], v3: "Twice a month", v4: "I sang in a choir for years." }, paid: null, at: daysAgo(12) }];
+  const nextDow = (dow, w = 0) => isoDay(nextWeekday(dow, "00:00", w));
+  const bookings = [
+    { id: uid(), churchId: "riverside", locationId: "riverside-main", room: "Room 201", title: "Youth leaders meeting", date: nextDow(2), start: "18:30", end: "20:00", repeat: "none", until: "", note: "Pizza for 8", status: "approved", by: "u-daniel", at: daysAgo(5) },
+    { id: uid(), churchId: "riverside", locationId: "riverside-main", room: "Fellowship hall", title: "Women's Bible study", date: nextDow(4), start: "10:00", end: "11:30", repeat: "weekly", until: isoDay(new Date(now.getTime() + 120 * DAY)), note: "Round tables and coffee", status: "approved", by: "u-dana", at: daysAgo(20) },
+    { id: uid(), churchId: "riverside", locationId: "riverside-main", room: "Sanctuary", title: "Wedding rehearsal", date: nextDow(5, 1), start: "17:00", end: "19:00", repeat: "none", until: "", note: "Piano tuned, please", status: "requested", by: "u-jordan", at: daysAgo(1) },
+  ];
+
   const messages = [
     { id: uid(), channelId: "g-riverside-eastside", by: "u-daniel", text: "We're at our place Tuesday at 7. Bring a side dish if you can!", at: daysAgo(1, 4) },
     { id: uid(), channelId: "g-riverside-eastside", by: "u-teresa", text: "I'll bring a salad.", at: daysAgo(1, 2) },
@@ -384,7 +410,7 @@ function buildSeed() {
     churches: Object.fromEntries(churches.map((c) => [c.id, c])),
     sermons, events, news, prayers, gatherings, plans, gifts, docs, songs, library, services, layouts, savedBlocks,
     channels: [], messages, chatSeen: {}, deliveries: [], teamMembers, blockouts, notifications: [],
-    cards, checkins: [], serving: [], recurring: [], attendance, followups,
+    cards, checkins: [], serving: [], recurring: [], attendance, followups, forms: formsSeed, formResponses, bookings,
     notes: {}, progress: {}, saved: [], seen: [],
   };
 }

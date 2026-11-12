@@ -329,6 +329,54 @@ await step("reports", async () => {
   await page.click(".viz[data-viz=att] summary"); await page.waitForSelector(".viz[data-viz=att] .mini-table");
   await page.emulateMedia({ colorScheme: "dark" }); await goTo("reports"); await shot("32-reports-dark"); await page.emulateMedia({ colorScheme: "light" });
 });
+async function signPad(sel = ".sig-pad") {
+  const c = await page.$(sel); await c.evaluate((el) => el.scrollIntoView({ block: "center" })); await page.waitForTimeout(80); const b = await c.boundingBox();
+  await page.mouse.move(b.x + 30, b.y + 90); await page.mouse.down();
+  for (let i = 1; i <= 10; i++) await page.mouse.move(b.x + 30 + i * 18, b.y + 90 - (i % 2 ? 25 : 0));
+  await page.mouse.up();
+}
+await step("paid event and permission slip", async () => {
+  await goTo("event-riverside-e7"); await expectText("Student $85"); await page.click("[data-act=event-register]");
+  await page.fill('#scrim input[name="t_t-student"]', "1"); await page.check('#scrim input[name=kids] >> nth=0');
+  await page.waitForSelector("#scrim [data-total]:has-text('$85')"); await sheetSubmit();
+  await page.waitForSelector("#scrim [data-act=pay-test]"); await shot("33-checkout"); await page.click("#scrim [data-act=pay-test]");
+  await page.waitForSelector("form[data-form=form-submit]"); await expectText("Youth retreat permission slip");
+  await page.click("form[data-form=form-submit] button.btn:not([type=button])"); await page.waitForSelector("form[data-form=form-submit] .err");
+  await page.fill("form[data-form=form-submit] input[name=f_q3]", "Pat Frazier"); await page.fill("form[data-form=form-submit] input[name=f_q4]", "(555) 010-2000");
+  await page.check('form[data-form=form-submit] input[name=f_q5][value=Yes]', { force: true }); await page.check('form[data-form=form-submit] input[name=f_q6][value=No]', { force: true });
+  await signPad(); await shot("34-permission-slip");
+  await page.click("form[data-form=form-submit] button.btn:not([type=button])"); await page.waitForSelector(".done-panel");
+  await page.click(".done-panel [data-act=form-finish]"); await page.waitForSelector("text=permission slip done");
+  await page.click("[data-act=event-cancel]"); await page.click('#scrim [data-act=event-cancel][data-sure="1"]'); await sheetGone(); await page.waitForSelector("text=Get tickets");
+});
+await step("form builder and responses", async () => {
+  await goTo("forms"); await expectText("Volunteer application"); await page.click("[data-act=form-new]"); await page.click('#scrim [data-act=form-create][data-t="slip"]');
+  await page.waitForSelector("#sort-list"); await page.click("[data-act=field-add]"); await page.click('#scrim [data-act=field-new][data-type="choice"]');
+  await page.fill("#scrim input[name=label]", "T-shirt size"); await page.fill("#scrim textarea[name=options]", "Small\nMedium\nLarge"); await page.check("#scrim input[name=required]"); await sheetSubmit(); await sheetGone();
+  await expectText("Small, Medium, Large"); await drag(9, 1); await shot("35-form-builder");
+  await page.click("[data-act=form-settings]"); await page.fill("#scrim input[name=title]", "Lock-in permission slip"); await page.fill("#scrim input[name=fee]", "10"); await page.check("#scrim input[name=listed]"); await sheetSubmit(); await sheetGone();
+  await page.click('a:has-text("Preview")'); await page.waitForSelector("form[data-form=form-submit]");
+  for (const inp of await page.$$("form[data-form=form-submit] input[type=tel]")) await inp.fill("(555) 010-3000");
+  for (const n of await page.$$eval("form[data-form=form-submit] .radios input[name^=f_]", (xs) => [...new Set(xs.map((x) => x.name))])) await page.check(`form[data-form=form-submit] input[name="${n}"] >> nth=0`, { force: true });
+  for (const inp of await page.$$("form[data-form=form-submit] input[type=text][name^=f_]")) if (!(await inp.inputValue())) await inp.fill("Pat Frazier");
+  await signPad(); await page.click("form[data-form=form-submit] button.btn:not([type=button])");
+  await page.waitForSelector("#scrim [data-act=pay-test]"); await page.click("#scrim [data-act=pay-test]"); await page.waitForSelector(".done-panel");
+  await page.click(".done-panel [data-act=form-finish]"); await page.waitForTimeout(100);
+  const id = await page.evaluate(() => location.hash); if (id !== "#forms") throw new Error(`after Done went to ${id}`);
+  await page.click('a.row:has-text("Lock-in permission slip")'); await page.click('a:has-text("1 response")'); await page.click("[data-act=response-open]");
+  await page.waitForSelector("#scrim .sig-img"); await shot("36-response"); await page.click("#scrim [data-act=close-sheet]");
+  await goTo("connect"); await page.click('nav.seg a[href="#forms"]'); await page.waitForSelector("text=Volunteer application");
+});
+await step("room booking", async () => {
+  await goTo("rooms"); await expectText("Wedding rehearsal"); await page.click("[data-act=room-approve]"); await expectText("Your bookings").catch(() => {});
+  await page.click('[data-act=room-request][data-room="Room 104"]'); await page.fill("#scrim input[name=title]", "Parent meeting");
+  const sunday = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+  await page.fill("#scrim input[name=date]", sunday); await page.fill("#scrim input[name=start]", "09:30"); await page.fill("#scrim input[name=end]", "10:00");
+  await page.dispatchEvent("#scrim input[name=end]", "change"); await page.waitForSelector("#scrim .room-msg.warn"); await shot("37-room-conflict");
+  await sheetSubmit(); await page.waitForSelector("#scrim .err");
+  await page.click("#scrim [data-act=room-switch] >> nth=0"); await page.waitForSelector("#scrim .room-msg.ok"); await sheetSubmit(); await sheetGone();
+  await expectText("Parent meeting"); await shot("38-rooms");
+});
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));

@@ -2,7 +2,7 @@
 let installPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; });
 
-const MINISTRY_PERMS = ["build.sermons", "build.lessons", "build.studies", "services.plan", "present", "checkin.station", "qr.create", "lead.groups", "teach.classes", "schedule.teams"];
+const MINISTRY_PERMS = ["book.rooms", "build.sermons", "build.lessons", "build.studies", "services.plan", "present", "checkin.station", "qr.create", "lead.groups", "teach.classes", "schedule.teams"];
 const ADMIN_PERMS = ["manage.followup", "view.reports", "manage.content", "manage.sermons", "manage.classes", "manage.prayer", "manage.people", "view.giving", "manage.page", "manage.integrations", "manage.locations", "manage.roles", "manage.church"];
 const hasMinistryTools = () => S.isMember() && S.canAny(MINISTRY_PERMS);
 const hasAdminTools = () => S.isMember() && S.canAny(ADMIN_PERMS);
@@ -125,6 +125,7 @@ Screens.ministry = () => {
     S.can("services.plan") && row("#services", "list", "Service plans", "Order of service, saved segments and who leads what"),
     S.can("services.plan") && row("#songs", "music", "Songs and lyrics", "Your song library, with CCLI details"),
     S.can("schedule.teams") && row("#teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when"),
+    (S.can("book.rooms") || S.can("manage.locations")) && row("#rooms", "door", "Rooms", "See what's free and request a room"),
     S.can("present") && row("#services", "screen", "Present", "Slides, the stage display, countdowns, livestream overlay and captions"),
     S.can("checkin.station") && row("#admin-checkin", "kid", "Check-in station", "Rosters by room and pickup by code"),
     S.can("qr.create") && row("#qr", "qr", "QR codes", "Link to events, classes, registration and check-in"),

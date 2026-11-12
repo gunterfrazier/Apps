@@ -35,10 +35,24 @@ const ADMIN = {
       { name: "signup", label: "People sign up for this event", type: "checkbox" },
       { name: "kids", label: "Parents can register their kids", type: "checkbox" },
       { name: "capacity", label: "Spots available", type: "number", hint: "Leave at 0 for no limit.", get: (r) => r.capacity || 0 },
+      { name: "tickets", label: "Tickets", type: "textarea", max: 600, get: (r) => (r.tickets || []).map((t) => [t.name, t.price, t.limit || ""].filter((x) => x !== "").join(", ")).join("\n"),
+        hint: "For paid events, one ticket type per line: name, price, and how many there are (optional). Example: Adult, 15. Leave blank for a free sign-up." },
+      { name: "formId", label: "Form to fill in after signing up", type: "select", options: () => [["", "None"], ...S.list("forms").map((f) => [f.id, f.title])], hint: "Use this for permission slips. Build forms under Admin, Forms." },
     ],
-    check: (d) => new Date(d.end) <= new Date(d.start) ? "The event has to end after it starts." : null,
-    save: (d, r) => ({ title: d.title, category: d.category || "Community", start: fromLocalInput(d.start), end: fromLocalInput(d.end), locationId: d.locationId || null, location: d.location, description: d.description, signup: !!d.signup, kids: !!d.kids, capacity: Math.max(0, +d.capacity || 0), registrations: r?.registrations || [] }),
-    extra: (e) => e.signup && e.registrations.length ? html`<div class="panel" style="margin-bottom:8px"><b>${registeredCount(e)} signed up</b>${e.registrations.map((r) => html`<p class="faint" style="margin:4px 0">${r.name}${r.count > 1 ? `, party of ${r.count}` : ""}${r.kids?.length ? `, ${plural(r.kids.length, "child", "children")}` : ""}${r.email ? `, ${r.email}` : ""}</p>`)}</div>` : "",
+    check: (d, rec) => {
+      if (new Date(d.end) <= new Date(d.start)) return "The event has to end after it starts.";
+      const t = parseTickets(d.tickets, rec); if (t.error) return t.error;
+      if (t.list.length && !d.signup) return "Turn on sign-ups to sell tickets.";
+      if (d.locationId && d.location) {
+        const hits = roomUses(d.locationId, d.location, new Date(d.start).getTime(), new Date(d.end).getTime()).filter((u) => !(u.kind === "event" && u.id === rec?.id));
+        if (hits.length) return `${d.location} is in use then for ${hits[0].title} (${fmtTime(hits[0].start)} to ${fmtTime(hits[0].end)}). Choose another room or time.`;
+      }
+      return null;
+    },
+    save: (d, r) => ({ title: d.title, category: d.category || "Community", start: fromLocalInput(d.start), end: fromLocalInput(d.end), locationId: d.locationId || null, location: d.location, description: d.description, signup: !!d.signup, kids: !!d.kids, capacity: Math.max(0, +d.capacity || 0), registrations: r?.registrations || [], tickets: parseTickets(d.tickets, r).list, formId: d.formId || null }),
+    after: (e) => { S.list("forms").forEach((f) => { if (f.id === e.formId) f.eventId = e.id; else if (f.eventId === e.id) f.eventId = null; }); },
+    extra: (e) => e.signup && e.registrations.length ? html`<div class="panel" style="margin-bottom:8px"><div style="display:flex;gap:8px;align-items:center;justify-content:space-between"><b>${registeredCount(e)} signed up${e.tickets?.length ? `, ${money(e.registrations.reduce((n, r) => n + (r.paid && r.paid.status !== "refunded" ? r.total || 0 : 0), 0))} paid` : ""}</b><button type="button" class="btn ghost sm" data-act="event-csv" data-id="${e.id}">${icon("download")}CSV</button></div>
+      ${e.registrations.map((r) => html`<p class="faint" style="margin:4px 0">${r.name}${r.count > 1 ? `, party of ${r.count}` : ""}${r.tickets ? `, ${ticketSummary(e, r)}` : ""}${r.kids?.length ? `, ${plural(r.kids.length, "child", "children")}` : ""}${r.total ? `, ${paidLabel(r.paid)}` : ""}${e.formId ? `, ${formsDoneText(e, r)}` : ""}${r.email ? `, ${r.email}` : ""}</p>`)}</div>` : "",
   },
   sermons: {
     title: "Sermons", one: "sermon", icon: "play", perm: "manage.sermons",
@@ -176,10 +190,13 @@ Screens.admin = (section) => {
         row("checkin.station", "admin-checkin", "kid", "Check-in roster", "Kids in each room, allergy alerts, pickup and volunteers on duty"),
         row("checkin.station", "kiosk", "screen", "Check-in kiosk", "A self check-in station that prints name tags"),
         row("schedule.teams", "teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when"),
+        row("manage.locations", "rooms", "door", "Rooms", (() => { const n = S.list("bookings").filter((b) => b.status === "requested").length; return n ? `${plural(n, "request")} waiting for approval` : "Book rooms and see what's in use"; })(),
+          (() => { const n = S.list("bookings").filter((b) => b.status === "requested").length; return n ? html`<span class="tag warn">${n}</span>` : null; })()),
         row("manage.prayer", "admin-cards", "inbox", "Connect cards", openCards ? `${openCards} waiting for follow-up` : "None waiting", openCards ? html`<span class="tag warn">${openCards}</span>` : null),
         row("manage.prayer", "admin-prayer", "pray", "Prayer requests", `${S.list("prayers").filter((p) => p.private).length} private, ${S.list("prayers").filter((p) => p.hidden).length} hidden`),
       ])}
-      ${sec("Content", Object.entries(ADMIN).map(([k, a]) => row(a.perm, `admin-${k}`, a.icon, a.title, plural(count(k), a.one, a.many || a.one + "s"))))}
+      ${sec("Content", [...Object.entries(ADMIN).map(([k, a]) => row(a.perm, `admin-${k}`, a.icon, a.title, plural(count(k), a.one, a.many || a.one + "s"))),
+        row("manage.content", "forms", "note", "Forms", `${plural(S.list("forms").length, "form")}: sign-ups, permission slips and applications`)])}
       ${sec("People", [
         row("manage.followup", "followup", "people", "Follow-up", (() => { const n = S.list("followups").filter((f) => f.status === "new").length; return n ? `${plural(n, "new person", "new people")} not reached yet` : "Everyone's been reached"; })(),
           (() => { const n = S.list("followups").filter((f) => f.status === "new").length; return n ? html`<span class="tag warn">${n}</span>` : null; })()),
@@ -217,10 +234,11 @@ Forms["admin-save"] = (d, f, fd) => {
   });
   const missing = a.fields.find((x) => x.required && (Array.isArray(d[x.name]) ? !d[x.name].length : !d[x.name]));
   if (missing) return formError(f, `Fill in "${missing.label}".`);
-  const problem = a.check?.(d);
+  const problem = a.check?.(d, rec);
   if (problem) return formError(f, problem);
   const data = a.save(d, rec);
-  if (rec) S.update(kind, rec.id, data); else S.add(kind, data);
+  const saved = rec ? S.update(kind, rec.id, data) : S.add(kind, data);
+  a.after?.(saved);
   closeSheet(); toast(rec ? "Saved" : "Added"); render();
 };
 Actions["admin-delete"] = (el) => {
@@ -448,6 +466,7 @@ Actions["loc-edit"] = (el) => {
       <label><input type="radio" name="visibility" value="public" ${attr(l.visibility !== "private", "checked")}><span>Public</span></label>
       <label><input type="radio" name="visibility" value="private" ${attr(l.visibility === "private", "checked")}><span>Private</span></label></div></fieldset>
     <label class="field"><span>Rooms</span><textarea name="rooms" placeholder="Room 104&#10;Fellowship hall">${(l.rooms || []).join("\n")}</textarea><small>One per line. Classes and events pick from these.</small></label>
+    <label class="field"><span>Room where services meet</span><input type="text" name="serviceRoom" value="${l.serviceRoom ?? (l.rooms || [])[0] ?? ""}" maxlength="60"><small>Room booking keeps it free for 90 minutes from each service time. Leave blank to skip.</small></label>
     <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Services</legend>
       ${svcs.map((s, i) => html`<div style="display:grid;grid-template-columns:1.1fr .9fr 1.4fr;gap:8px;margin-bottom:8px">
         <select name="day${i}" aria-label="Day">${DAYS.map((d, n) => html`<option value="${n}" ${attr(n === s.day, "selected")}>${d}</option>`)}</select>
@@ -464,7 +483,7 @@ Forms["loc-save"] = (d, f) => {
   if (d.liveUrl && !isUrl(d.liveUrl)) return formError(f, "The livestream link should start with https://");
   const services = [];
   for (let i = 0; i < 30 && `time${i}` in d; i++) if (d[`time${i}`]) services.push(svc(+d[`day${i}`], d[`time${i}`], d[`label${i}`] || "Worship service"));
-  const rec = { name: d.name, code, address: d.address, visibility: d.visibility || "public", rooms: d.rooms.split("\n").map((x) => x.trim()).filter(Boolean), services: services.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)), liveUrl: d.liveUrl };
+  const rec = { name: d.name, code, address: d.address, visibility: d.visibility || "public", rooms: d.rooms.split("\n").map((x) => x.trim()).filter(Boolean), serviceRoom: d.serviceRoom, services: services.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)), liveUrl: d.liveUrl };
   if (d.id) Object.assign(S.location(d.id), rec); else c.locations.push({ id: `${c.id}-${code.toLowerCase()}-${uid().slice(-3)}`, ...rec });
   S.save(); closeSheet(); toast("Location saved"); render();
 };

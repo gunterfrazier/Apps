@@ -15,7 +15,7 @@ const S = {
       this.state = saved;
       // Added after the first v2 release: named layouts and saved builder items.
       const seed = buildSeed();
-      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups"]) if (!saved[k]) saved[k] = seed[k];
+      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings"]) if (!saved[k]) saved[k] = seed[k];
       saved.me.pickups ||= [];
       Object.values(seed.users).forEach((u) => { const mine = saved.users[u.id]; if (!mine) { if (u.guestOf) saved.users[u.id] = u; } else if (!mine.family) Object.assign(mine, { family: u.family, pickups: u.pickups }); });
       Object.values(saved.churches).forEach((c) => {
@@ -146,6 +146,7 @@ const WEBHOOK_EVENTS = [
   ["gift.created", "A gift is made"], ["checkin.created", "A child is checked in"], ["checkin.completed", "A child is checked out"],
   ["volunteer.scheduled", "Someone is asked to serve"], ["volunteer.responded", "A volunteer accepts or declines"],
   ["followup.created", "Someone new needs follow-up"], ["attendance.recorded", "Attendance is recorded for a service"],
+  ["form.submitted", "Someone fills in a form"], ["room.booked", "A room is booked or requested"],
 ];
 async function hmacHex(secret, text) {
   try {

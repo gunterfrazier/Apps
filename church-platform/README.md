@@ -51,9 +51,17 @@ A phone-first church app that many churches share. People create an account, fin
 - Newcomer follow-up: connect cards, first-time kiosk families and new members land in one list. Each person gets the church's next steps as a checklist, someone to follow up (who's notified), call, text and email buttons, a status and a notes log.
 - Reports: weekly or monthly attendance (in the room, kids and online), new people and how they came, and giving by week or month and by fund. Every chart has a hover readout, a table view and a CSV download. Record head counts after each service; kids check-ins are counted for you.
 
+**Paid events, forms and rooms**
+- Ticketed events: ticket types with prices and limits (Student $85, Adult leader $40), a checkout, receipts by email once payments are live, cancel and refund, and a sign-up list with payments and CSV download.
+- Forms built from 12 kinds of question, including multiple choice, checkboxes, dates and a signature pad. Start from a template: permission slip, event questions, volunteer application or contact update. Share by link or QR code, list on the Connect tab, attach to an event, or add a fee.
+- Permission slips take one response per child, prefill allergies from the household, and collect a parent's drawn signature and typed name. An event with a slip asks for it after sign-up and shows which kids still need one.
+- Responses with search, a detail view with the signature, and CSV download. Someone chosen is notified of each new response.
+- Room booking: a day view of every room with what's in it (bookings, events, classes and groups, and worship services), requests once or weekly, live conflict checks that suggest rooms that are free, and approval by people who manage locations. Events can't be saved into a room that's already in use.
+- Payments go through one checkout. In the preview and until Stripe is connected it runs in test mode and nothing is charged.
+
 **For admins**
 - A landing page built from blocks: banners, graphics and photos you upload, information, buttons and links, video, embedded pages, events, classes, service times and social links.
-- Webhooks for thirteen events, signed with HMAC-SHA256, with a message log. Embedded pages listed in the app.
+- Webhooks for fifteen events, signed with HMAC-SHA256, with a message log. Embedded pages listed in the app.
 - Announcements, events, sermons, reading plans, classes and groups, prayer moderation, connect cards, check-in rosters, people, and giving reports.
 
 ### Song lyrics and copyright
@@ -104,10 +112,11 @@ src/js/10-seed.js     Sample churches, people, roles, classes, builder documents
 src/js/20-store.js    Data store, roles and location access, webhooks, schedules
 src/js/30-ui.js       Router, layout, location filter, embeds, sheets
 src/js/31-banner.js   Home banner and its designer
-src/js/40-61          Screens: home and Watch live, word, events, connect (classes, groups, prayer, directory),
+src/js/40-64          Screens: home and Watch live, word, events, connect (classes, groups, prayer, directory),
                       give, check-in, me and ministry tools, admin, landing page, builders, service plans and songs,
                       presentation, chat, QR, webhooks and embeds, parent portal, layouts, volunteers,
-                      stage display and livestream overlay, check-in kiosk, follow-up, reports
+                      stage display and livestream overlay, check-in kiosk, follow-up, reports,
+                      payments, forms, rooms
 public/               Manifest, service worker, icons, QR reader
 supabase/schema.sql   Database schema with security rules
 test/smoke.mjs        End-to-end check
