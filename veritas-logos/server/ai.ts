@@ -11,6 +11,11 @@ export interface AiRequest {
   contextRef?: unknown;
   guide?: unknown;
   request?: unknown;
+  section?: unknown;
+  stage?: unknown;
+  query?: unknown;
+  off?: unknown;
+  earlier?: unknown;
 }
 interface RunOptions {
   apiKey: string;
@@ -39,7 +44,7 @@ export async function runAi(o: RunOptions): Promise<string> {
       method: "POST",
       signal: o.signal,
       headers: { "content-type": "application/json", "x-api-key": o.apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: o.model, max_tokens: 4096, stream: true, system: o.system, messages: convo, ...(apiTools.length && !lastRound ? { tools: apiTools } : {}) }),
+      body: JSON.stringify({ model: o.model, max_tokens: 8000, stream: true, system: o.system, messages: convo, ...(apiTools.length && !lastRound ? { tools: apiTools } : {}) }),
     });
     if (!res.ok || !res.body) throw new Error(`Claude API returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const blocks: Block[] = [];

@@ -1,0 +1,20 @@
+[
+{"book":"Daniel","views":[
+ {"label":"6th century BC","who":"The traditional view, following the book's setting under Babylon and Persia.","source":"Daniel 1:1; 10:1"},
+ {"label":"About 168 to 164 BC","who":"The majority view in critical scholarship, based on its detail about Antiochus IV.","source":"Wikipedia, “Dating the Bible”","url":"https://en.wikipedia.org/wiki/Dating_the_Bible"}]},
+{"book":"Genesis","views":[
+ {"label":"Moses, about the 15th or 13th century BC","who":"The traditional view of the Pentateuch's authorship.","source":"Deuteronomy 31:9; Mark 12:26"},
+ {"label":"Final form after the Exile","who":"The common view in critical scholarship, which sees earlier sources brought together.","source":"Wikipedia, “Dating the Bible”","url":"https://en.wikipedia.org/wiki/Dating_the_Bible"}]},
+{"book":"Isaiah","views":[
+ {"label":"One prophet, 8th century BC","who":"The traditional view.","source":"Isaiah 1:1"},
+ {"label":"Three parts, 8th century to after the Exile","who":"The common view in critical scholarship, dividing chapters 1-39, 40-55 and 56-66.","source":"Wikipedia, “Dating the Bible”","url":"https://en.wikipedia.org/wiki/Dating_the_Bible"}]},
+{"book":"Mark","views":[
+ {"label":"About AD 70","who":"The usual date in critical scholarship.","source":"Wikipedia, “Dating the Bible”","url":"https://en.wikipedia.org/wiki/Dating_the_Bible"},
+ {"label":"Before AD 70","who":"The view of many conservative scholars, who read Mark 13 as prediction.","source":"Mark 13:1-2"}]},
+{"book":"Galatians","views":[
+ {"label":"About AD 48","who":"If written to southern Galatia.","source":"Wikipedia, “Dating the Bible”","url":"https://en.wikipedia.org/wiki/Dating_the_Bible"},
+ {"label":"About AD 55","who":"If written to northern Galatia.","source":"Wikipedia, “Dating the Bible”","url":"https://en.wikipedia.org/wiki/Dating_the_Bible"}]},
+{"book":"Revelation","views":[
+ {"label":"Reign of Domitian, AD 81 to 96","who":"The traditional date, from Irenaeus.","source":"Wikipedia, “Dating the Bible”","url":"https://en.wikipedia.org/wiki/Dating_the_Bible"},
+ {"label":"Before AD 70","who":"A minority view. Schaff records that some of the best scholars of his day assigned it to 68 or 69.","source":"Philip Schaff, History of the Christian Church, vol. 1, on the Apocalypse"}]}
+]

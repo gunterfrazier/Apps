@@ -1,0 +1,4637 @@
+{
+  "_about": "What the book guides quote, and where from. Each witness names a CCEL volume, the id of the chapter in CCEL's ThML file, and the first and last words of the passage. scripts/build_bookguides.py takes the words between them from that file, so nothing here is typed out. 'topic' is author (who wrote it and why), reception (how the church received it) or background (people and writings the book's setting is often tied to). 'via' is the writer who quotes an earlier one. 'source': 'josephus' takes the passage from the app's own Josephus (Whiston), by the section 'at' names. 'self' lists the passages where a narrative book's writer speaks about the book; letters are found by their first-person 'I write'. 'titles' heads a topic's group of witnesses. 'sources' lists the records a narrative book names, found by their KJV wording (regular expressions); 'selfKind' memoir marks where the writer begins to speak as \"I\", heading an opening that names whose words follow, headings the headings inside a book (Proverbs), titles the Psalm titles (read from TAHOT). A note's 'absentFrom' names a quoted passage that must not contain a word. 'datingAs' shows another book's dating views (the books of Moses share Genesis's). A note's 'quoted' phrases must be in a passage the guide quotes, its 'inBook' words in the book's Greek, and its 'notInBook' word must not be.",
+  "books": {
+    "1": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "For we have not an innumerable multitude of books among us",
+          "to": "the traditions of the origin of mankind till his death."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The first of these books is called Bresith",
+          "to": "which they properly call Thorath, that is law."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The twenty-two books of the Hebrews are the following",
+          "to": "‘These are the words’"
+        }
+      ],
+      "henry": {
+        "path": "volume-1/genesis/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "GENESIS"
+        ],
+        [
+          "smith",
+          "GENESIS"
+        ]
+      ]
+    },
+    "2": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "For we have not an innumerable multitude of books among us",
+          "to": "the traditions of the origin of mankind till his death."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The first of these books is called Bresith",
+          "to": "which they properly call Thorath, that is law."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The twenty-two books of the Hebrews are the following",
+          "to": "‘These are the words’"
+        }
+      ],
+      "henry": {
+        "path": "volume-1/exodus/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "EXODUS, BOOK OF"
+        ],
+        [
+          "smith",
+          "EXODUS"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "17:14",
+        "24:4",
+        "31:18",
+        "34:27-28"
+      ],
+      "datingAs": "Genesis"
+    },
+    "3": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "For we have not an innumerable multitude of books among us",
+          "to": "the traditions of the origin of mankind till his death."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The first of these books is called Bresith",
+          "to": "which they properly call Thorath, that is law."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The twenty-two books of the Hebrews are the following",
+          "to": "‘These are the words’"
+        }
+      ],
+      "henry": {
+        "path": "volume-1/leviticus/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "LEVITICUS"
+        ],
+        [
+          "smith",
+          "LEVITICUS"
+        ]
+      ],
+      "datingAs": "Genesis"
+    },
+    "4": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "For we have not an innumerable multitude of books among us",
+          "to": "the traditions of the origin of mankind till his death."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The first of these books is called Bresith",
+          "to": "which they properly call Thorath, that is law."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The twenty-two books of the Hebrews are the following",
+          "to": "‘These are the words’"
+        }
+      ],
+      "henry": {
+        "path": "volume-1/numbers/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "NUMBERS, BOOK OF"
+        ],
+        [
+          "smith",
+          "NUMBERS"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "33:2"
+      ],
+      "datingAs": "Genesis"
+    },
+    "5": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "For we have not an innumerable multitude of books among us",
+          "to": "the traditions of the origin of mankind till his death."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The first of these books is called Bresith",
+          "to": "which they properly call Thorath, that is law."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The twenty-two books of the Hebrews are the following",
+          "to": "‘These are the words’"
+        }
+      ],
+      "henry": {
+        "path": "volume-1/deuteronomy/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "DEUTERONOMY"
+        ],
+        [
+          "smith",
+          "DEUTERONOMY"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "31:9",
+        "31:22",
+        "31:24-26"
+      ],
+      "notes": {
+        "author": {
+          "text": "Deuteronomy 34 tells of Moses' death and burial. Josephus counts the five books as running \"till his death\".",
+          "quoted": [
+            "till his death"
+          ],
+          "inBook": [
+            "וימת"
+          ]
+        }
+      },
+      "datingAs": "Genesis"
+    },
+    "6": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/joshua/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOSHUA, THE BOOK OF"
+        ],
+        [
+          "smith",
+          "JOSHUA, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "24:26"
+      ],
+      "sources": [
+        {
+          "name": "The book of Jasher",
+          "match": [
+            "book of Jasher"
+          ]
+        }
+      ]
+    },
+    "7": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/judges/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JUDGES, BOOK OF"
+        ],
+        [
+          "smith",
+          "JUDGES, BOOK OF"
+        ]
+      ]
+    },
+    "8": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/ruth/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "RUTH THE BOOK OF"
+        ],
+        [
+          "smith",
+          "RUTH, BOOK OF"
+        ]
+      ]
+    },
+    "9": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/1-samuel/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "SAMUEL, BOOKS OF"
+        ],
+        [
+          "smith",
+          "SAMUEL, BOOKS OF"
+        ]
+      ]
+    },
+    "10": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/2-samuel/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "SAMUEL, BOOKS OF"
+        ],
+        [
+          "smith",
+          "SAMUEL, BOOKS OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of Jasher",
+          "match": [
+            "book of Jasher"
+          ]
+        }
+      ]
+    },
+    "11": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/1-kings/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "KINGS, THE BOOKS OF"
+        ],
+        [
+          "smith",
+          "KINGS, FIRST AND SECOND BOOKS OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of the acts of Solomon",
+          "match": [
+            "book of the acts of Solomon"
+          ]
+        },
+        {
+          "name": "The book of the chronicles of the kings of Israel",
+          "match": [
+            "chronicles of the kings of Israel"
+          ]
+        },
+        {
+          "name": "The book of the chronicles of the kings of Judah",
+          "match": [
+            "chronicles of the kings of Judah"
+          ]
+        }
+      ]
+    },
+    "12": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The second class is composed of the Prophets",
+          "to": "which is comprised in the twelve tribes."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/2-kings/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "KINGS, THE BOOKS OF"
+        ],
+        [
+          "smith",
+          "KINGS, FIRST AND SECOND BOOKS OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of the chronicles of the kings of Israel",
+          "match": [
+            "chronicles of the kings of Israel"
+          ]
+        },
+        {
+          "name": "The book of the chronicles of the kings of Judah",
+          "match": [
+            "chronicles of the kings of Judah"
+          ]
+        }
+      ]
+    },
+    "13": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/1-chronicles/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "CHRONICLES, BOOKS OF"
+        ],
+        [
+          "smith",
+          "CHRONICLES, FIRST AND SECOND BOOKS OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of the kings of Israel and Judah",
+          "match": [
+            "book of the kings of Israel and Judah"
+          ]
+        },
+        {
+          "name": "The chronicles of King David",
+          "match": [
+            "chronicles of king David"
+          ]
+        },
+        {
+          "name": "The book of Samuel the seer",
+          "match": [
+            "book of Samuel the seer"
+          ]
+        },
+        {
+          "name": "The book of Nathan the prophet",
+          "match": [
+            "book of Nathan the prophet"
+          ]
+        },
+        {
+          "name": "The book of Gad the seer",
+          "match": [
+            "book of Gad the seer"
+          ]
+        }
+      ]
+    },
+    "14": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/2-chronicles/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "CHRONICLES, BOOKS OF"
+        ],
+        [
+          "smith",
+          "CHRONICLES, FIRST AND SECOND BOOKS OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of the kings of Judah and Israel",
+          "match": [
+            "book of the kings of (Judah and Israel|Israel and Judah)"
+          ]
+        },
+        {
+          "name": "The book of the kings of Israel",
+          "match": [
+            "book of the kings of Israel(?! and)"
+          ]
+        },
+        {
+          "name": "The story of the book of the kings",
+          "match": [
+            "story of the book of the kings"
+          ]
+        },
+        {
+          "name": "The book of Nathan the prophet",
+          "match": [
+            "book of Nathan the prophet"
+          ]
+        },
+        {
+          "name": "The prophecy of Ahijah the Shilonite",
+          "match": [
+            "prophecy of Ahijah"
+          ]
+        },
+        {
+          "name": "The visions of Iddo the seer",
+          "match": [
+            "visions of Iddo"
+          ]
+        },
+        {
+          "name": "The book of Shemaiah the prophet",
+          "match": [
+            "book of Shemaiah the prophet"
+          ]
+        },
+        {
+          "name": "The book of Iddo the seer concerning genealogies",
+          "match": [
+            "Iddo the seer concerning genealogies"
+          ]
+        },
+        {
+          "name": "The story of the prophet Iddo",
+          "match": [
+            "story of the prophet Iddo"
+          ]
+        },
+        {
+          "name": "The book of Jehu the son of Hanani",
+          "match": [
+            "book of Jehu the son of Hanani"
+          ]
+        },
+        {
+          "name": "What Isaiah the prophet wrote",
+          "match": [
+            "did Isaiah the prophet"
+          ]
+        },
+        {
+          "name": "The vision of Isaiah the prophet",
+          "match": [
+            "vision of Isaiah the prophet"
+          ]
+        },
+        {
+          "name": "The sayings of the seers",
+          "match": [
+            "sayings of the seers"
+          ]
+        },
+        {
+          "name": "The lamentations",
+          "match": [
+            "written in the lamentations"
+          ]
+        }
+      ]
+    },
+    "15": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/ezra/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "EZRA, BOOK OF"
+        ],
+        [
+          "smith",
+          "EZRA, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "7:27-28"
+      ],
+      "selfKind": "memoir"
+    },
+    "16": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Ezra, that is, ‘An assistant’"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/nehemiah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "NEHEMIAH, BOOK OF"
+        ],
+        [
+          "smith",
+          "NEHEMIAH, THE BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "sources": [
+        {
+          "name": "A register of the genealogy of those who came up first",
+          "match": [
+            "register of the genealogy"
+          ]
+        },
+        {
+          "name": "The book of the chronicles",
+          "match": [
+            "written in the book of the chronicles"
+          ]
+        }
+      ]
+    },
+    "17": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "Against Apion",
+          "at": "1.8",
+          "from": "as to the time from the death of Moses",
+          "to": "in thirteen books."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Jesus, the son of Nave, Josoue ben Noun",
+          "to": "Esther, Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "athanasius-of-alexandria",
+          "work": "Festal Letters",
+          "at": "39",
+          "vol": "npnf204",
+          "div": "xxv.iii.iii.xxv",
+          "from": "But for greater exactness I add this also",
+          "to": "the latter being [merely] read;"
+        }
+      ],
+      "henry": {
+        "path": "volume-2/esther/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ESTHER, BOOK OF"
+        ],
+        [
+          "smith",
+          "ESTHER, BOOK OF"
+        ]
+      ],
+      "sources": [
+        {
+          "name": "The book of the chronicles of the kings of Media and Persia",
+          "match": [
+            "chronicles of the kings of Media and Persia"
+          ]
+        }
+      ],
+      "notes": {
+        "reception": {
+          "text": "Esther never names God. Melito's list of the books leaves Esther out, and Athanasius puts it among books to be read but not in the canon; Origen and Jerome list it.",
+          "quoted": [
+            "Esther, Esther",
+            "the ninth is Esther",
+            "Esther, and Judith, and Tobit",
+            "not indeed included in the Canon"
+          ],
+          "notInBook": [
+            "יהוה",
+            "אלהים"
+          ],
+          "absentFrom": [
+            {
+              "cite": "Church History 4.26.14",
+              "words": "Esther"
+            }
+          ]
+        }
+      }
+    },
+    "18": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-3/job/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOB, BOOK OF"
+        ],
+        [
+          "smith",
+          "JOB, BOOK OF"
+        ]
+      ]
+    },
+    "19": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "",
+          "at": "1.8",
+          "from": "The remaining four books contain hymns to God",
+          "to": "precepts for the conduct of human life."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-3/psalms/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "PSALMS"
+        ],
+        [
+          "smith",
+          "PSALMS, BOOK OF"
+        ]
+      ],
+      "selfKind": "titles"
+    },
+    "20": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "",
+          "at": "1.8",
+          "from": "The remaining four books contain hymns to God",
+          "to": "precepts for the conduct of human life."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-3/proverbs/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "PROVERBS, BOOK OF"
+        ],
+        [
+          "smith",
+          "PROVERBS, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "10:1",
+        "22:17",
+        "24:23",
+        "25:1",
+        "30:1",
+        "31:1"
+      ],
+      "selfKind": "headings"
+    },
+    "21": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "",
+          "at": "1.8",
+          "from": "The remaining four books contain hymns to God",
+          "to": "precepts for the conduct of human life."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-3/ecclesiastes/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ECCLESIASTES"
+        ],
+        [
+          "smith",
+          "ECCLESIASTES"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "1:12",
+        "12:9-10"
+      ],
+      "selfKind": "record"
+    },
+    "22": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "source": "josephus",
+          "work_id": "apion",
+          "work": "",
+          "at": "1.8",
+          "from": "The remaining four books contain hymns to God",
+          "to": "precepts for the conduct of human life."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-3/song-of-solomon/_index.md"
+      },
+      "dictionaries": [
+        [
+          "smith",
+          "CANTICLES"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "23": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "11.1.2",
+          "from": "This was known to Cyrus by his reading the book which Isaiah left behind him",
+          "to": "one hundred and forty years before the temple was demolished."
+        },
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/isaiah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ISAIAH, THE BOOK OF"
+        ],
+        [
+          "smith",
+          "ISAIAH, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "8:1",
+        "30:8"
+      ],
+      "selfKind": "heading",
+      "notes": {
+        "author": {
+          "text": "Isaiah 44:28 and 45:1 name Cyrus. Josephus says Cyrus read the prophecy and saw what it said of him.",
+          "quoted": [
+            "This was known to Cyrus by his reading the book which Isaiah left behind him"
+          ],
+          "inBook": [
+            "כורש"
+          ]
+        }
+      }
+    },
+    "24": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "10.5.1",
+          "from": "and Jeremiah the prophet composed an elegy to lament him",
+          "to": "two books concerning these events."
+        },
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/jeremiah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JEREMIAH, BOOK OF"
+        ],
+        [
+          "smith",
+          "JEREMIAH, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "30:2",
+        "36:2",
+        "36:4",
+        "36:27-28",
+        "36:32",
+        "45:1",
+        "51:60"
+      ],
+      "selfKind": "heading"
+    },
+    "25": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "Whence it happens that, by most people, five of the books are reckoned as double",
+          "to": "with Kinoth, i.e., his Lamentations."
+        },
+        {
+          "topic": "background",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "10.5.1",
+          "from": "and Jeremiah the prophet composed an elegy to lament him",
+          "to": "two books concerning these events."
+        },
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "And so there are also twenty-two books of the Old Testament",
+          "to": "we should thus have twenty-four books of the old law."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/lamentations/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "LAMENTATIONS, BOOK OF"
+        ],
+        [
+          "smith",
+          "LAMENTATIONS OF JEREMIAH"
+        ]
+      ],
+      "notes": {
+        "background": {
+          "text": "Josephus says Jeremiah wrote a lament for King Josiah that was still read in his day, as 2 Chronicles 35:25 also says. Lamentations itself mourns the fall of Jerusalem.",
+          "quoted": [
+            "Jeremiah the prophet composed an elegy to lament him"
+          ],
+          "inBook": [
+            "ירושלם"
+          ]
+        }
+      }
+    },
+    "26": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "10.5.1",
+          "from": "and Jeremiah the prophet composed an elegy to lament him",
+          "to": "two books concerning these events."
+        },
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/ezekiel/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "EZEKIEL, BOOK OF"
+        ],
+        [
+          "smith",
+          "EZEKIEL"
+        ]
+      ],
+      "self": [
+        "1:1-3",
+        "43:11"
+      ],
+      "selfKind": "heading"
+    },
+    "27": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "10.11.7",
+          "from": "for the several books that he wrote and left behind him",
+          "to": "but he also determined the time of their accomplishment."
+        },
+        {
+          "topic": "reception",
+          "source": "josephus",
+          "work_id": "antiquities",
+          "work": "",
+          "at": "11.8.5",
+          "from": "And when the Book of Daniel was showed him",
+          "to": "he supposed that himself was the person intended."
+        },
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "To the third class belong the Hagiographa",
+          "to": "the ninth is Esther."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "the book of Psalms, Spharthelleim",
+          "to": "Esther, Esther."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/daniel/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "DANIEL, BOOK OF"
+        ],
+        [
+          "smith",
+          "DANIEL, THE BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "7:1"
+      ],
+      "selfKind": "record",
+      "notes": {
+        "reception": {
+          "text": "The Hebrew order Jerome describes puts Daniel among the Writings, not the Prophets. Josephus says Alexander the Great was shown the book.",
+          "quoted": [
+            "the sixth is Daniel",
+            "the Book of Daniel was showed him"
+          ]
+        }
+      }
+    },
+    "28": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/hosea/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "HOSEA, PROPHECIES OF"
+        ],
+        [
+          "smith",
+          "HOSEA, PROPHECIES OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "29": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/joel/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOEL, BOOK OF"
+        ],
+        [
+          "smith",
+          "JOEL"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "30": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/amos/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "AMOS"
+        ],
+        [
+          "smith",
+          "AMOS, BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "31": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/obadiah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "OBADIAH, BOOK OF"
+        ],
+        [
+          "smith",
+          "OBADIAH"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "32": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/jonah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JONAH, BOOK OF"
+        ],
+        [
+          "smith",
+          "JONAH"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "33": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/micah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "MICAH, BOOK OF"
+        ],
+        [
+          "smith",
+          "MICAH, THE BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "34": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/nahum/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "NAHUM, BOOK OF"
+        ],
+        [
+          "smith",
+          "NAHUM"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "35": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/habakkuk/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "HABAKKUK, PROPHECIES OF"
+        ],
+        [
+          "smith",
+          "HABAKKUK, PROPHECY OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "2:2"
+      ],
+      "selfKind": "heading"
+    },
+    "36": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/zephaniah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ZEPHANIAH"
+        ],
+        [
+          "smith",
+          "ZEPHANIAH"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "37": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/haggai/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "HAGGAI, BOOK OF"
+        ],
+        [
+          "smith",
+          "HAGGAI, PROPHECY OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "38": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/zechariah/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ZECHARIAH"
+        ],
+        [
+          "smith",
+          "ZECHARIAH, THE BOOK OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "39": {
+      "witnesses": [
+        {
+          "topic": "reception",
+          "writer": "jerome",
+          "work": "Preface to the Books of Samuel and Kings",
+          "vol": "npnf206",
+          "div": "vii.iii.iv",
+          "from": "The fifth is Isaiah, the sixth, Jeremiah",
+          "to": "which is called among the Jews Thare Asra."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Melito of Sardis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.26",
+          "vol": "npnf201",
+          "div": "iii.ix.xxvi",
+          "from": "Accordingly when I went East",
+          "to": "Daniel, Ezekiel, Esdras."
+        }
+      ],
+      "henry": {
+        "path": "volume-4/malachi/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "MALACHI, PROPHECIES OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ],
+      "selfKind": "heading"
+    },
+    "40": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "papias-of-hierapolis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.39",
+          "vol": "npnf201",
+          "div": "iii.viii.xxxix",
+          "from": "But concerning Matthew he writes as follows",
+          "to": "every one interpreted them as he was able.”"
+        },
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.1",
+          "vol": "anf01",
+          "div": "ix.iv.ii",
+          "from": "Matthew also issued a written Gospel among the Hebrews",
+          "to": "laying the foundations of the Church."
+        },
+        {
+          "topic": "author",
+          "writer": "clement-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.14",
+          "vol": "npnf201",
+          "div": "iii.xi.xiv",
+          "from": "Again, in the same books, Clement gives the tradition of the earliest presbyters",
+          "to": "composed a spiritual Gospel."
+        },
+        {
+          "topic": "author",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Among the four Gospels, which are the only indisputable ones",
+          "to": "published in the Hebrew language."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.24",
+          "vol": "npnf201",
+          "div": "iii.viii.xxiv",
+          "from": "Nevertheless, of all the disciples of the Lord, only Matthew and John",
+          "to": "for the loss of his presence."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "3",
+          "vol": "npnf203",
+          "div": "v.iii.v",
+          "from": "Matthew, also called Levi",
+          "to": "“for he shall be called a Nazarene.”"
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "5.10",
+          "vol": "npnf201",
+          "div": "iii.x.xi",
+          "from": "Pantænus was one of these, and is said to have gone to India.",
+          "to": "which they had preserved till that time."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "First then must be put the holy quaternion of the Gospels",
+          "to": "following them the Acts of the Apostles."
+        }
+      ],
+      "henry": {
+        "path": "volume-5/matthew/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "MATTHEW, GOSPEL ACCORDING TO"
+        ],
+        [
+          "smith",
+          "MATTHEW, GOSPEL OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ]
+    },
+    "41": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "papias-of-hierapolis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.39",
+          "vol": "npnf201",
+          "div": "iii.viii.xxxix",
+          "from": "This also the presbyter said",
+          "to": "not to state any of them falsely."
+        },
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.1",
+          "vol": "anf01",
+          "div": "ix.iv.ii",
+          "from": "Matthew also issued a written Gospel among the Hebrews",
+          "to": "what had been preached by Peter."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "2.15",
+          "vol": "npnf201",
+          "div": "iii.vii.xvi",
+          "from": "And so greatly did the splendor of piety",
+          "to": "and so doth Marcus my son.”"
+        },
+        {
+          "topic": "author",
+          "writer": "clement-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.14",
+          "vol": "npnf201",
+          "div": "iii.xi.xiv",
+          "from": "Again, in the same books, Clement gives the tradition of the earliest presbyters",
+          "to": "composed a spiritual Gospel."
+        },
+        {
+          "topic": "author",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "The second is by Mark",
+          "to": "and so doth Marcus, my son.’"
+        }
+      ],
+      "henry": {
+        "path": "volume-5/mark/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "MARK, GOSPEL ACCORDING TO"
+        ],
+        [
+          "smith",
+          "MARK, GOSPEL OF"
+        ]
+      ],
+      "self": [
+        "1:1"
+      ]
+    },
+    "42": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.1",
+          "vol": "anf01",
+          "div": "ix.iv.ii",
+          "from": "Luke also, the companion of Paul",
+          "to": "the Gospel preached by him."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "The third book of the Gospel, that according to Luke",
+          "to": "began his narrative with the nativity of John."
+        },
+        {
+          "topic": "author",
+          "writer": "clement-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.14",
+          "vol": "npnf201",
+          "div": "iii.xi.xiv",
+          "from": "Again, in the same books, Clement gives the tradition of the earliest presbyters",
+          "to": "composed a spiritual Gospel."
+        },
+        {
+          "topic": "author",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "And the third by Luke",
+          "to": "composed for Gentile converts."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.4",
+          "vol": "npnf201",
+          "div": "iii.viii.iv",
+          "from": "But Luke, who was of Antiochian parentage",
+          "to": "from what he had seen himself."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "7",
+          "vol": "npnf203",
+          "div": "v.iii.ix",
+          "from": "Luke a physician of Antioch",
+          "to": "the book was composed in that same city."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "First then must be put the holy quaternion of the Gospels",
+          "to": "following them the Acts of the Apostles."
+        }
+      ],
+      "henry": {
+        "path": "volume-5/luke/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "LUKE, GOSPEL ACCORDING TO"
+        ],
+        [
+          "smith",
+          "LUKE, GOSPEL OF"
+        ]
+      ],
+      "self": [
+        "1:1-4"
+      ]
+    },
+    "43": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.1",
+          "vol": "anf01",
+          "div": "ix.iv.ii",
+          "from": "Afterwards, John, the disciple of the Lord, who also had leaned upon His breast",
+          "to": "during his residence at Ephesus in Asia."
+        },
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.3",
+          "vol": "anf01",
+          "div": "ix.iv.iv",
+          "from": "Then, again, the Church in Ephesus, founded by Paul",
+          "to": "a true witness of the tradition of the apostles."
+        },
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.11",
+          "vol": "anf01",
+          "div": "ix.iv.xii",
+          "from": "John, the disciple of the Lord, preaches this faith",
+          "to": "who made all things by His Word;"
+        },
+        {
+          "topic": "author",
+          "writer": "clement-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.14",
+          "vol": "npnf201",
+          "div": "iii.xi.xiv",
+          "from": "Again, in the same books, Clement gives the tradition of the earliest presbyters",
+          "to": "composed a spiritual Gospel."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "The fourth Gospel is that of John, one of the disciples.",
+          "to": "which is yet in the future."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.24",
+          "vol": "npnf201",
+          "div": "iii.viii.xxiv",
+          "from": "And when Mark and Luke had already published their Gospels",
+          "to": "by the divine Spirit."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "9",
+          "vol": "npnf203",
+          "div": "v.iii.xi",
+          "from": "John, the apostle whom Jesus most loved",
+          "to": "the discrepancy which there seems to be between John and the others."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.24",
+          "vol": "npnf201",
+          "div": "iii.viii.xxiv",
+          "from": "But of the writings of John, not only his Gospel",
+          "to": "But the other two are disputed."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "First then must be put the holy quaternion of the Gospels",
+          "to": "following them the Acts of the Apostles."
+        }
+      ],
+      "henry": {
+        "path": "volume-5/john/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOHN, GOSPEL OF"
+        ],
+        [
+          "smith",
+          "JOHN, GOSPEL OF"
+        ]
+      ],
+      "self": [
+        "1:1",
+        "20:30-31",
+        "21:24-25"
+      ]
+    },
+    "44": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.14",
+          "vol": "anf01",
+          "div": "ix.iv.xv",
+          "from": "But that this Luke was inseparable from Paul",
+          "to": "he was not ignorant of the truth."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "Moreover, the Acts of all the Apostles are comprised by Luke in one book",
+          "to": "when he went from the city—Rome—to Spain."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.4",
+          "vol": "npnf201",
+          "div": "iii.viii.iv",
+          "from": "But Luke, who was of Antiochian parentage",
+          "to": "from what he had seen himself."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "7",
+          "vol": "npnf203",
+          "div": "v.iii.ix",
+          "from": "Luke a physician of Antioch",
+          "to": "the book was composed in that same city."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "First then must be put the holy quaternion of the Gospels",
+          "to": "following them the Acts of the Apostles."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/acts/_index.md"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ACTS OF THE APOSTLES"
+        ],
+        [
+          "smith",
+          "ACTS OF THE APOSTLES"
+        ]
+      ],
+      "self": [
+        "1:1-2"
+      ]
+    },
+    "45": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.16",
+          "vol": "anf01",
+          "div": "ix.iv.xvii",
+          "from": "Paul, when writing to the Romans, has explained this very point",
+          "to": "by the resurrection from the dead of our Lord Jesus Christ.”"
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/romans/_index.md",
+        "completedBy": "John Evans"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "ROMANS, EPISTLE TO THE"
+        ],
+        [
+          "smith",
+          "ROMANS, EPISTLE TO THE"
+        ]
+      ]
+    },
+    "46": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "clement-of-rome",
+          "work": "1 Clement",
+          "at": "47",
+          "vol": "anf01",
+          "div": "ii.ii.xlvii",
+          "from": "Take up the epistle of the blessed Apostle Paul.",
+          "to": "because even then parties had been formed among you."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "notes": {
+        "reception": {
+          "text": "Clement of Rome's own letter to Corinth reminds the church of what Paul wrote to them about himself, Cephas and Apollos, the names of the parties in 1 Corinthians 1:12.",
+          "quoted": [
+            "concerning himself, and Cephas, and Apollos"
+          ],
+          "inBook": [
+            "Κηφ",
+            "Ἀπολλ"
+          ]
+        }
+      },
+      "henry": {
+        "path": "volume-6/1-corinthians/_index.md",
+        "completedBy": "Simon Browne"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "CORINTHIANS, FIRST EPISTLE TO THE"
+        ],
+        [
+          "smith",
+          "CORINTHIANS, FIRST EPISTLE TO THE"
+        ]
+      ]
+    },
+    "47": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.7",
+          "vol": "anf01",
+          "div": "ix.iv.viii",
+          "from": "As to their affirming that Paul said plainly in the Second",
+          "to": "know not how to read Paul."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/2-corinthians/_index.md",
+        "completedBy": "Daniel Mayo"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "CORINTHIANS, SECOND EPISTLE TO THE"
+        ],
+        [
+          "smith",
+          "CORINTHIANS, SECOND EPISTLE TO THE"
+        ]
+      ]
+    },
+    "48": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.13",
+          "vol": "anf01",
+          "div": "ix.iv.xiv",
+          "from": "But that Paul acceded to [the request of] those who summoned him",
+          "to": "the testimony of Luke regarding the apostles."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/galatians/_index.md",
+        "completedBy": "Joshua Bayes"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "GALATIANS, EPISTLE TO"
+        ],
+        [
+          "smith",
+          "GALATIANS, THE EPISTLE TO THE"
+        ]
+      ]
+    },
+    "49": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "ignatius-of-antioch",
+          "work": "To the Ephesians",
+          "at": "12",
+          "vol": "anf01",
+          "div": "v.ii.xii",
+          "from": "Ye are initiated into the mysteries of the Gospel with Paul, the holy, the martyred, the deservedly most happy",
+          "to": "who in all his Epistles makes mention of you in Christ Jesus."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "polycarp-of-smyrna",
+          "work": "To the Philippians",
+          "at": "12",
+          "vol": "anf01",
+          "div": "iv.ii.xii",
+          "from": "For I trust that ye are well versed in the Sacred Scriptures",
+          "to": "Let not the sun go down upon your wrath.”"
+        },
+        {
+          "topic": "reception",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.17",
+          "vol": "anf03",
+          "div": "v.iv.vi.xvii",
+          "from": "We have it on the true tradition of the Church",
+          "to": "the apostle did in fact write to all?"
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "notes": {
+        "reception": {
+          "text": "Polycarp's two quotations, which he calls Scripture, are together the words of Ephesians 4:26. Tertullian says Marcion gave this letter the title \"to the Laodiceans\".",
+          "quoted": [
+            "It is declared then in these Scriptures",
+            "not to the Laodiceans"
+          ],
+          "inBook": [
+            "ἐπιδυέτω"
+          ]
+        }
+      },
+      "henry": {
+        "path": "volume-6/ephesians/_index.md",
+        "completedBy": "Samuel Rosewell"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "EPHESIANS, EPISTLE TO"
+        ],
+        [
+          "smith",
+          "EPHESIANS, THE EPISTLE TO THE"
+        ]
+      ]
+    },
+    "50": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "polycarp-of-smyrna",
+          "work": "To the Philippians",
+          "at": "3",
+          "vol": "anf01",
+          "div": "iv.ii.iii",
+          "from": "For neither I, nor any other such one, can come up to the wisdom of the blessed and glorified Paul.",
+          "to": "“is the mother of us all.”"
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/philippians/_index.md",
+        "completedBy": "William Harris"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "PHILIPPIANS, EPISTLE TO"
+        ],
+        [
+          "smith",
+          "PHILIPPIANS, EPISTLE TO THE"
+        ]
+      ]
+    },
+    "51": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.14",
+          "vol": "anf01",
+          "div": "ix.iv.xv",
+          "from": "That he was not merely a follower, but also a fellow-labourer of the apostles",
+          "to": "the beloved physician, greets you.”"
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        },
+        {
+          "topic": "background",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "There are also in circulation one to the Laodiceans",
+          "to": "for it is not suitable for gall to be mingled with honey."
+        },
+        {
+          "topic": "background",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.17",
+          "vol": "anf03",
+          "div": "v.iv.vi.xvii",
+          "from": "We have it on the true tradition of the Church",
+          "to": "the apostle did in fact write to all?"
+        }
+      ],
+      "notes": {
+        "background": {
+          "text": "Colossians 4:16 asks the church to read the letter \"from Laodicea\". The Muratorian fragment calls a letter to the Laodiceans circulating in its day a forgery, and Tertullian says Marcion gave the title \"to the Laodiceans\" to the letter the church knew as Ephesians.",
+          "quoted": [
+            "one to the Laodiceans",
+            "forged under the name of Paul",
+            "not to the Laodiceans"
+          ],
+          "inBook": [
+            "Λαοδικ"
+          ]
+        }
+      },
+      "titles": {
+        "background": "A letter to the Laodiceans"
+      },
+      "henry": {
+        "path": "volume-6/colossians/_index.md",
+        "completedBy": "William Harris"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "COLOSSIANS, EPISTLE TO THE"
+        ],
+        [
+          "smith",
+          "COLOSSIANS, THE EPISTLE TO THE"
+        ]
+      ]
+    },
+    "52": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "5.6",
+          "vol": "anf01",
+          "div": "ix.vii.vii",
+          "from": "And for this cause does the apostle, explaining himself",
+          "to": "to the coming of the Lord Jesus Christ.”"
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/1-thessalonians/_index.md",
+        "completedBy": "Daniel Mayo"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "THESSALONIANS, EPISTLES TO THE"
+        ],
+        [
+          "smith",
+          "THESSALONIANS, FIRST EPISTLE TO THE"
+        ]
+      ]
+    },
+    "53": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.7",
+          "vol": "anf01",
+          "div": "ix.iv.viii",
+          "from": "And again, in the Second to the Thessalonians, speaking of Antichrist",
+          "to": "and signs, and lying wonders.”"
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "As to the epistles of Paul, again",
+          "to": "that there is one Church spread abroad through the whole world."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/2-thessalonians/_index.md",
+        "completedBy": "Daniel Mayo"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "THESSALONIANS, EPISTLES TO THE"
+        ],
+        [
+          "smith",
+          "THESSALONIANS, SECOND EPISTLE TO THE"
+        ]
+      ]
+    },
+    "54": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "He wrote, besides these, one to Philemon, and one to Titus, and two to Timothy",
+          "to": "in the regulation of ecclesiastical discipline."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "clement-of-alexandria",
+          "work": "Stromata",
+          "at": "2.11",
+          "vol": "anf02",
+          "div": "vi.iv.ii.xi",
+          "from": "As, then, philosophy has been brought into evil repute by pride and self-conceit",
+          "to": "the heretics reject the Epistles to Timothy."
+        },
+        {
+          "topic": "reception",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.21",
+          "vol": "anf03",
+          "div": "v.iv.vi.xxi",
+          "from": "To this epistle alone did its brevity avail",
+          "to": "even to the number of (St. Paul’s) epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        },
+        {
+          "topic": "background",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.4",
+          "vol": "npnf201",
+          "div": "iii.viii.iv",
+          "from": "Timothy, so it is recorded, was the first to receive the episcopate",
+          "to": "Titus of the churches in Crete."
+        }
+      ],
+      "notes": {
+        "reception": {
+          "text": "Clement says some heretics rejected the letters to Timothy because of the warning against knowledge \"falsely so called\" (1 Timothy 6:20). Tertullian says Marcion left out both letters to Timothy and the one to Titus.",
+          "quoted": [
+            "the heretics reject the Epistles to Timothy",
+            "he rejected the two epistles to Timothy and the one to Titus"
+          ],
+          "inBook": [
+            "ψευδωνύμου"
+          ]
+        }
+      },
+      "henry": {
+        "path": "volume-6/1-timothy/_index.md",
+        "completedBy": "Benjamin Andrews Atkinson"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "TIMOTHY, FIRST EPISTLE TO"
+        ],
+        [
+          "smith",
+          "TIMOTHY, EPISTLES OF PAUL TO"
+        ]
+      ]
+    },
+    "55": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "2.22",
+          "vol": "npnf201",
+          "div": "iii.vii.xxiii",
+          "from": "Thus after he had made his defense it is said that the apostle was sent again",
+          "to": "his first defense and his impending death."
+        },
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.3",
+          "vol": "anf01",
+          "div": "ix.iv.iv",
+          "from": "The blessed apostles, then, having founded and built up the Church",
+          "to": "Paul makes mention in the Epistles to Timothy."
+        },
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "He wrote, besides these, one to Philemon, and one to Titus, and two to Timothy",
+          "to": "in the regulation of ecclesiastical discipline."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.21",
+          "vol": "anf03",
+          "div": "v.iv.vi.xxi",
+          "from": "To this epistle alone did its brevity avail",
+          "to": "even to the number of (St. Paul’s) epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/2-timothy/_index.md",
+        "completedBy": "Benjamin Andrews Atkinson"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "TIMOTHY, SECOND EPISTLE TO"
+        ],
+        [
+          "smith",
+          "TIMOTHY, EPISTLES OF PAUL TO"
+        ]
+      ]
+    },
+    "56": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "He wrote, besides these, one to Philemon, and one to Titus, and two to Timothy",
+          "to": "in the regulation of ecclesiastical discipline."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.21",
+          "vol": "anf03",
+          "div": "v.iv.vi.xxi",
+          "from": "To this epistle alone did its brevity avail",
+          "to": "even to the number of (St. Paul’s) epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        },
+        {
+          "topic": "background",
+          "writer": "clement-of-alexandria",
+          "work": "Stromata",
+          "at": "1.14",
+          "vol": "anf02",
+          "div": "vi.iv.i.xiv",
+          "from": "Epimenides the Cretan, whom Paul knew as a Greek prophet",
+          "to": "to make use of Greek poems."
+        },
+        {
+          "topic": "background",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.4",
+          "vol": "npnf201",
+          "div": "iii.viii.iv",
+          "from": "Timothy, so it is recorded, was the first to receive the episcopate",
+          "to": "Titus of the churches in Crete."
+        }
+      ],
+      "notes": {
+        "background": {
+          "text": "Titus 1:12 quotes \"one of their own prophets\" on the Cretans without naming him. Clement of Alexandria names him as Epimenides the Cretan.",
+          "quoted": [
+            "Epimenides the Cretan, whom Paul knew as a Greek prophet"
+          ],
+          "inBook": [
+            "Κρῆτες"
+          ]
+        }
+      },
+      "titles": {
+        "background": "Crete, in Clement and Eusebius"
+      },
+      "henry": {
+        "path": "volume-6/titus/_index.md",
+        "completedBy": "Jeremiah Smith"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "TITUS, EPISTLE TO"
+        ],
+        [
+          "smith",
+          "TITUS, EPISTLE TO"
+        ]
+      ]
+    },
+    "57": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "He wrote, besides these, one to Philemon, and one to Titus, and two to Timothy",
+          "to": "in the regulation of ecclesiastical discipline."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "He wrote nine epistles to seven churches",
+          "to": "To Philemon one."
+        },
+        {
+          "topic": "reception",
+          "writer": "tertullian",
+          "work": "Against Marcion",
+          "at": "5.21",
+          "vol": "anf03",
+          "div": "v.iv.vi.xxi",
+          "from": "To this epistle alone did its brevity avail",
+          "to": "even to the number of (St. Paul’s) epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "These then belong among the accepted writings."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/philemon/_index.md",
+        "completedBy": "Jeremiah Smith"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "PHILEMON, EPISTLE TO"
+        ],
+        [
+          "smith",
+          "PHILEMON, THE EPISTLE OF PAUL TO"
+        ]
+      ]
+    },
+    "58": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "clement-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.14",
+          "vol": "npnf201",
+          "div": "iii.xi.xiv",
+          "from": "He says that the Epistle to the Hebrews is the work of Paul",
+          "to": "he wrote to the Hebrews out of his superabundance.”"
+        },
+        {
+          "topic": "author",
+          "writer": "tertullian",
+          "work": "On Modesty",
+          "at": "20",
+          "vol": "anf04",
+          "div": "iii.viii.xx",
+          "from": "For there is extant withal an Epistle to the Hebrews under the name of Barnabas",
+          "to": "have not we the power of working?”"
+        },
+        {
+          "topic": "author",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "That the verbal style of the epistle",
+          "to": "the author of the Gospel and the Acts, wrote it.”"
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "5",
+          "vol": "npnf203",
+          "div": "v.iii.vii",
+          "from": "The epistle which is called the Epistle to the Hebrews is not considered his",
+          "to": "why it seems to differ from other epistles of Paul."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.3",
+          "vol": "npnf201",
+          "div": "iii.viii.iii",
+          "from": "Paul’s fourteen epistles are well known and undisputed.",
+          "to": "I shall quote in the proper place."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.38",
+          "vol": "npnf201",
+          "div": "iii.viii.xxxviii",
+          "from": "Clement in his epistle which is accepted by all",
+          "to": "the thoughts contained in the two works are not very different."
+        }
+      ],
+      "notes": {
+        "author": {
+          "text": "Hebrews doesn't name its writer. Of the early writers quoted here, Clement of Alexandria says Paul wrote it and Luke translated it, Tertullian knows it under Barnabas's name, and Origen, after weighing its style, says that God knows.",
+          "quoted": [
+            "the Epistle to the Hebrews is the work of Paul",
+            "Luke translated it",
+            "under the name of Barnabas",
+            "who wrote the epistle, in truth, God knows"
+          ],
+          "notInBook": "Παῦλ"
+        }
+      },
+      "henry": {
+        "path": "volume-6/hebrews/_index.md",
+        "completedBy": "William Tong"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "HEBREWS, EPISTLE TO"
+        ],
+        [
+          "smith",
+          "HEBREWS, EPISTLE TO THE"
+        ]
+      ]
+    },
+    "59": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "2",
+          "vol": "npnf203",
+          "div": "v.iii.iv",
+          "from": "James, who is called the brother of the Lord",
+          "to": "to have gained authority."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "2.23",
+          "vol": "npnf201",
+          "div": "iii.vii.xxiv",
+          "from": "These things are recorded in regard to James",
+          "to": "have been read publicly in very many churches."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "whether they belong to the evangelist or to another person of the same name."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/james/_index.md",
+        "completedBy": "S. Wright"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JAMES, EPISTLE OF"
+        ],
+        [
+          "smith",
+          "JAMES, THE GENERAL EPISTLE OF"
+        ]
+      ]
+    },
+    "60": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "4.9",
+          "vol": "anf01",
+          "div": "ix.vi.x",
+          "from": "Peter says in his Epistle",
+          "to": "ye shall rejoice with joy unspeakable;”"
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "2.15",
+          "vol": "npnf201",
+          "div": "iii.vii.xvi",
+          "from": "And Peter makes mention of Mark in his first epistle",
+          "to": "and so doth Marcus my son.”"
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "1",
+          "vol": "npnf203",
+          "div": "v.iii.iii",
+          "from": "He wrote two epistles which are called Catholic",
+          "to": "is considered by many not to be by him."
+        },
+        {
+          "topic": "reception",
+          "writer": "papias-of-hierapolis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.39",
+          "vol": "npnf201",
+          "div": "iii.viii.xxxix",
+          "from": "And the same writer uses testimonies from the first Epistle of John",
+          "to": "from that of Peter likewise."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "4.14",
+          "vol": "npnf201",
+          "div": "iii.ix.xiv",
+          "from": "But Polycarp, in his above-mentioned epistle to the Philippians",
+          "to": "testimonies drawn from the First Epistle of Peter."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "And Peter, on whom the Church of Christ is built",
+          "to": "perhaps also a second, but this is doubtful."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.3",
+          "vol": "npnf201",
+          "div": "iii.viii.iii",
+          "from": "One epistle of Peter, that called the first, is acknowledged as genuine.",
+          "to": "it has been used with the other Scriptures."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/1-peter/_index.md",
+        "completedBy": "Zec. Merrill"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "PETER, FIRST EPISTLE OF"
+        ],
+        [
+          "smith",
+          "PETER, FIRST EPISTLE OF"
+        ]
+      ]
+    },
+    "61": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "1",
+          "vol": "npnf203",
+          "div": "v.iii.iii",
+          "from": "He wrote two epistles which are called Catholic",
+          "to": "is considered by many not to be by him."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "And Peter, on whom the Church of Christ is built",
+          "to": "perhaps also a second, but this is doubtful."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.3",
+          "vol": "npnf201",
+          "div": "iii.viii.iii",
+          "from": "One epistle of Peter, that called the first, is acknowledged as genuine.",
+          "to": "only one of which I know to be genuine and acknowledged by the ancient elders."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "whether they belong to the evangelist or to another person of the same name."
+        }
+      ],
+      "henry": {
+        "path": "volume-6/2-peter/_index.md",
+        "completedBy": "Joseph Hill"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "PETER, SECOND EPISTLE OF"
+        ],
+        [
+          "smith",
+          "PETER, SECOND EPISTLE OF"
+        ]
+      ]
+    },
+    "62": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.16",
+          "vol": "anf01",
+          "div": "ix.iv.xvii",
+          "from": "as John, the disciple of the Lord, verifies",
+          "to": "This is Antichrist.”"
+        },
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "For the Gospel and Epistle agree with each other",
+          "to": "in opposition to those who said that the Lord had not come in the flesh."
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "9",
+          "vol": "npnf203",
+          "div": "v.iii.xi",
+          "from": "He wrote also one Epistle which begins as follows",
+          "to": "two memorials of this same John the evangelist."
+        },
+        {
+          "topic": "reception",
+          "writer": "papias-of-hierapolis",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.39",
+          "vol": "npnf201",
+          "div": "iii.viii.xxxix",
+          "from": "And the same writer uses testimonies from the first Epistle of John",
+          "to": "from that of Peter likewise."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "What marvel is it, then, that John brings forward these several things",
+          "to": "concerning the Lord in their order."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "Why need we speak of him who reclined upon the bosom of Jesus",
+          "to": "together they do not contain hundred lines."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.24",
+          "vol": "npnf201",
+          "div": "iii.viii.xxiv",
+          "from": "But of the writings of John, not only his Gospel",
+          "to": "But the other two are disputed."
+        },
+        {
+          "topic": "background",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "1.26",
+          "vol": "anf01",
+          "div": "ix.ii.xxvii",
+          "from": "Cerinthus, again, a man who was educated",
+          "to": "inasmuch as he was a spiritual being."
+        },
+        {
+          "topic": "background",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.3",
+          "vol": "anf01",
+          "div": "ix.iv.iv",
+          "from": "There are also those who heard from him that John",
+          "to": "the enemy of the truth, is within.”"
+        }
+      ],
+      "notes": {
+        "background": {
+          "text": "Irenaeus connects John with opposition to Cerinthus. 1 John doesn't name Cerinthus or any other teacher.",
+          "quoted": [
+            "Cerinthus, the enemy of the truth"
+          ],
+          "notInBook": "Κήρινθ"
+        }
+      },
+      "henry": {
+        "path": "volume-6/1-john/_index.md",
+        "completedBy": "John Reynolds of Shrewsbury"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOHN, FIRST EPISTLE OF"
+        ],
+        [
+          "smith",
+          "JOHN, THE FIRST EPISTLE GENERAL OF"
+        ]
+      ],
+      "titles": {
+        "background": "Cerinthus, in Irenaeus"
+      }
+    },
+    "63": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "But neither in the reputed second or third epistle of John",
+          "to": "the anonymous phrase, ‘the elder.’"
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "9",
+          "vol": "npnf203",
+          "div": "v.iii.xi",
+          "from": "He wrote also one Epistle which begins as follows",
+          "to": "two memorials of this same John the evangelist."
+        },
+        {
+          "topic": "reception",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "1.16",
+          "vol": "anf01",
+          "div": "ix.ii.xvii",
+          "from": "And John, the disciple of the Lord, has intensified their condemnation",
+          "to": "saith the Lord."
+        },
+        {
+          "topic": "reception",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.16",
+          "vol": "anf01",
+          "div": "ix.iv.xvii",
+          "from": "For this reason also he has thus testified to us in his Epistle",
+          "to": "This is Antichrist.”"
+        },
+        {
+          "topic": "reception",
+          "writer": "irenaeus",
+          "work": "Against Heresies",
+          "at": "3.16",
+          "vol": "anf01",
+          "div": "ix.iv.xvii",
+          "from": "These are they against whom the Lord has cautioned us beforehand",
+          "to": "but is of antichrist.”"
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "The Epistle of Jude, indeed, and two belonging to the above-named John",
+          "to": "are reckoned among the Catholic epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "He has left also an epistle of very few lines",
+          "to": "together they do not contain hundred lines."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "Among the disputed writings, which are nevertheless recognized by many",
+          "to": "or to another person of the same name."
+        }
+      ],
+      "notes": {
+        "reception": {
+          "quoted": [
+            "in his Epistle already mentioned",
+            "And again does he say in the Epistle",
+            "For this reason also he has thus testified to us in his Epistle"
+          ],
+          "text": "In Against Heresies 3.16, Irenaeus gives 2 John 7–8 as coming from “his Epistle already mentioned”, the letter he had quoted 1 John 2:18–22 from, and then quotes 1 John 4:1–3 as “the Epistle”."
+        }
+      },
+      "henry": {
+        "path": "volume-6/2-john/_index.md",
+        "completedBy": "John Reynolds of Shrewsbury"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOHN, SECOND EPISTLE OF"
+        ],
+        [
+          "smith",
+          "JOHN, THE SECOND AND THIRD EPISTLES OF"
+        ]
+      ]
+    },
+    "64": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "But neither in the reputed second or third epistle of John",
+          "to": "the anonymous phrase, ‘the elder.’"
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "9",
+          "vol": "npnf203",
+          "div": "v.iii.xi",
+          "from": "He wrote also one Epistle which begins as follows",
+          "to": "two memorials of this same John the evangelist."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "The Epistle of Jude, indeed, and two belonging to the above-named John",
+          "to": "are reckoned among the Catholic epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "origen-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "6.25",
+          "vol": "npnf201",
+          "div": "iii.xi.xxv",
+          "from": "He has left also an epistle of very few lines",
+          "to": "together they do not contain hundred lines."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "Among the disputed writings, which are nevertheless recognized by many",
+          "to": "or to another person of the same name."
+        }
+      ],
+      "notes": {
+        "reception": {
+          "text": "The Muratorian fragment counts two letters of John here without saying which two.",
+          "quoted": [
+            "two belonging to the above-named John"
+          ]
+        }
+      },
+      "henry": {
+        "path": "volume-6/3-john/_index.md",
+        "completedBy": "John Reynolds of Shrewsbury"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JOHN, THIRD EPISTLE OF"
+        ],
+        [
+          "smith",
+          "JOHN, THE SECOND AND THIRD EPISTLES OF"
+        ]
+      ]
+    },
+    "65": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "clement-of-alexandria",
+          "work": "Comments on the Epistle of Jude",
+          "vol": "anf02",
+          "div": "vi.iv.ix",
+          "from": "Jude, who wrote the Catholic Epistle",
+          "to": "he was His brother, (the son) of Joseph."
+        },
+        {
+          "topic": "author",
+          "writer": "origen-of-alexandria",
+          "work": "Commentary on Matthew",
+          "at": "10",
+          "vol": "anf09",
+          "div": "xvi.ii.iii.xvii",
+          "from": "And Jude, who wrote a letter of few lines",
+          "to": "the brother of James.”"
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "4",
+          "vol": "npnf203",
+          "div": "v.iii.vi",
+          "from": "Jude the brother of James, left a short epistle",
+          "to": "reckoned among the Holy Scriptures."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "The Epistle of Jude, indeed, and two belonging to the above-named John",
+          "to": "are reckoned among the Catholic epistles."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "2.23",
+          "vol": "npnf201",
+          "div": "iii.vii.xxiv",
+          "from": "These things are recorded in regard to James",
+          "to": "have been read publicly in very many churches."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "whether they belong to the evangelist or to another person of the same name."
+        },
+        {
+          "topic": "background",
+          "writer": "origen-of-alexandria",
+          "work": "De Principiis",
+          "at": "3.2",
+          "vol": "anf04",
+          "div": "vi.v.iv.iv",
+          "from": "And in the first place, in the book of Genesis, the serpent",
+          "to": "the cause of Adam and Eve’s transgression."
+        },
+        {
+          "topic": "background",
+          "writer": "tertullian",
+          "work": "On the Apparel of Women",
+          "at": "1.3",
+          "vol": "anf04",
+          "div": "iii.iii.i.iii",
+          "from": "But since Enoch in the same Scripture has preached likewise concerning the Lord",
+          "to": "Enoch possesses a testimony in the Apostle Jude."
+        }
+      ],
+      "notes": {
+        "background": {
+          "text": "Jude 9 tells of the archangel Michael disputing with the devil over the body of Moses, and Jude 14–15 quotes a prophecy of Enoch. Origen names a book that told the story of Michael, and Tertullian defends the book of Enoch partly because Jude cites it. Jerome, above, says many rejected Jude for quoting Enoch.",
+          "quoted": [
+            "The Ascension of Moses",
+            "Enoch possesses a testimony in the Apostle Jude",
+            "he quotes from the apocryphal book of Enoch"
+          ],
+          "inBook": [
+            "Μιχα",
+            "Ἑνὼχ",
+            "Μωϋσ"
+          ]
+        }
+      },
+      "titles": {
+        "background": "Enoch and Moses, in Tertullian and Origen"
+      },
+      "henry": {
+        "path": "volume-6/jude/_index.md",
+        "completedBy": "John Billingsley"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "JUDE, EPISTLE OF"
+        ],
+        [
+          "smith",
+          "JUDE, EPISTLE OF"
+        ]
+      ]
+    },
+    "66": {
+      "witnesses": [
+        {
+          "topic": "author",
+          "writer": "justin-martyr",
+          "work": "Dialogue with Trypho",
+          "at": "81",
+          "vol": "anf01",
+          "div": "viii.iv.lxxxi",
+          "from": "And further, there was a certain man with us, whose name was John",
+          "to": "would likewise take place."
+        },
+        {
+          "topic": "author",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.18",
+          "vol": "npnf201",
+          "div": "iii.viii.xviii",
+          "from": "It is said that in this persecution the apostle and evangelist John",
+          "to": "at the end of the reign of Domitian.”"
+        },
+        {
+          "topic": "author",
+          "writer": "jerome",
+          "work": "Lives of Illustrious Men",
+          "at": "9",
+          "vol": "npnf203",
+          "div": "v.iii.xi",
+          "from": "John, the apostle whom Jesus most loved",
+          "to": "afterwards wrote commentaries."
+        },
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "Therefore that he was called John, and that this book is the work of one John, I do not deny.",
+          "to": "that it is not his."
+        },
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "But I think that he was some other one of those in Asia",
+          "to": "each bearing the name of John."
+        },
+        {
+          "topic": "author",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "I do not deny that the other writer saw a revelation",
+          "to": "in some places, solecisms."
+        },
+        {
+          "topic": "reception",
+          "writer": "",
+          "name": "Muratorian fragment",
+          "work": "Canon Muratorianus",
+          "vol": "anf05",
+          "div": "v.iii.iii",
+          "from": "We receive also the Apocalypse of John and that of Peter",
+          "to": "will not have this latter read in the Church."
+        },
+        {
+          "topic": "reception",
+          "writer": "dionysius-of-alexandria",
+          "via": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "7.25",
+          "vol": "npnf201",
+          "div": "iii.xii.xxvi",
+          "from": "Some before us have set aside and rejected the book altogether",
+          "to": "wonder because I do not understand it."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.24",
+          "vol": "npnf201",
+          "div": "iii.viii.xxiv",
+          "from": "In regard to the Apocalypse, the opinions of most men are still divided.",
+          "to": "from the testimony of the ancients."
+        },
+        {
+          "topic": "reception",
+          "writer": "eusebius-of-caesarea",
+          "work": "Church History",
+          "at": "3.25",
+          "vol": "npnf201",
+          "div": "iii.viii.xxv",
+          "from": "After this must be reckoned the epistles of Paul",
+          "to": "but which others class with the accepted books."
+        }
+      ],
+      "notes": {
+        "author": {
+          "text": "Revelation calls its writer John (1:1, 1:4, 1:9 and 22:8) but doesn't say which John. Justin calls him one of the apostles, and Jerome, writing of the apostle John, says he wrote it on Patmos. Dionysius of Alexandria accepts that a John wrote it but, from its Greek, doubts he was the John who wrote the Gospel and the letter.",
+          "quoted": [
+            "one of the apostles of Christ",
+            "John, the apostle whom Jesus most loved",
+            "he was banished to the island of Patmos, and wrote the Apocalypse",
+            "But I cannot readily admit that he was the apostle"
+          ],
+          "inBook": [
+            "Ἰωάνν"
+          ]
+        }
+      },
+      "henry": {
+        "path": "volume-6/revelation/_index.md",
+        "completedBy": "William Tong"
+      },
+      "dictionaries": [
+        [
+          "easton",
+          "REVELATION, BOOK OF"
+        ],
+        [
+          "smith",
+          "REVELATION OF ST. JOHN"
+        ]
+      ],
+      "self": [
+        "1:1-3",
+        "1:9-11",
+        "22:8",
+        "22:18-19"
+      ]
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { getCrossRefs, getLexEntry, getLexIndex, getVerseWords, normalizeStrongs
 import { BOOKS, bookName, formatSegment, parseReference, type RefSegment } from "./references";
 import { searchText } from "./bible";
 import { getInsights, type PassageInsights } from "./insights";
+import { excerptsForPassage, varied, writingsCredit } from "./writings";
 
 export type GuideFormat = "inductive" | "exegetical" | "smallgroup" | "teaching";
 export const GUIDE_FORMATS: { id: GuideFormat; name: string; blurb: string }[] = [
@@ -242,6 +243,7 @@ const ORD = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : `${n.toLocale
 const LENS_NAMES: Record<LensId, string> = {
   all: "All traditions",
   reformed: "Reformed",
+  covenant: "Covenant / Federal",
   arminian: "Arminian / Wesleyan",
   catholic: "Catholic",
   orthodox: "Eastern Orthodox",
@@ -287,6 +289,17 @@ function questionsFor(format: GuideFormat, label: string, words: KeyWord[], cros
   if (format === "smallgroup")
     return { open: `Before reading: when has someone's words or actions changed how you saw a situation like the one in ${label}?`, observe: observe.slice(0, 2), interpret: interpret.slice(0, 3), apply };
   return { open: "", observe, interpret, apply };
+}
+
+/** A short sampler of historic writers on the passage: one excerpt each, earliest first, with its edition named. */
+async function writersSection(refs: string[]): Promise<GuideSection | null> {
+  const lists = await Promise.all(refs.slice(0, 3).map((r) => excerptsForPassage(r)));
+  const picks = varied(lists.flat().sort((a, b) => (a.writer.year ?? 9999) - (b.writer.year ?? 9999)), 5).filter((e) => !e.cites);
+  if (!picks.length) return null;
+  return sec("views", "What historic writers said", "assembled", {
+    body: "Excerpts from public-domain editions, earliest first. Open the Writers page for this passage to see more and to choose your own.",
+    items: picks.map((e) => ({ label: `${e.writer.name}, ${e.title} (on ${e.reference}). ${e.source}`, text: e.text.length > 700 ? `${e.text.slice(0, 700).replace(/\s+\S*$/, "")} …` : e.text })),
+  });
 }
 
 function insightSections(all: PassageInsights[]) {
@@ -379,7 +392,7 @@ export async function generateGuide(opts: GenerateOptions): Promise<Guide> {
   const uniquePeople = people.filter((p, i) => people.findIndex((x) => x.id === p.id) === i).slice(0, 6);
   const peopleSec = uniquePeople.length
     ? sec("people", "People in this passage", "assembled", {
-        body: "From the BibleData index of people named in each verse. Open a person to see their family line.",
+        body: "From the index of people named in each verse (TIPNR, with BibleData). Open a person to see their family line.",
         items: uniquePeople.map((p) => ({ label: p.name, personId: p.id, text: p.title })),
       })
     : null;
@@ -496,7 +509,7 @@ export interface ResolvedGuide extends Omit<Guide, "sections"> {
 }
 
 const DATA_CREDIT =
-  "Hebrew and Greek data from STEP Bible (Tyndale House, CC BY 4.0). Strong's dictionaries via Open Scriptures (CC BY-SA). Cross-references from OpenBible.info (CC BY). Topics from Nave's Topical Bible. People from BibleData (CC BY 4.0).";
+  `Hebrew and Greek data and people from STEP Bible (Tyndale House, CC BY 4.0). Strong's dictionaries via Open Scriptures (CC BY-SA). Cross-references from OpenBible.info (CC BY). Topics from Nave's Topical Bible. People from BibleData (CC BY 4.0). ${writingsCredit}`;
 
 /** Fills in the verse text from the guide's translation. */
 export async function resolveGuide(guide: Guide): Promise<ResolvedGuide> {
@@ -523,6 +536,8 @@ export async function resolveGuide(guide: Guide): Promise<ResolvedGuide> {
 
 const versesPlain = (verses: VerseLine[]) => verses.map((v) => `${v.verse} ${v.text || "(not in this translation)"}`).join(" ");
 const originNote = (o: Origin) => (o === "you" ? "" : ORIGIN_LABEL[o]);
+
+export const DATA_CREDIT_TEXT = DATA_CREDIT;
 
 export function guideToMarkdown(g: ResolvedGuide): string {
   const out: string[] = [`# ${g.title}`];

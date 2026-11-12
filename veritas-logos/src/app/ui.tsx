@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getPassage, translationInfo, TRANSLATIONS, type TranslationId } from "../core/bible";
 import { LENS_IDS, type LensId } from "../core/content";
 import { lensName, ORIGIN_LABEL, type Origin } from "../core/guide";
@@ -44,11 +44,24 @@ export function Tag({ children, tone }: { children: ReactNode; tone?: string }) 
 }
 
 export function Sheet({ title, onClose, children, wide }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close.current(); };
     window.addEventListener("keydown", onKey);
     document.body.classList.add("sheet-open");
-    return () => { window.removeEventListener("keydown", onKey); document.body.classList.remove("sheet-open"); };
+    // The phone's Back button closes the sheet instead of leaving the page.
+    const startHref = location.href;
+    let closedByBack = false;
+    try { history.pushState({ sheet: true }, ""); } catch { /* some hosts refuse this */ }
+    const onPop = () => { if (location.href !== startHref) return; closedByBack = true; close.current(); };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("popstate", onPop);
+      document.body.classList.remove("sheet-open");
+      if (!closedByBack && location.href === startHref && history.state?.sheet) { try { history.back(); } catch { /* fine */ } }
+    };
   }, []);
   return (
     <div className="sheet-wrap" onClick={onClose}>

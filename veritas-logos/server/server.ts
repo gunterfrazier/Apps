@@ -13,19 +13,22 @@
  *   AI_DAILY_LIMIT       AI requests per key or address per day (default 50)
  *   RATE_LIMIT_PER_MIN   requests per key or address per minute (default 120)
  */
+import { CREED_CREDIT, getChurchEvents, getCreed, getCreedIndex } from "../src/core/scholar";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { chatPreamble, checkReferences, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
+import { chatPreamble, checkReferences, exegesisStagePrompt, explorePrompt, genrePrompt, symbolPrompt, topicPrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
 import { getPassage, isTranslationId, searchText, TRANSLATIONS, DEFAULT_TRANSLATION, translationInfo, decodeVerseCode, refOf, getVerse, type TranslationId } from "../src/core/bible";
 import { getTopic, searchTopics } from "../src/core/content";
-import { setLoader } from "../src/core/data";
+import { parseData, setLoader } from "../src/core/data";
 import { allFigures, buildSubgraph, findShortestPath, getFigure, describeRelationshipStep } from "../src/core/figure-graph";
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, guideToText, isGuideFormat, resolveGuide, sanitizeGuide, newId, type Guide } from "../src/core/guide";
 import { getInsights } from "../src/core/insights";
+import { excerptsForPassage, getWritingsIndex, sermonsForPassage } from "../src/core/writings";
+import { getGlossary, searchGlossary, termById } from "../src/core/glossary";
 import { getConcordance, getCrossRefs, getLexEntry, getVerseWords, normalizeStrongs, searchLexicon, decodeMorph } from "../src/core/lexicon";
 import { ensureFigures, peopleInPassage, versesOfPerson } from "../src/core/people";
 import { bookName, parseReference } from "../src/core/references";
@@ -57,7 +60,8 @@ export function createServer(opts: ServerOptions = {}) {
   setLoader(async (p) => {
     const file = path.join(dataDir, p);
     if (!file.startsWith(dataDir + path.sep)) throw new Error("bad path");
-    return JSON.parse(await fs.promises.readFile(file, "utf8"));
+    // The built data is packed (scripts/build.mjs) and unpacked the same way the app does it; plain JSON is read as it is.
+    return parseData(await fs.promises.readFile(file, "utf8"));
   });
 
   const db = new DatabaseSync(opts.dbPath ?? process.env.DB_PATH ?? "veritas.db");
@@ -160,6 +164,44 @@ export function createServer(opts: ServerOptions = {}) {
       if (!parseReference(ref)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
       const i = await getInsights(ref);
       return send(res, 200, { reference: i.reference, book: i.book, topics: i.topics, confessions: i.confessions, quotes: i.quotes, quoted_by: i.quotedBy, parallels: i.parallels, possible_allusions: i.possibleAllusions });
+    }
+    if (method === "GET" && p === "/v1/glossary") {
+      const query = u.searchParams.get("q");
+      const terms = query ? await searchGlossary(query, clampInt(u.searchParams.get("limit"), 20, 1, 100)) : await getGlossary();
+      return send(res, 200, { results: terms.map((t) => ({ id: t.id, term: t.term, definitions: t.defs.length, also_called: t.aliases })) });
+    }
+    if (method === "GET" && seg[0] === "glossary" && seg[1] && !seg[2]) {
+      const t = await termById(seg[1]);
+      if (!t) throw new HttpError(404, "not_found", "No term with that id.");
+      return send(res, 200, { id: t.id, term: t.term, also_called: t.aliases, owners_glossary: t.own || undefined, corrections: t.corrections?.length ? t.corrections : undefined, note: t.note, see: t.see || undefined, definitions: t.defs.map((d) => ({ source: d.source, heading: d.head, text: d.text, source_url: d.url || undefined })), verses: t.refs, topic: t.topic || undefined });
+    }
+    if (method === "GET" && p === "/v1/church-history") {
+      const query = u.searchParams.get("q")?.toLowerCase();
+      const cat = u.searchParams.get("kind");
+      const events = (await getChurchEvents()).filter((e) => (!cat || e.cat === cat) && (!query || `${e.title} ${e.summary}`.toLowerCase().includes(query)));
+      return send(res, 200, { results: events.map((e) => ({ id: e.id, title: e.title, year: e.y1, until: e.y2, about: e.approx || undefined, kind: e.cat, traditions: e.trad, summary: e.summary, source: e.source, source_url: e.url, page: e.page || undefined, quote: e.quote, verses: e.refs, terms: e.terms, writers: e.writers, creeds: e.creeds })) });
+    }
+    if (method === "GET" && p === "/v1/creeds") {
+      const { docs } = await getCreedIndex();
+      return send(res, 200, { results: docs.map((d) => ({ id: d.id, name: d.name, year: d.year, tradition: d.tradition, volume: d.vol, source_url: d.url })) });
+    }
+    if (method === "GET" && seg[0] === "creeds" && seg[1] && !seg[2]) {
+      const d = await getCreed(seg[1]);
+      if (!d) throw new HttpError(404, "not_found", "No document with that id.");
+      return send(res, 200, { id: d.id, name: d.name, year: d.year, tradition: d.tradition, volume: d.vol, source_url: d.url, source: CREED_CREDIT, blocks: d.blocks });
+    }
+    if (method === "GET" && p === "/v1/writers") {
+      const { authors } = await getWritingsIndex();
+      return send(res, 200, { results: authors.map((a) => ({ id: a.id, name: a.name, year: a.year, category: a.cat, flag: a.flag || undefined, excerpts: a.n, works: a.works.map(([title, count]) => ({ title, count })), wiki: a.wiki || undefined })) });
+    }
+    if (method === "GET" && p === "/v1/writings") {
+      const ref = required(u, "ref");
+      if (!parseReference(ref)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
+      const lim = clampInt(u.searchParams.get("limit"), 20, 1, 100), off = clampInt(u.searchParams.get("offset"), 0, 0, 1e6);
+      const writer = u.searchParams.get("writer");
+      const [short, long, sermons] = await Promise.all([excerptsForPassage(ref), excerptsForPassage(ref, "comm"), sermonsForPassage(ref)]);
+      const all = [...short, ...long].filter((e) => !writer || e.writer.id === writer);
+      return send(res, 200, { reference: ref, total: all.length, results: all.slice(off, off + lim).map((e) => ({ writer: e.writer.name, writer_id: e.writer.id, year: e.writer.year, work: e.title, on: e.reference, edition: e.source, source_url: e.url || undefined, cites_only: e.cites || undefined, text: e.text })), spurgeon_sermons: sermons });
     }
     if (method === "GET" && p === "/v1/lexicon") return send(res, 200, { results: (await searchLexicon(required(u, "q"), clampInt(u.searchParams.get("limit"), 20, 1, 100))).map((r) => ({ id: r[0], lemma: r[1], transliteration: r[2], gloss: r[3], occurrences: r[4] })) });
     if (method === "GET" && seg[0] === "lexicon" && seg[1] && !seg[2]) {
@@ -306,7 +348,34 @@ export function createServer(opts: ServerOptions = {}) {
         if (!guide || typeof body.request !== "string" || !body.request.trim()) throw new HttpError(400, "bad_guide", "Send a guide and a request.");
         system = "You are the study assistant in Veritas Logos.";
         messages = [{ role: "user", content: await guideDraftPrompt(guide, body.request.slice(0, 2000)) }];
-      } else throw new HttpError(400, "bad_purpose", "Use purpose insight, chat or draft.");
+      } else if (body.purpose === "explore") {
+        // The server writes the prompt, so this route can't be used as a general-purpose proxy to the model.
+        const c = (body.section ?? {}) as Record<string, unknown>;
+        if (typeof body.request !== "string" || !body.request.trim() || typeof c.heading !== "string") throw new HttpError(400, "bad_section", "Send a section and a request.");
+        system = "You are the study assistant in Veritas Logos.";
+        const refs = Array.isArray(c.refs) ? c.refs.filter((r): r is string => typeof r === "string" && Boolean(parseReference(r))).slice(0, 12) : [];
+        messages = [{ role: "user", content: await explorePrompt({ heading: c.heading.slice(0, 200), kind: String(c.kind ?? "text").slice(0, 20), text: String(c.text ?? "").slice(0, 6000), refs, lens, translation, guideTitle: typeof c.guideTitle === "string" ? c.guideTitle.slice(0, 200) : undefined }, body.request.slice(0, 2000)) }];
+        useTools = true;
+      } else if (body.purpose === "exegesis") {
+        if (typeof body.reference !== "string" || !parseReference(body.reference)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
+        system = "You are the study assistant in Veritas Logos.";
+        const st = (body.stage ?? {}) as Record<string, unknown>;
+        const stage = { id: st.id === "verses" || st.id === "theology" ? st.id : "overview", label: "", from: Number(st.from) || 0, to: Number(st.to) || 12 } as const;
+        messages = [{ role: "user", content: await exegesisStagePrompt(body.reference, translation, lens, stage, typeof body.earlier === "string" ? body.earlier.slice(0, 20000) : "") }];
+        useTools = true;
+      } else if (body.purpose === "topic") {
+        if (typeof body.reference !== "string" || !parseReference(body.reference)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
+        if (typeof body.query !== "string" || body.query.trim().length < 2) throw new HttpError(400, "bad_query", "Send a word or topic of at least two letters.");
+        system = "You are the study assistant in Veritas Logos.";
+        messages = [{ role: "user", content: await topicPrompt(body.reference, body.query, translation, lens) }];
+        useTools = true;
+      } else if (body.purpose === "genre" || body.purpose === "symbols") {
+        if (typeof body.reference !== "string" || !parseReference(body.reference)) throw new HttpError(400, "bad_reference", "That reference can't be read.");
+        system = "You are the study assistant in Veritas Logos.";
+        const off = Array.isArray(body.off) ? body.off.filter((x): x is string => typeof x === "string").slice(0, 60) : [];
+        messages = [{ role: "user", content: body.purpose === "genre" ? await genrePrompt(body.reference, translation) : await symbolPrompt(body.reference, translation, lens, off) }];
+        useTools = true;
+      } else throw new HttpError(400, "bad_purpose", "Use purpose insight, chat, draft, explore, exegesis, topic, genre or symbols.");
 
       res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" });
       const ctl = new AbortController();

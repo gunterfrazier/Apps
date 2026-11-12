@@ -1,0 +1,480 @@
+[
+ {
+  "head": "Advent",
+  "kind": "inaccurate",
+  "text": "The coming of Jesus Christ, either His first coming at the Incarnation or His second coming at the end of the age. Also the church season of preparation before Christmas.",
+  "why": "The original limited the word mainly to the second coming. It is used of both comings and of the church season.",
+  "basis": "Easton's Bible Dictionary, “Coming of Christ”, which is in this app"
+ },
+ {
+  "head": "Apocrypha (Old Testament)",
+  "kind": "inaccurate",
+  "text": "Jewish books, mostly from the period between the Testaments, that are in Catholic and Orthodox canons (the two lists differ somewhat) but outside the Protestant canon. Some Protestant Bibles still print them in a separate section.",
+  "why": "They are outside the Protestant canon, but not always outside Protestant Bibles. The 1611 King James Version printed them."
+ },
+ {
+  "head": "Apostle",
+  "kind": "inaccurate",
+  "text": "A messenger or ambassador sent by Christ. The word most often means the Twelve and Paul, but the New Testament also uses it more widely, as of Barnabas.",
+  "why": "“Specifically the original twelve and Paul” is too narrow: Acts 14:14 calls Barnabas an apostle.",
+  "basis": "Acts 14:14"
+ },
+ {
+  "head": "Apostles’ Creed",
+  "kind": "inaccurate",
+  "text": "An early statement of Christian belief summarizing core doctrines, which grew out of baptismal creeds in the Western church. It is widely used in Western churches. Eastern Orthodox worship uses the Nicene Creed instead.",
+  "why": "“Universally accepted” overstates it. Its use is Western."
+ },
+ {
+  "head": "Carmen Christi",
+  "kind": "inaccurate",
+  "text": "The “Christ Hymn” of Philippians 2:6-11 detailing Christ’s humiliation and exaltation. Verse 5 is usually read as its introduction. Scholars debate how far it was a hymn in use before Paul.",
+  "why": "The passage is usually marked as verses 6-11, not 5-11."
+ },
+ {
+  "head": "Epistle",
+  "kind": "inaccurate",
+  "text": "A letter in the New Testament, usually instructional. Many are by apostles, but not all name an apostle as author; Hebrews doesn't name its author at all.",
+  "why": "“Written by an apostle” isn't true of every New Testament letter.",
+  "basis": "Hebrews"
+ },
+ {
+  "head": "Eutychianism / Monophysitism",
+  "kind": "inaccurate",
+  "text": "Eutychianism: the teaching, condemned at Chalcedon in 451 and linked to the monk Eutyches, that Christ's humanity and divinity mixed or merged into one nature. Monophysitism: a broader label for the belief that Christ has one nature after the union. The Oriental Orthodox churches, who are often given that label, reject it and reject Eutyches, and prefer “miaphysite”, meaning one united nature.",
+  "why": "The original treated the two as one idea, and so attached a condemned teaching to churches that themselves reject it.",
+  "basis": "The Aquila Report, “The Coptic Church and Chalcedon” (theaquilareport.com/the-coptic-church-and-chalcedon)"
+ },
+ {
+  "head": "Free will theism / Open theism / Open theology",
+  "kind": "inaccurate",
+  "text": "The belief that God knows all that can be known, but that future free choices aren't yet settled, so God knows them as possibilities rather than as certainties. Most Christian traditions reject it.",
+  "why": "Open theists don't say God's knowledge is lacking. They say undecided choices aren't yet there to be known. The original stated their view in terms they would reject."
+ },
+ {
+  "head": "Manuscripts",
+  "kind": "inaccurate",
+  "text": "Handwritten copies of biblical texts, in the original languages and in early translations.",
+  "why": "Manuscripts in translation, such as Latin and Syriac, are manuscripts too."
+ },
+ {
+  "head": "Nestorianism / Nestorius",
+  "kind": "inaccurate",
+  "text": "The teaching condemned at the Council of Ephesus in 431 as dividing Christ's two natures into two distinct persons. Historians debate whether Nestorius himself taught it in that form.",
+  "why": "The original assigned the condemned teaching to Nestorius as settled fact. Schaff records that major historians thought he was unjustly condemned.",
+  "basis": "Schaff, History of the Christian Church, vol. 3, on Nestorius, which is in this app"
+ },
+ {
+  "head": "Nicene Creed",
+  "kind": "inaccurate",
+  "text": "The confession of 325, expanded in 381, affirming the full deity of Christ and the Trinity. Most Christian traditions accept it, though East and West differ over the Filioque clause.",
+  "why": "“Universally” overlooks that difference and the Christian groups that don't use creeds."
+ },
+ {
+  "head": "Person",
+  "kind": "inaccurate",
+  "text": "In Trinitarian theology, each of the three (Father, Son and Holy Spirit) who are distinct in relation while sharing one divine essence. Classical writers speak of a subsistence (hypostasis). Calling a person a “center of consciousness” is a modern way of speaking, and theologians dispute it.",
+  "why": "“Center of consciousness” isn't the classical definition, and some theologians think it implies three minds."
+ },
+ {
+  "head": "Polycarp of Smyrna",
+  "kind": "inaccurate",
+  "text": "Early martyr and Apostolic Father who, according to Irenaeus and other early writers, was a disciple of the Apostle John.",
+  "why": "The link to John rests on early tradition, so it is now attributed.",
+  "basis": "Schaff, History of the Christian Church, vol. 2, which is in this app"
+ },
+ {
+  "head": "Sacrifice",
+  "kind": "inaccurate",
+  "text": "An offering made to God. In the Old Testament these include blood offerings for atonement as well as grain, thanksgiving and fellowship offerings. Christians hold that Christ's death fulfills the atoning sacrifices.",
+  "why": "Not every Old Testament sacrifice involved blood or was for sin, as Leviticus 2 and 3 show.",
+  "basis": "Leviticus 1-7"
+ },
+ {
+  "head": "Saints",
+  "kind": "inaccurate",
+  "text": "In the New Testament, all believers in Christ, set apart for God. In Catholic and Orthodox usage, also those the church recognizes as having entered heaven.",
+  "why": "The original gave only the New Testament and Protestant sense."
+ },
+ {
+  "head": "Tertullian",
+  "kind": "inaccurate",
+  "text": "(c. 155–220) Early Latin father, the first known writer to use the Latin word trinitas (“Trinity”). Theophilus of Antioch had already used the Greek trias.",
+  "why": "“First coined” overstates it. Both Easton and Schaff credit Theophilus with the earlier Greek word.",
+  "basis": "Easton's Bible Dictionary, “Trinity”, and Schaff, History of the Christian Church, vol. 2, both in this app"
+ },
+ {
+  "head": "Text criticism",
+  "kind": "inaccurate",
+  "text": "The study of biblical manuscripts and other witnesses, compared in order to recover the earliest text that the evidence can establish.",
+  "why": "“The exact original text” promises more than the discipline claims."
+ },
+ {
+  "head": "Theology proper",
+  "kind": "inaccurate",
+  "text": "The study of God: His existence, nature and attributes, including the Trinity.",
+  "why": "It isn't limited to God the Father."
+ },
+ {
+  "head": "Westminster Confession of Faith",
+  "kind": "inaccurate",
+  "text": "A Reformed statement of faith drawn up by the Westminster Assembly, finished in 1646 and adopted by the Church of Scotland in 1647. It remains a standard for Presbyterian churches.",
+  "why": "The dates are now specific, and “preeminent” was an opinion.",
+  "basis": "Schaff-Herzog Encyclopedia, “Westminster Standards” (ccel.org/ccel/schaff/encyc12/htm/iii.xi.xxx.htm)"
+ },
+ {
+  "head": "Active obedience of Christ",
+  "kind": "contested",
+  "text": "In Reformed theology, Christ's perfect, lifelong keeping of the law on behalf of believers, counted as theirs. Other Christians, including some Protestants, affirm His sinless life without teaching that it is credited to believers.",
+  "why": "“On behalf of believers” is the Reformed reading. Other traditions, and some Protestants, don't teach it."
+ },
+ {
+  "head": "Antinomianism",
+  "kind": "contested",
+  "text": "The view that Christians are freed by grace from any obligation to obey the moral law. Most Christian traditions reject it, while differing on how the law applies to believers.",
+  "why": "“False” is a verdict. It now says who rejects it."
+ },
+ {
+  "head": "Assurance",
+  "kind": "contested",
+  "text": "A believer's confidence of salvation. Many Protestants describe it as a certainty brought about by the Holy Spirit. Catholic teaching allows firm hope but not, without special revelation, certainty of final salvation.",
+  "why": "The original gave one tradition's view as the definition."
+ },
+ {
+  "head": "Atonement",
+  "kind": "contested",
+  "text": "The reconciling of God and humanity through Christ's life and death. Christians explain how it works in several ways, including penal substitution, satisfaction, Christus Victor and moral influence.",
+  "why": "“To earn our salvation” assumes one theory. This glossary itself lists several."
+ },
+ {
+  "head": "Authority of scripture",
+  "kind": "contested",
+  "text": "The conviction that the Bible is God's word and binding on believers. Traditions differ over how Scripture relates to church tradition and teaching authority.",
+  "why": "“Absolute” and “over all areas of life” are one tradition's wording."
+ },
+ {
+  "head": "Canon of scripture",
+  "kind": "contested",
+  "text": "The list of books a church recognizes as authoritative Scripture. Nearly all churches share the New Testament list. The Old Testament list differs among Protestant, Catholic and Orthodox churches.",
+  "why": "There isn't one closed list that all Christians share."
+ },
+ {
+  "head": "Clarity of scripture",
+  "kind": "contested",
+  "text": "(Perspicuity) The Protestant teaching that the Bible's core message of salvation is plain enough for ordinary readers to understand. Catholic and Orthodox teaching gives more weight to the church's role in interpreting it.",
+  "why": "This is a Protestant doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Common grace",
+  "kind": "contested",
+  "text": "In Reformed theology, God's general care and goodness given to all people, regardless of their spiritual state, which doesn't itself save them. Wesleyan and Arminian Christians speak instead of prevenient grace, given to all and able to lead to salvation.",
+  "why": "This is a Reformed term, so it is now labeled as one."
+ },
+ {
+  "head": "Decree(s) of God",
+  "kind": "contested",
+  "text": "In Reformed theology, God's eternal plan by which He foreordains whatever comes to pass. Arminian and other traditions hold that His plan leaves room for choices He doesn't determine.",
+  "why": "One tradition's view was stated as the definition."
+ },
+ {
+  "head": "Decretive will",
+  "kind": "contested",
+  "text": "In Reformed theology, God's hidden, sovereign will that brings about all things, as distinct from His revealed moral will. Other traditions don't draw the line this way.",
+  "why": "This is a Reformed distinction, so it is now labeled as one."
+ },
+ {
+  "head": "Secret will / Sovereign will",
+  "kind": "contested",
+  "text": "In Reformed theology, God's hidden decrees governing all that comes to pass. Other traditions don't draw the line this way.",
+  "why": "This is a Reformed distinction, so it is now labeled as one."
+ },
+ {
+  "head": "Double imputation",
+  "kind": "contested",
+  "text": "The teaching, especially in Lutheran and Reformed theology, that believers' sins are credited to Christ and His righteousness is credited to them. Catholic and Orthodox teaching describes salvation in other terms, and some Protestants dispute this account too.",
+  "why": "This is one tradition's doctrine, so it now says whose."
+ },
+ {
+  "head": "Effective call / Effectual call / Internal call",
+  "kind": "contested",
+  "text": "In Reformed theology, the Holy Spirit's inward work that brings about a sinner's response to the gospel. Arminian and Wesleyan Christians hold that this grace can be resisted.",
+  "why": "“Guaranteeing” is the Reformed view, so it is now labeled as one."
+ },
+ {
+  "head": "Elders",
+  "kind": "contested",
+  "text": "Church leaders responsible for spiritual oversight and teaching. Churches differ on the office: some treat elders and pastors as the same, Presbyterians distinguish teaching and ruling elders, and episcopal churches place presbyters under bishops.",
+  "why": "The original described one form of church government."
+ },
+ {
+  "head": "Election",
+  "kind": "contested",
+  "text": "God's choice of people for salvation. Reformed theology understands it as an eternal, unconditional choice of individuals. Arminian theology bases it on God's foreknowledge of faith. Others understand it as the choosing of a people, the church, in Christ.",
+  "why": "The original gave the Reformed view as the only one."
+ },
+ {
+  "head": "Eternal security",
+  "kind": "contested",
+  "text": "The teaching, held by many Reformed and Baptist Christians, that those truly regenerated cannot lose their salvation. Catholic, Orthodox, Lutheran, Wesleyan and Arminian traditions teach that it can be lost.",
+  "why": "The original didn't say that many traditions teach otherwise."
+ },
+ {
+  "head": "Eternal sonship",
+  "kind": "contested",
+  "text": "The historic belief that the Second Person of the Trinity has always existed as the Son. Some modern evangelical writers have held that He became Son at the Incarnation.",
+  "why": "“Orthodox” is a verdict. “Historic” describes the same view."
+ },
+ {
+  "head": "Eternality / Eternity",
+  "kind": "contested",
+  "text": "God's existing without beginning or end. Classical theology understands this as existing outside of time. Others understand it as everlasting existence through all of time.",
+  "why": "The original gave only the timeless view."
+ },
+ {
+  "head": "Faith alone (Sola fide)",
+  "kind": "contested",
+  "text": "The Reformation teaching that justification is received by faith, not by works. Catholic and Orthodox teaching doesn't accept “faith alone” as stated, though it also holds that salvation is by grace.",
+  "why": "This is a Reformation doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Federal headship",
+  "kind": "contested",
+  "text": "The Reformed doctrine that Adam represented all humanity in the Fall, just as Christ (the Last Adam) represents believers in salvation. Other traditions explain the link with Adam differently.",
+  "why": "This is a Reformed doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Filioque",
+  "kind": "contested",
+  "text": "“And the Son”; a clause added to the Nicene Creed in the West, stating that the Holy Spirit proceeds from both the Father and the Son. Eastern Orthodox churches reject the addition, and it remains a major point of difference between East and West.",
+  "why": "The original was correct but left out that the clause is disputed."
+ },
+ {
+  "head": "Flood, the",
+  "kind": "contested",
+  "text": "The deluge sent by God to judge human wickedness, from which Noah's family was saved. Christians differ over whether it was global or regional, and how literally to read the account.",
+  "why": "“Global” is one interpretation.",
+  "basis": "Genesis 6-9"
+ },
+ {
+  "head": "Good works",
+  "kind": "contested",
+  "text": "Righteous actions done by believers through faith. Protestants generally treat them as the fruit and evidence of salvation. Catholic and Orthodox teaching also sees them, by grace, as part of growing in salvation.",
+  "why": "“Serving as evidence” is the Protestant framing."
+ },
+ {
+  "head": "Grace",
+  "kind": "contested",
+  "text": "God's unmerited favor toward humanity. Traditions differ on how it works and how people respond to it.",
+  "why": "“Those who deserve His wrath” adds a particular view of humanity's standing that isn't needed for the definition."
+ },
+ {
+  "head": "Grace alone (Sola gratia)",
+  "kind": "contested",
+  "text": "The Reformation teaching that salvation is entirely a free gift of God, independent of human merit. All major traditions hold that grace is necessary, but they differ on human cooperation with it.",
+  "why": "This is a Reformation slogan, so it is now labeled as one."
+ },
+ {
+  "head": "Hell",
+  "kind": "contested",
+  "text": "The final state of those separated from God. Most traditions have taught eternal conscious punishment. Others teach annihilation, and a minority hope for the eventual salvation of all.",
+  "why": "The original gave one view, though this glossary also defines annihilationism and universalism."
+ },
+ {
+  "head": "Hyper-Calvinism",
+  "kind": "contested",
+  "text": "A position that denies the universal offer of the gospel or the duty of all people to believe. Mainstream Calvinists reject it.",
+  "why": "“Distortion” is a verdict. It now says who rejects it."
+ },
+ {
+  "head": "Image of God (Imago Dei)",
+  "kind": "contested",
+  "text": "Humanity's being made to reflect God. Interpreters variously locate this in reason and morality, in relationship, or in humanity's representative rule over creation.",
+  "why": "The original gave one interpretation, and left out the others.",
+  "basis": "Genesis 1:26-27"
+ },
+ {
+  "head": "Impassibility",
+  "kind": "contested",
+  "text": "The classical doctrine that God does not undergo involuntary emotional changes or suffering. Some modern theologians dispute it or restate it.",
+  "why": "It is disputed today, so it is now labeled as classical."
+ },
+ {
+  "head": "Impeccability",
+  "kind": "contested",
+  "text": "The view, widely held in classical theology, that Christ was not only sinless but incapable of sinning. Others hold that He was sinless and yet truly could have sinned.",
+  "why": "Christians who agree on His sinlessness disagree on this."
+ },
+ {
+  "head": "Imputation",
+  "kind": "contested",
+  "text": "A legal crediting, especially in Protestant theology: Adam's sin to humanity, humanity's sin to Christ, Christ's righteousness to believers. Catholic and Orthodox teaching and some Protestants describe these links differently.",
+  "why": "This is mostly Protestant framing, so it is now labeled as such."
+ },
+ {
+  "head": "Inability / Total depravity",
+  "kind": "contested",
+  "text": "In Reformed theology, fallen humanity's complete lack of spiritual power to choose God or do spiritual good without grace. Catholic, Orthodox and Arminian traditions describe the effects of the Fall differently.",
+  "why": "This is a Reformed doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Inerrancy of scripture",
+  "kind": "contested",
+  "text": "The view, held by many evangelicals, that the Bible in its original manuscripts is completely free from error in all it affirms. Other Christians hold a high view of Scripture without using this term.",
+  "why": "It was stated as fact, not as a view some Christians hold."
+ },
+ {
+  "head": "Infallibility of scripture",
+  "kind": "contested",
+  "text": "The belief that the Bible will not fail in its purpose of revealing God and salvation. Usage varies: some treat it as the same as inerrancy, and others limit it to matters of faith and practice.",
+  "why": "The word is used in more than one way."
+ },
+ {
+  "head": "Inspiration of scripture",
+  "kind": "contested",
+  "text": "The Holy Spirit's work in the human authors so that their writings are God's word. Views differ on how: the verbal view extends this to the exact words, and others to the authors or their message.",
+  "why": "“The exact words of God” is the verbal view, which not all Christians hold."
+ },
+ {
+  "head": "Invisible church",
+  "kind": "contested",
+  "text": "A Reformation distinction: the true church as God sees it, made up of all genuine believers across all time. Catholic and Orthodox teaching stresses the church as one visible body.",
+  "why": "This distinction belongs to particular traditions, so it is now labeled."
+ },
+ {
+  "head": "Irresistible grace",
+  "kind": "contested",
+  "text": "In Reformed theology, the Holy Spirit's effective grace that brings the elect to faith with certainty. Arminian and Wesleyan Christians hold that grace can be resisted.",
+  "why": "This is a Reformed doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Justification",
+  "kind": "contested",
+  "text": "God's putting a sinner right with Himself. Protestant theology understands this as a legal declaration, based on the imputation of Christ's righteousness. Catholic teaching understands it as also including inner sanctification and renewal.",
+  "why": "The original gave only the Protestant understanding. This is one of the main points of difference among Christians.",
+  "basis": "Catechism of the Catholic Church, §1989 (vatican.va)"
+ },
+ {
+  "head": "Lord’s Supper",
+  "kind": "contested",
+  "text": "The Christian rite using bread and wine in remembrance of Christ's death, also called Communion or the Eucharist. Traditions differ on how Christ is present: Catholic transubstantiation, Orthodox real presence, Lutheran sacramental union, Reformed spiritual presence, and the memorial view.",
+  "why": "The original gave only the remembrance, and “sacrament” is a word some traditions avoid here."
+ },
+ {
+  "head": "New birth / Spiritual birth / Regeneration",
+  "kind": "contested",
+  "text": "God's work of imparting spiritual life. Traditions differ on how it happens: Reformed theology places it before faith, Arminian and Wesleyan theology with a grace-enabled response, and Catholic, Orthodox, Lutheran and some Anglican teaching links it to baptism.",
+  "why": "“Secret” and “spiritually dead” reflect a particular view of how it happens."
+ },
+ {
+  "head": "Order of salvation (Ordo salutis)",
+  "kind": "contested",
+  "text": "The logical sequence of redemptive steps applied to the believer. The order differs by tradition; a common Reformed order is election, calling, regeneration, faith, justification, sanctification, glorification.",
+  "why": "The example order is Reformed, and others differ."
+ },
+ {
+  "head": "Original sin",
+  "kind": "contested",
+  "text": "The corrupted condition passed down from Adam to all humanity. Western traditions generally include inherited guilt. Eastern Orthodox teaching holds that people inherit the consequences of Adam's sin, such as death, but not his guilt.",
+  "why": "The original gave inherited guilt as part of the definition, which the Orthodox churches reject.",
+  "basis": "OrthodoxWiki, “Original sin” (orthodoxwiki.org/Original_sin)"
+ },
+ {
+  "head": "Pactum salutis",
+  "kind": "contested",
+  "text": "In Reformed covenant theology, the Covenant of Redemption: an eternal agreement among the Trinity to save the elect. Other traditions don't teach it, and some Reformed theologians question it.",
+  "why": "This is a Reformed doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Penal obedience / Penal substitution / Substitutionary atonement",
+  "kind": "contested",
+  "text": "A theory of the atonement in which Christ took the just punishment for sin in the place of sinners. It is central to much Protestant, especially Reformed and evangelical, theology. Other traditions stress other explanations.",
+  "why": "It is one theory among several. “Penal obedience” isn't a standard name for it, so it was removed from the heading.",
+  "newHead": "Penal substitution / Substitutionary atonement"
+ },
+ {
+  "head": "Passive obedience of Christ",
+  "kind": "contested",
+  "text": "In Reformed theology, Christ's willing suffering and death on the cross, understood as paying the penalty for sin. It is paired with His active obedience.",
+  "why": "This is a Reformed term, so it is now labeled as one."
+ },
+ {
+  "head": "Perseverance of the saints",
+  "kind": "contested",
+  "text": "The Reformed doctrine that true believers are preserved by God and will endure in faith until the end. Catholic, Orthodox, Lutheran, Wesleyan and Arminian traditions teach that believers can fall away.",
+  "why": "This is a Reformed doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Procession of the Holy Spirit / Spiration",
+  "kind": "contested",
+  "text": "The eternal relationship whereby the Spirit proceeds from the Father (and, in Western teaching, from the Son).",
+  "why": "The parentheses read as if all Christians agreed. See Filioque."
+ },
+ {
+  "head": "Propitiation",
+  "kind": "contested",
+  "text": "A sacrifice that turns away God's wrath. Many scholars read the biblical word this way, while others translate it as expiation, meaning the removal of sin.",
+  "why": "Scholars disagree on the meaning, and “changes His disposition” is one way of describing it that others avoid."
+ },
+ {
+  "head": "Religious syncretism",
+  "kind": "contested",
+  "text": "Blending distinct religious beliefs and practices into a new system.",
+  "why": "“Compromised” is a verdict."
+ },
+ {
+  "head": "Reprobation",
+  "kind": "contested",
+  "text": "In Reformed theology, God's decision to pass over the non-elect, leaving them to the just punishment of their sins. Other traditions reject it, and Reformed theologians differ on how to state it.",
+  "why": "This is a Reformed doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Sacrament",
+  "kind": "contested",
+  "text": "A sacred rite understood as a visible sign of invisible grace. Protestants generally count two, Baptism and Communion, as ordained by Christ. Catholic and Orthodox churches count seven.",
+  "why": "The number and meaning of the sacraments differ among traditions.",
+  "basis": "Catechism of the Catholic Church, §1210"
+ },
+ {
+  "head": "Saving faith",
+  "kind": "contested",
+  "text": "In Protestant teaching, true trust in Jesus Christ alone for salvation, involving knowledge, assent and personal reliance. Catholic teaching adds that saving faith works through love.",
+  "why": "This is a Protestant description, so it is now labeled as one."
+ },
+ {
+  "head": "Scripture alone (Sola scriptura)",
+  "kind": "contested",
+  "text": "The Reformation teaching that the Bible is the final, supreme authority for all matters of faith and practice. Catholic and Orthodox teaching holds Scripture together with church tradition.",
+  "why": "This is a Reformation doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Simplicity of God",
+  "kind": "contested",
+  "text": "The classical doctrine that God is not made of parts and that His attributes are identical with His being. Some modern theologians dispute this, and Orthodox theology distinguishes God's essence from His energies.",
+  "why": "It is disputed, so it is now labeled as classical."
+ },
+ {
+  "head": "Sufficiency of scripture",
+  "kind": "contested",
+  "text": "The Protestant teaching that the Bible contains all the divine words needed for salvation and a life pleasing to God. Catholic and Orthodox teaching holds Scripture together with church tradition.",
+  "why": "This is a Protestant doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Unconditional election",
+  "kind": "contested",
+  "text": "The Reformed doctrine that God chooses individuals for salvation based solely on His grace, not on foreseen merit or faith. Arminian theology teaches conditional election.",
+  "why": "This is a Reformed doctrine, so it is now labeled as one."
+ },
+ {
+  "head": "Universalism",
+  "kind": "contested",
+  "text": "The belief that all human beings will ultimately be saved. Most Christian traditions have rejected it, though a minority of Christians have held it in various forms.",
+  "why": "“Unbiblical” is a verdict. It now says who rejects it."
+ },
+ {
+  "head": "Virgin birth / Virginal conception",
+  "kind": "contested",
+  "text": "The doctrine that Jesus was conceived by the Holy Spirit without a human father.",
+  "why": "“Protecting His sinlessness” is one theological explanation, which the Gospels don't state.",
+  "basis": "Matthew 1:18-25; Luke 1:26-38"
+ }
+]

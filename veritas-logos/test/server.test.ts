@@ -4,6 +4,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
+import zlib from "node:zlib";
 import { createServer } from "../server/server";
 
 let base = "";
@@ -40,7 +41,7 @@ before(async () => {
     res.end();
   });
   const up = await listen(upstream);
-  const made = createServer({ dataDir: "public/data", staticDir: "", dbPath: path.join(dir, "t.db"), adminToken: ADMIN, rateLimitPerMin: 100000, aiDailyLimit: 3, anthropicKey: "test-key", anthropicBase: `http://127.0.0.1:${up}`, aiModel: "test-model" });
+  const made = createServer({ dataDir: "public/data", staticDir: "", dbPath: path.join(dir, "t.db"), adminToken: ADMIN, rateLimitPerMin: 100000, aiDailyLimit: 11, anthropicKey: "test-key", anthropicBase: `http://127.0.0.1:${up}`, aiModel: "test-model" });
   srv = made.server; db = made.db;
   base = `http://127.0.0.1:${await listen(srv)}`;
 });
@@ -61,6 +62,21 @@ test("reads are open, with CORS and clear errors", async () => {
 });
 
 test("reference endpoints", async () => {
+  const term = await (await j("/v1/glossary/justification")).json();
+  assert.ok(term.definitions.length >= 2 && term.owners_glossary);
+  assert.match(term.corrections[0].original, /legal declaration/);
+  assert.equal((await j("/v1/glossary/nope")).status, 404);
+  const hist = await (await j("/v1/church-history?kind=council&q=chalcedon")).json();
+  assert.ok(hist.results.some((e: any) => e.id === "chalcedon"));
+  const creed = await (await j("/v1/creeds/nicene-creed")).json();
+  assert.ok(creed.blocks.length > 3);
+  assert.equal((await j("/v1/creeds/nope")).status, 404);
+  const writers = await (await j("/v1/writers")).json();
+  assert.ok(writers.results.some((w: any) => w.id === "augustine-of-hippo" && w.year === 430));
+  const on = await (await j("/v1/writings?ref=John%203:16&limit=3")).json();
+  assert.equal(on.results.length, 3);
+  assert.ok(on.results.every((r: any) => r.edition && r.text));
+  assert.equal((await j("/v1/writings?ref=Nonsense%2099")).status, 400);
   const ins = await (await j("/v1/insights?ref=Romans%201:17")).json();
   assert.ok(ins.quotes.some((q: any) => q.ref.startsWith("Habakkuk 2:4")));
   assert.ok((await (await j("/v1/verses/words?ref=Genesis%201:1")).json()).words.length > 3);
@@ -123,6 +139,41 @@ test("AI: needs a key, runs tools, flags bad references, enforces the daily limi
   assert.equal(insight.status, 200);
   await insight.text();
   assert.match(upstreamBodies[upstreamBodies.length - 1].body.messages[0].content, /Catholic lens/);
+  const exegesis = await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "exegesis", reference: "Genesis 15:6", lens: "covenant" }) });
+  await exegesis.text();
+  assert.match(JSON.stringify(upstreamBodies.at(-1)), /federal heads/);
+  const explore = await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "explore", request: "Expand", lens: "covenant", section: { heading: "Background to research", kind: "text", text: "Who wrote this?", refs: ["Genesis 15"] } }) });
+  await explore.text();
+  assert.match(JSON.stringify(upstreamBodies.at(-1)), /Who wrote this/);
+  for (const purpose of ["genre", "symbols"]) {
+    const r = await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose, reference: "Revelation 6:8", lens: "covenant" }) });
+    await r.text();
+    assert.match(JSON.stringify(upstreamBodies.at(-1)), purpose === "genre" ? /style_counts/ : /found_links/);
+  }
+  const topic = await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "topic", reference: "Romans 3:21-26", query: "righteousness", lens: "covenant" }) });
+  await topic.text();
+  assert.match(JSON.stringify(upstreamBodies.at(-1)), /federal heads/);
+  assert.equal((await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "topic", reference: "Romans 3:21", query: "" }) })).status, 400);
+  assert.equal((await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "explore", request: "x" }) })).status, 400);
+  assert.equal((await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "research", prompt: "Write me a poem" }) })).status, 400, "no free-form prompts");
   assert.equal((await j("/v1/ai/ask", { method: "POST", headers: auth(key), body: JSON.stringify({ purpose: "other" }) })).status, 400);
   assert.equal((await j("/v1/ai/ask", { method: "POST", headers: auth(key), body })).status, 429, "daily limit applies");
+});
+
+test("reads the built data, which is stored packed", async () => {
+  // scripts/build.mjs packs every data file in dist/data (gzip, then base64 in a JSON string); the server unpacks them as it reads.
+  // Last in the file: a server sets the one data loader core uses, so this one replaces the shared server's.
+  const gzDir = fs.mkdtempSync(path.join(os.tmpdir(), "vl-gz-"));
+  for (const f of ["verse-counts.json", "books.json", "bible/KJV-nt.json"]) {
+    fs.mkdirSync(path.dirname(path.join(gzDir, f)), { recursive: true });
+    fs.writeFileSync(path.join(gzDir, f), JSON.stringify(zlib.gzipSync(fs.readFileSync(path.join("public/data", f))).toString("base64")));
+  }
+  const gz = createServer({ dataDir: gzDir, staticDir: "", dbPath: path.join(gzDir, "t.db"), adminToken: ADMIN });
+  const gzBase = `http://127.0.0.1:${await listen(gz.server)}`;
+  try {
+    const d = await (await fetch(`${gzBase}/v1/passages?ref=John%2011:35&translation=KJV`)).json();
+    assert.equal(d.parts[0].verses[0].text, "Jesus wept.");
+  } finally {
+    gz.server.close(); gz.server.closeAllConnections?.(); gz.db.close(); fs.rmSync(gzDir, { recursive: true, force: true });
+  }
 });

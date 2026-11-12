@@ -3,7 +3,7 @@ import { toast } from "./store";
 /** True when the page runs in a host that blocks print and direct downloads. */
 export const IS_ARTIFACT = Boolean((window as any).VERITAS_CONFIG?.artifact);
 
-export async function saveFile(filename: string, data: string, mime: string): Promise<void> {
+export async function saveFile(filename: string, data: string | Blob, mime: string): Promise<void> {
   const claude = (window as any).claude;
   if (claude?.use) {
     try {
@@ -35,6 +35,65 @@ export async function copyText(text: string, done = "Copied"): Promise<void> {
   } catch {
     toast("Your browser blocked copying. Select the text and copy it yourself.");
   }
+}
+
+// ---------- Files the owner attaches ----------
+// Inside Claude they go to the page's private store, which follows the owner. Elsewhere they stay in this browser.
+const MAX_FILE = 20 * 1024 * 1024;
+function idb(): Promise<IDBDatabase> {
+  return new Promise((ok, no) => {
+    const r = indexedDB.open("veritas-files", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("files");
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => no(r.error);
+  });
+}
+export interface StoredFile { id: string; name: string; size: number; assetId?: string; url?: string; local?: boolean }
+export async function storeFile(file: File): Promise<StoredFile> {
+  if (file.size > MAX_FILE) throw new Error("That file is over 20 MB.");
+  const id = `f${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const claude = (window as any).claude;
+  if (claude?.use) {
+    try {
+      const assets = await claude.use("assets");
+      if (assets) {
+        const a = await assets.upload(file);
+        return { id, name: file.name, size: file.size, assetId: a.id, url: a.url };
+      }
+    } catch { /* fall back to this browser */ }
+  }
+  const db = await idb();
+  await new Promise<void>((ok, no) => {
+    const tx = db.transaction("files", "readwrite");
+    tx.objectStore("files").put(file, id);
+    tx.oncomplete = () => ok();
+    tx.onerror = () => no(tx.error);
+  });
+  return { id, name: file.name, size: file.size, local: true };
+}
+export async function openStoredFile(f: StoredFile): Promise<void> {
+  if (f.url) { window.open(f.url, "_blank", "noopener"); return; }
+  const db = await idb();
+  const blob = await new Promise<Blob | undefined>((ok, no) => {
+    const r = db.transaction("files").objectStore("files").get(f.id);
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => no(r.error);
+  });
+  if (!blob) throw new Error("This file isn't in this browser.");
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+export async function removeStoredFile(f: StoredFile): Promise<void> {
+  try {
+    if (f.assetId) {
+      const assets = await (window as any).claude?.use?.("assets");
+      await assets?.delete(f.assetId);
+    } else if (f.local) {
+      const db = await idb();
+      db.transaction("files", "readwrite").objectStore("files").delete(f.id);
+    }
+  } catch { /* the listing is what the reader sees */ }
 }
 
 // ---------- Share links ----------

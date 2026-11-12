@@ -5,6 +5,7 @@ import { ensureFigures } from "../../core/people";
 import { bookName } from "../../core/references";
 import { detectAi, resetAiDetection, type AiMode } from "../ai-client";
 import { IS_ARTIFACT, saveFile, copyText } from "../files";
+import { BUILT_IN, mb } from "../speech";
 import { mergeData, setPref, toast, update, useData, useSyncState, getData } from "../store";
 import { Empty, RefLink, TranslationSelect, LensSelect, useAsync } from "../ui";
 
@@ -63,6 +64,8 @@ export function LibraryPage() {
           <ul className="fine-list">{TRANSLATIONS.map((t) => <li key={t.id}><strong>{t.id}</strong> {t.name} ({t.year}). {t.style}.</li>)}</ul>
           <div><label className="label" htmlFor="set-lens">Theological lens</label><LensSelect id="set-lens" value={prefs.lens} onChange={(l) => setPref("lens", l)} /></div>
           <div><label className="label" htmlFor="set-theme">Appearance</label><select id="set-theme" value={prefs.theme} onChange={(e) => setPref("theme", e.target.value as "system" | "light" | "dark")}><option value="system">Match this device</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+          <div><label className="label" htmlFor="set-voice">Read-aloud voice</label><select id="set-voice" value={prefs.readVoice} onChange={(e) => setPref("readVoice", e.target.value === "builtin" ? "builtin" : "device")}><option value="device">This device's voice, when it has one</option>{BUILT_IN && <option value="builtin">{BUILT_IN.name}, built into Veritas Logos</option>}</select>
+            {BUILT_IN && <p className="fine">Where the browser has no voice, such as in the Claude app on Android, {BUILT_IN.name} reads. It downloads {mb(BUILT_IN.downloadBytes)} the first time and is kept in this browser.</p>}</div>
           <div><label className="label" htmlFor="set-rate">Read-aloud speed</label><select id="set-rate" value={prefs.rate} onChange={(e) => setPref("rate", Number(e.target.value))}>{[0.85, 1, 1.15, 1.3].map((r) => <option key={r} value={r}>{r}×</option>)}</select></div>
 
           <h3>AI assistant</h3>
@@ -113,8 +116,20 @@ function About() {
         <li><strong>Strong's dictionaries:</strong> Open Scriptures, CC BY-SA.</li>
         <li><strong>Cross-references:</strong> OpenBible.info, CC BY. Quotations are detected from these by matching wording.</li>
         <li><strong>Topics:</strong> Nave's Topical Bible (public domain), via BibleData by Brady Stephenson, CC BY 4.0.</li>
-        <li><strong>People, family links, book names and chronology:</strong> BibleData, CC BY 4.0.</li>
+        <li><strong>People:</strong> TIPNR from STEPBible (Tyndale House), CC BY 4.0, with BibleData, CC BY 4.0. Family claims from these, Theographic and ACAI (both CC BY-SA 4.0) were tested against the tagged Hebrew and Greek, and the Bible decides. The people data is shared under CC BY-SA 4.0. <a href="#people-data">See what was kept, changed and dropped</a>.</li>
+        <li><strong>Book names and chronology:</strong> BibleData, CC BY 4.0.</li>
         <li><strong>Confessions:</strong> public-domain texts and proof lists via Creeds.json.</li>
+        <li><strong>Church Fathers:</strong> public-domain translations, chiefly the Ante-Nicene and Nicene and Post-Nicene Fathers and Newman's Catena Aurea, via HistoricalChristianFaith's Commentaries and Writings databases. Each quote was matched word for word against the named edition, and quotes that failed were dropped.</li>
+        <li><strong>Citations and Calvin's commentaries:</strong> tagged Scripture references and commentary sections from CCEL's files, used where a file's rights field says public domain, plus older works with no rights statement after checking each edition's date. DATA-LICENSES.md lists them. CCEL's site can't be reached from where this app was built, so these came from a third-party copy of its files on GitHub.</li>
+        <li><strong>Theological terms:</strong> Easton's Bible Dictionary (1897), Schaff's Dictionary of the Bible (1880) and Smith's Bible Dictionary from CCEL's files via the NEUU dataset (CC BY 4.0), the catechisms above, Schaff's History of the Christian Church, Hodge's Systematic Theology and Watson's A Body of Divinity. Terms those don't cover use Webster's Unabridged, The Catholic Encyclopedia (1911), Encyclopædia Britannica (1911), Murray's New English Dictionary (1919), and short quotations from Merriam-Webster and Hardon's Modern Catholic Dictionary, which are copyrighted and tagged as such.</li>
+        <li><strong>Ancient texts:</strong> Swete's Septuagint from the First Thousand Years of Greek (CC BY-SA 4.0), the Clementine Vulgate, and the Open Apostolic Fathers Greek (CC BY-SA 4.0).</li>
+        <li><strong>Creeds and church history:</strong> Schaff's The Creeds of Christendom and History of the Christian Church from CCEL, public domain. Later events name the web page each was checked against.</li>
+        <li><strong>Other books:</strong> Douay-Rheims (1899), King James (1611) and Whiston's Josephus, public domain.</li>
+        <li><strong>Synopsis and editions:</strong> section order from Aland's Synopsis through aland-gospel-synopsis (MIT), and Greek edition differences from STEP Bible (CC BY 4.0).</li>
+        <li><strong>Your glossary:</strong> your Theological Terms document, labeled as yours. It names no sources, so it isn't treated as a cited source. Entries tagged “Corrected” were reworded by Claude at your request and show your original wording. The rest are word for word.</li>
+        <li><strong>Later teachers:</strong> Matthew Henry and Spurgeon's Treasury of David via LyteWord (CC0); Wesley's Explanatory Notes (public domain, structured by History of Methodism, CC BY 4.0); Calvin's Institutes, Luther on Galatians (Graebner's 1949 abridgment) and Edwards's sermons via Project Gutenberg. Spurgeon's sermons are an index that links out.</li>
+        <li><strong>Built-in read-aloud voice:</strong> Norman, a Piper voice by Bryce Beattie trained on LibriVox recordings (public domain), from rhasspy/piper-voices (MIT) via k2-fsa/sherpa-onnx. It's run by ONNX Runtime Web (MIT), with eSpeak NG (GPL-3.0) through phonemizer.js (Apache-2.0) turning text into phonemes.</li>
+        <li><strong>New Testament dates:</strong> the years in Ussher's Annals of the World (1650), via BibleData. The captions are plain labels for the cited passages.</li>
       </ul>
       <p className="fine">A source can still contain errors, and its chronology and family links reflect its editors' judgment. Citations let you check them against the verses.</p>
       <p className="fine">NIV, ESV, NASB, NLT and CJB are under copyright, so they aren't included.</p>

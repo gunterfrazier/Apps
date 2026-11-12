@@ -2,10 +2,17 @@ import { useSyncExternalStore } from "react";
 import { DEFAULT_TRANSLATION, isTranslationId, type TranslationId } from "../core/bible";
 import { LENS_IDS, type LensId } from "../core/content";
 import { sanitizeGuide, type Guide } from "../core/guide";
+import type { CiteRecord } from "../core/cite";
 
 export type Theme = "system" | "light" | "dark";
 export type HighlightColor = "amber" | "green" | "blue" | "rose";
-export interface VerseNote { key: string; ref: string; text: string; updatedAt: string }
+export interface VerseNote { key: string; ref: string; text: string; updatedAt: string; tags?: string[] }
+/** A research note, not tied to one verse. Passages, terms and writers it names become links both ways. */
+export interface NoteEntry { id: string; title: string; body: string; tags: string[]; createdAt: string; updatedAt: string }
+/** A file the owner attached to a source. It's kept in the page's private storage or in this browser. */
+export interface Attachment { id: string; name: string; size: number; assetId?: string; url?: string; local?: boolean }
+export interface SourceEntry extends CiteRecord { addedAt: string; files?: Attachment[]; notes?: string }
+export interface SavedSearch { id: string; label: string; q: string; scopes: string[]; from: number; to: number; tradition: string }
 export interface Prefs {
   translation: TranslationId;
   compare: TranslationId | "";
@@ -13,6 +20,8 @@ export interface Prefs {
   theme: Theme;
   textSize: number;
   voice: string;
+  /** Who reads aloud: the browser's own engine when it has one, or always the voice built into the app. */
+  readVoice: "device" | "builtin";
   rate: number;
   apiBase: string;
   apiKey: string;
@@ -27,11 +36,16 @@ export interface UserData {
   figures: string[];
   lastRead: { book: number; chapter: number };
   activeGuideId: string | null;
+  notebook: NoteEntry[];
+  sources: SourceEntry[];
+  savedSearches: SavedSearch[];
+  /** The last few places visited, for picking up where you left off. */
+  recent: { hash: string; label: string }[];
 }
 
 const KEY = "veritas.logos.v2";
 const defaults: UserData = {
-  prefs: { translation: DEFAULT_TRANSLATION, compare: "", lens: "all", theme: "system", textSize: 19, voice: "", rate: 1, apiBase: "", apiKey: "" },
+  prefs: { translation: DEFAULT_TRANSLATION, compare: "", lens: "all", theme: "system", textSize: 19, voice: "", readVoice: "device", rate: 1, apiBase: "", apiKey: "" },
   guides: [],
   highlights: {},
   bookmarks: [],
@@ -39,6 +53,10 @@ const defaults: UserData = {
   figures: [],
   lastRead: { book: 43, chapter: 3 },
   activeGuideId: null,
+  notebook: [],
+  sources: [],
+  savedSearches: [],
+  recent: [],
 };
 
 function loadInitial(): UserData {
@@ -62,6 +80,7 @@ export function mergeData(raw: any): UserData {
       theme: p.theme === "light" || p.theme === "dark" ? p.theme : "system",
       textSize: typeof p.textSize === "number" ? Math.min(30, Math.max(14, p.textSize)) : 19,
       voice: typeof p.voice === "string" ? p.voice : "",
+      readVoice: p.readVoice === "builtin" ? "builtin" : "device",
       rate: typeof p.rate === "number" ? p.rate : 1,
       apiBase: typeof p.apiBase === "string" ? p.apiBase : "",
       apiKey: typeof p.apiKey === "string" ? p.apiKey : "",
@@ -73,6 +92,10 @@ export function mergeData(raw: any): UserData {
     figures: Array.isArray(raw?.figures) ? raw.figures.filter((x: unknown) => typeof x === "string") : [],
     lastRead: raw?.lastRead?.book ? raw.lastRead : defaults.lastRead,
     activeGuideId: typeof raw?.activeGuideId === "string" ? raw.activeGuideId : null,
+    notebook: Array.isArray(raw?.notebook) ? raw.notebook.filter((n: any) => n && typeof n.id === "string") : [],
+    sources: Array.isArray(raw?.sources) ? raw.sources.filter((n: any) => n && typeof n.id === "string" && typeof n.title === "string") : [],
+    savedSearches: Array.isArray(raw?.savedSearches) ? raw.savedSearches.filter((n: any) => n && typeof n.id === "string") : [],
+    recent: Array.isArray(raw?.recent) ? raw.recent.filter((n: any) => n && typeof n.hash === "string").slice(0, 8) : [],
   };
 }
 
@@ -121,7 +144,7 @@ let cloud: any = null;
 let cloudTimer: ReturnType<typeof setTimeout> | null = null;
 let lastSaved = new Map<string, string>();
 const SYNCED_FLAG = "veritas.logos.synced";
-const profileOf = (d: UserData) => ({ highlights: d.highlights, bookmarks: d.bookmarks, notes: d.notes, figures: d.figures, lastRead: d.lastRead, activeGuideId: d.activeGuideId, prefs: { ...d.prefs, apiKey: "" } });
+const profileOf = (d: UserData) => ({ notebook: d.notebook, sources: d.sources, savedSearches: d.savedSearches, highlights: d.highlights, bookmarks: d.bookmarks, notes: d.notes, figures: d.figures, lastRead: d.lastRead, activeGuideId: d.activeGuideId, prefs: { ...d.prefs, apiKey: "" } });
 const guideDocId = (id: string) => `guide-${id}`;
 
 function queueCloudSave() {
@@ -232,12 +255,31 @@ export function toast(message: string) {
 }
 export const openPeek = (ref: string | null) => setUi({ peek: ref });
 
+// ---------- Saved notes and sources ----------
+export function saveNote(n: NoteEntry) {
+  const next = { ...n, updatedAt: new Date().toISOString() };
+  update((d) => ({ ...d, notebook: d.notebook.some((x) => x.id === n.id) ? d.notebook.map((x) => (x.id === n.id ? next : x)) : [next, ...d.notebook] }));
+}
+export const deleteNote = (id: string) => update((d) => ({ ...d, notebook: d.notebook.filter((n) => n.id !== id) }));
+export function saveSource(r: CiteRecord | SourceEntry) {
+  const now = new Date().toISOString();
+  update((d) => ({ ...d, sources: d.sources.some((x) => x.id === r.id) ? d.sources.map((x) => (x.id === r.id ? { ...x, ...r } : x)) : [{ addedAt: now, ...r }, ...d.sources] }));
+}
+export const deleteSource = (id: string) => update((d) => ({ ...d, sources: d.sources.filter((n) => n.id !== id) }));
+
 // ---------- Hash routes ----------
 // Routes use letters, digits and hyphens only, so links survive every host.
+let ownNavigation = -Infinity;
+const leaving: (() => void)[] = [];
+/** Runs just before the app moves to another route, while the old page is still on screen. */
+export const onLeave = (f: () => void) => { leaving.push(f); return () => { leaving.splice(leaving.indexOf(f), 1); }; };
+/** Marks a move the app or a link made, so it isn't mistaken for the Back button. Browsers report both as popstate. */
+export function noteNavigation() { ownNavigation = performance.now(); for (const f of leaving) f(); }
+export const isOwnNavigation = () => performance.now() - ownNavigation < 600;
 export function navigate(hash: string) {
   if (location.hash.slice(1) === hash) return;
+  noteNavigation();
   location.hash = hash;
-  window.scrollTo(0, 0);
 }
 export function useRoute(): string {
   return useSyncExternalStore(

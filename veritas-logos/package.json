@@ -10,10 +10,18 @@
     "typecheck": "tsc --noEmit",
     "test": "node scripts/test.mjs",
     "data:build": "node --no-warnings scripts/build-data.mjs",
+    "data:writings": "python3 -I scripts/build_writings.py --out public/data",
+    "data:glossary": "python3 -I scripts/build_glossary.py --out public/data",
+    "data:echo": "python3 -I scripts/build_echo.py --out public/data",
+    "data:people": "python3 -I scripts/build_people.py --out build/people && python3 -I scripts/export_people.py --people build/people --data public/data",
+    "data:books": "python3 -I scripts/build_bookguides.py --out public/data",
+    "data:voice": "python3 -I scripts/build_voice.py --out public/voice",
     "data:check": "node --no-warnings scripts/check-data.mjs",
     "api": "node --no-warnings dist-server/server.js"
   },
   "dependencies": {
+    "onnxruntime-web": "1.31.1",
+    "phonemizer": "1.2.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

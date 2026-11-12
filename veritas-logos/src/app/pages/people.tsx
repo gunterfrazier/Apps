@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { newId } from "../../core/guide";
 import { buildSubgraph, describeRelationshipStep, findShortestPath, formatGenerations, getFigure, getSiblings, lineageFromAdam, parentLink, resolveFigures, stepLink, summarizePath } from "../../core/figure-graph";
-import type { Figure } from "../../core/figure-types";
+import type { Figure, ParentLink } from "../../core/figure-types";
+import { load } from "../../core/data";
 import { GROUP_FILTERS, searchFigures, type GroupFilter } from "../../core/figure-search";
-import { ensureFigures, getTimeline, versesOfPerson } from "../../core/people";
+import { ensureFigures, versesOfPerson } from "../../core/people";
 import { layoutTree, type LayoutDims } from "../../core/tree-layout";
 import { navigate, update, useData } from "../store";
-import { Empty, Loading, RefLink, RefText, useAsync } from "../ui";
+import { Empty, Loading, Paras, RefLink, RefText, useAsync } from "../ui";
 import { addSectionsToGuide } from "./insights";
 
 const DEFAULT_ID = "david-1";
-const CREDIT = "People and family links from BibleData (CC BY 4.0). A link is shown only if both people are named in the chapter it cites.";
+const CREDIT = "People and summaries from STEPBible's TIPNR (CC BY 4.0), with BibleData (CC BY 4.0). Family claims from these, Theographic and ACAI (CC BY-SA 4.0) were tested against the tagged Hebrew and Greek, and the Bible decides. The people data is shared under CC BY-SA 4.0.";
 
 const Ready = ({ children }: { children: () => ReactNode }) => {
   const { data, loading, error } = useAsync(async () => { await ensureFigures(); return true; }, []);
@@ -19,9 +20,9 @@ const Ready = ({ children }: { children: () => ReactNode }) => {
   return <>{children()}</>;
 };
 
-const SubNav = ({ active }: { active: string }) => (
+export const SubNav = ({ active }: { active: string }) => (
   <div className="subnav" role="tablist">
-    {[["people", "People"], ["tree", "Family tree"], ["paths", "Pathfinder"], ["timeline", "Timeline"]].map(([h, label]) => (
+    {[["timeline", "Bible timeline"], ["church", "Church history"], ["writers", "Writers"], ["creeds", "Creeds"], ["people", "People"], ["tree", "Family tree"], ["paths", "Pathfinder"]].map(([h, label]) => (
       <a key={h} href={`#${h}`} className={active === h ? "on" : ""}>{label}</a>
     ))}
   </div>
@@ -66,18 +67,83 @@ function PeopleList() {
       </div>
       {list.length > 80 && <p className="fine">Showing the first 80. Search to narrow the list.</p>}
       {!list.length && <Empty>No one matches. Try a shorter search.</Empty>}
+      <p className="fine">{CREDIT} <a href="#people-data">How this was checked</a></p>
+    </div>
+  );
+}
+
+/** Shows what the people database kept, changed and dropped, and why. */
+export function PeopleDataPage() {
+  const { data } = useAsync(() => load<PeopleReport>("people-report.json"), []);
+  if (!data) return <div className="page"><Loading /></div>;
+  const c = data.counts;
+  const List = ({ title, intro, rows }: { title: string; intro: string; rows: { key: string; main: string; sub?: string }[] }) => (
+    <details className="doctrine">
+      <summary>{title} ({rows.length.toLocaleString()})</summary>
+      <p className="fine">{intro}</p>
+      <ul className="fine-list">{rows.slice(0, 400).map((r) => <li key={r.key}><RefText text={r.main} />{r.sub && <span className="fine"> {r.sub}</span>}</li>)}</ul>
+      {rows.length > 400 && <p className="fine">Showing the first 400.</p>}
+    </details>
+  );
+  return (
+    <div className="page prose">
+      <a className="back" href="#people">‹ People</a>
+      <h1 className="page-title">How the people data was checked</h1>
+      <p>Every family claim was tested against the Hebrew and Greek text, where each person is tagged word by word. The Bible decides: a claim Scripture states is kept with its verse, one Scripture contradicts is dropped, and one Scripture doesn't address is kept only if open sources support it, and is marked.</p>
+      <dl className="facts">
+        <dt>People</dt><dd>{c.people_final.toLocaleString()}</dd>
+        <dt>Parent links kept</dt><dd>{c.kept.parent.toLocaleString()}, tested from {c.parent_claims.toLocaleString()} claims</dd>
+        <dt>Marriages kept</dt><dd>{c.kept.spouse.toLocaleString()}</dd>
+      </dl>
+      <List title="Where Scripture overrode a source" intro="The source's claim was dropped because the text says otherwise. A few may reflect the sources counting one person as two, so the verse is given to check." rows={data.overridden.map((x, i) => ({ key: String(i), main: x.claim, sub: `${x.scripture}. Source: ${x.sources.join(", ")}.` }))} />
+      <List title="Where Scripture itself names two fathers" intro="Both are kept and shown, with no attempt to settle the difference." rows={data.scripture_differs.map((x, i) => ({ key: String(i), main: `${x.person}: ${x.fathers.map((f) => `${f.name} (${f.ref})`).join(" and ")}` }))} />
+      <List title="Dates corrected to Scripture" intro="A source's dates disagreed with the years a verse gives." rows={(data.dates_overridden ?? []).map((x, i) => ({ key: String(i), main: x.person, sub: `${x.source}. ${x.scripture}.` }))} />
+      <List title="Kept, but not stated word for word" intro="Scripture doesn't contradict these and open sources support them. They're marked wherever they appear." rows={data.secondary.map((x, i) => ({ key: String(i), main: x.claim, sub: `${x.basis}. Source: ${x.sources.join(", ")}.` }))} />
+      <List title="Dropped for lack of support" intro="One source alone, or a source's own doubt, with nothing in the text to back it." rows={data.unsupported.map((x, i) => ({ key: String(i), main: x.claim, sub: `${x.why}. Source: ${x.sources.join(", ")}.` }))} />
+      <List title="Summary sentences removed" intro="These sentences in a summary gave a person a family that the verses don't show." rows={data.bio_removed.map((x, i) => ({ key: String(i), main: x.sentence, sub: x.person }))} />
+      <List title="People left out" intro="A source listed someone the verses don't support: a person a source added to fill out a count, or one inferred from a verse that doesn't refer to them." rows={(data.people_dropped ?? []).map((x, i) => ({ key: String(i), main: x.person, sub: `${x.why}.` }))} />
+      <List title="Founders whose names became their people's" intro="Most verses that say Israel or Judah mean the nation or tribe. A founder's page lists the verses of his own story, and elsewhere only those that name him as a person, such as “Abraham, Isaac and Jacob”." rows={(data.eponyms ?? []).map((x, i) => ({ key: String(i), main: x.person, sub: `${x.kept} verses about him; ${x.people_verses.toLocaleString()} more use the name for his people.` }))} />
+      <List title="Verses corrected for the emperors" intro="The source files a few verses that say only “Caesar” under the wrong emperor, and a few under an emperor the verse doesn't mention." rows={(data.verse_fixes ?? []).map((x, i) => ({ key: String(i), main: `${x.ref}: ${x.from}`, sub: `${x.to ? `Moved to ${x.to === "Nero" ? "Nero (listed as Caesar)" : x.to}.` : "Removed."} ${x.why}.` }))} />
+      <List title="Duplicates joined" intro="One person listed twice under different spellings. Links to either one lead to the same page." rows={(data.merged ?? []).map((x, i) => ({ key: String(i), main: x.person, sub: `Now part of ${x.into}.${x.why ? ` ${x.why}.` : ""}` }))} />
+      <List title="Names changed to the Bible's" intro="The source filed these under a name that none of the bundled translations uses in their verses." rows={(data.renamed ?? []).map((x, i) => ({ key: String(i), main: x.name, sub: `${x.why}.` }))} />
       <p className="fine">{CREDIT}</p>
     </div>
   );
 }
 
-const Links = ({ title, list, refFor }: { title: string; list: Figure[]; refFor?: (f: Figure) => string | undefined }) =>
+interface PeopleReport {
+  counts: { people_final: number; kept: { parent: number; spouse: number; sibling: number }; parent_claims: number };
+  overridden: { claim: string; sources: string[]; scripture: string }[];
+  scripture_differs: { person: string; fathers: { name: string; ref: string }[] }[];
+  dates_overridden?: { person: string; source: string; scripture: string }[];
+  secondary: { claim: string; sources: string[]; basis: string }[];
+  unsupported: { claim: string; sources: string[]; why: string }[];
+  bio_removed: { person: string; sentence: string }[];
+  people_dropped?: { person: string; why: string }[];
+  merged?: { person: string; into: string; why?: string }[];
+  eponyms?: { person: string; kept: number; people_verses: number }[];
+  verse_fixes?: { from: string; to: string; ref: string; why: string }[];
+  renamed?: { person: string; name: string; why: string }[];
+}
+
+const Links = ({ title, list, refFor, noteFor }: { title: string; list: Figure[]; refFor?: (f: Figure) => string | undefined; noteFor?: (f: Figure) => string | undefined }) =>
   list.length ? (
     <div className="family">
       <span className="fine">{title}</span>
-      <span>{list.map((f, i) => { const r = refFor?.(f); return <span key={f.id}>{i > 0 && ", "}<a href={`#person-${f.id}`}>{f.name}</a>{r && <> (<RefLink refText={r} />)</>}</span>; })}</span>
+      <span>{list.map((f, i) => { const r = refFor?.(f); const n = noteFor?.(f); return <span key={f.id}>{i > 0 && ", "}<a href={`#person-${f.id}`}>{f.name}</a>{r && <> (<RefLink refText={r} />)</>}{n && <span className="fine link-note"> {n}</span>}</span>; })}</span>
     </div>
   ) : null;
+
+const linkNote = (l?: ParentLink) => {
+  if (!l) return undefined;
+  if (l.kind === "descendant") {
+    if (l.note) return `${l.generations ? `Ancestor, ${l.generations} generations back.` : "Ancestor."} ${l.note}`;
+    return l.generations ? `Ancestor, ${l.generations} generations back${l.via?.length ? ` through ${l.via.join(", ")}` : ""}.` : "Ancestor, with generations skipped.";
+  }
+  return l.note;
+};
+
+const yearText = (y: number) => (y < 0 ? `${-y} BC` : `AD ${y}`);
 
 export const PersonPage = ({ id }: { id: string }) => <Ready>{() => <Person id={id} />}</Ready>;
 function Person({ id }: { id: string }) {
@@ -106,14 +172,19 @@ function Person({ id }: { id: string }) {
       <dl className="facts">
         {f.altNames && <><dt>Also called</dt><dd>{f.altNames}</dd></>}
         {f.meaning && <><dt>Name means</dt><dd>{f.meaning}</dd></>}
+        {f.era && <><dt>Period</dt><dd>{f.era}</dd></>}
+        {f.places?.length ? <><dt>Places</dt><dd>{f.places.join(", ")}</dd></> : null}
+        {f.dates && <><dt>{f.dates.kind === "active" ? "Active" : "Lived"}</dt><dd>About {yearText(f.dates.from)} to {yearText(f.dates.to)}. <span className="fine">Scripture gives no calendar dates. This is one traditional chronology (Floyd Nolen Jones, via Theographic).</span></dd></>}
       </dl>
+      {f.facts && f.facts.length > 0 && <><h3>Stated in Scripture</h3><ul className="fine-list">{f.facts.map((x, i) => <li key={i}><RefText text={x} /></li>)}</ul></>}
+      {f.bio && <details className="doctrine" open><summary>Summary</summary><Paras text={f.bio} /><p className="fine">Written by STEPBible (TIPNR), and secondary. The family links and verses on this page take priority over it.</p></details>}
       <h3>Family</h3>
-      <Links title="Parents" list={resolveFigures(f.parents)} refFor={(p) => parentLink(f.id, p.id)?.refs?.[0]} />
+      <Links title="Parents" list={resolveFigures(f.parents)} refFor={(p) => parentLink(f.id, p.id)?.refs?.[0]} noteFor={(p) => linkNote(parentLink(f.id, p.id))} />
       <Links title="Spouses" list={resolveFigures(f.spouses)} refFor={(s) => f.spouseRefs?.[s.id]} />
-      <Links title="Children" list={resolveFigures(f.children)} refFor={(c) => parentLink(c.id, f.id)?.refs?.[0]} />
+      <Links title="Children" list={resolveFigures(f.children)} refFor={(c) => parentLink(c.id, f.id)?.refs?.[0]} noteFor={(c) => linkNote(parentLink(c.id, f.id))} />
       <Links title="Siblings" list={resolveFigures(getSiblings(f.id))} />
       {!f.parents.length && !f.spouses.length && !f.children.length && <Empty>No family link is recorded for this person.</Empty>}
-      {f.parentLinks && Object.values(f.parentLinks).some((l) => l.kind === "legal") && <p className="fine">Joseph is shown as a legal parent: Luke 3:23 says Jesus “was the son, so it was thought, of Joseph”.</p>}
+      {f.parentLinks && Object.values(f.parentLinks).some((l) => l.kind === "legal") && f.id === "jesus-christ" && <p className="fine">Joseph is shown as a legal parent: Luke 3:23 says Jesus “was the son, so it was thought, of Joseph”.</p>}
       {line && line.length > 1 && <p className="fine">{formatGenerations(summarizePath(line))} from Adam through these links. <a href={`#tree-${f.id}`}>See the tree</a></p>}
       <h3>Verses naming {f.name}{verses ? ` (${verses.length.toLocaleString()})` : ""}</h3>
       {verses && !verses.length && <Empty>No verses are indexed for this person.</Empty>}
@@ -307,61 +378,6 @@ function Paths() {
         </>
       )}
       <p className="fine">{CREDIT}</p>
-    </div>
-  );
-}
-
-// ---------- Timeline ----------
-const PPY = 0.6;
-export const TimelinePage = () => <Ready>{() => <Timeline />}</Ready>;
-function Timeline() {
-  const { data } = useAsync(getTimeline, []);
-  const [kind, setKind] = useState("all");
-  const [picked, setPicked] = useState<number | null>(null);
-  const rows = useMemo(() => (data?.rows ?? []).filter((r) => kind === "all" || r.kind === kind).sort((a, b) => a.from - b.from), [data, kind]);
-  useEffect(() => setPicked(null), [kind]);
-  if (!data) return <div className="page"><Loading /></div>;
-  const max = 3700;
-  const x = (y: number) => y * PPY;
-  const ticks: number[] = [];
-  for (let y = 0; y <= max; y += 500) ticks.push(y);
-  const sel = picked !== null ? rows[picked] : null;
-  const overlap = sel ? rows.filter((r) => r !== sel && r.id !== sel.id && r.from <= sel.to && r.to >= sel.from).slice(0, 12) : [];
-  return (
-    <div className="page">
-      <h1 className="page-title">Timeline</h1>
-      <SubNav active="timeline" />
-      <div className="filters">
-        <select id="tl-kind" aria-label="Show" value={kind} onChange={(e) => setKind(e.target.value)}>
-          <option value="all">Lives, reigns, judges and prophets</option><option value="life">Lives</option><option value="reign">Reigns</option><option value="judge">Judges</option><option value="prophet">Prophets</option>
-        </select>
-      </div>
-      {sel && (
-        <div className="tree-detail">
-          <div><a href={`#person-${sel.id}`}><strong>{sel.label}</strong></a><span className="fine"> Years {sel.from} to {sel.to} from creation{sel.estimated ? ", estimated" : ""}</span></div>
-          <p className="fine"><RefText text={sel.calc.replace(/[A-Za-z-]+_\d+/g, (m) => m.replace(/_\d+$/, ""))} /></p>
-          <p className="fine">Start: <RefLink refText={sel.startRef} />{sel.endRef && <> · End: <RefLink refText={sel.endRef} /></>}</p>
-          {overlap.length > 0 && <p className="fine">At the same time: {overlap.map((o, i) => <span key={o.label}>{i > 0 && ", "}<button type="button" className="ref" onClick={() => setPicked(rows.indexOf(o))}>{o.label.replace(/^The (life|reign) of /i, "")}</button></span>)}</p>}
-        </div>
-      )}
-      <div className="timeline">
-        <div style={{ width: x(max), position: "relative" }}>
-          <div className="tl-axis">{ticks.map((t) => <span key={t} style={{ left: x(t) }}>Year {t}</span>)}</div>
-          <div className="tl-events">{data.events.map((e) => <span key={e.label} style={{ left: x(e.year) }}>{e.label}</span>)}</div>
-          <div className="tl-rows" style={{ backgroundSize: `${500 * PPY}px 100%` }}>
-            {rows.map((r, i) => (
-              <div key={`${r.id}-${r.label}`} className="tl-row">
-                <button type="button" className={`tl-bar ${picked === i ? "on" : ""} ${r.estimated ? "estimated" : ""} ${(r.to - r.from) * PPY > 90 ? "wide" : ""}`} style={{ left: x(r.from), width: Math.max(8, (r.to - r.from) * PPY) }} onClick={() => setPicked(i)}>
-                  <span className="tl-name">{r.label.replace(/^The (life|reign) of /i, "")}</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <p className="fine">Years count from creation, added up by BibleData from the ages and reigns Scripture gives, and each row shows its working. Lighter bars are estimates. Other chronologies differ, and this data stops at the end of the Old Testament.</p>
-      {data.excluded.map((e) => <p key={e.name} className="fine">{e.name} is left out because this data counts {e.source} years, while <RefLink refText={e.ref} /> says {e.verse}.</p>)}
-      <ul className="fine-list">{data.events.map((e) => <li key={e.label}>{e.label}: year {e.year}{e.bce ? `, about ${e.bce} BC on this count` : ""} (<RefLink refText={e.ref} />)</li>)}</ul>
     </div>
   );
 }
