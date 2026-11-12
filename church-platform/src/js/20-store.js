@@ -26,6 +26,8 @@ const S = {
       saved.services.forEach((p) => { if (!p.assignments) p.assignments = seed.services.find((x) => x.id === p.id)?.assignments || []; });
       return;
     }
+    // With Supabase, start empty and let the server fill it in; sample churches are only for trying the app.
+    if (Backend.configured()) { this.state = blankState(); return; }
     this.state = buildSeed();
     // Carry the person's profile and household over from the first version.
     try {

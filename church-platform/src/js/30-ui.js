@@ -54,6 +54,7 @@ function render() {
   const owner = churchForRoute(head, tail);
   if (owner && owner !== S.state.current) { S.state.current = owner; S.save(); }
   const me = S.me();
+  if (Backend.failed) { app.innerHTML = flat(html`<div class="loading" role="alert"><div style="text-align:center;max-width:320px"><p>Can't reach ${PLATFORM.name} right now. Check your connection and try again.</p><button class="btn" data-act="reload">Try again</button></div></div>`); return; }
   if (Backend.on && !Backend.user && head !== "page") { if (head !== "signin") pendingRoute = pendingRoute || route; head = "signin"; tail = ""; }
   else if (Backend.on && !Backend.ready && head !== "page") { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Loading your churches...</div>`); return; }
   else if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
@@ -247,6 +248,7 @@ document.addEventListener("change", (e) => { const el = e.target.closest("[data-
 
 Actions["close-sheet"] = () => closeSheet();
 Actions["skip"] = () => $("#main")?.focus();
+Actions["reload"] = () => location.reload();
 Actions["go"] = (el) => { closeSheet(true); go(el.dataset.to); };
 Actions["copy"] = (el) => copyText(el.dataset.text, el.dataset.done || "Copied");
 

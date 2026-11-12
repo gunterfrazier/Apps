@@ -1,6 +1,7 @@
 # Builds the Koinonia church app and publishes it with GitHub Pages.
-# Runs when church-platform changes on main, or by hand from the Actions tab. Set these repository variables first
-# (Settings, Secrets and variables, Actions, Variables): SUPABASE_URL, SUPABASE_ANON_KEY, VAPID_PUBLIC_KEY, APP_URL.
+# Runs when church-platform changes on main, or by hand from the Actions tab. The Supabase settings come from
+# church-platform/public/config.js; repository variables (SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, VAPID_PUBLIC_KEY,
+# APP_URL under Settings, Secrets and variables, Actions, Variables) replace it when set.
 name: Publish Koinonia
 on:
   workflow_dispatch:
@@ -25,15 +26,16 @@ jobs:
       - name: Build
         working-directory: church-platform
         run: node build.mjs
-      - name: Write config.js
+      - name: Write config.js from repository variables, if they're set
+        if: ${{ vars.SUPABASE_URL != '' }}
         working-directory: church-platform/dist
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
           VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
           APP_URL: ${{ vars.APP_URL }}
         run: |
-          node -e 'const e = process.env; require("fs").writeFileSync("config.js", "window.KOINONIA_CONFIG = " + JSON.stringify({ supabaseUrl: e.SUPABASE_URL || "", supabaseAnonKey: e.SUPABASE_ANON_KEY || "", vapidPublicKey: e.VAPID_PUBLIC_KEY || "", appUrl: e.APP_URL || "" }) + ";\n")'
+          node -e 'const e = process.env; require("fs").writeFileSync("config.js", "window.KOINONIA_CONFIG = " + JSON.stringify({ supabaseUrl: e.SUPABASE_URL, supabasePublishableKey: e.SUPABASE_PUBLISHABLE_KEY || "", vapidPublicKey: e.VAPID_PUBLIC_KEY || "", appUrl: e.APP_URL || "" }) + ";\n")'
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -17,7 +17,8 @@ mkdirSync(shots, { recursive: true });
 const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".webmanifest": "application/manifest+json" };
 const server = createServer((req, res) => {
   const p = join(root, decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/\/$/, "/index.html"));
-  if (!p.startsWith(root) || !existsSync(p)) { res.writeHead(404); return res.end(); }
+  // Leave out config.js so the test runs in browser-only mode with the sample churches.
+  if (!p.startsWith(root) || !existsSync(p) || p.endsWith("config.js")) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { "content-type": types[extname(p)] || "application/octet-stream" }); res.end(readFileSync(p));
 }).listen(0);
 const base = `http://localhost:${server.address().port}/`;

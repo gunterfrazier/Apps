@@ -9,15 +9,15 @@
 
 const Backend = {
   on: false, client: null, user: null, aiEnabled: true, ready: false, snap: new Map(), pending: false, warned: false, channel: null, present: null,
-  configured() { return !IN_PREVIEW && !!PLATFORM.supabaseUrl && !!PLATFORM.supabaseAnonKey; },
+  configured() { return !IN_PREVIEW && !!PLATFORM.supabaseUrl && !!PLATFORM.supabasePublishableKey; },
 
   async start() {
     if (!this.configured()) return;
     this.on = true;
     try {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.45.4");
-      this.client = createClient(PLATFORM.supabaseUrl, PLATFORM.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
-    } catch (e) { console.error("Supabase didn't load", e); toast("Can't reach the server. Showing what's saved on this device."); return; }
+      const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/+esm");
+      this.client = createClient(PLATFORM.supabaseUrl, PLATFORM.supabasePublishableKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+    } catch (e) { console.error("Supabase didn't load", e); this.failed = true; render(); return; }
     const { data } = await this.client.auth.getSession();
     this.client.auth.onAuthStateChange((evt, session) => { if (evt === "SIGNED_OUT") { this.user = null; this.ready = false; S.state = blankState(); S.flush(); go("signin"); } else if (session?.user && !this.user) { this.user = session.user; this.afterSignIn(); } });
     if (data.session?.user) { this.user = data.session.user; await this.afterSignIn(); }

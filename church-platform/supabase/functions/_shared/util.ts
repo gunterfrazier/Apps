@@ -1,5 +1,5 @@
 // Shared helpers for Koinonia's server functions (Supabase Edge Functions, Deno).
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.119.0";
 
 export const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -10,13 +10,20 @@ export const json = (body: unknown, status = 200) => new Response(JSON.stringify
 export const fail = (error: string, status = 400) => json({ error }, status);
 export const env = (k: string, fallback = "") => Deno.env.get(k) ?? fallback;
 
+// Supabase gives functions the new keys as JSON ({"default": "sb_..."}) and, until they're retired, the legacy ones.
+const named = (k: string) => { try { return JSON.parse(env(k, "{}")).default || ""; } catch { return ""; } };
+export const secretKey = () => named("SUPABASE_SECRET_KEYS") || env("SUPABASE_SERVICE_ROLE_KEY");
+export const publishableKey = () => named("SUPABASE_PUBLISHABLE_KEYS") || env("SUPABASE_ANON_KEY");
+
 /** Acts as the server: bypasses row-level security. Only use after checking who's asking. */
-export const admin = (): SupabaseClient => createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+export const admin = (): SupabaseClient => createClient(env("SUPABASE_URL"), secretKey(), { auth: { persistSession: false } });
 
 /** The signed-in person making the request, and a client that acts as them so security rules apply. */
 export async function caller(req: Request) {
-  const client = createClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } }, auth: { persistSession: false } });
-  const { data } = await client.auth.getUser();
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const client = createClient(env("SUPABASE_URL"), publishableKey(), { global: { headers: token ? { Authorization: `Bearer ${token}` } : {} }, auth: { persistSession: false } });
+  // getUser checks the session token with Supabase Auth, so functions don't need the platform's JWT check.
+  const { data } = token && !token.startsWith("sb_") ? await client.auth.getUser(token) : { data: { user: null } };
   return { user: data.user, client };
 }
 /** Does the caller's role at this church include the permission? Uses the same can() as the security rules. */
@@ -24,6 +31,8 @@ export async function can(client: SupabaseClient, church: string, perm: string) 
   const { data } = await client.rpc("can", { c: church, perm });
   return data === true;
 }
+/** For functions run on a schedule: pg_cron sends the shared CRON_SECRET (see cron.sql). */
+export const fromCron = (req: Request) => !!env("CRON_SECRET") && req.headers.get("x-cron-secret") === env("CRON_SECRET");
 export function handle(fn: (req: Request) => Promise<Response>) {
   Deno.serve(async (req) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });

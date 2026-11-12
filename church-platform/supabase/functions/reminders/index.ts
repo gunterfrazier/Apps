@@ -1,8 +1,9 @@
 // Runs every hour (pg_cron). Adds a reminder the day before someone serves or goes to an event they signed up for.
 // Each reminder has a fixed ID, so running twice never sends two.
-import { admin, handle, json, notify } from "../_shared/util.ts";
+import { admin, fail, fromCron, handle, json, notify } from "../_shared/util.ts";
 
-handle(async () => {
+handle(async (req) => {
+  if (!fromCron(req)) return fail("Not allowed", 401);
   const db = admin(), now = Date.now(), soon = (t: number) => t > now && t - now < 30 * 3600e3;
   let made = 0;
   const { data: asg } = await db.from("records").select("id, church_id, owner, data").eq("kind", "assignments").eq("data->>status", "accepted");
