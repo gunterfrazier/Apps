@@ -99,15 +99,19 @@ const PERMS = [
   ["Leading", "build.lessons", "Sunday school lesson builder, for their classes"],
   ["Leading", "build.sermons", "Sermon builder"],
   ["Leading", "chat.leaders", "Leadership chat"],
+  ["Leading", "book.rooms", "Request rooms for their groups and events"],
   ["Sunday", "services.plan", "Plan services, segments and songs"],
   ["Sunday", "present", "Run presentations on the screens"],
   ["Sunday", "checkin.station", "Run check-in and see room rosters"],
   ["Sunday", "qr.create", "Make QR codes"],
+  ["Sunday", "schedule.teams", "Schedule volunteer teams"],
   ["Managing", "manage.content", "Announcements and events"],
   ["Managing", "manage.sermons", "Publish sermons and reading plans"],
   ["Managing", "manage.classes", "Create and schedule classes and groups"],
   ["Managing", "manage.prayer", "Moderate prayer and read connect cards"],
   ["Managing", "manage.people", "Members and the directory"],
+  ["Managing", "manage.followup", "Follow up with new people"],
+  ["Managing", "view.reports", "Attendance, guest and giving reports"],
   ["Managing", "view.giving", "Giving reports and funds"],
   ["Managing", "manage.page", "Landing page, branding and links"],
   ["Managing", "manage.integrations", "Webhooks and embedded pages"],
@@ -116,6 +120,12 @@ const PERMS = [
   ["Managing", "manage.church", "Church account, features and defaults"],
 ];
 const PERM_LABEL = Object.fromEntries(PERMS.map(([, k, l]) => [k, l]));
+/** Permissions added after a church was created, and which built-in roles get them by default. */
+const NEW_PERM_DEFAULTS = {
+  "book.rooms": ["pastor", "staff", "teacher", "leader"], "schedule.teams": ["pastor", "staff", "media"],
+  "manage.followup": ["pastor", "staff"], "view.reports": ["pastor", "staff"],
+};
+const mmss = (secs) => { const s = Math.max(0, Math.round(secs)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const MODULES = [
   ["sermons", "Sermons"], ["plans", "Reading plans"], ["events", "Events"], ["classes", "Classes and Sunday school"], ["groups", "Small groups"],
   ["prayer", "Prayer wall"], ["directory", "Directory"], ["giving", "Giving"], ["checkin", "Kids check-in"], ["parents", "Parent portal"],

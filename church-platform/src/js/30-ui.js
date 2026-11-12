@@ -49,7 +49,8 @@ function churchForRoute(head, tail) {
 function render() {
   const app = $("#app");
   let { route, head, tail } = splitRoute();
-  if (head === "display") { Screens.display(tail); return; }
+  document.documentElement.classList.toggle("overlay-page", head === "overlay");
+  if (head === "display" || head === "stage" || head === "overlay") { Screens[head](tail); return; }
   const owner = churchForRoute(head, tail);
   if (owner && owner !== S.state.current) { S.state.current = owner; S.save(); }
   const me = S.me();
@@ -71,11 +72,11 @@ function render() {
 let pendingRoute = null;
 
 function headerIcons() {
-  const unread = S.church() ? unreadNews().length : 0;
+  const unread = S.church() ? unreadNews().length + myNotifications().filter((n) => !n.read).length : 0;
   const chatUnread = S.church() && S.on("chat") && S.can("use.chat") ? unreadChats() : 0;
   return html`
     ${S.church() && S.on("chat") && S.can("use.chat") ? html`<a class="icon-btn" href="#chat" aria-label="Messages${chatUnread ? `, ${chatUnread} unread` : ""}">${icon("chat")}${chatUnread ? html`<span class="dot">${chatUnread}</span>` : ""}</a>` : ""}
-    ${S.church() ? html`<a class="icon-btn" href="#alerts" aria-label="Announcements${unread ? `, ${unread} unread` : ""}">${icon("bell")}${unread ? html`<span class="dot">${unread}</span>` : ""}</a>` : ""}
+    ${S.church() ? html`<a class="icon-btn" href="#alerts" aria-label="Notifications${unread ? `, ${unread} unread` : ""}">${icon("bell")}${unread ? html`<span class="dot">${unread}</span>` : ""}</a>` : ""}
     <a class="me-link" href="#me" aria-label="Me">${avatar(S.me())}</a>`;
 }
 function bar(title, back) {

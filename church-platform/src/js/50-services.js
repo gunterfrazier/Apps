@@ -13,12 +13,13 @@ const SEGMENT_TYPES = {
   announcements: { label: "Announcements", icon: "bell", content: "none" },
   media: { label: "Video or graphic", icon: "play", content: "media" },
   benediction: { label: "Benediction", icon: "hand", content: "scripture" },
+  countdown: { label: "Countdown", icon: "clock", content: "countdown" },
   custom: { label: "Other", icon: "list", content: "text" },
 };
 const canPlan = () => S.isMember() && S.can("services.plan");
-const canSeePlans = () => S.isMember() && S.canAny(["services.plan", "present"]);
+const canSeePlans = () => S.isMember() && S.canAny(["services.plan", "present", "schedule.teams"]);
 const plansInView = () => S.visible("services", { ignoreCampus: true }).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-const planMinutes = (p) => p.segments.reduce((n, s) => n + (+s.minutes || 0), 0);
+const planMinutes = (p) => p.segments.reduce((n, s) => n + (s.type === "countdown" && s.content?.to !== "length" ? 0 : +s.minutes || 0), 0);
 
 Screens.services = () => {
   if (!canSeePlans()) return { redirect: "ministry" };
@@ -58,15 +59,16 @@ Screens.service = (id) => {
   let clock = fromIsoDay(p.date, p.time || "10:00");
   return {
     title: p.title, back: "services",
-    body: html`<h1 style="margin-top:16px">${p.title}</h1>
-      <p class="muted" style="margin-top:4px">${fmtDay(fromIsoDay(p.date))} at ${timeLabel(p.time)}${p.locationId ? `, ${locName(p.locationId)}` : ""}. ${planMinutes(p)} minutes.</p>
+    body: html`${planHead(p)}
+      <p class="muted" style="margin-top:4px">${plural(p.segments.length, "segment")}, ${planMinutes(p)} minutes.</p>
       <div class="btns">${S.can("present") ? html`<a class="btn sm" href="#present-service-${p.id}">${icon("screen")}Present</a>` : ""}
         ${edit ? html`<button class="btn ghost sm" data-act="plan-details" data-id="${p.id}">${icon("edit")}Details</button><button class="btn ghost sm" data-act="layout-save" data-kind="service" data-id="${p.id}">${icon("layers")}Save as layout</button><button class="btn ghost sm" data-act="plan-dup" data-id="${p.id}">${icon("copy")}Copy to next week</button>` : ""}</div>
       ${p.notes ? html`<p class="panel" style="margin-top:12px">${icon("lock")} ${p.notes}</p>` : ""}
       <section class="sec"><div class="sec-head"><h2>Order of service</h2>${edit && p.segments.length > 1 ? html`<span class="faint">Drag ${icon("grip")} to reorder</span>` : ""}</div>
       <div class="blocks" id="sort-list">${p.segments.length ? p.segments.map((s, i) => {
-        const t = SEGMENT_TYPES[s.type] || SEGMENT_TYPES.custom, start = clock; clock = new Date(clock.getTime() + (+s.minutes || 0) * 60e3);
-        return html`<div class="block-card ${s.show ? "" : "private"}" data-index="${i}"><div class="block-top">${edit ? dragHandle(s.title) : ""}<span class="seg-time">${fmtTime(start)}</span><b>${s.title}</b>
+        const t = SEGMENT_TYPES[s.type] || SEGMENT_TYPES.custom, pre = s.type === "countdown" && s.content?.to !== "length", start = clock;
+        if (!pre) clock = new Date(clock.getTime() + (+s.minutes || 0) * 60e3);
+        return html`<div class="block-card ${s.show ? "" : "private"}" data-index="${i}"><div class="block-top">${edit ? dragHandle(s.title) : ""}<span class="seg-time">${pre ? "Before" : fmtTime(start)}</span><b>${s.title}</b>
           ${edit ? html`<span class="row-tools"><button class="icon-btn" data-act="seg-move" data-plan="${p.id}" data-i="${i}" data-dir="-1" aria-label="Move up" ${attr(i === 0, "disabled")}>${icon("up")}</button><button class="icon-btn" data-act="seg-move" data-plan="${p.id}" data-i="${i}" data-dir="1" aria-label="Move down" ${attr(i === p.segments.length - 1, "disabled")}>${icon("down")}</button><button class="icon-btn" data-act="seg-edit" data-plan="${p.id}" data-i="${i}" aria-label="Edit">${icon("edit")}</button></span>` : ""}</div>
           <div class="block-body"><span class="s">${t.label}, ${s.minutes} min${s.leader ? `, ${s.leader}` : ""}${s.show ? "" : ". Not shown on screen"}</span>${segmentSummary(s)}</div>
           ${s.notes ? html`<div class="block-notes">${icon("lock")}<span>${s.notes}</span></div>` : ""}</div>`;
@@ -79,6 +81,7 @@ function segmentSummary(s) {
   const c = s.content || {};
   if (s.type === "song") { const song = S.get("songs", c.songId); return song ? html`<span class="s">${song.title}${song.author ? `, ${song.author}` : ""}${c.sections?.length ? `. ${c.sections.join(", ")}` : ""}</span>` : html`<span class="s">No song chosen</span>`; }
   if (s.type === "sermon") { const d = S.get("docs", c.docId); if (c.blocks) return html`<span class="s">${plural(c.blocks.length, "saved item")}${c.title ? ` from "${c.title}"` : ""}</span>`; return d ? html`<span class="s">Slides from "${d.title}" (${plural(d.blocks.filter((b) => b.show && b.type !== "note").length, "item")} on screen)</span>` : html`<span class="s">No sermon chosen</span>`; }
+  if (s.type === "countdown") return html`<span class="s">Counts down to ${c.to === "length" ? `the end of these ${s.minutes} minutes` : "the service start time"}${c.text ? `. "${c.text}"` : ""}</span>`;
   if (c.ref) return html`<span class="scripture">${c.ref}</span>`;
   if (c.image) return html`<img class="thumb" src="${c.image}" alt="">`;
   if (c.text) return html`<span class="s clamp2">${c.text}</span>`;
@@ -86,7 +89,7 @@ function segmentSummary(s) {
 }
 Actions["seg-move"] = (el) => { const p = S.get("services", el.dataset.plan), i = +el.dataset.i, j = i + +el.dataset.dir; if (j < 0 || j >= p.segments.length) return; [p.segments[i], p.segments[j]] = [p.segments[j], p.segments[i]]; S.save(); render(); };
 Actions["seg-add"] = (el) => openSheet("Add a segment", html`<div class="rows">${Object.entries(SEGMENT_TYPES).map(([k, t]) => html`<button class="row" data-act="seg-new" data-plan="${el.dataset.plan}" data-type="${k}"><span class="lead-ic">${icon(t.icon)}</span><span class="body"><span class="t">${t.label}</span></span>${icon("plus")}</button>`)}</div>`);
-Actions["seg-new"] = (el) => segmentEditor({ plan: el.dataset.plan, i: -1 }, { type: el.dataset.type, title: SEGMENT_TYPES[el.dataset.type].label, minutes: el.dataset.type === "sermon" ? 30 : el.dataset.type === "song" ? 4 : 3, show: el.dataset.type !== "prayer", content: { translation: "BSB" } });
+Actions["seg-new"] = (el) => segmentEditor({ plan: el.dataset.plan, i: -1 }, { type: el.dataset.type, title: SEGMENT_TYPES[el.dataset.type].label, minutes: { sermon: 30, song: 4, countdown: 5 }[el.dataset.type] || 3, show: el.dataset.type !== "prayer", content: { translation: "BSB" } });
 Actions["seg-edit"] = (el) => segmentEditor({ plan: el.dataset.plan, i: +el.dataset.i }, S.get("services", el.dataset.plan).segments[+el.dataset.i]);
 Actions["seg-from-lib"] = (el) => openSheet("Saved segments", html`<div class="rows">${S.list("library").map((s) => html`<button class="row" data-act="seg-lib-add" data-plan="${el.dataset.plan}" data-id="${s.id}"><span class="lead-ic">${icon(SEGMENT_TYPES[s.type]?.icon || "list")}</span><span class="body"><span class="t">${s.name || s.title}</span><span class="s">${SEGMENT_TYPES[s.type]?.label}, ${s.minutes} min</span></span>${icon("plus")}</button>`)}</div>`);
 Actions["seg-lib-add"] = (el) => { const p = S.get("services", el.dataset.plan), s = S.get("library", el.dataset.id); const { churchId, name, ...rest } = JSON.parse(JSON.stringify(s)); p.segments.push({ ...rest, id: uid() }); S.save(); closeSheet(); toast(`${name || s.title} added`); render(); };
@@ -109,6 +112,8 @@ function segmentEditor(where, s) {
       ${c.docId && S.get("docs", c.docId) && canEditDoc(S.get("docs", c.docId)) ? html`<p><a href="#build-${c.docId}">${icon("edit")}Reorder or edit the sermon's items in the builder</a></p>` : ""}`;
   if (t.content === "media") content = html`${imageField("image", "Picture or graphic", c.image, "", 1920)}<label class="field"><span>Video link</span><input type="url" name="url" value="${c.url || ""}"></label><label class="field"><span>Caption</span><input type="text" name="caption" value="${c.caption || ""}"></label>`;
   if (t.content === "none") content = html`<p class="faint">Shows the church's current announcements, one per slide.</p>`;
+  if (t.content === "countdown") content = html`<label class="field"><span>Count down to</span><select name="to"><option value="start" ${attr(c.to !== "length", "selected")}>The service start time</option><option value="length" ${attr(c.to === "length", "selected")}>The end of this segment, from when it's shown</option></select><small>Put it first and count down to the start time for a pre-service countdown.</small></label>
+    <label class="field"><span>Words under the timer</span><input type="text" name="text" value="${c.text ?? "We'll begin shortly"}" maxlength="80"></label>`;
   const inLib = "lib" in where;
   openSheet(inLib ? "Saved segment" : where.i < 0 ? `Add: ${t.label}` : `Edit: ${s.title}`, html`<form data-form="seg-save" novalidate>
     <input type="hidden" name="_plan" value="${where.plan || ""}"><input type="hidden" name="_i" value="${where.i ?? ""}"><input type="hidden" name="_lib" value="${inLib ? where.lib : "-"}"><input type="hidden" name="_type" value="${s.type}">
@@ -135,6 +140,7 @@ Forms["seg-save"] = (d, f, fd) => {
     if (song && prev?.content?.songId === d.songId && picked.length && picked.length < songOrderLabels(song).length) content.sections = picked;
     if (song && prev?.content?.songId === d.songId && fd.has("songId") && !picked.length && songOrderLabels(song).length > 1) return formError(f, "Choose at least one section to sing."); }
   if (t.content === "sermon") { content.docId = d.docId; if (prev?.content?.blocks && prev.content.docId === d.docId) Object.assign(content, { blocks: prev.content.blocks, title: prev.content.title }); }
+  if (t.content === "countdown") Object.assign(content, { to: d.to === "length" ? "length" : "start", text: d.text });
   if (t.content === "media") { if (d.url && !isUrl(d.url)) return formError(f, "The video link should start with https://"); Object.assign(content, { image: d.image, url: d.url, caption: d.caption }); }
   const seg = { type: d._type, title: d.title, minutes: Math.max(0, +d.minutes || 0), leader: d.leader, show: !!d.show, notes: d.notes, content };
   if (d._lib !== "-") {

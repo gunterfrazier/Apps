@@ -14,7 +14,14 @@ const S = {
     if (saved && saved.v === 2) {
       this.state = saved;
       // Added after the first v2 release: named layouts and saved builder items.
-      if (!saved.layouts || !saved.savedBlocks) { const seed = buildSeed(); saved.layouts ||= seed.layouts; saved.savedBlocks ||= seed.savedBlocks; }
+      const seed = buildSeed();
+      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications"]) if (!saved[k]) saved[k] = seed[k];
+      Object.values(saved.churches).forEach((c) => {
+        c.positions ||= JSON.parse(JSON.stringify(DEFAULT_POSITIONS));
+        // Give built-in roles the permissions added in later versions.
+        c.roles.forEach((r) => PERMS.forEach(([, k]) => { if (r.perms[k] === undefined && (r.id === "admin" || NEW_PERM_DEFAULTS[k]?.includes(r.id))) r.perms[k] = true; }));
+      });
+      saved.services.forEach((p) => { if (!p.assignments) p.assignments = seed.services.find((x) => x.id === p.id)?.assignments || []; });
       return;
     }
     this.state = buildSeed();
@@ -119,6 +126,14 @@ const S = {
   remove(kind, id) { this.state[kind] = this.state[kind].filter((x) => x.id !== id); this.save(); },
 };
 
+// ---------- In-app notifications ----------
+/** Adds a notification for one person. Their bell shows it; on the live app it is also sent as a push notification. */
+function notify(userId, n, churchId = S.state.current) {
+  S.state.notifications.unshift({ id: uid(), churchId, userId, at: new Date().toISOString(), read: false, ...n });
+  S.state.notifications = S.state.notifications.slice(0, 300); S.save();
+}
+const myNotifications = () => S.state.notifications.filter((n) => n.userId === S.me().id && n.churchId === S.state.current);
+
 // ---------- Webhooks ----------
 // Each event an admin subscribes to is signed (HMAC-SHA256 over "timestamp.body") and logged.
 // Delivery happens from a server so the signing secret stays private; see README.
@@ -126,6 +141,7 @@ const WEBHOOK_EVENTS = [
   ["member.joined", "Someone joins the church"], ["card.created", "A connect card is sent"], ["prayer.created", "A prayer request is shared"],
   ["event.registered", "Someone signs up for an event"], ["gathering.registered", "Someone registers for a class or group"],
   ["gift.created", "A gift is made"], ["checkin.created", "A child is checked in"], ["checkin.completed", "A child is checked out"],
+  ["volunteer.scheduled", "Someone is asked to serve"], ["volunteer.responded", "A volunteer accepts or declines"],
 ];
 async function hmacHex(secret, text) {
   try {

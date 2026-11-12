@@ -245,7 +245,7 @@ AdminScreens.account = () => {
       ${SOCIAL.map(([k, label]) => html`<label class="field"><span>${label}</span><input type="url" name="s_${k}" value="${k === "website" ? c.website : c.social?.[k] || ""}" placeholder="https://"></label>`)}
       <h2 style="margin-top:22px">Licensing</h2>
       <label class="field"><span>CCLI license number</span><input type="text" name="ccli" value="${c.ccli || ""}" maxlength="20"><small>Shown on song slides, as CCLI requires when lyrics are projected.</small></label>
-      <label class="field"><span>Volunteer teams</span><input type="text" name="teams" value="${c.teams.join(", ")}"><small>Separate with commas.</small></label>
+      <p class="field"><span>Volunteer teams</span><a class="btn ghost sm" href="#teams">${icon("hand")}${plural(c.teams.length, "team")}: edit teams and positions</a></p>
       <div class="btns"><button class="btn block">Save account details</button></div></form>`,
   };
 };
@@ -256,7 +256,7 @@ Forms["admin-account"] = (d, f) => {
   const bad = SOCIAL.find(([k]) => d[`s_${k}`] && !isUrl(d[`s_${k}`]));
   if (bad) return formError(f, `The ${bad[1]} link should start with https://`);
   S.updateChurch({ name: d.name, handle, email: d.email, phone: d.phone, city: d.city, tagline: d.tagline, logo: d.logo, color: d.color || c.color,
-    website: d.s_website, social: Object.fromEntries(SOCIAL.filter(([k]) => k !== "website").map(([k]) => [k, d[`s_${k}`]])), ccli: d.ccli, teams: d.teams.split(",").map((x) => x.trim()).filter(Boolean) });
+    website: d.s_website, social: Object.fromEntries(SOCIAL.filter(([k]) => k !== "website").map(([k]) => [k, d[`s_${k}`]])), ccli: d.ccli });
   toast("Account details saved"); render();
 };
 

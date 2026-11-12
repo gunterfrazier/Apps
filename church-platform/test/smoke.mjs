@@ -251,6 +251,40 @@ await step("reorder and layouts in the sermon builder", async () => {
   await page.click("[data-act=saved-blocks]"); await page.click("#scrim [data-act=saved-block-add] >> text=Opening keynote"); await sheetGone();
   await shot("21-doc-from-layout");
 });
+await step("volunteer scheduling", async () => {
+  await goTo("serving"); await page.click('[data-act=team-join][data-team="Media"]'); await page.waitForSelector('[data-act=team-leave][data-team="Media"]');
+  await page.click("[data-act=away-add]"); await page.fill("#scrim input[name=from]", "2027-01-10"); await page.fill("#scrim input[name=to]", "2027-01-12"); await sheetSubmit(); await sheetGone();
+  await expectText("Jan 10"); await shot("21-serving");
+  await goTo("teams"); await expectText("Upcoming services"); await page.click('a[href="#crew-riverside-svc-1"]'); await page.waitForSelector(".crew-row");
+  await page.click("[data-act=crew-fill]"); await page.waitForTimeout(150);
+  if (await page.$("#scrim")) await page.click("#scrim button[data-act=close-sheet].btn");
+  await expectText("Gunter Frazier"); // nobody else on Media is free, so the scheduler (on the team now) gets a spot
+  await page.click('[data-act=crew-add][data-position="Keys"]'); await page.click("#cand-list [data-act=crew-assign]:not([disabled]) >> nth=0"); await sheetGone();
+  await page.click(".crew-person.pending >> nth=0"); await page.click('#scrim [data-act=crew-set][data-status="accepted"]'); await sheetGone();
+  await shot("22-crew");
+  await goTo("serving"); await page.click('.ask-card [data-act=ask-no] >> nth=0'); await page.fill("#scrim input[name=note]", "Sick that week"); await sheetSubmit(); await sheetGone();
+  await expectText("Can't serve"); await page.click('.ask-card [data-act=ask-yes] >> nth=0'); await expectText("Confirmed");
+  await goTo("team-0"); await page.click("[data-act=team-edit]"); await page.fill("#scrim textarea[name=positions]", "Worship leader\nVocals\nKeys\nGuitar\nBass\nDrums"); await sheetSubmit(); await sheetGone(); await expectText("Bass");
+  await goTo("teams"); await page.click("[data-act=team-new]"); await page.fill("#scrim input[name=name]", "Hospitality"); await page.fill("#scrim textarea[name=positions]", "Welcome table"); await sheetSubmit(); await sheetGone(); await expectText("Welcome table");
+  await goTo("alerts"); await expectText("Announcements");
+});
+await step("stage display, countdown and overlay", async () => {
+  await goTo("service-riverside-svc-1"); await page.click("[data-act=seg-add]"); await page.click('[data-act=seg-new][data-type="countdown"]');
+  await page.selectOption("#scrim select[name=_pos]", "0"); await sheetSubmit(); await sheetGone(); await expectText("Before");
+  await goTo("present-service-riverside-svc-1"); await page.click('[data-act=pres-jump][data-i="1"]'); await page.waitForSelector("#stage .slide-countdown");
+  await page.click('[data-act=pres-mode][data-mode="stage"]'); await page.waitForSelector(".stage-mon");
+  await page.fill("#stage-msg-in", "Repeat the chorus"); await page.click("form[data-form=stage-msg] button"); await page.waitForSelector(".sm-msg");
+  await page.click('[data-act=pres-jump][data-i="4"]'); await page.waitForTimeout(1100);
+  if (!/left|over/.test(await page.textContent(".sm-timer"))) throw new Error("segment timer missing");
+  await shot("23-stage");
+  await page.click("[data-act=pres-overlay]"); await page.waitForSelector("#scrim .ov-frame .ov-lt"); await shot("24-overlay"); await page.click("#scrim [data-act=close-sheet]");
+  await page.click("[data-act=pres-captions]"); await page.waitForTimeout(300);
+  await page.click('[data-act=pres-mode][data-mode="slideshow"]');
+  await goTo("stage-service-riverside-svc-1"); await page.waitForSelector(".stage-mon.full"); await shot("25-stage-window");
+  await goTo("overlay-service-riverside-svc-1"); await page.waitForSelector(".ov-frame");
+  await goTo("home"); await page.waitForSelector(".home-top");
+  if (await page.evaluate(() => document.documentElement.classList.contains("overlay-page") || document.body.classList.contains("presenting"))) throw new Error("overlay or presenting styles stuck after leaving");
+});
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));

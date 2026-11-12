@@ -2,7 +2,7 @@
 let installPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; });
 
-const MINISTRY_PERMS = ["build.sermons", "build.lessons", "build.studies", "services.plan", "present", "checkin.station", "qr.create", "lead.groups", "teach.classes"];
+const MINISTRY_PERMS = ["build.sermons", "build.lessons", "build.studies", "services.plan", "present", "checkin.station", "qr.create", "lead.groups", "teach.classes", "schedule.teams"];
 const ADMIN_PERMS = ["manage.content", "manage.sermons", "manage.classes", "manage.prayer", "manage.people", "view.giving", "manage.page", "manage.integrations", "manage.locations", "manage.roles", "manage.church"];
 const hasMinistryTools = () => S.isMember() && S.canAny(MINISTRY_PERMS);
 const hasAdminTools = () => S.isMember() && S.canAny(ADMIN_PERMS);
@@ -29,6 +29,7 @@ Screens.me = () => {
           ${hasAdminTools() ? row("#admin", "shield", "Admin", "Manage the church account, people, content and reports") : ""}
           ${hasMinistryTools() ? row("#ministry", "layers", "Ministry tools", "Builders, service plans, presentations, check-in and QR codes") : ""}
           ${S.on("parents") && kids().length ? row("#parents", "kid", "Parent portal", "Your kids' classes, events and check-in") : ""}
+          ${S.isMember() ? (() => { const n = pendingAsks().length; return row("#serving", "hand", "Serving", n ? `${plural(n, "request")} waiting for your answer` : "Your teams, schedule and dates away"); })() : ""}
           ${row("#household", "people", "Household", me.household.length ? me.household.map((p) => p.name).join(", ") : "Add your family for classes and check-in")}
           ${S.on("checkin") ? row("#checkin", "kid", "Check in", "Kids and volunteers") : ""}
           ${S.on("giving") ? row("#history", "give", "Giving history", "Gifts and year-end statements") : ""}
@@ -123,7 +124,8 @@ Screens.ministry = () => {
   const sunday = [
     S.can("services.plan") && row("#services", "list", "Service plans", "Order of service, saved segments and who leads what"),
     S.can("services.plan") && row("#songs", "music", "Songs and lyrics", "Your song library, with CCLI details"),
-    S.can("present") && row("#services", "screen", "Present", "Run slides from a service plan or a sermon"),
+    S.can("schedule.teams") && row("#teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when"),
+    S.can("present") && row("#services", "screen", "Present", "Slides, the stage display, countdowns, livestream overlay and captions"),
     S.can("checkin.station") && row("#admin-checkin", "kid", "Check-in station", "Rosters by room and pickup by code"),
     S.can("qr.create") && row("#qr", "qr", "QR codes", "Link to events, classes, registration and check-in"),
   ].filter(Boolean);

@@ -195,6 +195,7 @@ Screens.home = () => {
     tab: "home", band,
     body: html`
       ${!S.isMember() ? html`<div class="panel join-card"><p style="margin-top:0"><b>You're looking around ${c.name}.</b> Join to post prayer requests, register for classes, chat with your groups and check in your kids.</p><button class="btn block" data-act="join-church" data-id="${c.id}">Join ${c.name}</button></div>` : ""}
+      ${(() => { const asks = pendingAsks(); return asks.length ? html`<a class="alert ask" href="#serving">${icon("hand")}<div><b>Can you serve?</b><span>${asks[0][1].position}, ${planLabel(asks[0][0])}${asks.length > 1 ? ` and ${plural(asks.length - 1, "more request")}` : ""}</span></div></a>` : ""; })()}
       ${urgent.map((n) => html`<a class="alert" href="#alerts">${icon("bell")}<div><b>${n.title}</b><span>${n.body}</span></div></a>`)}
       ${quickActions()}
       ${c.landing?.showOnHome && c.landing.blocks.length ? html`<div class="landing">${landingBlocks(c, { home: true })}</div>` : ""}
@@ -279,15 +280,20 @@ Forms["connect-card"] = (d, f) => {
 };
 
 Screens.alerts = () => {
-  const news = newsSorted();
+  const news = newsSorted(), mine = myNotifications().slice(0, 30);
   return {
-    title: "Announcements", back: "home", tab: "home",
-    body: html`<div class="rows" style="margin-top:14px">${news.length ? news.map((n) => html`<article class="prayer">
+    title: "Notifications", back: "home", tab: "home",
+    body: html`${mine.length ? html`<section class="sec"><div class="sec-head"><h2>For you</h2>${mine.some((n) => n.read) ? html`<button class="btn ghost sm" data-act="notes-clear">Clear read</button>` : ""}</div><div class="rows">${mine.map((n) => html`<a class="row ${n.read ? "" : "unread"}" href="${n.link || "#alerts"}"><span class="lead-ic">${icon({ serve: "hand", chat: "chat", event: "calendar", give: "give", checkin: "kid" }[n.kind] || "bell")}</span><span class="body"><span class="t">${n.title}</span><span class="s">${n.body}</span><span class="s faint">${ago(n.at)}</span></span>${n.read ? "" : html`<span class="tag brand">New</span>`}</a>`)}</div></section>` : ""}
+      <section class="sec"><h2 class="sec-head">Announcements</h2><div class="rows">${news.length ? news.map((n) => html`<article class="prayer">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><h2 style="font-size:1.1rem;flex:1">${n.title}</h2>${n.urgent ? html`<span class="tag warn">Important</span>` : ""}${n.locationId ? html`<span class="tag">${locName(n.locationId)}</span>` : ""}${!S.state.seen.includes(n.id) ? html`<span class="tag brand">New</span>` : ""}</div>
-      <p>${n.body}</p><span class="faint">${ago(n.at)}</span></article>`) : empty("No announcements yet.")}</div>`,
-    after() { const ids = news.map((n) => n.id).filter((id) => !S.state.seen.includes(id)); if (ids.length) { S.state.seen.push(...ids); S.save(); } },
+      <p>${n.body}</p><span class="faint">${ago(n.at)}</span></article>`) : empty("No announcements yet.")}</div></section>`,
+    after() {
+      const ids = news.map((n) => n.id).filter((id) => !S.state.seen.includes(id)); if (ids.length) { S.state.seen.push(...ids); S.save(); }
+      if (mine.some((n) => !n.read)) { mine.forEach((n) => { n.read = true; }); S.save(); }
+    },
   };
 };
+Actions["notes-clear"] = () => { const me = S.me().id; S.state.notifications = S.state.notifications.filter((n) => !(n.userId === me && n.churchId === S.state.current && n.read)); S.save(); render(); };
 
 // ---------- Watch live ----------
 let liveLocation = null;

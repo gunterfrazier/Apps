@@ -9,6 +9,10 @@ const KIDS_ROOMS = [
   { id: "students", name: "Students", minAge: 12, maxAge: 17 },
 ];
 const DEFAULT_TEAMS = ["Greeters", "Kids", "Worship", "Media", "Parking", "Coffee"];
+const DEFAULT_POSITIONS = {
+  Worship: ["Worship leader", "Vocals", "Keys", "Guitar", "Drums"], Media: ["Slides", "Sound", "Livestream"], Kids: ["Preschool teacher", "Elementary teacher", "Check-in desk"],
+  Greeters: ["Front door", "Lobby"], Parking: ["Parking lot"], Coffee: ["Coffee bar"],
+};
 const DEFAULT_FUNDS = [
   { id: "general", name: "General fund", description: "Ministry, staff and building costs" },
   { id: "missions", name: "Missions", description: "Partners at home and abroad" },
@@ -20,11 +24,11 @@ function defaultRoles() {
   const pick = (...keys) => Object.fromEntries(["use.prayer", "use.directory", "use.chat", "use.checkin", ...keys].map((k) => [k, true]));
   return [
     { id: "admin", name: "Administrator", rank: 90, perms: all, builtin: true },
-    { id: "pastor", name: "Pastor", rank: 70, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "build.sermons", "chat.leaders", "services.plan", "present", "qr.create", "manage.content", "manage.sermons", "manage.prayer") },
-    { id: "staff", name: "Ministry staff", rank: 60, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "chat.leaders", "services.plan", "checkin.station", "qr.create", "manage.content", "manage.classes") },
-    { id: "media", name: "Media coordinator", rank: 40, perms: pick("present", "services.plan", "qr.create") },
-    { id: "teacher", name: "Teacher", rank: 30, perms: pick("teach.classes", "build.lessons", "build.studies") },
-    { id: "leader", name: "Group leader", rank: 30, perms: pick("lead.groups", "build.studies") },
+    { id: "pastor", name: "Pastor", rank: 70, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "build.sermons", "chat.leaders", "services.plan", "present", "qr.create", "manage.content", "manage.sermons", "manage.prayer", "book.rooms", "schedule.teams", "manage.followup", "view.reports") },
+    { id: "staff", name: "Ministry staff", rank: 60, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "chat.leaders", "services.plan", "checkin.station", "qr.create", "manage.content", "manage.classes", "book.rooms", "schedule.teams", "manage.followup", "view.reports") },
+    { id: "media", name: "Media coordinator", rank: 40, perms: pick("present", "services.plan", "qr.create", "schedule.teams") },
+    { id: "teacher", name: "Teacher", rank: 30, perms: pick("teach.classes", "build.lessons", "build.studies", "book.rooms") },
+    { id: "leader", name: "Group leader", rank: 30, perms: pick("lead.groups", "build.studies", "book.rooms") },
     { id: "checkin", name: "Check-in team", rank: 20, perms: pick("checkin.station") },
     { id: "member", name: "Member", rank: 10, perms: pick(), builtin: true },
   ];
@@ -37,7 +41,7 @@ function seedChurch(c) {
     modules: Object.fromEntries(MODULES.map(([k]) => [k, true])),
     roles: defaultRoles(),
     defaults: { roleId: "member", locations: [], listInDirectory: false, prayerPrivate: false, parentCheckout: true, fundId: "general" },
-    locations: [], kidsRooms: KIDS_ROOMS, teams: DEFAULT_TEAMS, funds: DEFAULT_FUNDS,
+    locations: [], kidsRooms: KIDS_ROOMS, teams: DEFAULT_TEAMS, positions: DEFAULT_POSITIONS, funds: DEFAULT_FUNDS,
     landing: { showOnHome: true, blocks: [] },
     integrations: { webhooks: [], embeds: [] },
     veritasUrl: "", ccli: "", created: new Date().toISOString(),
@@ -310,6 +314,14 @@ function buildSeed() {
   ];
   const savedBlocks = [{ id: "riverside-saved-response", churchId: "riverside", kind: "sermon", name: "Response time cue", at: daysAgo(20), block: E("action", { label: "Response time", text: "Band comes up during the last point. Prayer team at the front." }) }];
 
+  // ----- Volunteer teams, a schedule for Sunday, and someone's dates away -----
+  const teamMembers = [["Worship", ["mark", "jordan", "teresa"]], ["Media", ["mark", "daniel"]], ["Kids", ["linda", "ana", "jordan"]], ["Greeters", ["teresa", "ana", "marcus"]], ["Parking", ["marcus"]], ["Coffee", ["daniel"]]]
+    .flatMap(([team, ks]) => ks.map((k) => ({ id: uid(), churchId: "riverside", team, userId: `u-${k}` })));
+  const asg = (team, position, k, status, note = "") => ({ id: uid(), team, position, userId: `u-${k}`, status, note, at: daysAgo(3) });
+  services[0].assignments = [asg("Worship", "Worship leader", "mark", "accepted"), asg("Worship", "Vocals", "teresa", "pending"), asg("Media", "Slides", "daniel", "accepted"),
+    asg("Kids", "Preschool teacher", "linda", "accepted"), asg("Kids", "Check-in desk", "ana", "declined", "Out of town that weekend")];
+  const blockouts = [{ id: uid(), churchId: "riverside", userId: "u-ana", from: nextSunday, to: nextSunday, note: "Visiting family" }];
+
   const messages = [
     { id: uid(), channelId: "g-riverside-eastside", by: "u-daniel", text: "We're at our place Tuesday at 7. Bring a side dish if you can!", at: daysAgo(1, 4) },
     { id: uid(), channelId: "g-riverside-eastside", by: "u-teresa", text: "I'll bring a salad.", at: daysAgo(1, 2) },
@@ -324,7 +336,7 @@ function buildSeed() {
     users, memberships, current: null, campus: {},
     churches: Object.fromEntries(churches.map((c) => [c.id, c])),
     sermons, events, news, prayers, gatherings, plans, gifts, docs, songs, library, services, layouts, savedBlocks,
-    channels: [], messages, chatSeen: {}, deliveries: [],
+    channels: [], messages, chatSeen: {}, deliveries: [], teamMembers, blockouts, notifications: [],
     cards: [], checkins: [], serving: [], recurring: [],
     notes: {}, progress: {}, saved: [], seen: [],
   };
