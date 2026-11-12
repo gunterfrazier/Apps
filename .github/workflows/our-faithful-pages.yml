@@ -19,8 +19,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Build
@@ -36,8 +36,8 @@ jobs:
           APP_URL: ${{ vars.APP_URL }}
         run: |
           node -e 'const e = process.env; require("fs").writeFileSync("config.js", "window.OUR_FAITHFUL_CONFIG = " + JSON.stringify({ supabaseUrl: e.SUPABASE_URL, supabasePublishableKey: e.SUPABASE_PUBLISHABLE_KEY || "", vapidPublicKey: e.VAPID_PUBLIC_KEY || "", appUrl: e.APP_URL || "" }) + ";\n")'
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: church-platform/dist
   deploy:
@@ -48,4 +48,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

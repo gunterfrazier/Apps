@@ -21,7 +21,8 @@ Nothing here costs money until a church starts taking payments or you pass the f
 The app is a folder of plain files (`church-platform/dist/`), so any static host works. These steps use GitHub Pages because the code is already on GitHub.
 
 1. Merge the `claude/church-platform` branch into `main` when you're ready (a pull request on GitHub is easiest).
-2. In the repository on GitHub, open **Settings, Pages**, and under **Build and deployment** choose **GitHub Actions**.
+2. In the repository on GitHub, open **Settings, Pages**, and under **Build and deployment, Source** choose **GitHub Actions** (not "Deploy from a branch": that publishes the source files, not the built app).
+   Then open **Settings, Environments, github-pages**. Under **Deployment branches and tags**, make sure `main` is allowed: choose **No restriction**, or keep **Selected branches and tags** and add `main`. If only `claude/church-platform` is listed, publishing fails with "Invalid deployment branch".
 3. Open the **Actions** tab, choose **Publish Our Faithful Church App**, and select **Run workflow**. It builds the app and publishes it.
 4. When it finishes, the address is shown on the run (something like `https://gunterfrazier.github.io/Apps/`). Write it down. This guide calls it **your app address**.
 
