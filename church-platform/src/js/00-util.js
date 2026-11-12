@@ -2,16 +2,20 @@
 // Rename the platform here. veritasUrl is where Bible links open; appUrl is what QR codes point to in the preview.
 // On your own website, QR codes use that site's address automatically.
 const PLATFORM = {
-  name: "Koinonia",
+  name: "Our Faithful Church App",
   tagline: "Your church, in your pocket",
   veritasUrl: "https://claude.ai/artifact/NNq1Q3MLHE93XzekkvdBtc",
   appUrl: "https://claude.ai/artifact/Htwf4rcWd3CBDK1Yw97j25",
-  storageKey: "koinonia-v2",
+  storageKey: "our-faithful-v1",
   color: "#4250d6",
   // Filled in by config.js on your own website (see SETUP.md). Empty means the app keeps data in the browser.
-  supabaseUrl: "", supabaseAnonKey: "", vapidPublicKey: "", platformFeePercent: 0,
-  ...(typeof window !== "undefined" && window.KOINONIA_CONFIG ? window.KOINONIA_CONFIG : {}),
+  supabaseUrl: "", supabasePublishableKey: "", vapidPublicKey: "", platformFeePercent: 0,
+  ...(typeof window !== "undefined" && window.OUR_FAITHFUL_CONFIG ? window.OUR_FAITHFUL_CONFIG : {}),
 };
+// Older config files call the publishable key the anon key.
+PLATFORM.supabasePublishableKey ||= PLATFORM.supabaseAnonKey || "";
+// A live site keeps its own copy in the browser, apart from anything tried in preview mode.
+if (PLATFORM.supabaseUrl && !/claude/i.test(location.hostname)) PLATFORM.storageKey += "-live";
 /** True inside the Claude preview frame, where other sites can't be framed and cameras, popups and service workers are off. */
 const IN_PREVIEW = /claude/i.test(location.hostname);
 
@@ -108,6 +112,7 @@ const PERMS = [
   ["Sunday", "checkin.station", "Run check-in and see room rosters"],
   ["Sunday", "qr.create", "Make QR codes"],
   ["Sunday", "schedule.teams", "Schedule volunteer teams"],
+  ["Sunday", "manage.devices", "Digital signage, kiosks and church screens"],
   ["Managing", "manage.content", "Announcements and events"],
   ["Managing", "manage.sermons", "Publish sermons and reading plans"],
   ["Managing", "manage.classes", "Create and schedule classes and groups"],
@@ -126,8 +131,10 @@ const PERM_LABEL = Object.fromEntries(PERMS.map(([, k, l]) => [k, l]));
 /** Permissions added after a church was created, and which built-in roles get them by default. */
 const NEW_PERM_DEFAULTS = {
   "book.rooms": ["pastor", "staff", "teacher", "leader"], "schedule.teams": ["pastor", "staff", "media"],
-  "manage.followup": ["pastor", "staff"], "view.reports": ["pastor", "staff"],
+  "manage.followup": ["pastor", "staff"], "view.reports": ["pastor", "staff"], "manage.devices": ["pastor", "staff", "media"],
 };
+/** What each kind of signed-in church device may do. Devices never get a person's role. */
+const DEVICE_PERMS = { kiosk: ["checkin.station", "use.checkin"], signage: [], display: ["present"], stage: ["present"], overlay: ["present"], booth: ["present"] };
 const mmss = (secs) => { const s = Math.max(0, Math.round(secs)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const MODULES = [
   ["sermons", "Sermons"], ["plans", "Reading plans"], ["events", "Events"], ["classes", "Classes and Sunday school"], ["groups", "Small groups"],

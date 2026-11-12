@@ -1,9 +1,10 @@
 // Runs every minute (pg_cron). Sends the events the app queued to each church's webhooks, signed with HMAC-SHA256:
-//   X-Koinonia-Signature: t=<unix seconds>,v1=<hex of HMAC(secret, "<t>.<body>")>
+//   X-Our-Faithful-Signature: t=<unix seconds>,v1=<hex of HMAC(secret, "<t>.<body>")>
 // Failures retry with growing gaps, up to 6 tries. Each attempt is logged for the church's admins.
-import { admin, handle, hmacHex, json, uid } from "../_shared/util.ts";
+import { admin, fail, fromCron, handle, hmacHex, json, uid } from "../_shared/util.ts";
 
-handle(async () => {
+handle(async (req) => {
+  if (!fromCron(req)) return fail("Not allowed", 401);
   const db = admin(), now = new Date();
   const { data: queue } = await db.from("records").select("id, church_id, data").eq("kind", "deliveries").eq("data->>status", "queued").eq("data->>outbox", "true").limit(100);
   let sent = 0;
@@ -18,7 +19,7 @@ handle(async () => {
       const t = Math.floor(Date.now() / 1000), sig = `t=${t},v1=${await hmacHex(h.secret, `${t}.${body}`)}`;
       let status = "delivered";
       try {
-        const res = await fetch(h.url, { method: "POST", headers: { "content-type": "application/json", "x-koinonia-signature": sig, "x-koinonia-event": q.data.event }, body, signal: AbortSignal.timeout(10000) });
+        const res = await fetch(h.url, { method: "POST", headers: { "content-type": "application/json", "x-our-faithful-signature": sig, "x-our-faithful-event": q.data.event }, body, signal: AbortSignal.timeout(10000) });
         if (!res.ok) { status = `failed (HTTP ${res.status})`; failed++; }
       } catch (e) { status = `failed (${(e as Error).name})`; failed++; }
       await db.from("records").insert({ kind: "deliveries", id: `d-${uid()}`, church_id: q.church_id, data: { churchId: q.church_id, webhookId: h.id, url: h.url, event: q.data.event, body, signature: sig, at: new Date().toISOString(), status } });

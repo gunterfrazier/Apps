@@ -1,6 +1,6 @@
 {
-  "name": "Koinonia",
-  "short_name": "Koinonia",
+  "name": "Our Faithful Church App",
+  "short_name": "Our Faithful",
   "description": "Sermons, events, giving, prayer, groups and kids check-in for your church.",
   "start_url": "./#home",
   "scope": "./",

@@ -15,7 +15,7 @@ const S = {
       this.state = saved;
       // Added after the first v2 release: named layouts and saved builder items.
       const seed = buildSeed();
-      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings"]) if (!saved[k]) saved[k] = seed[k];
+      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "devices", "signage"]) if (!saved[k]) saved[k] = seed[k];
       saved.me.pickups ||= [];
       Object.values(seed.users).forEach((u) => { const mine = saved.users[u.id]; if (!mine) { if (u.guestOf) saved.users[u.id] = u; } else if (!mine.family) Object.assign(mine, { family: u.family, pickups: u.pickups }); });
       Object.values(saved.churches).forEach((c) => {
@@ -26,12 +26,11 @@ const S = {
       saved.services.forEach((p) => { if (!p.assignments) p.assignments = seed.services.find((x) => x.id === p.id)?.assignments || []; });
       return;
     }
+    // With Supabase, start empty and let the server fill it in; sample churches are only for trying the app.
+    if (Backend.configured()) { this.state = blankState(); return; }
     this.state = buildSeed();
-    // Carry the person's profile and household over from the first version.
-    try {
-      const old = JSON.parse(localStorage.getItem("koinonia-v1") || "null");
-      if (old?.me) Object.assign(this.state.me, { name: old.me.name || "", email: old.me.email || "", phone: old.me.phone || "", household: old.me.household || [] });
-    } catch { /* nothing to carry over */ }
+    // Test data saved under the app's old working name: clear it so it doesn't use up the browser's storage.
+    try { Object.keys(localStorage).filter((k) => k.startsWith("koinonia-")).forEach((k) => localStorage.removeItem(k)); } catch { /* storage unavailable */ }
   },
   _timer: 0,
   save() { clearTimeout(this._timer); this._timer = setTimeout(() => this.flush(), 150); },
@@ -56,7 +55,8 @@ const S = {
   church(id) { return this.state.churches[id || this.state.current] || null; },
   churches() { return Object.values(this.state.churches); },
   membership(cid = this.state.current, userId = this.state.me.id) { return this.state.memberships.find((m) => m.churchId === cid && m.userId === userId) || null; },
-  members(cid = this.state.current) { return this.state.memberships.filter((m) => m.churchId === cid); },
+  /** People at a church. Signed-in screens and kiosks have memberships too, but they aren't people. */
+  members(cid = this.state.current) { return this.state.memberships.filter((m) => m.churchId === cid && !String(m.roleId || "").startsWith("device:")); },
   myChurches() { return this.state.memberships.filter((m) => m.userId === this.state.me.id).map((m) => this.state.churches[m.churchId]).filter(Boolean); },
   isMember(cid) { return !!this.membership(cid); },
   isPrimary(cid, userId = this.state.me.id) { return this.church(cid)?.ownerId === userId; },
@@ -64,6 +64,7 @@ const S = {
     if (this.isPrimary(cid, userId)) return PRIMARY_ROLE;
     const m = this.membership(cid, userId); if (!m) return null;
     const c = this.church(cid);
+    if (String(m.roleId || "").startsWith("device:")) { const t = m.roleId.slice(7); return { id: m.roleId, name: DEVICE_TYPES[t]?.[0] || "Device", rank: 5, perms: Object.fromEntries((DEVICE_PERMS[t] || []).map((p) => [p, true])) }; }
     return c.roles.find((r) => r.id === m.roleId) || c.roles.find((r) => r.id === c.defaults.roleId) || c.roles[c.roles.length - 1];
   },
   /** Can the viewer do this at the current church? */

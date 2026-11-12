@@ -28,7 +28,7 @@ Actions["hook-edit"] = (el) => {
     <label class="field"><span>Address to send to</span><input type="url" name="url" value="${h.url || ""}" placeholder="https://example.com/hooks/church" required></label>
     <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Send when</legend>${WEBHOOK_EVENTS.map(([k, label]) => html`<label class="check" style="padding:5px 0"><input type="checkbox" name="events" value="${k}" ${attr(h.events.includes(k), "checked")}><span>${label} <span class="faint">${k}</span></span></label>`)}</fieldset>
     <label class="check"><input type="checkbox" name="active" ${attr(h.active, "checked")}><span>Active</span></label>
-    <div class="field"><span>Signing secret</span><code class="secret">${h.secret}</code><small>Each message has an <code>X-Koinonia-Signature</code> header: <code>t=timestamp,v1=signature</code>, where the signature is HMAC-SHA256 of "timestamp.body" with this secret.</small>
+    <div class="field"><span>Signing secret</span><code class="secret">${h.secret}</code><small>Each message has an <code>X-Our-Faithful-Signature</code> header: <code>t=timestamp,v1=signature</code>, where the signature is HMAC-SHA256 of "timestamp.body" with this secret.</small>
       <div class="btns"><button type="button" class="btn ghost sm" data-act="copy" data-text="${h.secret}" data-done="Secret copied">${icon("copy")}Copy secret</button></div></div>
     <div class="btns"><button class="btn">Save</button>${h.id ? html`<button type="button" class="btn ghost" data-act="hook-test" data-id="${h.id}">Send a test</button><button type="button" class="btn danger" data-act="hook-delete" data-id="${h.id}">Delete</button>` : ""}</div></form>`);
 };
@@ -51,7 +51,7 @@ Actions["hook-log"] = (el) => {
   const x = S.state.deliveries.find((d) => d.id === el.dataset.id);
   let pretty = x.body; try { pretty = JSON.stringify(JSON.parse(x.body), null, 2); } catch {}
   openSheet(x.event, html`<p class="faint" style="margin-top:0">POST ${x.url}<br>${fmtWhen(x.at)}. ${x.status === "queued" ? "Waiting for your server to send it." : x.status}</p>
-    <div class="field"><span>Headers</span><pre class="code">Content-Type: application/json\nX-Koinonia-Event: ${x.event}\nX-Koinonia-Signature: ${x.signature}</pre></div>
+    <div class="field"><span>Headers</span><pre class="code">Content-Type: application/json\nX-Our-Faithful-Event: ${x.event}\nX-Our-Faithful-Signature: ${x.signature}</pre></div>
     <div class="field"><span>Body</span><pre class="code">${pretty}</pre></div>
     <div class="btns"><button class="btn ghost sm" data-act="copy" data-text="${x.body}">${icon("copy")}Copy body</button></div>`, { wide: true });
 };

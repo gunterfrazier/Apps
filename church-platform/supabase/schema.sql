@@ -1,4 +1,4 @@
--- Koinonia: shared database for many churches (Supabase / Postgres). Version 3.
+-- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 4.
 -- Run this once in the Supabase SQL editor on a new project (see SETUP.md).
 --
 -- How it fits the app: the app keeps one list per kind of thing (sermons, events, prayers, gifts...). Each item is a
@@ -92,9 +92,14 @@ create or replace function is_member(c text) returns boolean language sql stable
   $$ select is_primary(c) or exists (select 1 from memberships where church_id = c and user_id = auth.uid()) $$;
 create or replace function my_rank(c text) returns int language sql stable security definer set search_path = public as
   $$ select case when is_primary(c) then 100 else coalesce((select r.rank from memberships m join roles r on r.church_id = m.church_id and r.key = m.role_key where m.church_id = c and m.user_id = auth.uid()), 0) end $$;
+-- Signed-in church devices (kiosks, screens, the booth) have a membership with role_key 'device:<type>' instead of a role.
+create or replace function device_perms(t text) returns text[] language sql immutable as $$
+  select case t when 'kiosk' then array['checkin.station', 'use.checkin'] when 'display' then array['present'] when 'stage' then array['present']
+    when 'overlay' then array['present'] when 'booth' then array['present'] else array[]::text[] end $$;
 create or replace function can(c text, perm text) returns boolean language sql stable security definer set search_path = public as
   $$ select is_primary(c) or exists (select 1 from memberships m join roles r on r.church_id = m.church_id and r.key = m.role_key
-       where m.church_id = c and m.user_id = auth.uid() and coalesce((r.perms->>perm)::boolean, false)) $$;
+       where m.church_id = c and m.user_id = auth.uid() and coalesce((r.perms->>perm)::boolean, false))
+     or exists (select 1 from memberships m where m.church_id = c and m.user_id = auth.uid() and m.role_key like 'device:%' and perm = any(device_perms(substr(m.role_key, 8)))) $$;
 -- Church-wide items (no location) and public locations are visible to all; private locations need access.
 create or replace function sees_location(c text, loc text) returns boolean language sql stable security definer set search_path = public as
   $$ select loc is null or is_primary(c) or exists (select 1 from locations l where l.id = loc and l.visibility = 'public')
@@ -139,6 +144,8 @@ create or replace function rec_read(k text, c text, loc text, own text, d jsonb)
     when k = 'channels' then d->'members' ? auth.uid()::text
     when k = 'messages' then in_channel(c, d->>'channelId')
     when k in ('deliveries', 'integrations') then can(c, 'manage.integrations')
+    when k = 'devices' then can(c, 'manage.devices')
+    when k = 'signage' then is_member(c)
     else false end $$;
 -- Who can add, change or remove each kind of record. op is 'insert', 'update' or 'delete'.
 create or replace function rec_write(k text, c text, own text, d jsonb, op text) returns boolean language sql stable security definer set search_path = public as $$
@@ -171,6 +178,9 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
     when k = 'notifications' then (op = 'insert' and is_member(c)) or own = auth.uid()::text
     when k = 'deliveries' then (op = 'insert' and is_member(c) and d->>'status' = 'queued') or can(c, 'manage.integrations')
     when k = 'integrations' then can(c, 'manage.integrations')
+    -- Devices are paired and removed by the device-pair function; a paired device can only update when it was last seen.
+    when k = 'devices' then can(c, 'manage.devices') or (op = 'update' and own = auth.uid()::text)
+    when k = 'signage' then can(c, 'manage.devices')
     else false end $$;
 
 -- Sign-up counts everyone can see, without seeing who signed up.
@@ -244,6 +254,7 @@ begin
   if auth.uid() is null then return new; end if;
   if new.role_key is distinct from old.role_key or new.locations is distinct from old.locations then
     if not can(old.church_id, 'manage.roles') then raise exception 'Your role cannot change roles or location access'; end if;
+    if new.role_key like 'device:%' or old.role_key like 'device:%' then raise exception 'Devices are managed under Screens and devices'; end if;
     if not is_primary(old.church_id) and (coalesce((select rank from roles where church_id = old.church_id and key = new.role_key), 0) >= my_rank(old.church_id)
       or coalesce((select rank from roles where church_id = old.church_id and key = old.role_key), 0) >= my_rank(old.church_id)) then
       raise exception 'You can only give roles below your own'; end if;
@@ -252,10 +263,17 @@ begin
 end $$;
 create trigger memberships_guard before update on memberships for each row execute function guard_membership();
 
--- Members can mark "I prayed" on someone else's request, and nothing more.
+-- Members can mark "I prayed" on someone else's request, and nothing more. A device can only say it's still on.
 create or replace function guard_records() returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if auth.uid() is null or new.kind <> 'prayers' or old.owner = auth.uid()::text or can(old.church_id, 'manage.prayer') then return new; end if;
+  if auth.uid() is null then return new; end if;
+  if new.kind = 'devices' then
+    if can(old.church_id, 'manage.devices') then return new; end if;
+    if (new.data - 'lastSeen') is distinct from (old.data - 'lastSeen') or new.owner is distinct from old.owner or new.church_id is distinct from old.church_id
+    then raise exception 'A device can only update when it was last seen'; end if;
+    return new;
+  end if;
+  if new.kind <> 'prayers' or old.owner = auth.uid()::text or can(old.church_id, 'manage.prayer') then return new; end if;
   if (new.data - 'prayedBy') is distinct from (old.data - 'prayedBy')
      or exists (select 1 from jsonb_array_elements_text(coalesce(new.data->'prayedBy', '[]')) x where x <> auth.uid()::text and not (coalesce(old.data->'prayedBy', '[]') ? x))
      or exists (select 1 from jsonb_array_elements_text(coalesce(old.data->'prayedBy', '[]')) x where x <> auth.uid()::text and not (coalesce(new.data->'prayedBy', '[]') ? x))

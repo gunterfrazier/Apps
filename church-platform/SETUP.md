@@ -1,4 +1,4 @@
-# Setting up Koinonia for real churches
+# Setting up Our Faithful Church App for real churches
 
 The preview keeps everything in one browser. This guide connects the app to the services that let real people share data, sign in, give money and get notifications. Do the steps in order. Steps 1 to 5 give you a working shared app; the rest add payments, push notifications, AI drafts, schedules and text-to-give, and can come later.
 
@@ -22,7 +22,7 @@ The app is a folder of plain files (`church-platform/dist/`), so any static host
 
 1. Merge the `claude/church-platform` branch into `main` when you're ready (a pull request on GitHub is easiest).
 2. In the repository on GitHub, open **Settings, Pages**, and under **Build and deployment** choose **GitHub Actions**.
-3. Open the **Actions** tab, choose **Publish Koinonia**, and select **Run workflow**. It builds the app and publishes it.
+3. Open the **Actions** tab, choose **Publish Our Faithful Church App**, and select **Run workflow**. It builds the app and publishes it.
 4. When it finishes, the address is shown on the run (something like `https://gunterfrazier.github.io/Apps/`). Write it down. This guide calls it **your app address**.
 
 At this point the app runs on its own site, still in browser-only mode. Install it on a phone to check: in Chrome choose **Install app**; on iPhone, Safari's **Share, Add to Home Screen**.
@@ -33,11 +33,12 @@ At this point the app runs on its own site, still in browser-only mode. Install 
 
 1. Sign up at [supabase.com](https://supabase.com) and create a project. Pick the region nearest your churches and save the database password somewhere safe.
 2. Open **SQL Editor**, paste all of `church-platform/supabase/schema.sql`, and select **Run**. It creates the tables, the security rules and a public `media` bucket for logos and sermon audio.
-3. Open **Project Settings, API** and copy two values:
-   - **Project URL** (`https://abcd1234.supabase.co`)
-   - **anon public** key
+   Already ran an earlier `schema.sql` (version 3)? Run `church-platform/supabase/upgrade-4.sql` once instead. It updates the security rules for digital signage and church devices and leaves your data alone.
+3. Your project's address and **publishable key** (`sb_publishable_...`, under **Project Settings, API Keys**) are already in `public/config.js` for the project `iigterjskwnqmnoysbha`. If you ever make a new project, change them there.
 
-The anon key is safe to publish: it can only do what the security rules allow for each signed-in person.
+The publishable key is safe to publish: it can only do what the security rules allow for each signed-in person. The **secret** key (`sb_secret_...`) and the database password are different: never put them in the app, in GitHub, or in a chat. The server functions get the secret key from Supabase on their own.
+
+> Supabase's **Connect** panel shows setup steps for frameworks like Next.js (`npm install @supabase/ssr`, `.env.local`, middleware). Skip those: Our Faithful Church App is a plain web app that loads Supabase in the browser, so it only needs the address and publishable key.
 
 ## 3. Turn on sign-in by email code
 
@@ -56,16 +57,9 @@ People sign in with a 6-digit code sent to their email, with no passwords to for
 
 ## 4. Point the app at the database
 
-On GitHub, open **Settings, Secrets and variables, Actions, Variables** and add these repository variables:
+This is already done: `public/config.js` names your project, and the build puts it next to the app. Run **Publish Our Faithful Church App** again after step 2 so the published site picks it up.
 
-| Name | Value |
-| --- | --- |
-| `SUPABASE_URL` | the Project URL from step 2 |
-| `SUPABASE_ANON_KEY` | the anon public key from step 2 |
-| `APP_URL` | your app address, ending in `/` |
-| `VAPID_PUBLIC_KEY` | leave blank for now (step 7) |
-
-Run **Publish Koinonia** again. The workflow writes these into `config.js` next to the app. (Hosting somewhere else? Copy `public/config.example.js` to `config.js` in the folder you upload and fill it in.)
+To use a different project without changing the code, add repository variables on GitHub under **Settings, Secrets and variables, Actions, Variables**: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `APP_URL` (your app address, ending in `/`) and later `VAPID_PUBLIC_KEY`. When `SUPABASE_URL` is set, the workflow writes those into `config.js` instead. (Hosting somewhere else? Upload `config.js` with the rest of the `dist` folder.)
 
 Open your app address. You should now see **Email me a sign-in code** instead of the preview's welcome screen.
 
@@ -90,7 +84,7 @@ Each church connects its own Stripe account, so money goes straight to that chur
 2. Open **Connect** and finish the platform setup. Choose **Standard** accounts, so each church has its own Stripe dashboard and handles its own refunds and disputes.
 3. Open **Developers, API keys** and copy the **Secret key** (`sk_test_...`).
 4. Open **Developers, Webhooks, Add endpoint**:
-   - Endpoint URL: `https://YOUR-PROJECT.supabase.co/functions/v1/stripe-webhook`
+   - Endpoint URL: `https://iigterjskwnqmnoysbha.supabase.co/functions/v1/stripe-webhook`
    - Select **Listen to events on Connected accounts**
    - Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `invoice.paid`, `customer.subscription.deleted`, `charge.refunded`, `account.updated`
    - Copy the **Signing secret** (`whsec_...`).
@@ -99,7 +93,7 @@ Each church connects its own Stripe account, so money goes straight to that chur
 
 ```bash
 supabase login
-supabase link --project-ref YOUR-PROJECT-REF          # the part before .supabase.co
+supabase link --project-ref iigterjskwnqmnoysbha
 supabase secrets set APP_URL=https://YOUR-APP-ADDRESS/ \
   STRIPE_SECRET_KEY=sk_test_... STRIPE_WEBHOOK_SECRET=whsec_... PLATFORM_FEE_PERCENT=0
 supabase functions deploy checkout
@@ -109,7 +103,7 @@ supabase functions deploy refund
 supabase functions deploy recurring
 ```
 
-`supabase/config.toml` tells Supabase which functions are called by outside services (Stripe, Twilio, podcast apps) and check their own signatures instead of a sign-in.
+`supabase/config.toml` turns off the platform's own token check, which doesn't work with publishable and secret keys. Each function checks its caller itself: signed-in people through Supabase Auth, Stripe and Twilio by their signatures, the database webhook and the schedules by a shared secret.
 
 **Connect a church:** in the app, **Admin, Giving, Connect Stripe**. Stripe asks for the church's legal name, EIN and bank account (about ten minutes). When Stripe finishes checking, the test-mode notes disappear and gifts, tickets and form fees go through Stripe Checkout, which handles cards, Apple Pay, Google Pay and bank accounts, and emails receipts.
 
@@ -122,7 +116,7 @@ Year-end statements need nothing extra: members download a PDF under **Giving hi
 ## 7. Push notifications
 
 1. Make a key pair (run anywhere with Node): `npx web-push generate-vapid-keys`
-2. Add the **public** key as the `VAPID_PUBLIC_KEY` repository variable (step 4) and run **Publish Koinonia** again.
+2. Add the **public** key as the `VAPID_PUBLIC_KEY` repository variable (step 4) and run **Publish Our Faithful Church App** again.
 3. Set the server secrets and deploy:
    ```bash
    supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@yourchurch.org PUSH_HOOK_SECRET=any-long-random-text
@@ -148,7 +142,13 @@ supabase functions deploy webhooks
 supabase functions deploy reminders
 ```
 
-Then open `supabase/cron.sql`, replace `YOUR-PROJECT` and `YOUR-SERVICE-ROLE-KEY` (from **Project Settings, API**), and run it in the SQL editor. It sends queued webhook messages every minute and adds day-before reminders every hour. The service role key goes into Supabase Vault, not into the app.
+Pick a long random password for the schedules and give it to the functions:
+
+```bash
+supabase secrets set CRON_SECRET=any-long-random-text
+```
+
+Then open `supabase/cron.sql`, replace `YOUR-PROJECT` with `iigterjskwnqmnoysbha` and `PASTE-THE-SAME-RANDOM-TEXT` with that password, and run it in the SQL editor. It sends queued webhook messages every minute and adds day-before reminders every hour. The password lives in Supabase Vault, not in the app.
 
 ## 10. Podcast feed
 
@@ -163,13 +163,29 @@ Under **Admin, Sermons, Podcast feed**, fill in the show details and cover art, 
 1. Buy a number at [twilio.com](https://twilio.com) (US numbers need A2P 10DLC registration for texting, which Twilio walks you through).
 2. Deploy and set the secrets:
    ```bash
-   supabase secrets set TWILIO_AUTH_TOKEN=... SMS_PUBLIC_URL=https://YOUR-PROJECT.supabase.co/functions/v1/sms
+   supabase secrets set TWILIO_AUTH_TOKEN=... SMS_PUBLIC_URL=https://iigterjskwnqmnoysbha.supabase.co/functions/v1/sms
    supabase functions deploy sms
    ```
 3. In Twilio, set the number's **A message comes in** webhook to the same `SMS_PUBLIC_URL` (HTTP POST).
 4. In the app, **Admin, Giving**: enter the number and a keyword. People text `GIVE 50` and get a link to finish the gift. One number can serve one church.
 
-## 12. Check that everything works
+## 12. Church devices: kiosks, signage and screens
+
+Kiosks, lobby screens, presentation and stage screens and the booth computer sign in as devices, with their own accounts, so nobody leaves a staff login on a shared screen.
+
+```bash
+supabase functions deploy device-pair
+```
+
+1. In the app, **Admin, Screens and devices, Add a device**. Choose what it does, its location, and an exit code if you want one. You get a 6-character code that lasts 30 minutes.
+2. On the device, open the app and choose **Set up a church device** (under the sign-in box), or scan the QR code next to the code. Enter the code. The device signs in and goes straight to its screen.
+3. To sign a device out, open it in **Screens and devices** and choose **Remove device**. Its account is deleted and the screen goes back to sign-in.
+
+Each device gets only what its job needs: a kiosk can check kids in, presentation and stage screens and the booth can present, and a signage screen can only read its church's playlists and public information. Device accounts don't appear in the member directory or the people list. Codes are single-use and expire; a wrong code is refused after a short pause.
+
+For signage, make a playlist under **Admin, Digital signage** first, then add a **Signage screen** device that plays it.
+
+## 13. Check that everything works
 
 - [ ] Two people on different phones join the same church and see each other's prayer requests and chat messages.
 - [ ] A member can't open **Admin**, and a teacher sees only their own classes in the lesson builder.
@@ -177,6 +193,7 @@ Under **Admin, Sermons, Podcast feed**, fill in the show details and cover art, 
 - [ ] Turning on push and posting an announcement with **Also send it as a notification** reaches a phone with the app closed.
 - [ ] A webhook pointed at [webhook.site](https://webhook.site) receives `member.joined` with a valid signature.
 - [ ] The kiosk finds a family and prints a name tag on your label printer.
+- [ ] A paired presentation screen on another computer shows the booth's slides as you move through them, and goes back to its logo or playlist when you close the presenter.
 
 ## Troubleshooting
 

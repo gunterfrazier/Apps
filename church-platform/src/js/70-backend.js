@@ -9,24 +9,27 @@
 
 const Backend = {
   on: false, client: null, user: null, aiEnabled: true, ready: false, snap: new Map(), pending: false, warned: false, channel: null, present: null,
-  configured() { return !IN_PREVIEW && !!PLATFORM.supabaseUrl && !!PLATFORM.supabaseAnonKey; },
+  configured() { return !IN_PREVIEW && !!PLATFORM.supabaseUrl && !!PLATFORM.supabasePublishableKey; },
 
   async start() {
     if (!this.configured()) return;
     this.on = true;
     try {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.45.4");
-      this.client = createClient(PLATFORM.supabaseUrl, PLATFORM.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
-    } catch (e) { console.error("Supabase didn't load", e); toast("Can't reach the server. Showing what's saved on this device."); return; }
+      const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/+esm");
+      this.client = createClient(PLATFORM.supabaseUrl, PLATFORM.supabasePublishableKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+    } catch (e) { console.error("Supabase didn't load", e); this.failed = true; render(); return; }
     const { data } = await this.client.auth.getSession();
     this.client.auth.onAuthStateChange((evt, session) => { if (evt === "SIGNED_OUT") { this.user = null; this.ready = false; S.state = blankState(); S.flush(); go("signin"); } else if (session?.user && !this.user) { this.user = session.user; this.afterSignIn(); } });
     if (data.session?.user) { this.user = data.session.user; await this.afterSignIn(); }
     else render();
   },
-  async afterSignIn() {
-    try { await this.pull(); } catch (e) { console.error(e); toast("Couldn't load your churches. Check your connection."); }
-    this.ready = true; this.subscribe(); render();
-    if (pendingRoute) { const r = pendingRoute; pendingRoute = null; go(r); }
+  /** Runs once per sign-in, even if the sign-in event and the sign-in form both ask. */
+  afterSignIn() {
+    return this.starting ||= (async () => {
+      try { await this.pull(); } catch (e) { console.error(e); toast("Couldn't load your churches. Check your connection."); }
+      this.ready = true; this.subscribe(); render();
+      if (pendingRoute) { const r = pendingRoute; pendingRoute = null; go(r); }
+    })().finally(() => { this.starting = null; });
   },
   async signOut() { await this.client?.auth.signOut(); },
 
@@ -201,7 +204,7 @@ const Backend = {
 
 /** Collections kept in the records table, one row per item. */
 const RECORD_KINDS = ["sermons", "events", "news", "prayers", "gatherings", "plans", "gifts", "recurring", "docs", "songs", "library", "services", "layouts", "savedBlocks", "channels", "messages", "cards",
-  "checkins", "serving", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "deliveries"];
+  "checkins", "serving", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "deliveries", "devices", "signage"];
 /** Lists inside a record that belong to one person each, stored as their own rows so security can follow the person. */
 const SPLIT = {
   events: { field: "registrations", kind: "event_regs", owner: (r) => r.by },
@@ -211,7 +214,7 @@ const SPLIT = {
 /** Who a record belongs to, for "your own" security rules. */
 function ownerOf(kind, r) {
   return { prayers: r.by, gifts: r.by, recurring: r.by, docs: r.authorId, cards: r.by, checkins: r.by, serving: r.by, teamMembers: r.userId, blockouts: r.userId, notifications: r.userId,
-    formResponses: r.by, bookings: r.by, messages: r.by, followups: r.assignedTo }[kind] || null;
+    formResponses: r.by, bookings: r.by, messages: r.by, followups: r.assignedTo, devices: r.deviceUser }[kind] || null;
 }
 /** A fresh state with no sample churches, for signed-in use. */
 function blankState() {
@@ -231,7 +234,8 @@ Screens.signin = () => {
           <button class="btn block">Email me a sign-in code</button><p class="faint">New here? The same code creates your account.</p></form>`
         : html`<form data-form="signin-code" class="panel" novalidate><p style="margin-top:0">We sent a 6-digit code to <b>${signinEmail}</b>.</p>
           <label class="field"><span>Code</span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required style="font-size:1.4rem;letter-spacing:.3em;text-align:center"></label>
-          <button class="btn block">Sign in</button><button type="button" class="linkish" data-act="signin-back">Use a different email</button></form>`}</div></div></div>`,
+          <button class="btn block">Sign in</button><button type="button" class="linkish" data-act="signin-back">Use a different email</button></form>`}
+      <p style="text-align:center;margin-top:12px"><a class="linkish" href="#pair">${icon("lock")}Set up a church device</a></p></div></div></div>`,
   };
 };
 Forms["signin-email"] = async (d, f) => {

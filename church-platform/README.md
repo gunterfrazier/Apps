@@ -1,8 +1,8 @@
-# Koinonia
+# Our Faithful Church App
 
 A phone-first church app that many churches share. People create an account, find their church and join it. A church registers its own account, separate from any person's, and the person who registers it becomes its primary account holder. From there the church sets up roles, locations, features and content.
 
-"Koinonia" is a working name. Change it in `PLATFORM` at the top of `src/js/00-util.js` and in `public/manifest.webmanifest`.
+To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`, the title and the two app-name tags in `src/index.html`, `name` and `short_name` in `public/manifest.webmanifest`, and the letters on the icons in `public/icons/`.
 
 ## What's in it
 
@@ -43,6 +43,13 @@ A phone-first church app that many churches share. People create an account, fin
 - Countdown segments that count down to the service start time or for the segment's length.
 - Livestream overlay: a see-through page for OBS, vMix or Streamlabs that puts lyrics, Scripture and live captions in a lower third.
 - Live captions turn the preacher's words into text with the browser's speech recognition (Chrome, Edge or Safari) and show them on the overlay.
+
+**Digital signage and church devices**
+- Signage playlists for lobby, hallway and kids-area screens, in landscape or portrait, with the church's colors, a dark or a light look, and the time in the corner.
+- Slides that fill themselves in: a welcome with the Home banner, this week's service times with a countdown to the next service, current announcements, upcoming events (as a list, or one per slide with a QR code to sign up), today's classes and their rooms, the latest sermon, and a Bible verse. Others are written by hand: a message, a picture or flyer, a QR code to anything in the app, and giving with the text-to-give number. Each slide can have its own length and start and end dates. A playlist for one location leaves out other locations' announcements, events and classes.
+- **Screens and devices** signs in the church's shared screens as devices, not as people: check-in kiosks, signage screens, presentation screens, stage displays, livestream overlays and the booth computer. Add a device, then open **Set up a church device** on it (or scan the QR code) and enter the 6-character code. It stays signed in and only opens its own screens, keeps the screen awake, and needs the exit code to leave.
+- A paired kiosk starts itself for the service happening now or next at its location, with its own label size. Presentation screens, stage displays and overlays follow whatever the booth presents at their location, and show a signage playlist or the church's logo in between. The booth computer lists the coming service plans and sermons to present.
+- Staff see each device's status (waiting to pair, online, last seen) and remove a device to sign it out right away.
 
 **Kids check-in kiosk, new people and reports**
 - A self check-in kiosk for a tablet at the kids area. Families find themselves by the last four digits of their phone or their last name, tap who's here and get a name tag for each child plus a pickup tag with the same code. First-time families add themselves as guests in a minute. An optional exit code keeps kids from leaving kiosk mode, and the kiosk returns to the start if a family walks away.
@@ -109,7 +116,7 @@ Edit the files in `src/`, not `dist/`. `src/vendor/qrcode.js` (MIT) and `public/
 
 The preview runs everything in one browser. [SETUP.md](SETUP.md) walks through connecting real services, step by step:
 
-1. **Host it** on GitHub Pages with the included workflow (`.github/workflows/koinonia-pages.yml`), or any static host.
+1. **Host it** on GitHub Pages with the included workflow (`.github/workflows/our-faithful-pages.yml`), or any static host.
 2. **Shared data and sign-in** with Supabase: run `supabase/schema.sql`, turn on email codes, and put the project's URL and public key in `config.js`. `src/js/70-backend.js` then signs people in, loads what each person may see, writes only what changed, and follows other people's changes live. Row-level security in the schema checks each person's role and location access on every read and write.
 3. **Real giving** with Stripe Connect: each church connects its own account; Checkout handles cards, Apple Pay, Google Pay and bank accounts; a webhook records gifts, recurring gifts, tickets, form fees and refunds. Text-to-give works through a Twilio number. Year-end statements download as PDFs.
 4. **Push notifications** with Web Push (VAPID keys and a database webhook).
@@ -137,9 +144,12 @@ src/js/40-69          Screens: home and Watch live, word, events, connect (class
                       stage display and livestream overlay, check-in kiosk, follow-up, reports,
                       payments, forms, rooms, sermon media and podcast, AI drafts, settings, Spanish, PDF statements
 src/js/70-backend.js  Supabase sign-in and sync (off in the preview and until config.js names a project)
+src/js/71-signage.js  Digital signage: playlists, slides that fill themselves in, the full-screen player
+src/js/72-devices.js  Church devices: pairing codes, device mode, screens that follow the booth, the booth computer
 public/               Manifest, service worker (offline and push), icons, QR reader, config.example.js
 supabase/schema.sql   Database tables and security rules
-supabase/functions/   Server functions: payments, push, reminders, webhooks, AI, podcast, text-to-give
+supabase/upgrade-4.sql  For a database made before signage and devices: run once
+supabase/functions/   Server functions: payments, push, reminders, webhooks, AI, podcast, text-to-give, device pairing
 supabase/cron.sql     Schedules for webhooks and reminders
 SETUP.md              Step-by-step guide to going live
 test/smoke.mjs        End-to-end check
@@ -151,5 +161,7 @@ test/smoke.mjs        End-to-end check
 - With Supabase, each person's app loads everything they may see at their churches. That suits churches with up to a few thousand people; larger ones would need screens that load page by page.
 - Name tags print through the browser's print dialog to whatever label printer the kiosk device uses. To print without the dialog, run Chrome with `--kiosk --kiosk-printing` and set the label printer as the default. Tags don't print in the preview.
 - The stage display, display window and overlay follow the operator through the browser on the same computer, and through Supabase Realtime on any device once it's connected.
+- In the preview, a "device" is another tab in the same browser, and device mode ends when the tab closes. Signage pictures are stored in the playlist, so keep them to a handful per playlist until Supabase is connected.
+- Browsers only keep the screen awake while the page is visible. For a signage screen or kiosk, also turn off the device's own sleep and screen saver, and on a TV stick or tablet use its kiosk or guided-access mode so the browser stays in front.
 - Live captions depend on the browser's speech recognition, which sends audio to the browser maker's service, and need a microphone the browser is allowed to use.
 - Recordings and livestreams play by opening or framing the church's video link. Saving audio for offline listening needs the church to host its files on the same site.

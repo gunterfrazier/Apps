@@ -71,8 +71,15 @@ function printLabels(records) {
 // ----- The kiosk -----
 Screens.kiosk = () => {
   const blocked = guard("checkin.station"); if (blocked) return blocked;
-  const c = S.church(), svc = findService(kiosk.serviceKey, 10);
+  const c = S.church(), dev = thisDevice();
+  // A paired kiosk starts itself: the service happening now or next at its location, with its own label size and exit code.
+  if (dev && (kiosk.step === "setup" || !findService(kiosk.serviceKey, 10))) {
+    const next = upcomingServices(c, 8, dev.locationId || "all")[0];
+    if (next) Object.assign(kiosk, { serviceKey: serviceKey(next), size: dev.settings?.labelSize || "4x2", pin: "", step: "find", q: "", family: null, picked: [], records: [] });
+  }
+  const svc = findService(kiosk.serviceKey, 10);
   if (kiosk.step === "setup" || !svc) {
+    if (dev) return { page: html`<div class="loading">${S.church().name}: no services are scheduled${dev.locationId ? ` at ${locName(dev.locationId)}` : ""} this week.${deviceExitBtn()}</div>` };
     kiosk.step = "setup";
     const services = upcomingServices(c, 8, "all");
     return {
@@ -128,7 +135,7 @@ Screens.kiosk = () => {
   return {
     kiosk: true,
     page: html`<div class="kiosk">
-      <header class="kiosk-head">${churchMark(c, 46)}<div class="kh-t"><b>${c.name}</b><span>${serviceName(svc)}</span></div><button class="icon-btn" data-act="kiosk-exit" aria-label="Exit the kiosk">${icon("lock")}</button></header>
+      <header class="kiosk-head">${churchMark(c, 46)}<div class="kh-t"><b>${c.name}</b><span>${serviceName(svc)}</span></div><button class="icon-btn" data-act="${dev ? "device-exit" : "kiosk-exit"}" aria-label="Exit the kiosk">${icon("lock")}</button></header>
       <main class="kiosk-main">${main}</main></div>`,
     after() {
       kiosk.touched = Date.now();

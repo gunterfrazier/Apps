@@ -1,13 +1,40 @@
-# Settings for `supabase functions deploy` (see SETUP.md). Functions called by Stripe, Twilio, podcast apps
-# and database webhooks don't carry a signed-in user, so they skip the JWT check and verify their own signatures.
+# Settings for `supabase functions deploy` (see SETUP.md).
+# With publishable and secret API keys, the platform's own JWT check is turned off for every function. Each function
+# checks its caller itself: signed-in people through Supabase Auth, Stripe and Twilio by their signatures,
+# the database webhook by x-hook-secret and the schedules by x-cron-secret.
+
+[functions.checkout]
+verify_jwt = false
+
 [functions.stripe-webhook]
 verify_jwt = false
 
-[functions.sms]
+[functions.stripe-connect]
+verify_jwt = false
+
+[functions.refund]
+verify_jwt = false
+
+[functions.recurring]
+verify_jwt = false
+
+[functions.push]
+verify_jwt = false
+
+[functions.reminders]
+verify_jwt = false
+
+[functions.webhooks]
+verify_jwt = false
+
+[functions.ai]
 verify_jwt = false
 
 [functions.podcast]
 verify_jwt = false
 
-[functions.push]
+[functions.sms]
+verify_jwt = false
+
+[functions.device-pair]
 verify_jwt = false
