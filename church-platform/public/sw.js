@@ -25,7 +25,7 @@ self.addEventListener("fetch", (e) => {
 // Push notifications sent by the server (see supabase/functions/push). Each carries { title, body, url, tag }.
 self.addEventListener("push", (e) => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(d.title || "Koinonia", { body: d.body || "", tag: d.tag, icon: "icons/icon-192.png", badge: "icons/icon-192.png", data: { url: d.url || "./#alerts" } }));
+  e.waitUntil(self.registration.showNotification(d.title || "Our Faithful Church App", { body: d.body || "", tag: d.tag, icon: "icons/icon-192.png", badge: "icons/icon-192.png", data: { url: d.url || "./#alerts" } }));
 });
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();

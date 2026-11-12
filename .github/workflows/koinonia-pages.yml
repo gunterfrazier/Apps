@@ -1,8 +1,8 @@
-# Builds the Koinonia church app and publishes it with GitHub Pages.
+# Builds Our Faithful Church App and publishes it with GitHub Pages.
 # Runs when church-platform changes on main, or by hand from the Actions tab. The Supabase settings come from
 # church-platform/public/config.js; repository variables (SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, VAPID_PUBLIC_KEY,
 # APP_URL under Settings, Secrets and variables, Actions, Variables) replace it when set.
-name: Publish Koinonia
+name: Publish Our Faithful Church App
 on:
   workflow_dispatch:
   push:

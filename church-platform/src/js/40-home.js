@@ -260,7 +260,7 @@ Actions["open-switcher"] = () => {
 
 Actions["invite"] = () => {
   const c = S.church();
-  copyText(`Come to church with me! ${c.name}${churchCity(c) ? ` in ${churchCity(c)}` : ""}. ${servicesSummary(c)}. Find "${c.name}" in the ${PLATFORM.name} app: ${appLink(`church-${c.id}`)}`, "Invitation copied");
+  copyText(`Come to church with me! ${c.name}${churchCity(c) ? ` in ${churchCity(c)}` : ""}. ${servicesSummary(c)}. Find "${c.name}" in the ${PLATFORM.name}: ${appLink(`church-${c.id}`)}`, "Invitation copied");
 };
 
 Actions["connect-card"] = () => {

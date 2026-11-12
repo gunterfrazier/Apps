@@ -1,4 +1,4 @@
-# Setting up Koinonia for real churches
+# Setting up Our Faithful Church App for real churches
 
 The preview keeps everything in one browser. This guide connects the app to the services that let real people share data, sign in, give money and get notifications. Do the steps in order. Steps 1 to 5 give you a working shared app; the rest add payments, push notifications, AI drafts, schedules and text-to-give, and can come later.
 
@@ -22,7 +22,7 @@ The app is a folder of plain files (`church-platform/dist/`), so any static host
 
 1. Merge the `claude/church-platform` branch into `main` when you're ready (a pull request on GitHub is easiest).
 2. In the repository on GitHub, open **Settings, Pages**, and under **Build and deployment** choose **GitHub Actions**.
-3. Open the **Actions** tab, choose **Publish Koinonia**, and select **Run workflow**. It builds the app and publishes it.
+3. Open the **Actions** tab, choose **Publish Our Faithful Church App**, and select **Run workflow**. It builds the app and publishes it.
 4. When it finishes, the address is shown on the run (something like `https://gunterfrazier.github.io/Apps/`). Write it down. This guide calls it **your app address**.
 
 At this point the app runs on its own site, still in browser-only mode. Install it on a phone to check: in Chrome choose **Install app**; on iPhone, Safari's **Share, Add to Home Screen**.
@@ -38,7 +38,7 @@ At this point the app runs on its own site, still in browser-only mode. Install 
 
 The publishable key is safe to publish: it can only do what the security rules allow for each signed-in person. The **secret** key (`sb_secret_...`) and the database password are different: never put them in the app, in GitHub, or in a chat. The server functions get the secret key from Supabase on their own.
 
-> Supabase's **Connect** panel shows setup steps for frameworks like Next.js (`npm install @supabase/ssr`, `.env.local`, middleware). Skip those: Koinonia is a plain web app that loads Supabase in the browser, so it only needs the address and publishable key.
+> Supabase's **Connect** panel shows setup steps for frameworks like Next.js (`npm install @supabase/ssr`, `.env.local`, middleware). Skip those: Our Faithful Church App is a plain web app that loads Supabase in the browser, so it only needs the address and publishable key.
 
 ## 3. Turn on sign-in by email code
 
@@ -57,7 +57,7 @@ People sign in with a 6-digit code sent to their email, with no passwords to for
 
 ## 4. Point the app at the database
 
-This is already done: `public/config.js` names your project, and the build puts it next to the app. Run **Publish Koinonia** again after step 2 so the published site picks it up.
+This is already done: `public/config.js` names your project, and the build puts it next to the app. Run **Publish Our Faithful Church App** again after step 2 so the published site picks it up.
 
 To use a different project without changing the code, add repository variables on GitHub under **Settings, Secrets and variables, Actions, Variables**: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `APP_URL` (your app address, ending in `/`) and later `VAPID_PUBLIC_KEY`. When `SUPABASE_URL` is set, the workflow writes those into `config.js` instead. (Hosting somewhere else? Upload `config.js` with the rest of the `dist` folder.)
 
@@ -116,7 +116,7 @@ Year-end statements need nothing extra: members download a PDF under **Giving hi
 ## 7. Push notifications
 
 1. Make a key pair (run anywhere with Node): `npx web-push generate-vapid-keys`
-2. Add the **public** key as the `VAPID_PUBLIC_KEY` repository variable (step 4) and run **Publish Koinonia** again.
+2. Add the **public** key as the `VAPID_PUBLIC_KEY` repository variable (step 4) and run **Publish Our Faithful Church App** again.
 3. Set the server secrets and deploy:
    ```bash
    supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@yourchurch.org PUSH_HOOK_SECRET=any-long-random-text

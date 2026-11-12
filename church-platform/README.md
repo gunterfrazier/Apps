@@ -1,8 +1,8 @@
-# Koinonia
+# Our Faithful Church App
 
 A phone-first church app that many churches share. People create an account, find their church and join it. A church registers its own account, separate from any person's, and the person who registers it becomes its primary account holder. From there the church sets up roles, locations, features and content.
 
-"Koinonia" is a working name. Change it in `PLATFORM` at the top of `src/js/00-util.js` and in `public/manifest.webmanifest`.
+To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`, the title and the two app-name tags in `src/index.html`, `name` and `short_name` in `public/manifest.webmanifest`, and the letters on the icons in `public/icons/`. Saved data and settings use the earlier working name, Koinonia, as an internal label (for example `koinonia-v2` in the browser and `KOINONIA_CONFIG` in `config.js`); changing those would erase what people have saved, so leave them.
 
 ## What's in it
 

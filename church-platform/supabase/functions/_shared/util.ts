@@ -1,4 +1,4 @@
-// Shared helpers for Koinonia's server functions (Supabase Edge Functions, Deno).
+// Shared helpers for Our Faithful Church App's server functions (Supabase Edge Functions, Deno).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.119.0";
 
 export const cors = {

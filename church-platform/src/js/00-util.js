@@ -2,7 +2,7 @@
 // Rename the platform here. veritasUrl is where Bible links open; appUrl is what QR codes point to in the preview.
 // On your own website, QR codes use that site's address automatically.
 const PLATFORM = {
-  name: "Koinonia",
+  name: "Our Faithful Church App",
   tagline: "Your church, in your pocket",
   veritasUrl: "https://claude.ai/artifact/NNq1Q3MLHE93XzekkvdBtc",
   appUrl: "https://claude.ai/artifact/Htwf4rcWd3CBDK1Yw97j25",

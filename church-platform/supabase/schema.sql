@@ -1,4 +1,4 @@
--- Koinonia: shared database for many churches (Supabase / Postgres). Version 4.
+-- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 4.
 -- Run this once in the Supabase SQL editor on a new project (see SETUP.md).
 --
 -- How it fits the app: the app keeps one list per kind of thing (sermons, events, prayers, gifts...). Each item is a

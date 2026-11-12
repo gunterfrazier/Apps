@@ -1,4 +1,4 @@
--- Koinonia: upgrade from version 3 to 4 (digital signage and church devices).
+-- Our Faithful Church App: upgrade from version 3 to 4 (digital signage and church devices).
 -- If you ran schema.sql before this change, run this once in the SQL editor. New projects only need schema.sql.
 -- It replaces six functions; tables, data and policies stay as they are.
 
