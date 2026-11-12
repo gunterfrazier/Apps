@@ -377,6 +377,32 @@ await step("room booking", async () => {
   await page.click("#scrim [data-act=room-switch] >> nth=0"); await page.waitForSelector("#scrim .room-msg.ok"); await sheetSubmit(); await sheetGone();
   await expectText("Parent meeting"); await shot("38-rooms");
 });
+await step("sermon archive, transcript and podcast", async () => {
+  await goTo("word"); await page.fill("input[data-input=sermon-search]", "Tuesday"); await page.waitForSelector("#sermon-list .snippet mark");
+  await shot("39-sermon-search"); await page.click("#sermon-list a.row >> nth=0"); await page.waitForSelector("details.transcript");
+  await page.click("details.transcript summary"); await page.fill("input[data-input=transcript-search]", "friends"); await page.waitForSelector(".tx-body mark");
+  await page.click('a:has-text("Media and transcript")'); await page.waitForSelector("form[data-form=media-save]");
+  await page.fill("textarea[name=transcript]", "WEBVTT\n\n00:00:05.000 --> 00:00:09.000\nWelcome back, church.\n\n00:01:10.000 --> 00:01:15.000\nTurn with me to Psalm 23.");
+  await page.click("form[data-form=media-save] button.btn:not([type=button])"); await page.waitForSelector("details.transcript");
+  await page.click("details.transcript summary"); await page.waitForSelector(".tx-t:has-text('1:10')"); await shot("40-transcript");
+  await goTo("podcast"); await page.fill("form[data-form=podcast-save] input[name=email]", "media@riverside.example"); await page.click("form[data-form=podcast-save] button");
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=podcast-download]")]);
+  const xml = readFileSync(await dl.path(), "utf8");
+  if (!xml.includes("<enclosure") || !xml.includes("Remain in my love") || !xml.includes("media@riverside.example")) throw new Error("podcast feed is missing episodes or the owner email");
+});
+await step("AI drafts", async () => {
+  await page.evaluate(() => { window.__aiStub = async (p) => p.includes("Sunday school lesson")
+    ? { bigIdea: "Jesus loves us first so we can love others.", story: "Jesus ate a special meal with his friends and told them a story about a vine.", questions: ["Who did Jesus call his friends?", "How can you love someone this week?"], activity: { name: "Paper vine", supplies: "Green paper, tape", steps: "Make a vine with a leaf for each child." }, memoryVerse: "As the Father has loved Me, so have I loved you.", memoryRef: "John 15:9", parents: "Today we learned Jesus calls us friends. Ask: how did you show love today?" }
+    : p.includes("summary of this sermon") ? { summary: "Jesus calls us friends and asks us to love one another.", outline: ["Love has a source", "Obedience keeps love at home", "Friends love one another"] }
+    : { questions: [{ kind: "notice", text: "What does Jesus say about his Father's love?" }, { kind: "mean", text: "Why does he call us friends and not servants?" }, { kind: "apply", text: "Who will you love in a concrete way this week?" }], prayer: "Ask God to help you remain in his love." }; });
+  await goTo("word"); await page.fill("input[data-input=sermon-search]", "Remain in my love"); await page.click("#sermon-list a.row >> nth=0");
+  await page.click("[data-act=ai-questions]"); await page.waitForSelector("#scrim .ai-list"); await shot("41-ai-questions");
+  await page.click("#scrim [data-act=ai-to-study]"); await page.waitForSelector("#sort-list"); await expectText("Why does he call us friends");
+  await page.click("[data-act=ai-build]"); await page.waitForSelector("#scrim [data-act=ai-add]"); await page.click("#scrim [data-act=ai-add]"); await sheetGone();
+  await page.goBack(); await page.waitForSelector("[data-act=ai-lesson]"); await page.click("[data-act=ai-lesson]"); await sheetSubmit();
+  await page.waitForSelector("text=Jesus loves us first"); await shot("42-ai-lesson");
+  await page.evaluate(() => { delete window.__aiStub; });
+});
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));

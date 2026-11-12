@@ -162,6 +162,17 @@ function buildSeed() {
     ["When you pray", "Matthew 6:5-15", "prayer", "Jesus teaches a prayer short enough to memorize and deep enough for a lifetime.", ["Not for show", "Our Father", "Forgive as we are forgiven"]],
     ["Do not worry", "Matthew 6:25-34", "worry", "Birds, flowers and a Father who knows what we need.", ["Look at the birds", "Consider the lilies", "Seek first the kingdom"]],
   ], 0);
+  // Media for the latest Riverside sermon: an audio file for the podcast and a timed transcript.
+  const remain = sermons.find((x) => x.title === "Remain in my love");
+  if (remain) Object.assign(remain, { audioUrl: "https://media.riverside.example/sermons/remain-in-my-love.mp3", audioBytes: 33554432, transcript: [
+    { t: 0, text: "Good morning, church. Open your Bibles with me to John 15. We're still sitting at the table with Jesus on the night before the cross, and he's still talking about vines and branches." },
+    { t: 41, text: "Last week we heard him say, I am the vine and you are the branches. This week he tells us where the life in that vine comes from. As the Father has loved me, so have I loved you. Remain in my love." },
+    { t: 95, text: "Notice the order. Love has a source. Jesus doesn't start with what we owe him. He starts with the love that has always passed between the Father and the Son, and he says that same love is now aimed at you." },
+    { t: 162, text: "Then he talks about obedience, and some of us tense up. But listen to how he puts it: if you keep my commands, you will remain in my love. Obedience isn't how we earn our way in. It's how love stays at home." },
+    { t: 236, text: "And here's the turn that still surprises me. I no longer call you servants, he says. I have called you friends. A servant does what he's told without knowing why. A friend is let in on the plan." },
+    { t: 301, text: "So what does a friend of Jesus look like on a Tuesday? Verse 17 says it plainly: love one another. Not a feeling we wait for, but a command we can obey because we have been loved first." },
+    { t: 358, text: "This week, think of one person in this church you find hard to love. Pray for them by name, and then do one concrete thing for them. That's what remaining looks like." },
+  ] });
 
   // ----- Events -----
   const ev = (churchId, id, title, start, hours, locKey, room, category, description, extra = {}) =>

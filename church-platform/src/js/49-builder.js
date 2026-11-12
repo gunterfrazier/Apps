@@ -109,6 +109,7 @@ Screens.build = (id) => {
         <button class="btn ghost sm" data-act="doc-details" data-id="${d.id}">${icon("edit")}Details</button>
         <button class="btn ghost sm" data-act="layout-save" data-kind="doc" data-id="${d.id}">${icon("layers")}Save as layout</button>
         <button class="btn ghost sm" data-act="doc-publish" data-id="${d.id}">${d.published ? "Unpublish" : "Publish"}</button>
+        ${canAI() ? html`<button class="btn ghost sm" data-act="ai-build" data-id="${d.id}">${icon("bolt")}${d.kind === "lesson" && !d.blocks.some((b) => b.type !== "scripture") ? "Draft this lesson" : "Draft questions"}</button>` : ""}
       </div>
       <p class="faint">${d.kind === "sermon" ? "Published sermons can be followed by members during the service." : d.kind === "lesson" ? `Published lessons show to the class${d.shareWithParents ? " and in parents' portal" : ""}.` : "Published guides show on the group's page."} Items marked private never appear on screen or to members.</p>
 

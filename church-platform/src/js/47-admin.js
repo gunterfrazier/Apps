@@ -70,11 +70,13 @@ const ADMIN = {
       { name: "summary", label: "Summary", type: "textarea", max: 500 },
       { name: "outline", label: "Outline", type: "lines", hint: "One point per line." },
       { name: "docId", label: "Sermon builder outline", type: "select", options: () => [["", "None"], ...S.list("docs").filter((d) => d.kind === "sermon").map((d) => [d.id, `${d.title} (${fmtShort(fromIsoDay(d.date))})`])], hint: "Members can follow the on-screen parts of a built sermon." },
-      { name: "mediaUrl", label: "Video or audio link", type: "url", hint: "YouTube, Vimeo, a podcast episode or an audio file." },
+      { name: "videoUrl", label: "Video link", type: "url", get: (r) => sermonVideo(r), hint: "YouTube, Vimeo or Facebook. Add a transcript under Media and transcript on the sermon's page." },
+      { name: "audioUrl", label: "Audio file for the podcast", type: "url", get: (r) => sermonAudio(r), hint: "An MP3 or M4A link." },
       { name: "minutes", label: "Length in minutes", type: "number", get: (r) => r.minutes || 35 },
     ],
     check: (d) => !parseRef(d.passage) ? "That passage doesn't look like a Bible reference. Try a form like John 15:1-8." : null,
-    save: (d) => ({ title: d.title, series: d.series || "Messages", speaker: d.speaker, date: dateToIso(d.date), time: d.time, locationId: d.locationId || null, passage: d.passage, topic: d.topic, summary: d.summary, outline: d.outline, docId: d.docId || null, mediaUrl: d.mediaUrl, minutes: +d.minutes || 35 }),
+    save: (d, r) => ({ title: d.title, series: d.series || "Messages", speaker: d.speaker, date: dateToIso(d.date), time: d.time, locationId: d.locationId || null, passage: d.passage, topic: d.topic, summary: d.summary, outline: d.outline, docId: d.docId || null, videoUrl: d.videoUrl, audioUrl: d.audioUrl, mediaUrl: d.videoUrl || d.audioUrl, minutes: +d.minutes || 35, transcript: r?.transcript || [], audioBytes: r?.audioBytes || 0 }),
+    tools: () => html`<a class="btn ghost" href="#podcast">${icon("music")}Podcast feed</a>`,
   },
   plans: {
     title: "Reading plans", one: "reading plan", icon: "book", perm: "manage.sermons",
@@ -212,7 +214,7 @@ function adminList(kind) {
   const list = S.visible(kind, { ignoreCampus: true }).sort(a.sort);
   return {
     title: a.title, back: "admin",
-    body: html`<div class="btns" style="margin-top:16px"><button class="btn" data-act="admin-edit" data-kind="${kind}">${icon("plus")}Add ${a.one}</button></div>
+    body: html`<div class="btns" style="margin-top:16px"><button class="btn" data-act="admin-edit" data-kind="${kind}">${icon("plus")}Add ${a.one}</button>${a.tools ? a.tools() : ""}</div>
       <div class="rows" style="margin-top:14px">${list.length ? list.map((r) => { const [t, s] = a.row(r); return html`<button class="row" data-act="admin-edit" data-kind="${kind}" data-id="${r.id}"><span class="body"><span class="t">${t}</span><span class="s">${s}</span></span>${icon("edit")}</button>`; })
         : empty(`No ${a.many || a.one + "s"} yet.`)}</div>`,
   };

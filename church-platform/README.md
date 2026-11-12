@@ -59,6 +59,13 @@ A phone-first church app that many churches share. People create an account, fin
 - Room booking: a day view of every room with what's in it (bookings, events, classes and groups, and worship services), requests once or weekly, live conflict checks that suggest rooms that are free, and approval by people who manage locations. Events can't be saved into a room that's already in use.
 - Payments go through one checkout. In the preview and until Stripe is connected it runs in test mode and nothing is charged.
 
+**Sermon media and AI help**
+- Sermons with a video link (YouTube, Vimeo, Facebook or a file) and an audio file, played in the app with playback speeds.
+- Transcripts pasted in, opened from a text, VTT or SRT file, or taken from the live captions of the last presentation. Timed transcripts let people jump to that moment in the audio. Each transcript can be searched on its sermon's page.
+- A searchable archive: the Word tab searches titles, passages, speakers, series, summaries, outlines and every transcript, shows where each match was found, and filters by book of the Bible.
+- A podcast feed (RSS with Apple Podcasts tags) built from every sermon with audio, with a readiness check for cover art, owner email and file sizes, and a download of feed.xml.
+- AI help through Veritas Logos for people who teach: small-group discussion questions from a sermon (into a new study guide or the builder), a full kids Sunday school lesson from Sunday's passage, and a sermon summary and outline. Each prompt carries the passage text from the Bible data shared with Veritas Logos, and every result arrives as a draft to check and edit. In the preview it uses Claude through the page; on your own site it calls your AI function.
+
 **For admins**
 - A landing page built from blocks: banners, graphics and photos you upload, information, buttons and links, video, embedded pages, events, classes, service times and social links.
 - Webhooks for fifteen events, signed with HMAC-SHA256, with a message log. Embedded pages listed in the app.
@@ -112,11 +119,11 @@ src/js/10-seed.js     Sample churches, people, roles, classes, builder documents
 src/js/20-store.js    Data store, roles and location access, webhooks, schedules
 src/js/30-ui.js       Router, layout, location filter, embeds, sheets
 src/js/31-banner.js   Home banner and its designer
-src/js/40-64          Screens: home and Watch live, word, events, connect (classes, groups, prayer, directory),
+src/js/40-66          Screens: home and Watch live, word, events, connect (classes, groups, prayer, directory),
                       give, check-in, me and ministry tools, admin, landing page, builders, service plans and songs,
                       presentation, chat, QR, webhooks and embeds, parent portal, layouts, volunteers,
                       stage display and livestream overlay, check-in kiosk, follow-up, reports,
-                      payments, forms, rooms
+                      payments, forms, rooms, sermon media and podcast, AI drafts
 public/               Manifest, service worker, icons, QR reader
 supabase/schema.sql   Database schema with security rules
 test/smoke.mjs        End-to-end check
