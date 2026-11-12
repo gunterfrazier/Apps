@@ -29,11 +29,8 @@ const S = {
     // With Supabase, start empty and let the server fill it in; sample churches are only for trying the app.
     if (Backend.configured()) { this.state = blankState(); return; }
     this.state = buildSeed();
-    // Carry the person's profile and household over from the first version.
-    try {
-      const old = JSON.parse(localStorage.getItem("koinonia-v1") || "null");
-      if (old?.me) Object.assign(this.state.me, { name: old.me.name || "", email: old.me.email || "", phone: old.me.phone || "", household: old.me.household || [] });
-    } catch { /* nothing to carry over */ }
+    // Test data saved under the app's old working name: clear it so it doesn't use up the browser's storage.
+    try { Object.keys(localStorage).filter((k) => k.startsWith("koinonia-")).forEach((k) => localStorage.removeItem(k)); } catch { /* storage unavailable */ }
   },
   _timer: 0,
   save() { clearTimeout(this._timer); this._timer = setTimeout(() => this.flush(), 150); },

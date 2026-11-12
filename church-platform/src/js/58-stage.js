@@ -102,7 +102,7 @@ Actions["pres-overlay"] = (el) => {
     <div class="ov-frame preview">${overlayHtml(cur?.kind && OVERLAY_KINDS.includes(cur.kind) ? cur : data?.slides.find((s) => s.kind === "lyrics" || s.kind === "scripture"), { captions: pres.cc ? pres.captions : "" })}</div>
     <ol class="steps-list"><li>In OBS, vMix or Streamlabs, add a <b>Browser</b> source.</li><li>Paste the address below and set the size to 1920 by 1080.</li><li>Run the slides from this screen on the same computer. The overlay follows along.</li></ol>
     <div class="copy-line"><input type="text" readonly value="${url}" aria-label="Overlay address"><button class="btn sm" data-act="copy" data-text="${url}">${icon("copy")}Copy</button></div>
-    ${IN_PREVIEW ? demoNote("The overlay works once the app is on your own website. To follow along from another computer, connect Supabase (see the setup guide).") : html`<div class="btns"><button class="btn ghost" data-act="pres-open" data-route="overlay-${key}" data-name="koinonia-overlay">${icon("screen")}Open overlay window</button></div>`}`, { wide: true });
+    ${IN_PREVIEW ? demoNote("The overlay works once the app is on your own website. To follow along from another computer, connect Supabase (see the setup guide).") : html`<div class="btns"><button class="btn ghost" data-act="pres-open" data-route="overlay-${key}" data-name="our-faithful-overlay">${icon("screen")}Open overlay window</button></div>`}`, { wide: true });
 };
 Actions["pres-open"] = (el) => {
   const w = window.open(`${location.pathname}#${el.dataset.route}`, el.dataset.name, "popup,width=1280,height=720");

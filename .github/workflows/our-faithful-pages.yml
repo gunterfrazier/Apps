@@ -35,7 +35,7 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
           APP_URL: ${{ vars.APP_URL }}
         run: |
-          node -e 'const e = process.env; require("fs").writeFileSync("config.js", "window.KOINONIA_CONFIG = " + JSON.stringify({ supabaseUrl: e.SUPABASE_URL, supabasePublishableKey: e.SUPABASE_PUBLISHABLE_KEY || "", vapidPublicKey: e.VAPID_PUBLIC_KEY || "", appUrl: e.APP_URL || "" }) + ";\n")'
+          node -e 'const e = process.env; require("fs").writeFileSync("config.js", "window.OUR_FAITHFUL_CONFIG = " + JSON.stringify({ supabaseUrl: e.SUPABASE_URL, supabasePublishableKey: e.SUPABASE_PUBLISHABLE_KEY || "", vapidPublicKey: e.VAPID_PUBLIC_KEY || "", appUrl: e.APP_URL || "" }) + ";\n")'
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

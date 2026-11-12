@@ -6,11 +6,11 @@ const PLATFORM = {
   tagline: "Your church, in your pocket",
   veritasUrl: "https://claude.ai/artifact/NNq1Q3MLHE93XzekkvdBtc",
   appUrl: "https://claude.ai/artifact/Htwf4rcWd3CBDK1Yw97j25",
-  storageKey: "koinonia-v2",
+  storageKey: "our-faithful-v1",
   color: "#4250d6",
   // Filled in by config.js on your own website (see SETUP.md). Empty means the app keeps data in the browser.
   supabaseUrl: "", supabasePublishableKey: "", vapidPublicKey: "", platformFeePercent: 0,
-  ...(typeof window !== "undefined" && window.KOINONIA_CONFIG ? window.KOINONIA_CONFIG : {}),
+  ...(typeof window !== "undefined" && window.OUR_FAITHFUL_CONFIG ? window.OUR_FAITHFUL_CONFIG : {}),
 };
 // Older config files call the publishable key the anon key.
 PLATFORM.supabasePublishableKey ||= PLATFORM.supabaseAnonKey || "";

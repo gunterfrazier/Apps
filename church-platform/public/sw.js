@@ -1,5 +1,5 @@
 // Keeps the app shell available offline. Bump VERSION whenever you deploy a new build.
-const VERSION = "koinonia-v2";
+const VERSION = "our-faithful-v1";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {

@@ -24,7 +24,7 @@ handle(async (req) => {
     }
     // A device paired again gets a fresh account; the old one is signed out.
     if (dev.data.deviceUser) await db.auth.admin.deleteUser(dev.data.deviceUser).catch(() => {});
-    const email = `device-${dev.id}-${Date.now().toString(36)}@devices.koinonia.invalid`, pw = password();
+    const email = `device-${dev.id}-${Date.now().toString(36)}@devices.our-faithful.invalid`, pw = password();
     const { data: made, error } = await db.auth.admin.createUser({ email, password: pw, email_confirm: true, user_metadata: { device: dev.id, church: dev.church_id } });
     if (error || !made.user) return fail(`Couldn't create the device's sign-in: ${error?.message || "unknown error"}`, 500);
     const id = made.user.id, now = new Date().toISOString();

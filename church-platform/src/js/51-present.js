@@ -93,7 +93,7 @@ function slideHtml(s, c = S.church()) {
 
 const pres = { key: "", index: 0, black: false, logo: false, mode: "slideshow", segKey: "", segAt: 0, startedAt: 0, msg: "", cc: false, captions: "", transcript: [] };
 let presChannel = null;
-try { presChannel = "BroadcastChannel" in window ? new BroadcastChannel("koinonia-present") : null; } catch { presChannel = null; }
+try { presChannel = "BroadcastChannel" in window ? new BroadcastChannel("our-faithful-present") : null; } catch { presChannel = null; }
 const presLoc = (key) => { const [k, ...r] = key.split("-"); return S.get(k === "doc" ? "docs" : "services", r.join("-"))?.locationId || null; };
 function presBroadcast() {
   const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "" };
@@ -139,7 +139,7 @@ Screens.present = (tail) => {
           <button class="btn ghost" data-act="pres-logo" aria-pressed="${pres.logo}" aria-label="Logo screen" title="Logo screen (L)">${icon("church")}<span class="lbl">Logo</span></button>
           <button class="btn ghost" data-act="pres-full" aria-label="Full screen" title="Full screen (F)">${icon("expand")}<span class="lbl">Full screen</span></button>
           ${!IN_PREVIEW && presChannel ? html`<button class="btn ghost" data-act="pres-window" data-key="${tail}" aria-label="Open display window">${icon("screen")}<span class="lbl">Display window</span></button>
-            <button class="btn ghost" data-act="pres-open" data-route="stage-${tail}" data-name="koinonia-stage" aria-label="Open stage display">${icon("music")}<span class="lbl">Stage window</span></button>` : ""}
+            <button class="btn ghost" data-act="pres-open" data-route="stage-${tail}" data-name="our-faithful-stage" aria-label="Open stage display">${icon("music")}<span class="lbl">Stage window</span></button>` : ""}
           <button class="btn ghost" data-act="pres-overlay" data-key="${tail}" aria-label="Livestream overlay">${icon("live")}<span class="lbl">Overlay</span></button>
           <button class="btn ghost" data-act="pres-captions" aria-pressed="${pres.cc}" aria-label="Live captions">${icon("chat")}<span class="lbl">Captions</span></button>
         </div>
@@ -172,7 +172,7 @@ Actions["pres-logo"] = () => { pres.logo = !pres.logo; pres.black = false; rende
 Actions["pres-mode"] = (el) => { pres.mode = el.dataset.mode; render(); };
 Actions["pres-full"] = async () => { const st = $("#stage"); try { await st.requestFullscreen(); } catch { toast("Full screen isn't available here"); } };
 Actions["pres-window"] = (el) => {
-  const w = window.open(`${location.pathname}#display-${el.dataset.key}`, "koinonia-display", "popup,width=1280,height=720");
+  const w = window.open(`${location.pathname}#display-${el.dataset.key}`, "our-faithful-display", "popup,width=1280,height=720");
   if (!w) toast("Allow pop-ups to open the display window"); else setTimeout(presBroadcast, 800);
 };
 document.addEventListener("keydown", (e) => {

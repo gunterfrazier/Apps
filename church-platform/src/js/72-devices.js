@@ -13,7 +13,7 @@ const DEVICE_TYPES = {
   booth: ["Booth computer", "list", "Runs service plans and sermon slides for the screens"],
 };
 const canDevices = () => S.isMember() && S.can("manage.devices");
-const DEVICE_KEY = "koinonia-device";
+const DEVICE_KEY = "our-faithful-device";
 
 /** The device this browser is set up as, if any. With Supabase it's the device account; otherwise it's kept per tab. */
 function thisDevice() {
@@ -28,7 +28,7 @@ function deviceRoutes(d) {
 }
 // In the preview, devices are other tabs in the same browser. This keeps the admin's tab and the device's tab in step.
 let devChannel = null;
-try { devChannel = "BroadcastChannel" in window ? new BroadcastChannel("koinonia-devices") : null; } catch { devChannel = null; }
+try { devChannel = "BroadcastChannel" in window ? new BroadcastChannel("our-faithful-devices") : null; } catch { devChannel = null; }
 function devicePing(d, patch) { if (!Backend.on) try { devChannel?.postMessage({ id: d.id, patch }); } catch {} }
 if (devChannel) devChannel.onmessage = (e) => {
   const { id, patch } = e.data || {}, d = S.get("devices", id);
@@ -153,7 +153,7 @@ Forms.pair = async (d, f) => {
 
 // ----- On the device: staying in its lane -----
 /** Called by render(). Sends a device to its home screen if it wanders, and keeps the screen awake. */
-const DEVICE_EMAIL = /@devices\.koinonia\.invalid$/;
+const DEVICE_EMAIL = /@devices\.our-faithful\.invalid$/;
 function deviceGate(head, tail) {
   const d = thisDevice();
   document.body.classList.toggle("device-mode", !!d);
