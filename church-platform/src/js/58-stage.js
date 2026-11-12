@@ -116,7 +116,7 @@ Actions["pres-captions"] = () => {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast("Live captions need Chrome, Edge or Safari"); return; }
   const r = new SR();
-  r.continuous = true; r.interimResults = true; r.lang = S.state.lang === "es" ? "es-US" : (navigator.language || "en-US");
+  r.continuous = true; r.interimResults = true; r.lang = lang() === "es" ? "es-US" : (navigator.language || "en-US");
   r.onresult = (e) => {
     let interim = "";
     for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) pres.transcript.push(t.trim()); else interim += t; }

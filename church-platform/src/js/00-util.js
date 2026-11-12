@@ -41,19 +41,19 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const isoDay = (d) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
 const fromIsoDay = (s, hhmm = "00:00") => new Date(`${s}T${hhmm}`);
-const fmt = (d, o) => new Date(d).toLocaleDateString(undefined, o);
+const fmt = (d, o) => new Date(d).toLocaleDateString(appLocale(), o);
 const fmtDay = (d) => fmt(d, { weekday: "long", month: "long", day: "numeric" });
 const fmtShort = (d) => fmt(d, { month: "short", day: "numeric", year: new Date(d).getFullYear() !== new Date().getFullYear() ? "numeric" : undefined });
 const fmtWhen = (d) => `${fmt(d, { weekday: "short", month: "short", day: "numeric" })}, ${fmtTime(d)}`;
-const fmtTime = (d) => new Date(d).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+const fmtTime = (d) => new Date(d).toLocaleTimeString(appLocale(), { hour: "numeric", minute: "2-digit" });
 const fmtMonth = (d) => fmt(d, { month: "short" });
 function timeLabel(hhmm) { if (!hhmm) return ""; const [h, m] = hhmm.split(":").map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return fmtTime(d); }
 function ago(d) {
-  const s = (Date.now() - new Date(d)) / 1000;
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)} hr ago`;
-  if (s < 7 * 86400) { const n = Math.floor(s / 86400); return n === 1 ? "yesterday" : `${n} days ago`; }
+  const s = (Date.now() - new Date(d)) / 1000, es = lang() === "es";
+  if (s < 60) return es ? "justo ahora" : "just now";
+  if (s < 3600) return es ? `hace ${Math.floor(s / 60)} min` : `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return es ? `hace ${Math.floor(s / 3600)} h` : `${Math.floor(s / 3600)} hr ago`;
+  if (s < 7 * 86400) { const n = Math.floor(s / 86400); return es ? (n === 1 ? "ayer" : `hace ${n} días`) : n === 1 ? "yesterday" : `${n} days ago`; }
   return fmtShort(d);
 }
 /** Next occurrence of weekday `dow` at hh:mm, `weeks` weeks out (0 = this coming one, including today if still ahead). */

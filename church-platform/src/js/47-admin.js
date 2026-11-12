@@ -17,8 +17,15 @@ const ADMIN = {
       { name: "body", label: "Details", type: "textarea", required: true, max: 1000 },
       { name: "locationId", label: "Who sees it", type: "location" },
       { name: "urgent", label: "Important: show it as an alert at the top of Home", type: "checkbox" },
+      { name: "push", label: "Also send it as a notification to everyone who can see it", type: "checkbox", get: () => false },
     ],
     save: (d, r) => ({ title: d.title, body: d.body, urgent: !!d.urgent, locationId: d.locationId || null, at: r?.at || new Date().toISOString() }),
+    after: (n, d) => {
+      if (!d.push) return;
+      const people = S.members().filter((m) => !n.locationId || S.role(m.churchId, m.userId)?.id === "admin" || S.isPrimary(m.churchId, m.userId) || m.locations === "all" || S.location(n.locationId)?.visibility !== "private" || (Array.isArray(m.locations) && m.locations.includes(n.locationId)));
+      people.forEach((m) => notify(m.userId, { kind: "news", title: n.title, body: n.body.slice(0, 140), link: "#alerts" }));
+      toast(`Sent to ${plural(people.length, "person", "people")}`);
+    },
   },
   events: {
     title: "Events", one: "event", icon: "calendar", perm: "manage.content",
@@ -240,7 +247,7 @@ Forms["admin-save"] = (d, f, fd) => {
   if (problem) return formError(f, problem);
   const data = a.save(d, rec);
   const saved = rec ? S.update(kind, rec.id, data) : S.add(kind, data);
-  a.after?.(saved);
+  a.after?.(saved, d, rec);
   closeSheet(); toast(rec ? "Saved" : "Added"); render();
 };
 Actions["admin-delete"] = (el) => {

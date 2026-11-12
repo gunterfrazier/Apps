@@ -403,6 +403,23 @@ await step("AI drafts", async () => {
   await page.waitForSelector("text=Jesus loves us first"); await shot("42-ai-lesson");
   await page.evaluate(() => { delete window.__aiStub; });
 });
+await step("settings: Spanish, text size and notifications", async () => {
+  await goTo("settings"); await page.click('[data-act=set-lang][data-v="es"]'); await page.waitForSelector("text=Idioma");
+  await goTo("home"); await page.waitForSelector('nav.tabs >> text=Inicio'); await shot("43-home-es");
+  await goTo("events"); await expectText("Eventos"); await goTo("checkin"); await expectText("Registrar");
+  await goTo("event-riverside-e8"); await expectText("Comprar boletos"); await shot("44-event-es");
+  await goTo("settings"); await page.check('input[name=text][value="xl"]', { force: true });
+  if (!(await page.evaluate(() => document.documentElement.classList.contains("text-xl")))) throw new Error("text size didn't apply");
+  await page.click('label.switch-row:has-text("Más contraste") input'); await shot("45-settings-es");
+  await page.click('[data-act=set-lang][data-v="en"]'); await page.waitForSelector("text=Language");
+  await page.check('input[name=text][value="m"]', { force: true }); await page.click('label.switch-row:has-text("More contrast") input');
+  await page.click('label.switch-row:has-text("Messages") input');
+  await goTo("chat"); await page.click(".rows a.row >> nth=0"); await page.fill("#msg", "See you Sunday!"); await page.press("#msg", "Enter");
+  await goTo("sermon-riverside-s0").catch(() => {}); await goTo("word"); await page.click("#sermon-list a.row >> nth=0"); await page.waitForSelector("[data-act=listen]");
+  await goTo("admin-news"); await page.click("[data-act=admin-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "Parking lot closed Sunday");
+  await page.fill("#scrim textarea[name=body]", "Use the east lot and the shuttle."); await page.check("#scrim input[name=push]"); await sheetSubmit(); await sheetGone();
+  await goTo("alerts"); await expectText("Parking lot closed Sunday");
+});
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));

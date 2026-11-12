@@ -63,6 +63,7 @@ Screens.sermon = (id) => {
       ${canAI() ? html`<div class="ai-row"><span class="ai-label">${icon("bolt")}Veritas Logos can draft</span><button class="btn ghost sm" data-act="ai-questions" data-id="${s.id}">Discussion questions</button>${S.can("build.lessons") ? html`<button class="btn ghost sm" data-act="ai-lesson" data-id="${s.id}">A kids lesson</button>` : ""}</div>` : ""}
       ${s.summary ? html`<p class="lead" style="margin-top:18px">${s.summary}</p>` : ""}
       <p><span class="faint">Scripture</span><br><span class="scripture" style="font-size:1.2rem">${s.passage}</span></p>
+      <div class="btns" style="margin-top:0">${listenBtn(`passage:${s.passage}`, "Listen to the passage")}${s.summary || s.transcript?.length ? listenBtn(`sermon:${s.id}`, "Listen to the sermon") : ""}</div>
       ${veritasPanel(s.passage, s.topic)}
       ${s.outline?.length ? html`<section class="sec"><h2>Outline</h2><ol class="outline">${s.outline.map((p) => html`<li>${p}</li>`)}</ol></section>` : ""}
       ${s.docId && S.get("docs", s.docId) ? html`<div class="btns"><a class="btn ghost sm" href="#outline-${s.docId}">${icon("note")}Full sermon outline</a></div>` : ""}

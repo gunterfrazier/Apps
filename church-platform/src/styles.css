@@ -37,7 +37,17 @@
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--canvas); color: var(--ink); font: 17px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font: 1.0625rem/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+/* Text size, contrast and motion settings (Me, Settings). Sizes in rem follow the root size. */
+html.text-l { font-size: 112.5%; }
+html.text-xl { font-size: 125%; }
+html.contrast { --ink-2: #2b3240; --ink-3: #3f4757; --line: #aeb6c4; --brand-ink: color-mix(in srgb, var(--brand) 60%, #000); }
+@media (prefers-color-scheme: dark) { html.contrast { --ink-2: #dde2ec; --ink-3: #c2c9d6; --line: #59627a; --brand-ink: color-mix(in srgb, var(--brand) 25%, #fff); } }
+html.contrast .row + .row::before { height: 1.5px; }
+html.contrast input, html.contrast select, html.contrast textarea { border-width: 2px; }
+html.calm *, html.calm *::before, html.calm *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+.skip { position: absolute; left: 12px; top: -60px; z-index: 50; background: var(--surface); color: var(--ink); padding: 10px 16px; border-radius: 12px; box-shadow: var(--sh-2); font-weight: 700; }
+.skip:focus { top: 12px; }
 body.sheet-open { overflow: hidden; }
 a { color: var(--brand-ink); }
 h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; margin: 0; }
@@ -770,3 +780,12 @@ mark { background: color-mix(in srgb, #ffd43b 55%, transparent); color: inherit;
 @keyframes aiPulse { 50% { transform: scale(.55); opacity: .5; } }
 .ai-list { padding-left: 1.3em; display: grid; gap: 8px; line-height: 1.5; }
 .ai-list .tag { margin-right: 4px; }
+
+/* ---------- Settings ---------- */
+.switch-row { cursor: pointer; }
+.switch { appearance: none; -webkit-appearance: none; width: 50px; height: 30px; border-radius: 999px; background: var(--line); position: relative; flex: none; cursor: pointer; transition: background .15s; margin: 0; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .15s; }
+.switch:checked { background: var(--brand); }
+.switch:checked::after { transform: translateX(20px); }
+.switch:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 55%, transparent); outline-offset: 2px; }
+.listen[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); box-shadow: none; }

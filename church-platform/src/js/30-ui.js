@@ -63,11 +63,16 @@ function render() {
   if (view.redirect) { go(view.redirect); return; }
   document.body.classList.toggle("presenting", !!view.present);
   document.body.classList.toggle("kiosk-mode", !!view.kiosk);
-  app.innerHTML = view.page ? flat(view.page) : flat(html`
+  app.innerHTML = view.page ? flat(view.page) : flat(html`<a class="skip" href="#main" data-act="skip">${lang() === "es" ? "Saltar al contenido" : "Skip to content"}</a>
     ${view.band ? view.band : bar(view.title, view.back)}
     <main class="view" id="main" tabindex="-1">${view.body}</main>
     ${tabs(view.tab)}`);
-  if (route !== lastRoute) { window.scrollTo(0, 0); lastRoute = route; }
+  if (route !== lastRoute) {
+    window.scrollTo(0, 0);
+    // Move keyboard and screen reader focus to the new screen, except on the first load.
+    if (lastRoute !== null && !view.page) $("#main")?.focus({ preventScroll: true });
+    lastRoute = route;
+  }
   view.after?.();
 }
 let pendingRoute = null;
@@ -238,6 +243,7 @@ document.addEventListener("input", (e) => { const el = e.target.closest("[data-i
 document.addEventListener("change", (e) => { const el = e.target.closest("[data-change]"); if (el) Inputs[el.dataset.change]?.(el, e); });
 
 Actions["close-sheet"] = () => closeSheet();
+Actions["skip"] = () => $("#main")?.focus();
 Actions["go"] = (el) => { closeSheet(true); go(el.dataset.to); };
 Actions["copy"] = (el) => copyText(el.dataset.text, el.dataset.done || "Copied");
 

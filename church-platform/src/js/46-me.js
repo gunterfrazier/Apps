@@ -34,6 +34,7 @@ Screens.me = () => {
           ${S.on("checkin") ? row("#checkin", "kid", "Check in", "Kids and volunteers") : ""}
           ${S.on("giving") ? row("#history", "give", "Giving history", "Gifts and year-end statements") : ""}
           ${S.on("chat") && S.can("use.chat") ? row("#chat", "chat", "Messages") : ""}
+          ${row("#settings", "gear", "Settings", "Language, text size, read aloud and notifications")}
           ${row("#scan", "scan", "Scan a QR code")}
           ${S.on("sermons") ? row("#notes", "note", "Sermon notes") : ""}
         </div></section>

@@ -66,6 +66,15 @@ A phone-first church app that many churches share. People create an account, fin
 - A podcast feed (RSS with Apple Podcasts tags) built from every sermon with audio, with a readiness check for cover art, owner email and file sizes, and a download of feed.xml.
 - AI help through Veritas Logos for people who teach: small-group discussion questions from a sermon (into a new study guide or the builder), a full kids Sunday school lesson from Sunday's passage, and a sermon summary and outline. Each prompt carries the passage text from the Bible data shared with Veritas Logos, and every result arrives as a draft to check and edit. In the preview it uses Claude through the page; on your own site it calls your AI function.
 
+**Notifications, Spanish and accessibility**
+- A notification center under the bell for asks to serve, answers, reminders, messages, room requests, form responses and new people to follow up. Announcements can be sent as notifications too.
+- Reminders the day before you serve, an event you signed up for, or your class or group meets.
+- Push notifications through the service worker: turn them on under Me, Settings. While the app is open in the background it shows them on its own; with Supabase and VAPID keys set up, the server sends them when the app is closed. Quiet hours hold them from 9 PM to 7 AM.
+- Choose which kinds you get: announcements, messages, serving, events and classes, and staff updates.
+- Spanish for member screens: tabs, menus, buttons, forms, check-in (including the kiosk families use) and dates. It follows the phone's language until someone picks one. What the church writes stays as written.
+- Larger text (two steps up), more contrast, reduced motion, a skip-to-content link, and focus that moves to each new screen for keyboard and screen reader users.
+- Read aloud for Scripture passages, sermons and transcripts, announcements and published outlines.
+
 **For admins**
 - A landing page built from blocks: banners, graphics and photos you upload, information, buttons and links, video, embedded pages, events, classes, service times and social links.
 - Webhooks for fifteen events, signed with HMAC-SHA256, with a message log. Embedded pages listed in the app.
@@ -119,11 +128,11 @@ src/js/10-seed.js     Sample churches, people, roles, classes, builder documents
 src/js/20-store.js    Data store, roles and location access, webhooks, schedules
 src/js/30-ui.js       Router, layout, location filter, embeds, sheets
 src/js/31-banner.js   Home banner and its designer
-src/js/40-66          Screens: home and Watch live, word, events, connect (classes, groups, prayer, directory),
+src/js/40-68          Screens: home and Watch live, word, events, connect (classes, groups, prayer, directory),
                       give, check-in, me and ministry tools, admin, landing page, builders, service plans and songs,
                       presentation, chat, QR, webhooks and embeds, parent portal, layouts, volunteers,
                       stage display and livestream overlay, check-in kiosk, follow-up, reports,
-                      payments, forms, rooms, sermon media and podcast, AI drafts
+                      payments, forms, rooms, sermon media and podcast, AI drafts, settings, Spanish
 public/               Manifest, service worker, icons, QR reader
 supabase/schema.sql   Database schema with security rules
 test/smoke.mjs        End-to-end check

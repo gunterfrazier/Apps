@@ -1,10 +1,12 @@
 // ---------- Start ----------
 S.load();
+applyDisplay();
 window.addEventListener("hashchange", () => { closeSheet(true); render(); });
 window.addEventListener("pagehide", () => S.flush());
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") S.flush(); });
 document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("presenting")) render(); });
 render();
+setTimeout(runReminders, 1500);
 
 // Offline support when the app runs on its own website. Inside the preview frame this is refused, which is fine.
 try {

@@ -132,8 +132,12 @@ const S = {
 // ---------- In-app notifications ----------
 /** Adds a notification for one person. Their bell shows it; on the live app it is also sent as a push notification. */
 function notify(userId, n, churchId = S.state.current) {
-  S.state.notifications.unshift({ id: uid(), churchId, userId, at: new Date().toISOString(), read: false, ...n });
-  S.state.notifications = S.state.notifications.slice(0, 300); S.save();
+  const mine = userId === S.me().id;
+  if (mine && !wantsNotify(n)) return;
+  const rec = { id: uid(), churchId, userId, at: new Date().toISOString(), read: false, ...n };
+  S.state.notifications.unshift(rec);
+  S.state.notifications = S.state.notifications.slice(0, 600); S.save();
+  if (mine) Push.local(rec);
 }
 const myNotifications = () => S.state.notifications.filter((n) => n.userId === S.me().id && n.churchId === S.state.current);
 
