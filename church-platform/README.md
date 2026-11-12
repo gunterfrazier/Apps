@@ -30,7 +30,8 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - Reorder segments and builder items by dragging the handle, with the up and down arrows, with the arrow keys, or by picking a position when editing one.
 - Named layouts: save a service plan or a sermon, lesson or study outline as a layout, then start new ones from it or add it to an existing one. For each segment or item, keep everything, only some sections (song verses, Bible verses, paragraphs, sermon items, parts of a graphic), just an empty slot, or leave it out.
 - Save a single segment or builder item for reuse the same way, with all or part of its content.
-- Songs with lyrics in sections, an arrangement order and CCLI details. Each service can sing only some of a song's sections.
+- Songs are built from sections: intro, verse, pre-chorus, chorus, bridge and outro, plus the church's own kinds (tag, interlude, vamp...). Each section has a label you can change and its own words; an intro or outro without words is instrumental. Paste a whole song and it splits at headings like "Verse 1" or "[Chorus]". The order is built from the sections, so a chorus can repeat, and each service can sing only some sections.
+- In the presenter, the song on screen gets a button for each section (keys 1 to 9 work too). The screen shows only the section being sung. A section later in the plan skips ahead to it; one already sung, or not in the plan, plays and then the plan carries on. Display windows, stage displays and overlays follow along.
 - Presentation: run a service plan or a built sermon as a slideshow (arrow keys, swipe, black screen, logo screen, full screen, and a display window for a second screen on your own website) or let someone scroll through at their own pace.
 - QR codes for joining the church, the landing page, giving, events, registration, classes, check-in and check-out, as PNG or SVG.
 

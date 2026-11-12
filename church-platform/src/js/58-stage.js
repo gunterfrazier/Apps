@@ -21,7 +21,7 @@ function timedSlide(s, segAt) {
 function slideWords(s) {
   if (!s) return "";
   switch (s.kind) {
-    case "lyrics": return s.body || "";
+    case "lyrics": return s.body || (s.instrumental ? `${s.label} (instrumental)` : "");
     case "scripture": return s.verses.map((v) => v.replace(/^\d+\s/, "")).join(" ");
     case "keynote": case "point": case "question": return s.body || "";
     case "title": return [s.title, s.body].filter(Boolean).join("\n");
@@ -37,8 +37,7 @@ function slideWords(s) {
 // ----- Stage display -----
 /** st = { index, black, logo, segAt, startedAt, msg } from the operator. */
 function stageMonitor(data, st, full) {
-  const slides = data?.slides || [], i = clamp(st.index || 0, 0, Math.max(0, slides.length - 1));
-  const cur = timedSlide(slides[i], st.segAt), next = slides[i + 1];
+  const at = liveAt(data?.slides || [], st), cur = timedSlide(at.cur, st.segAt), next = at.next;
   const now = Date.now();
   const timer = cur?.minutes != null
     ? html`<span class="sm-timer ${cur.minutes * 60 - (now - st.segAt) / 1000 < 0 ? "over" : ""}" data-seg-start="${st.segAt}" data-mins="${cur.minutes}" title="Time left in ${cur.section}">${segLeftText(cur.minutes * 60 - (now - (st.segAt || now)) / 1000)}</span>`
@@ -72,7 +71,7 @@ Screens.stage = (tail) => {
 // ----- Livestream overlay -----
 const OVERLAY_KINDS = ["lyrics", "scripture", "keynote", "point", "question"];
 function overlayHtml(s, st = {}) {
-  const words = s && !st.black && !st.logo && OVERLAY_KINDS.includes(s.kind) ? slideWords(s) : "";
+  const words = s && !st.black && !st.logo && !s.instrumental && OVERLAY_KINDS.includes(s.kind) ? slideWords(s) : "";
   return html`<div class="ov">${words ? html`<div class="ov-lt ${s.kind}"><div class="ov-text">${words}</div>${s.kind === "scripture" ? html`<div class="ov-ref">${s.ref}</div>` : ""}</div>` : ""}
     <div class="ov-cc" data-captions ${attr(!st.captions, "hidden")}>${st.captions || ""}</div></div>`;
 }
@@ -82,7 +81,7 @@ Screens.overlay = (tail) => {
   let st = { index: 0 };
   const draw = () => {
     const data = routeData(tail);
-    $("#app").innerHTML = flat(html`<div class="ov-frame">${overlayHtml(data?.slides[clamp(st.index, 0, data.slides.length - 1)], st)}</div>`);
+    $("#app").innerHTML = flat(html`<div class="ov-frame">${overlayHtml(data && liveAt(data.slides, st).cur, st)}</div>`);
   };
   document.documentElement.classList.add("overlay-page");
   draw();
@@ -90,7 +89,7 @@ Screens.overlay = (tail) => {
   if (presChannel) presChannel.onmessage = (e) => {
     if (e.data?.key !== tail || location.hash !== `#overlay-${tail}`) return;
     S.load(); if (e.data.church) S.state.current = e.data.church;
-    const words = e.data.index !== st.index || e.data.black !== st.black || e.data.logo !== st.logo;
+    const words = e.data.index !== st.index || e.data.black !== st.black || e.data.logo !== st.logo || JSON.stringify(e.data.live) !== JSON.stringify(st.live);
     st = e.data;
     if (words) draw(); else { const cc = $("[data-captions]"); if (cc) { cc.textContent = st.captions || ""; cc.hidden = !st.captions; } }
   };

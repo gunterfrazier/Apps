@@ -222,8 +222,8 @@ function drawFollow(kind) {
   if (!data) { app.innerHTML = flat(html`${idleHtml(kind)}${deviceExitBtn()}`); return; }
   const st = { ...m, index: clamp(m.index || 0, 0, data.slides.length - 1) };
   if (kind === "stage") app.innerHTML = flat(html`${stageMonitor(data, st, true)}${deviceExitBtn()}`);
-  else if (kind === "overlay") app.innerHTML = flat(html`<div class="ov-frame">${overlayHtml(data.slides[st.index], st)}</div>${deviceExitBtn()}`);
-  else { const s = st.black ? { kind: "black" } : st.logo ? { kind: "logo" } : timedSlide(data.slides[st.index], st.segAt); app.innerHTML = flat(html`<div class="display"><div class="stage">${slideHtml(s)}</div></div>${deviceExitBtn()}`); }
+  else if (kind === "overlay") app.innerHTML = flat(html`<div class="ov-frame">${overlayHtml(liveAt(data.slides, st).cur, st)}</div>${deviceExitBtn()}`);
+  else { const s = st.black ? { kind: "black" } : st.logo ? { kind: "logo" } : timedSlide(liveAt(data.slides, st).cur, st.segAt); app.innerHTML = flat(html`<div class="display"><div class="stage">${slideHtml(s)}</div></div>${deviceExitBtn()}`); }
 }
 let followTimer = 0;
 function startFollow(kind) {

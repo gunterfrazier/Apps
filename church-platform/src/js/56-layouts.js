@@ -12,11 +12,10 @@ const LAYOUT_KINDS = {
 const short = (t, n) => { t = String(t || ""); return t.length > n ? `${t.slice(0, n).replace(/\s+\S*$/, "")}...` : t; };
 const paras = (t) => String(t || "").split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
 const verseNum = (v) => v.match(/^(\d+)\s/)?.[1] || "";
+/** Each section of a song once, in the order it's first sung. */
 function songOrderLabels(song) {
-  const secs = songSections(song.lyrics);
-  const order = String(song.order || "").split(",").map((x) => x.trim()).filter(Boolean);
-  const labels = (order.length ? order : secs.map((s) => s.label)).filter((l) => secs.some((s) => s.label.toLowerCase() === l.toLowerCase()));
-  return [...new Set(labels)];
+  const seen = new Set();
+  return songOrder(song).filter((l) => !seen.has(l.toLowerCase()) && seen.add(l.toLowerCase()));
 }
 function blockText(b) { return b.type === "scripture" ? b.ref || "" : b.type === "media" ? b.caption || b.url || "Picture" : b.type === "action" ? `${b.label || "Cue"}${b.text ? `: ${b.text}` : ""}` : b.type === "text" ? b.title || b.text || "" : b.text || ""; }
 /** The kind of content an item holds: song, scripture, text, sermon, media, action, or nothing to split. */
