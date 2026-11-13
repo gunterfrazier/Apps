@@ -223,7 +223,7 @@ Screens.home = () => {
 
       <section class="sec"><div class="rows">
         <button class="row" data-act="connect-card"><span class="lead-ic">${icon("inbox")}</span><span class="body"><span class="t">Connect card</span><span class="s">New here, have a question, or want to talk with a pastor?</span></span>${icon("chev")}</button>
-        <button class="row" data-act="invite"><span class="lead-ic">${icon("share")}</span><span class="body"><span class="t">Invite a friend</span><span class="s">Copy an invitation with service times and directions</span></span>${icon("chev")}</button>
+        <button class="row" data-act="invite"><span class="lead-ic">${icon("share")}</span><span class="body"><span class="t">Invite a friend</span><span class="s">Text, email or share an invitation with service times and directions</span></span>${icon("chev")}</button>
       </div></section>
       ${socialRow(c)}`,
   };
@@ -258,10 +258,30 @@ Actions["open-switcher"] = () => {
     <div class="btns stack"><button class="btn ghost block" data-act="go" data-to="churches">${icon("search")}Find another church</button></div>`);
 };
 
+// Invite a friend: the invitation opens ready to send in the phone's own messaging or email app (sms: and mailto:
+// links, so no permissions are needed and it goes from the person's own number or account), in any app through the
+// phone's share sheet, or onto the clipboard. The text can be changed first.
+const inviteText = (c) => `Come to church with me! ${c.name}${churchCity(c) ? ` in ${churchCity(c)}` : ""}. ${servicesSummary(c)}. Find "${c.name}" in the ${PLATFORM.name}: ${appLink(`church-${c.id}`)}`;
+const inviteSubject = (c) => `Join me at ${c.name}`;
+// iPhones read the message after "sms:&body="; Android and others after "sms:?body=".
+const smsHref = (text) => `sms:${/iphone|ipad|ipod/i.test(navigator.userAgent) ? "&" : "?"}body=${encodeURIComponent(text)}`;
+const mailHref = (c, text) => `mailto:?subject=${encodeURIComponent(inviteSubject(c))}&body=${encodeURIComponent(text)}`;
 Actions["invite"] = () => {
-  const c = S.church();
-  copyText(`Come to church with me! ${c.name}${churchCity(c) ? ` in ${churchCity(c)}` : ""}. ${servicesSummary(c)}. Find "${c.name}" in the ${PLATFORM.name}: ${appLink(`church-${c.id}`)}`, "Invitation copied");
+  const c = S.church(), text = inviteText(c);
+  openSheet("Invite a friend", html`<label class="field" style="margin-top:0"><span>Your invitation</span><textarea id="invite-text" data-input="invite-text" maxlength="1000">${text}</textarea><small>Change it however you like before you send it.</small></label>
+    <div class="rows invite-ways">
+      <a class="row" id="invite-sms" href="${smsHref(text)}"><span class="lead-ic">${icon("chat")}</span><span class="body"><span class="t">Text message</span><span class="s">Opens your messaging app with the invitation filled in</span></span>${icon("chev")}</a>
+      <a class="row" id="invite-mail" href="${mailHref(c, text)}"><span class="lead-ic">${icon("mail")}</span><span class="body"><span class="t">Email</span><span class="s">Opens your email app, ready to send from your own account</span></span>${icon("chev")}</a>
+      ${typeof navigator.share === "function" ? html`<button type="button" class="row" data-act="invite-share"><span class="lead-ic">${icon("share")}</span><span class="body"><span class="t">More ways to share</span><span class="s">WhatsApp, Messenger and your other apps</span></span>${icon("chev")}</button>` : ""}
+      <button type="button" class="row" data-act="invite-copy"><span class="lead-ic">${icon("copy")}</span><span class="body"><span class="t">Copy invitation</span><span class="s">Paste it anywhere</span></span></button>
+    </div>`);
 };
+Inputs["invite-text"] = (el) => { const c = S.church(); $("#invite-sms").href = smsHref(el.value); $("#invite-mail").href = mailHref(c, el.value); };
+Actions["invite-share"] = async () => {
+  try { await navigator.share({ title: inviteSubject(S.church()), text: $("#invite-text").value }); }
+  catch (e) { if (e?.name !== "AbortError") copyText($("#invite-text").value, "Invitation copied"); }   // no share sheet here: copy instead
+};
+Actions["invite-copy"] = () => copyText($("#invite-text").value, "Invitation copied");
 
 Actions["connect-card"] = () => {
   const me = S.me();

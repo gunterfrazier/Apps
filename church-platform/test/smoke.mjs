@@ -573,6 +573,13 @@ await step("shared training church (browser-only here)", async () => {
   await page.waitForFunction(() => !document.querySelector(".training-bar"));
   await goTo("church-riverside"); await goTo("admin-training"); await page.waitForSelector("form[data-form=training-create]");
 });
+await step("invite a friend by text or email", async () => {
+  await goTo("home"); await page.click("[data-act=invite]"); await page.waitForSelector("#invite-sms");
+  await page.fill("#invite-text", "Join me Sunday!");
+  if (!/^sms:[?&]body=Join%20me%20Sunday!$/.test(await page.getAttribute("#invite-sms", "href"))) throw new Error("text message link is wrong");
+  if (!/^mailto:\?subject=Join%20me%20at%20.+&body=Join%20me%20Sunday!$/.test(await page.getAttribute("#invite-mail", "href"))) throw new Error("email link is wrong");
+  await page.click("[data-act=close-sheet]"); await sheetGone();
+});
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));
