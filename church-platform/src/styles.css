@@ -1000,3 +1000,14 @@ button.sp-chip:hover { background: color-mix(in srgb, var(--pt, var(--ink)) 9%, 
 .bd-part:focus-within > svg.i { color: var(--brand); }
 .bd-msg:empty { display: none; }
 .bd-msg.bad { color: var(--warn); font-weight: 700; }
+
+/* ---------- Read aloud settings ---------- */
+.voice-field .vlabel { display: block; font-weight: 700; margin-bottom: 6px; }
+.voice-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.voice-row select { flex: 1 1 220px; min-width: 0; }
+.voice-row .btn { flex: none; }
+.voice-tips { margin-top: 6px; color: var(--ink-2); font-size: .92rem; }
+.voice-tips summary { cursor: pointer; color: var(--brand-ink); font-weight: 600; padding: 6px 0; }
+.voice-tips p { margin: 6px 0; }
+.voice-tips ul { margin: 6px 0 0; padding-left: 20px; }
+.voice-tips li { margin: 6px 0; line-height: 1.5; }

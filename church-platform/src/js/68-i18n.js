@@ -132,6 +132,18 @@ const ES = {
   "Requests to serve and reminders the day before": "Solicitudes para servir y recordatorios un día antes", "Events and classes": "Eventos y clases",
   "Reminders the day before something you signed up for": "Recordatorios un día antes de algo en lo que te inscribiste", "Quiet at night": "Silencio de noche", "Hold push notifications from 9 PM to 7 AM": "Pausa las notificaciones de 9 p. m. a 7 a. m.",
   "Push notifications are on": "Notificaciones activadas", "Push notifications are off": "Notificaciones desactivadas", "Read aloud isn't available in this browser": "La lectura en voz alta no está disponible en este navegador",
+  "Read aloud": "Lectura en voz alta", "Voice": "Voz", "Speed": "Velocidad", "Slower": "Más lenta", "Normal": "Normal", "Faster": "Más rápida", "Fastest": "La más rápida",
+  "Best available": "La mejor disponible", "Most natural": "Las más naturales", "Other voices": "Otras voces", "Voices on this device": "Voces de este dispositivo",
+  "Play a sample": "Escuchar una muestra", "Spanish voice": "Voz en español", "English voice": "Voz en inglés", "Reads the Bible and anything written in English": "Lee la Biblia y todo lo que esté escrito en inglés",
+  "Read aloud isn't available in this browser.": "La lectura en voz alta no está disponible en este navegador.",
+  "Looking for the voices on this device...": "Buscando las voces de este dispositivo...",
+  "This device doesn't have a Spanish voice yet. You can add one in your device's settings.": "Este dispositivo todavía no tiene una voz en español. Puedes agregar una en la configuración del dispositivo.",
+  "This device doesn't have an English voice yet. You can add one in your device's settings.": "Este dispositivo todavía no tiene una voz en inglés. Puedes agregar una en la configuración del dispositivo.",
+  "Get more natural voices": "Consigue voces más naturales", "Voices come from this phone or computer, so the list is different on each one.": "Las voces vienen de este teléfono o computadora, así que la lista es distinta en cada uno.",
+  "iPhone and iPad: open Settings, then Accessibility, then Read & Speak (Spoken Content on older versions), then Voices. Download an Enhanced or Premium voice, then choose it here.": "iPhone y iPad: abre Configuración, luego Accesibilidad, luego Leer y hablar (Contenido leído en versiones anteriores) y luego Voces. Descarga una voz Mejorada o Premium y elígela aquí.",
+  "Android: install or update Speech Services by Google from the Play Store.": "Android: instala o actualiza Servicios de voz de Google desde Play Store.",
+  "Computers: Microsoft Edge has voices marked Natural, and Google Chrome has Google voices.": "Computadoras: Microsoft Edge tiene voces marcadas como Natural y Google Chrome tiene voces de Google.",
+  "Tap Listen again to start reading": "Toca Escuchar otra vez para empezar la lectura", "Read aloud stopped. Try another voice in Settings.": "La lectura se detuvo. Prueba otra voz en Configuración.",
   "There's nothing to read here yet": "Todavía no hay nada que leer aquí", "Listen to the passage": "Escuchar el pasaje", "Listen to the sermon": "Escuchar el sermón",
 
   // Serving

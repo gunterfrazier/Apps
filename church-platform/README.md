@@ -81,7 +81,7 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - Choose which kinds you get: announcements, messages, serving, events and classes, and staff updates.
 - Spanish for member screens: tabs, menus, buttons, forms, check-in (including the kiosk families use) and dates. It follows the phone's language until someone picks one. What the church writes stays as written.
 - Larger text (two steps up), more contrast, reduced motion, a skip-to-content link, and focus that moves to each new screen for keyboard and screen reader users.
-- Read aloud for Scripture passages, sermons and transcripts, announcements and published outlines.
+- Read aloud for Scripture passages, sermons and transcripts, announcements and published outlines. It picks the most natural voice on the device, says references the way people read them ("John chapter 3, verse 16"), and Settings lets each person choose a voice (an English one too, in Spanish, for the Bible) and a speed.
 
 **For admins**
 - A landing page built from blocks: banners, graphics and photos you upload, information, buttons and links, video, embedded pages, events, classes, service times and social links.
