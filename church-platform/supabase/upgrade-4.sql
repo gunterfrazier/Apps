@@ -3,7 +3,7 @@
 -- It replaces six functions; tables, data and policies stay as they are.
 
 -- Signed-in church devices (kiosks, screens, the booth) have a membership with role_key 'device:<type>' instead of a role.
-create or replace function device_perms(t text) returns text[] language sql immutable as $$
+create or replace function device_perms(t text) returns text[] language sql immutable set search_path = public as $$
   select case t when 'kiosk' then array['checkin.station', 'use.checkin'] when 'display' then array['present'] when 'stage' then array['present']
     when 'overlay' then array['present'] when 'booth' then array['present'] else array[]::text[] end $$;
 
@@ -108,3 +108,6 @@ begin
   then raise exception 'You can only add or remove your own prayer'; end if;
   return new;
 end $$;
+
+-- The API roles: see the end of schema.sql.
+revoke execute on function guard_church(), guard_membership(), guard_records(), touch() from public, anon, authenticated;

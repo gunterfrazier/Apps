@@ -1,0 +1,8 @@
+<!-- Supabase: Authentication, Email Templates, "Magic Link". This is the email someone gets every time after the first.
+     Subject: Your Our Faithful Church App code: {{ .Token }} -->
+<h2>Your sign-in code</h2>
+<p>Enter this code in Our Faithful Church App:</p>
+<p style="font-size:30px;font-weight:bold;letter-spacing:6px;margin:16px 0">{{ .Token }}</p>
+<p>The code works once and expires soon.</p>
+<p>On this phone or computer, you can <a href="{{ .ConfirmationURL }}">tap here to sign in</a> instead.</p>
+<p style="color:#666">If you didn't ask for this, you can ignore this email.</p>

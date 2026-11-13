@@ -41,20 +41,23 @@ The publishable key is safe to publish: it can only do what the security rules a
 
 > Supabase's **Connect** panel shows setup steps for frameworks like Next.js (`npm install @supabase/ssr`, `.env.local`, middleware). Skip those: Our Faithful Church App is a plain web app that loads Supabase in the browser, so it only needs the address and publishable key.
 
-## 3. Turn on sign-in by email code
+## 3. Turn on sign-in by email
 
-People sign in with a 6-digit code sent to their email, with no passwords to forget.
+People sign in with an email, with no passwords to forget. The email has a link that signs them in on the phone or computer where they open it, and can also show a code to type in on another device.
 
-1. **Authentication, Providers, Email**: keep Email on. Turn on **Confirm email**.
-2. **Authentication, Email Templates, Magic Link**: replace the body with something that includes the code, for example:
-   ```html
-   <h2>Your sign-in code</h2>
-   <p>Enter this code in the app: <strong style="font-size:24px">{{ .Token }}</strong></p>
-   <p>Or tap to sign in: <a href="{{ .ConfirmationURL }}">Sign in</a></p>
-   ```
-   Do the same for **Confirm signup**.
-3. **Authentication, URL Configuration**: set **Site URL** to your app address and add it under **Redirect URLs**.
-4. **Project Settings, Authentication, SMTP**: Supabase's built-in email is limited to a few messages an hour. Before inviting a congregation, connect a sender such as Resend, Postmark or SendGrid (each has a free tier).
+1. **Authentication, Sign In / Providers, Email**: keep Email on and **Confirm email** on.
+2. **Authentication, URL Configuration**:
+   - **Site URL**: your app address, for example `https://gunterfrazier.github.io/Apps/`.
+   - **Redirect URLs**: add the same address with `**` on the end, for example `https://gunterfrazier.github.io/Apps/**`.
+   Without these, the link in the email goes to `localhost` and doesn't open. With them, signing in by link works right away.
+3. **Connect an email sender** under **Authentication, Emails, SMTP Settings**. Supabase's built-in email only delivers to the people on your Supabase team, a few an hour, so the congregation can't sign in until this is done. Free projects created since June 2026 also can't change the email wording until it's done. Any SMTP service works:
+   - With your church's own web domain: Resend, Postmark, Brevo or SendGrid (each has a free tier). Add the DNS records they give you so mail isn't marked as spam.
+   - Without a domain: a Gmail account for the church, with 2-step verification on and an app password. Host `smtp.gmail.com`, port `465`, the Gmail address as user and sender, the app password as password. Gmail allows about 500 emails a day.
+4. **Put the code in the emails** (once step 3 is done), under **Authentication, Emails, Templates**. Supabase sends **Confirm signup** the first time someone signs in and **Magic Link** every time after; edit both:
+   - Subject: `Your Our Faithful Church App code: {{ .Token }}`
+   - Message body: all of `church-platform/supabase/templates/confirm-signup.html` (Confirm signup) or `magic-link.html` (Magic Link).
+
+To check it: in the app, enter your email. The email that arrives should have the link, and after step 4 the code too. A link or code from an older email stops working once a newer one is sent.
 
 ## 4. Point the app at the database
 

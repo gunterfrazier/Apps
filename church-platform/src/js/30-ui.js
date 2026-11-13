@@ -54,6 +54,8 @@ function render() {
   if (owner && owner !== S.state.current) { S.state.current = owner; S.save(); }
   const me = S.me();
   if (Backend.failed) { app.innerHTML = flat(html`<div class="loading" role="alert"><div style="text-align:center;max-width:320px"><p>Can't reach ${PLATFORM.name} right now. Check your connection and try again.</p><button class="btn" data-act="reload">Try again</button></div></div>`); return; }
+  // Back from an email sign-in link: Supabase finishes it as it starts.
+  if (/^#(access_token|error)=/.test(location.hash) && !Backend.ready) { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Signing you in...</div>`); return; }
   const signedOutOk = head === "page" || head === "pair";
   // Signed out of a live site: email sign-in, and nothing below applies (the welcome form is for the browser-only preview).
   const mustSignIn = Backend.on && !Backend.user && !signedOutOk;

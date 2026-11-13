@@ -81,11 +81,11 @@ create table push_subscriptions (endpoint text primary key, user_id uuid not nul
 create table payments (id text primary key, church_id text references churches on delete set null, kind text, ref text, user_id uuid, amount numeric(12, 2), status text, data jsonb, created_at timestamptz not null default now());
 create table ai_usage (user_id uuid, day date, n int not null default 0, primary key (user_id, day));
 
-create or replace function touch() returns trigger language plpgsql as $$ begin new.updated_at = now(); new.updated_by = auth.uid(); return new; end $$;
+create or replace function touch() returns trigger language plpgsql set search_path = public as $$ begin new.updated_at = now(); new.updated_by = auth.uid(); return new; end $$;
 create trigger records_touch before update on records for each row execute function touch();
 
 -- ---------- Permission helpers used by every policy ----------
-create or replace function uid_text() returns text language sql stable as $$ select auth.uid()::text $$;
+create or replace function uid_text() returns text language sql stable set search_path = public as $$ select auth.uid()::text $$;
 create or replace function is_primary(c text) returns boolean language sql stable security definer set search_path = public as
   $$ select exists (select 1 from churches where id = c and owner_id = auth.uid()) $$;
 create or replace function is_member(c text) returns boolean language sql stable security definer set search_path = public as
@@ -93,7 +93,7 @@ create or replace function is_member(c text) returns boolean language sql stable
 create or replace function my_rank(c text) returns int language sql stable security definer set search_path = public as
   $$ select case when is_primary(c) then 100 else coalesce((select r.rank from memberships m join roles r on r.church_id = m.church_id and r.key = m.role_key where m.church_id = c and m.user_id = auth.uid()), 0) end $$;
 -- Signed-in church devices (kiosks, screens, the booth) have a membership with role_key 'device:<type>' instead of a role.
-create or replace function device_perms(t text) returns text[] language sql immutable as $$
+create or replace function device_perms(t text) returns text[] language sql immutable set search_path = public as $$
   select case t when 'kiosk' then array['checkin.station', 'use.checkin'] when 'display' then array['present'] when 'stage' then array['present']
     when 'overlay' then array['present'] when 'booth' then array['present'] else array[]::text[] end $$;
 create or replace function can(c text, perm text) returns boolean language sql stable security definer set search_path = public as
@@ -296,3 +296,13 @@ create policy "staff remove media" on storage.objects for delete using (bucket_i
 
 -- ---------- Live updates ----------
 alter publication supabase_realtime add table records;
+
+-- ---------- What the app's API roles may touch ----------
+-- Newer Supabase projects no longer hand new tables to the API automatically, so say it here. These grants only open
+-- the door: the row-level security rules above still decide which rows each person can see or change.
+grant usage on schema public to anon, authenticated, service_role;
+grant select on all tables in schema public to anon;
+grant select, insert, update, delete on all tables in schema public to authenticated, service_role;
+grant usage, select on all sequences in schema public to authenticated, service_role;
+grant execute on all functions in schema public to anon, authenticated, service_role;   -- the permission helpers run inside the rules
+revoke execute on function guard_church(), guard_membership(), guard_records(), touch() from public, anon, authenticated;   -- triggers only
