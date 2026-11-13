@@ -274,7 +274,7 @@ AdminScreens.account = () => {
         <label class="field"><span>Church phone</span><input type="tel" name="phone" value="${c.phone}"></label></div>
       <label class="field"><span>City and state</span><input type="text" name="city" value="${c.city || ""}" maxlength="60"></label>
       <label class="field"><span>One line about your church</span><input type="text" name="tagline" value="${c.tagline}" maxlength="90"></label>
-      ${imageField("logo", "Logo", c.logo, "Square works best. Shown on Home and in the church list.", 512)}
+      ${imageField("logo", "Logo", c.logo, "Any shape works: the whole logo always shows. Shown on Home, the banner and in the church list.", 512)}
       <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Brand color</legend>
         <div class="swatches">${[...new Set([c.color, ...BRAND_COLORS])].map((col) => html`<label><input type="radio" name="color" value="${col}" ${attr(col === c.color, "checked")}><span style="background:${col}"></span><span class="sr">${col}</span></label>`)}</div></fieldset>
       <p class="faint">The Home banner's background, graphics and text art are under <a href="#admin-banner">Home banner</a>.</p>

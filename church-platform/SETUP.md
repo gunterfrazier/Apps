@@ -43,9 +43,9 @@ The publishable key is safe to publish: it can only do what the security rules a
 
 ## 3. Turn on sign-in by email
 
-People sign in with an email, with no passwords to forget. The email has a link that signs them in on the phone or computer where they open it, and can also show a code to type in on another device.
+The sign-in screen asks whether someone is new or already has an account. A new person enters their email, types the code from the email to confirm it, then gives their name and chooses a password. After that they sign in with their email and password. **Forgot your password?** and **Email me a code instead** both send a code, so nobody gets locked out.
 
-1. **Authentication, Sign In / Providers, Email**: keep Email on and **Confirm email** on.
+1. **Authentication, Sign In / Providers, Email**: keep Email on, **Confirm email** on and **Allow new users to sign up** on. The app asks for passwords of at least 8 characters, so leave Supabase's minimum at 8 or lower. If **Secure password change** is on, the app asks for one more emailed code when someone changes a password long after signing in.
 2. **Authentication, URL Configuration**:
    - **Site URL**: your app address, for example `https://gunterfrazier.github.io/Apps/`.
    - **Redirect URLs**: add the same address with `**` on the end, for example `https://gunterfrazier.github.io/Apps/**`.
@@ -65,12 +65,12 @@ This is already done: `public/config.js` names your project, and the build puts 
 
 To use a different project without changing the code, add repository variables on GitHub under **Settings, Secrets and variables, Actions, Variables**: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `APP_URL` (your app address, ending in `/`) and later `VAPID_PUBLIC_KEY`. When `SUPABASE_URL` is set, the workflow writes those into `config.js` instead. (Hosting somewhere else? Upload `config.js` with the rest of the `dist` folder.)
 
-Open your app address. You should now see **Email me a sign-in code** instead of the preview's welcome screen.
+Open your app address. You should now see **I have an account** and **I'm new here** instead of the preview's welcome screen.
 
 ## 5. Register the first church
 
-1. Sign in with your email and the code.
-2. Enter your name, then **Register a church**. You're its primary account holder.
+1. Choose **I'm new here**, enter your email and the code from the email, then your name and a password. (An account made before passwords were added is asked for a name and password once, the next time it opens the app.)
+2. Choose **Register a church**. You're its primary account holder.
 3. Under **Admin**, work through **Getting started**: locations and service times, roles, the Home banner, the landing page, announcements, classes and groups.
 4. Invite people with **Home, Invite a friend** or a QR code (**Ministry tools, QR codes, Join the church**). Everyone who joins starts with the default role you chose under **Features and defaults**.
 

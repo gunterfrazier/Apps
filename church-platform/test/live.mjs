@@ -48,6 +48,16 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const uid = "11111111-2222-4333-8444-555555555555", exp = Math.floor(Date.now() / 1000) + 3600;
 const user = { id: uid, aud: "authenticated", role: "authenticated", email: "tester@example.com", email_confirmed_at: new Date().toISOString(), app_metadata: { provider: "email" }, user_metadata: {}, created_at: new Date().toISOString() };
 const users = { [uid]: user }, passwords = {};
+// People's accounts by email. tester@example.com doesn't exist until the test creates it with "I'm new here".
+const accounts = {};
+function account(email, create) {
+  if (!accounts[email] && create) {
+    const u = email === user.email ? user : { ...user, id: `aaaaaaaa-0000-4000-8000-${String(Object.keys(users).length).padStart(12, "0")}`, email, user_metadata: {} };
+    users[u.id] = u; accounts[email] = { user: u, password: null };
+  }
+  return accounts[email] || null;
+}
+const body = (req) => { try { return JSON.parse(req.postData() || "{}"); } catch { return {}; } };
 const sessionFor = (u) => ({ access_token: `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: u.id, exp, role: "authenticated", aud: "authenticated", email: u.email })}.x`, token_type: "bearer", expires_in: 3600, expires_at: exp, refresh_token: `r-${u.id}`, user: u });
 const session = sessionFor(user);
 const caller = (req) => { try { return users[JSON.parse(Buffer.from((req.headers().authorization || "").split(".")[1] || "", "base64url").toString()).sub] || null; } catch { return null; } };
@@ -78,9 +88,21 @@ async function supabase(route) {
   if (m === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
   const json = (status, body, extra = {}) => route.fulfill({ status, headers: { ...cors, "content-type": "application/json", ...extra }, body: body === undefined ? "" : JSON.stringify(body) });
   const p = u.pathname; calls.add(`${m} ${p.replace(/\/rest\/v1\//, "/")}`);
-  if (p === "/auth/v1/otp") return json(200, {});
-  if (p === "/auth/v1/verify") return json(200, session);
-  if (p === "/auth/v1/token") { const b = JSON.parse(req.postData() || "{}"), d = passwords[b.email]; return u.searchParams.get("grant_type") === "password" ? (d && d.password === b.password ? json(200, sessionFor(users[d.id])) : json(400, { error: "invalid_grant", error_description: "Invalid login credentials" })) : json(200, session); }
+  if (p === "/auth/v1/otp") { const b = body(req); return account(b.email, b.create_user !== false) ? json(200, {}) : json(422, { code: "otp_disabled", error_code: "otp_disabled", msg: "Signups not allowed for otp" }); }
+  if (p === "/auth/v1/verify") { const a = account(body(req).email, false); return a ? json(200, sessionFor(a.user)) : json(403, { code: "otp_expired", msg: "Token has expired or is invalid" }); }
+  if (p === "/auth/v1/token") {
+    if (u.searchParams.get("grant_type") !== "password") return json(200, session);
+    const b = body(req), a = accounts[b.email], d = passwords[b.email];
+    if (a && a.password && a.password === b.password) return json(200, sessionFor(a.user));
+    if (d && d.password === b.password) return json(200, sessionFor(users[d.id]));
+    return json(400, { code: "invalid_credentials", error_code: "invalid_credentials", msg: "Invalid login credentials" });
+  }
+  if (p === "/auth/v1/user" && m === "PUT") {
+    const who = caller(req), b = body(req); if (!who) return json(401, { msg: "not signed in" });
+    const a = accounts[who.email]; if (b.password) { if (a && a.password === b.password) return json(422, { code: "same_password", msg: "New password should be different from the old password." }); if (a) a.password = b.password; }
+    if (b.data) who.user_metadata = { ...who.user_metadata, ...b.data };
+    return json(200, who);
+  }
   if (p === "/auth/v1/user") return json(200, caller(req) || user);
   if (p === "/auth/v1/logout") return route.fulfill({ status: 204, headers: cors });
   if (p.startsWith("/rest/v1/rpc/")) return json(200, []);
@@ -123,9 +145,9 @@ async function step(name, fn) {
 }
 const appText = () => page.textContent("#app");
 
-await step("opens at /Apps/ and asks to sign in by email", async () => {
+await step("opens at /Apps/ and asks: new here, or have an account?", async () => {
   await page.goto(base + "?debug");
-  await page.waitForSelector("form[data-form=signin-email]");
+  await page.waitForSelector(".signin-choice");
   if (await page.$("form[data-form=welcome]")) throw new Error("shows the browser-only welcome form");
   if (!(await page.title()).includes("Our Faithful")) throw new Error(`title is ${await page.title()}`);
   await shot("1-signin");
@@ -137,15 +159,22 @@ await step("app files load under the sub-path", async () => {
 });
 await step("device pairing opens without signing in", async () => {
   await page.click("a[href='#pair']"); await page.waitForSelector("form[data-form=pair]");
-  await page.goBack(); await page.waitForSelector("form[data-form=signin-email]");
+  await page.goBack(); await page.waitForSelector(".signin-choice");
 });
-await step("signs in with an emailed code", async () => {
-  await page.fill("form[data-form=signin-email] input[name=email]", "tester@example.com"); await page.click("form[data-form=signin-email] button.btn");
+await step("creates an account: email code, then name and password", async () => {
+  await page.click("[data-act=signin-mode][data-mode=new]");
+  await page.fill("form[data-form=signin-email] input[name=email]", "Tester@Example.com "); await page.click("form[data-form=signin-email] button.btn");
   await page.waitForSelector("form[data-form=signin-code]"); await shot("2-code");
   await page.fill("form[data-form=signin-code] input[name=code]", "123456"); await page.click("form[data-form=signin-code] button.btn");
-  await page.waitForSelector("form[data-form=welcome]"); // a new account gives its name first
-  await page.fill("form[data-form=welcome] input[name=name]", "Test Person"); await page.click("form[data-form=welcome] button.btn");
-  await page.waitForFunction(() => /church/i.test(document.querySelector("#app").textContent) && !document.querySelector("form[data-form=welcome]"));
+  await page.waitForSelector("form[data-form=account-setup]"); // then a name and a password
+  await page.fill("form[data-form=account-setup] input[name=name]", "Test Person");
+  await page.fill("form[data-form=account-setup] input[name=password]", "grace and peace");
+  await page.fill("form[data-form=account-setup] input[name=password2]", "grace and pease"); await page.click("form[data-form=account-setup] button.btn");
+  await page.waitForSelector("text=The two passwords don't match");
+  await page.fill("form[data-form=account-setup] input[name=password2]", "grace and peace"); await shot("2b-setup");
+  await page.click("form[data-form=account-setup] button.btn");
+  await page.waitForFunction(() => /church/i.test(document.querySelector("#app").textContent) && !document.querySelector("form[data-form=account-setup], form[data-form=welcome]"));
+  if (accounts["tester@example.com"]?.password !== "grace and peace" || !user.user_metadata.password_set) throw new Error("the password wasn't saved");
   await shot("3-churches");
 });
 await step("registers a church and it saves to the database", async () => {
@@ -207,7 +236,7 @@ const freshPage = async () => {
 await step("an expired email link says what to do", async () => {
   const p = await freshPage();
   await p.goto(base + "#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired");
-  await p.waitForSelector("form[data-form=signin-email]"); await p.waitForSelector("text=expired or was already used");
+  await p.waitForSelector(".signin-choice"); await p.waitForSelector("text=expired or was already used");
   if (/error/.test(await p.evaluate(() => location.href))) throw new Error("the error stayed in the address");
   await p.screenshot({ path: join(shots, "live-7-expired-link.png") }); await p.context().close();
 });
@@ -218,18 +247,60 @@ await step("the email link signs you in", async () => {
   if (/access_token/.test(await p.evaluate(() => location.href))) throw new Error("the sign-in token stayed in the address");
   await p.context().close();
 });
-await step("the code box takes the code however it's typed", async () => {
-  const p = await freshPage(); await p.goto(base); await p.fill("form[data-form=signin-email] input[name=email]", "tester@example.com"); await p.click("form[data-form=signin-email] button.btn");
+await step("signing in with a code instead, typed with a space", async () => {
+  const p = await freshPage(); await p.goto(base); await p.click("[data-act=signin-mode][data-mode=existing]");
+  await p.fill("form[data-form=signin-password] input[name=email]", "tester@example.com"); await p.click("[data-act=signin-code-instead]");
   await p.waitForSelector("form[data-form=signin-code]"); await p.fill("input[name=code]", "123 456"); await p.click("form[data-form=signin-code] button.btn");
-  await p.waitForFunction(() => !document.querySelector("form[data-form^=signin]"), null, { timeout: 15000 });
+  await p.waitForFunction(() => !document.querySelector("form[data-form^=signin], form[data-form=account-setup]") && /Test Fellowship/.test(document.querySelector("#app").textContent), null, { timeout: 15000 });
   await p.context().close();
+});
+await step("a code can't create an account from the sign-in side", async () => {
+  const p = await freshPage(); await p.goto(base); await p.click("[data-act=signin-mode][data-mode=existing]");
+  await p.fill("form[data-form=signin-password] input[name=email]", "nobody@example.com"); await p.click("[data-act=signin-code-instead]");
+  await p.waitForSelector("text=There's no account with that email yet");
+  if (accounts["nobody@example.com"]) throw new Error("an account was created"); await p.context().close();
+});
+await step("an account made before passwords is asked to choose one", async () => {
+  account("early@example.com", true); // signed up with a code only
+  const p = await freshPage(); await p.goto(base); await p.click("[data-act=signin-mode][data-mode=existing]");
+  await p.fill("form[data-form=signin-password] input[name=email]", "early@example.com"); await p.fill("form[data-form=signin-password] input[name=password]", "anything");
+  await p.click("form[data-form=signin-password] button.btn"); await p.waitForSelector("text=don't match");
+  await p.click("[data-act=signin-code-instead]"); await p.waitForSelector("form[data-form=signin-code]");
+  await p.fill("input[name=code]", "123456"); await p.click("form[data-form=signin-code] button.btn");
+  await p.waitForSelector("form[data-form=account-setup] input[name=name]");
+  await p.fill("input[name=name]", "Early Member"); await p.fill("input[name=password]", "first light"); await p.fill("input[name=password2]", "first light");
+  await p.click("form[data-form=account-setup] button.btn"); await p.waitForFunction(() => !document.querySelector("form[data-form=account-setup]"));
+  if (accounts["early@example.com"].password !== "first light") throw new Error("password not saved"); await p.context().close();
 });
 await step("signs out", async () => {
   await page.evaluate(() => window.__signOutForTest?.() || null);
   await page.evaluate(() => { location.hash = "me"; }); await page.waitForTimeout(400);
   const out = await page.$("[data-act=signout], [data-act=sign-out], button:has-text('Sign out')"); if (!out) throw new Error("no sign-out button on Me");
   await out.click(); const yes = await page.$("#scrim [data-act=signout-yes], #scrim button:has-text('Sign out')"); if (yes) await yes.click();
-  await page.waitForSelector("form[data-form=signin-email]");
+  await page.waitForSelector(".signin-choice");
+});
+await step("signs back in with email and password", async () => {
+  await page.click("[data-act=signin-mode][data-mode=existing]");
+  await page.fill("form[data-form=signin-password] input[name=email]", "tester@example.com"); await page.fill("form[data-form=signin-password] input[name=password]", "wrong one");
+  await page.click("form[data-form=signin-password] button.btn"); await page.waitForSelector("text=don't match"); await shot("8-signin-password");
+  await page.fill("form[data-form=signin-password] input[name=password]", "grace and peace"); await page.click("form[data-form=signin-password] button.btn");
+  await page.waitForFunction(() => /Test Fellowship/.test(document.querySelector("#app").textContent) && !document.querySelector("form[data-form^=signin]"), null, { timeout: 15000 });
+});
+await step("resets a forgotten password", async () => {
+  await page.evaluate(() => { location.hash = "me"; }); await page.waitForTimeout(300); await page.click("[data-act=sign-out]");
+  const yes = await page.$("#scrim [data-act=signout-yes], #scrim button:has-text('Sign out')"); if (yes) await yes.click();
+  await page.waitForSelector(".signin-choice"); await page.click("[data-act=signin-mode][data-mode=existing]");
+  await page.fill("form[data-form=signin-password] input[name=email]", "tester@example.com"); await page.click("[data-act=signin-forgot]");
+  await page.waitForSelector("text=Reset your password");
+  if ((await page.inputValue("form[data-form=signin-email] input[name=email]")) !== "tester@example.com") throw new Error("the email wasn't carried over");
+  await page.click("form[data-form=signin-email] button.btn"); await page.waitForSelector("form[data-form=signin-code]");
+  await page.fill("input[name=code]", "123456"); await page.click("form[data-form=signin-code] button.btn");
+  await page.waitForSelector("text=Choose a new password"); if (await page.$("form[data-form=account-setup] input[name=name]")) throw new Error("asked for a name again");
+  await page.fill("input[name=password]", "grace and peace"); await page.fill("input[name=password2]", "grace and peace"); await page.click("form[data-form=account-setup] button.btn");
+  await page.waitForSelector("text=That's already your password");
+  await page.fill("input[name=password]", "peace be with you"); await page.fill("input[name=password2]", "peace be with you"); await page.click("form[data-form=account-setup] button.btn");
+  await page.waitForFunction(() => /Test Fellowship/.test(document.querySelector("#app").textContent) && !document.querySelector("form[data-form=account-setup]"), null, { timeout: 15000 });
+  if (accounts["tester@example.com"].password !== "peace be with you") throw new Error("new password not saved");
 });
 
 console.log(`\nSupabase calls: ${[...calls].sort().join(", ")}`);
