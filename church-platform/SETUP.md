@@ -200,6 +200,15 @@ For signage, make a playlist under **Admin, Digital signage** first, then add a 
 - [ ] The kiosk finds a family and prints a name tag on your label printer.
 - [ ] A paired presentation screen on another computer shows the booth's slides as you move through them, and goes back to its logo or playlist when you close the presenter.
 
+## Demo and training
+
+Share these links with churches you're inviting, or with new staff and volunteers:
+
+- Demo: `https://gunterfrazier.github.io/Apps/?demo`
+- Training: `https://gunterfrazier.github.io/Apps/?training`
+
+They need no account and nothing to set up. Each opens a sample church in the visitor's own browser, with them as its administrator, so they can try and change everything. Nothing they do reaches your database, and no money moves. Signed-in staff can also choose **Me, Practice, Training, Practice with a copy of** their church, to rehearse changes on their own church's setup.
+
 ## Troubleshooting
 
 - **"Some changes weren't saved. Your role may not allow them."** A security rule refused a change. Check the person's role and location access under **Admin, People**. The browser console names the record and the rule's message.

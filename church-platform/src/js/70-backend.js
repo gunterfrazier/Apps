@@ -9,7 +9,7 @@
 
 const Backend = {
   on: false, client: null, user: null, aiEnabled: true, ready: false, snap: new Map(), pending: false, warned: false, channel: null, present: null,
-  configured() { return !IN_PREVIEW && !!PLATFORM.supabaseUrl && !!PLATFORM.supabasePublishableKey; },
+  configured() { return !IN_PREVIEW && !SANDBOX && !!PLATFORM.supabaseUrl && !!PLATFORM.supabasePublishableKey; },
 
   async start() {
     if (!this.configured()) return;
@@ -295,6 +295,7 @@ Screens.signin = () => {
     page: html`<div class="welcome"><div class="wrap"><p class="brand-word">${PLATFORM.name}</p>${bannerHtml(PLATFORM_CHURCH, PLATFORM_BANNER)}<div style="margin-top:18px">
       ${signinNotice.text ? html`<p class="panel notice" role="alert" style="margin-bottom:12px">${signinNotice.text}</p>` : ""}
       ${body}
+      ${!signinMode ? html`<p class="signin-try">Just looking? <a href="?demo">Try the demo</a> or <a href="?training">practice in training</a>. No account needed, and nothing you do there is real.</p>` : ""}
       <p style="text-align:center;margin-top:12px"><a class="linkish" href="#pair">${icon("lock")}Set up a church device</a></p></div></div></div>`,
   };
 };

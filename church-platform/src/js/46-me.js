@@ -60,11 +60,18 @@ Screens.me = () => {
           : html`<p style="margin:0">Once the app is on its own website, open it in Chrome and choose <b>Install app</b> or <b>Add to Home screen</b> from the menu.</p>`}
       </div></section>` : ""}
 
-      ${Backend.on ? html`<section class="sec"><div class="rows"><button class="row" data-act="sign-out"><span class="lead-ic">${icon("x")}</span><span class="body"><span class="t">Sign out</span><span class="s">${S.me().email}</span></span></button></div></section>` : html`<section class="sec"><h2 class="sec-head">Preview tools</h2><div class="rows">
+      ${Backend.on ? html`<section class="sec"><h2 class="sec-head">Practice</h2><div class="rows">
+        <button class="row" data-act="train-open"><span class="lead-ic">${icon("book")}</span><span class="body"><span class="t">Training</span><span class="s">Practice every feature with exercises, apart from your real church</span></span>${icon("chev")}</button>
+        <a class="row" href="${location.pathname}?demo"><span class="lead-ic">${icon("play")}</span><span class="body"><span class="t">Demo</span><span class="s">Look around a sample church as its administrator</span></span>${icon("chev")}</a></div></section>
+      <section class="sec"><div class="rows"><button class="row" data-act="sign-out"><span class="lead-ic">${icon("x")}</span><span class="body"><span class="t">Sign out</span><span class="s">${S.me().email}</span></span></button></div></section>` : html`<section class="sec"><h2 class="sec-head">${SANDBOX ? SANDBOX_NAMES[SANDBOX] : "Preview tools"}</h2><div class="rows">
+        ${SANDBOX === "training" ? html`<a class="row" href="#training"><span class="lead-ic">${icon("list")}</span><span class="body"><span class="t">Training checklist</span><span class="s">${trainingProgress().done} of ${trainingProgress().total} exercises done</span></span>${icon("chev")}</a>` : ""}
         ${S.isMember() ? html`<button class="row" data-act="demo-role"><span class="lead-ic">${icon("key")}</span><span class="body"><span class="t">Try a different role</span><span class="s">See ${c.name} as a member, teacher, media coordinator or administrator</span></span>${icon("chev")}</button>` : ""}
         ${S.isMember() && !S.isPrimary() ? html`<button class="row" data-act="demo-primary"><span class="lead-ic">${icon("star")}</span><span class="body"><span class="t">Become the primary account holder</span><span class="s">Take over ${c.name}'s account in this preview</span></span>${icon("chev")}</button>` : ""}
-        <button class="row" data-act="demo-reset"><span class="lead-ic">${icon("info")}</span><span class="body"><span class="t">Reset sample data</span><span class="s">Start over with fresh sample churches</span></span>${icon("chev")}</button>
-      </div><p class="faint">${PLATFORM.name} preview. Everything is saved in this browser only.</p></section>`}`,
+        ${SANDBOX ? html`<button class="row" data-act="sandbox-reset"><span class="lead-ic">${icon("info")}</span><span class="body"><span class="t">Start over</span><span class="s">Clear what you changed and begin again</span></span>${icon("chev")}</button>
+        <button class="row" data-act="sandbox-exit"><span class="lead-ic">${icon("x")}</span><span class="body"><span class="t">Leave the ${SANDBOX_NAMES[SANDBOX].toLowerCase()}</span><span class="s">${PLATFORM.supabaseUrl ? "Back to the live app. Your practice data waits here for next time." : "Back to the preview. Your practice data waits here for next time."}</span></span>${icon("chev")}</button>`
+        : html`<a class="row" href="#training"><span class="lead-ic">${icon("list")}</span><span class="body"><span class="t">Training checklist</span><span class="s">Exercises that walk through every feature</span></span>${icon("chev")}</a>
+        <button class="row" data-act="demo-reset"><span class="lead-ic">${icon("info")}</span><span class="body"><span class="t">Reset sample data</span><span class="s">Start over with fresh sample churches</span></span>${icon("chev")}</button>`}
+      </div><p class="faint">${SANDBOX ? "Practice data, saved in this browser only. Nothing here reaches anyone's real data, and no money moves." : `${PLATFORM.name} preview. Everything is saved in this browser only.`}</p></section>`}`,
   };
 };
 Actions["profile-edit"] = () => {
@@ -86,8 +93,8 @@ Actions["leave-yes"] = () => { const n = S.church().name; S.leave(S.state.curren
 Actions["install"] = async () => { if (!installPrompt) return; installPrompt.prompt(); try { await installPrompt.userChoice; } catch {} installPrompt = null; render(); };
 Actions["demo-role"] = () => {
   const c = S.church(), cur = S.membership().roleId;
-  openSheet("Try a different role", html`<p class="muted" style="margin-top:0">Preview only. In a live app, roles are given by the church's primary account holder or an administrator.</p>
-    <div class="rows">${[...c.roles].sort((a, b) => b.rank - a.rank).map((r) => html`<button class="row" data-act="demo-role-set" data-id="${r.id}"><span class="body"><span class="t">${r.name}</span><span class="s">${plural(Object.values(r.perms).filter(Boolean).length, "permission")}</span></span>${r.id === cur && !S.isPrimary() ? icon("check") : ""}</button>`)}</div>`);
+  openSheet("Try a different role", html`<p class="muted" style="margin-top:0">${SANDBOX ? "Practice only." : "Preview only."} In a live app, roles are given by the church's primary account holder or an administrator.</p>
+    <div class="rows">${!S.isPrimary() ? html`<button class="row" data-act="demo-primary"><span class="body"><span class="t">Primary account holder</span><span class="s">Everything, including the church account</span></span></button>` : ""}${[...c.roles].sort((a, b) => b.rank - a.rank).map((r) => html`<button class="row" data-act="demo-role-set" data-id="${r.id}"><span class="body"><span class="t">${r.name}</span><span class="s">${plural(Object.values(r.perms).filter(Boolean).length, "permission")}</span></span>${r.id === cur && !S.isPrimary() ? icon("check") : ""}</button>`)}</div>`);
 };
 Actions["demo-role-set"] = (el) => {
   const c = S.church();
@@ -100,11 +107,8 @@ Actions["demo-role-set"] = (el) => {
   S.save(); closeSheet(true); toast(`You're now: ${S.role().name}`); go(el.dataset.id === "member" ? "home" : hasAdminTools() ? "admin" : hasMinistryTools() ? "ministry" : "home");
 };
 Actions["demo-primary"] = () => {
-  const c = S.church();
-  c.previousOwner = c.ownerId; c.ownerId = S.me().id;
-  if (c.previousOwner && S.state.users[c.previousOwner] && !S.membership(c.id, c.previousOwner)) S.state.memberships.push({ churchId: c.id, userId: c.previousOwner, roleId: "admin", locations: "all", listed: true, joined: new Date().toISOString() });
-  S.membership().locations = "all";
-  S.save(); toast("You're the primary account holder in this preview"); go("admin");
+  makePrimary(S.church());
+  S.save(); closeSheet(true); toast(`You're the primary account holder in this ${SANDBOX ? SANDBOX_NAMES[SANDBOX].toLowerCase() : "preview"}`); go("admin");
 };
 Actions["demo-reset"] = () => openSheet("Reset sample data?", html`<p>This clears your profile, household, notes, gifts and any churches you registered, then rebuilds the sample churches.</p>
   <div class="btns"><button class="btn danger" data-act="demo-reset-yes">Reset</button><button class="btn ghost" data-act="close-sheet">Cancel</button></div>`);
