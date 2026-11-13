@@ -22,7 +22,7 @@ const Backend = {
     // An email link that didn't work comes back with an error in the address. Say what happened, and tidy the address.
     const back = new URLSearchParams(location.hash.slice(1) + "&" + location.search.slice(1));
     if (back.get("error") || back.get("error_description")) {
-      signinNotice = back.get("error_code") === "otp_expired" ? "That sign-in link has expired or was already used. Enter your email to get a new code." : `Signing in from the email link didn't work (${back.get("error_description") || back.get("error")}). Enter your email to get a code instead.`;
+      signinNotice = back.get("error_code") === "otp_expired" ? "That sign-in link has expired or was already used. Enter your email to get a new one." : `Signing in from the email link didn't work (${back.get("error_description") || back.get("error")}). Enter your email to try again.`;
       history.replaceState(null, "", location.pathname);
     } else if (/^#(access_token|refresh_token)=/.test(location.hash)) history.replaceState(null, "", location.pathname);
     this.client.auth.onAuthStateChange((evt, session) => { if (evt === "SIGNED_OUT") { this.user = null; this.ready = false; this.synced = false; this.snap = new Map(); S.state = blankState(); S.flush(); go("signin"); } else if (session?.user && !this.user) { this.user = session.user; this.afterSignIn(); } });
@@ -251,11 +251,12 @@ Screens.signin = () => {
     page: html`<div class="welcome"><div class="wrap"><p class="brand-word">${PLATFORM.name}</p>${bannerHtml(PLATFORM_CHURCH, PLATFORM_BANNER)}<div style="margin-top:18px">
       ${signinNotice ? html`<p class="panel notice" role="alert" style="margin-bottom:12px">${signinNotice}</p>` : ""}
       ${!signinEmail ? html`<form data-form="signin-email" class="panel" novalidate><label class="field" style="margin-top:0"><span>Your email</span><input type="email" name="email" autocomplete="email" required></label>
-          <button class="btn block">Email me a sign-in code</button><p class="faint">New here? The same code creates your account.</p></form>`
-        : html`<form data-form="signin-code" class="panel" novalidate><p style="margin-top:0">We emailed a code to <b>${signinEmail}</b>. Enter it here.</p>
-          <label class="field"><span>Code</span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required style="font-size:1.4rem;letter-spacing:.3em;text-align:center"></label>
+          <button class="btn block">Email me a sign-in link</button><p class="faint">New here? The same email creates your account. No password needed.</p></form>`
+        : html`<form data-form="signin-code" class="panel" novalidate><p style="margin-top:0">We sent an email to <b>${signinEmail}</b>. Open it on this phone or computer and tap the link to sign in.</p>
+          <p class="faint" style="margin-top:0">Reading email on another device? If the email shows a code, enter it here.</p>
+          <label class="field"><span>Code from the email</span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required style="font-size:1.4rem;letter-spacing:.3em;text-align:center"></label>
           <button class="btn block">Sign in</button>
-          <p class="faint">The email also has a link. It signs you in on the phone or computer where you open it, so on another device, use the code. Nothing yet? Check spam, or <button type="button" class="linkish" data-act="signin-resend">send a new code</button>.</p>
+          <p class="faint">Nothing yet? Check spam, or <button type="button" class="linkish" data-act="signin-resend">send another email</button>.</p>
           <button type="button" class="linkish" data-act="signin-back">Use a different email</button></form>`}
       <p style="text-align:center;margin-top:12px"><a class="linkish" href="#pair">${icon("lock")}Set up a church device</a></p></div></div></div>`,
   };
@@ -263,13 +264,13 @@ Screens.signin = () => {
 Forms["signin-email"] = async (d, f) => {
   if (!/^\S+@\S+\.\S+$/.test(d.email)) return formError(f, "Enter your email address.");
   const { error } = await Backend.client.auth.signInWithOtp({ email: d.email.trim(), options: { emailRedirectTo: appAddress() } });
-  if (error) return formError(f, /rate|security purposes|seconds/i.test(error.message) ? "A code was just sent. Wait a minute before asking for another." : error.message);
+  if (error) return formError(f, /rate|security purposes|seconds/i.test(error.message) ? "An email was just sent. Wait a minute before asking for another." : error.message);
   signinEmail = d.email.trim(); signinNotice = ""; render();
 };
 Actions["signin-resend"] = async (el) => {
   el.disabled = true;
   const { error } = await Backend.client.auth.signInWithOtp({ email: signinEmail, options: { emailRedirectTo: appAddress() } });
-  toast(error ? (/rate|security purposes|seconds/i.test(error.message) ? "Wait a minute before asking for another code" : error.message) : "New code sent. Use the newest email.");
+  toast(error ? (/rate|security purposes|seconds/i.test(error.message) ? "Wait a minute before asking for another email" : error.message) : "Sent. Use the newest email.");
   setTimeout(() => { el.disabled = false; }, 60e3);
 };
 Forms["signin-code"] = async (d, f) => {
