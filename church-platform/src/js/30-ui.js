@@ -55,15 +55,19 @@ function render() {
   const me = S.me();
   if (Backend.failed) { app.innerHTML = flat(html`<div class="loading" role="alert"><div style="text-align:center;max-width:320px"><p>Can't reach ${PLATFORM.name} right now. Check your connection and try again.</p><button class="btn" data-act="reload">Try again</button></div></div>`); return; }
   const signedOutOk = head === "page" || head === "pair";
-  if (Backend.on && !Backend.user && !signedOutOk) { if (head !== "signin") pendingRoute = pendingRoute || route; head = "signin"; tail = ""; }
+  // Signed out of a live site: email sign-in, and nothing below applies (the welcome form is for the browser-only preview).
+  const mustSignIn = Backend.on && !Backend.user && !signedOutOk;
+  if (mustSignIn) { if (head !== "signin") pendingRoute = pendingRoute || route; head = "signin"; tail = ""; }
   else if (Backend.on && !Backend.ready && !signedOutOk) { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Loading your churches...</div>`); return; }
-  // A church device only goes to its own screens.
-  const away = head !== "pair" && deviceGate(head, tail);
-  if (away) { go(away); return; }
-  if (head === "display" || head === "stage" || head === "overlay") { Screens[head](tail); return; }
-  if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
-  else if (!me.name && head !== "welcome" && !signedOutOk && !thisDevice()) { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
-  else if (!S.church() && !OPEN_ROUTES.includes(head)) { head = "churches"; tail = ""; }
+  else {
+    // A church device only goes to its own screens.
+    const away = head !== "pair" && deviceGate(head, tail);
+    if (away) { go(away); return; }
+    if (head === "display" || head === "stage" || head === "overlay") { Screens[head](tail); return; }
+    if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
+    else if (!me.name && head !== "welcome" && !signedOutOk && !thisDevice()) { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
+    else if (!S.church() && !OPEN_ROUTES.includes(head)) { head = "churches"; tail = ""; }
+  }
   applyBrand();
   let view;
   try { view = (Screens[head] || Screens.home)(tail); }

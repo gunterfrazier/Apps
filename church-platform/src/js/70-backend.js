@@ -19,7 +19,7 @@ const Backend = {
       this.client = createClient(PLATFORM.supabaseUrl, PLATFORM.supabasePublishableKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     } catch (e) { console.error("Supabase didn't load", e); this.failed = true; render(); return; }
     const { data } = await this.client.auth.getSession();
-    this.client.auth.onAuthStateChange((evt, session) => { if (evt === "SIGNED_OUT") { this.user = null; this.ready = false; S.state = blankState(); S.flush(); go("signin"); } else if (session?.user && !this.user) { this.user = session.user; this.afterSignIn(); } });
+    this.client.auth.onAuthStateChange((evt, session) => { if (evt === "SIGNED_OUT") { this.user = null; this.ready = false; this.synced = false; this.snap = new Map(); S.state = blankState(); S.flush(); go("signin"); } else if (session?.user && !this.user) { this.user = session.user; this.afterSignIn(); } });
     if (data.session?.user) { this.user = data.session.user; await this.afterSignIn(); }
     else render();
   },
@@ -38,6 +38,9 @@ const Backend = {
   loaded: new Set(),
   /** Loads everything for the churches you belong to, plus the one you're looking at. */
   async pull(extra = S.state?.current) {
+    // Send anything not saved yet first: loading replaces what's on this device, and a change made in the last
+    // moment (a church just registered, an edit when someone else's update arrives) would otherwise be lost.
+    if (this.synced) await this.push();
     const sb = this.client, uid = this.user.id;
     const [{ data: prof }, { data: priv }, { data: fam }] = await Promise.all([
       sb.from("profiles").select("*").eq("id", uid).maybeSingle(), sb.from("profile_private").select("*").eq("user_id", uid).maybeSingle(), sb.from("families").select("*").eq("user_id", uid).maybeSingle()]);
@@ -85,7 +88,13 @@ const Backend = {
     counts.forEach((c) => { const x = st[c.kind]?.find((r) => r.id === c.parent); if (x) x._count = c.n; });
     for (const [kind, spec] of Object.entries(SPLIT)) st[kind].forEach((x) => { x[spec.field] ||= []; });
     S.state = st; S.flush(true);
-    this.snap = new Map(this.rows().map((r) => [r.key, r.json]));
+    this.snap = new Map(this.rows().map((r) => [r.key, r.json])); this.synced = true;
+  },
+  /** Sends local changes now, waiting for a send already under way. */
+  async push() {
+    clearTimeout(this.timer);
+    for (let i = 0; this.pushing && i < 200; i++) await new Promise((r) => setTimeout(r, 50));
+    await this.flush();
   },
 
   // ----- Writing: only what changed since the last pull or sync -----
@@ -126,6 +135,10 @@ const Backend = {
   async flush() {
     if (!this.ready || this.pushing) { this.pending = true; return; }
     this.pushing = true;
+    try { await this.send(); } finally { this.pushing = false; }
+    if (this.pending) { this.pending = false; this.sync(); }
+  },
+  async send() {
     const rows = this.rows(), now = new Map(rows.map((r) => [r.key, r])), ups = {}, dels = [];
     rows.forEach((r) => { if (this.snap.get(r.key) !== r.json) (ups[r.table] ||= []).push(r); });
     for (const key of this.snap.keys()) if (!now.has(key)) dels.push(key);
@@ -149,8 +162,6 @@ const Backend = {
       const { error } = await q; if (error) { failed++; console.warn("delete", key, error.message); } else this.snap.delete(key);
     }
     if (failed && !this.warned) { this.warned = true; toast("Some changes weren't saved. Your role may not allow them."); }
-    this.pushing = false;
-    if (this.pending) { this.pending = false; this.sync(); }
   },
 
   // ----- Live updates -----

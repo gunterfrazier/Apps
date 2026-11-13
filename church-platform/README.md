@@ -109,6 +109,7 @@ Needs Node 22 or later. There are no dependencies.
 ```bash
 node build.mjs          # writes dist/: index.html (one self-contained file), icons, the QR reader and the Bible text
 node test/smoke.mjs     # clicks through every feature at phone size (needs Playwright)
+node test/live.mjs      # the published setup: a sub-path and Supabase sign-in, sync and devices (Supabase simulated)
 ```
 
 Edit the files in `src/`, not `dist/`. `src/vendor/qrcode.js` (MIT) and `public/vendor/jsQR.js` (Apache-2.0) are the QR libraries.
@@ -154,6 +155,7 @@ supabase/functions/   Server functions: payments, push, reminders, webhooks, AI,
 supabase/cron.sql     Schedules for webhooks and reminders
 SETUP.md              Step-by-step guide to going live
 test/smoke.mjs        End-to-end check
+test/live.mjs         Live-mode check against a simulated Supabase
 ```
 
 ## Known limits
