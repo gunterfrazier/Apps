@@ -195,6 +195,33 @@ await step("pairs a presentation screen as a device", async () => {
   if (!/Online/.test(await appText())) throw new Error("the admin doesn't see the device online");
   await ctx2.close();
 });
+const freshPage = async () => {
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await c.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await c.route(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", headers: { "access-control-allow-origin": "*" }, body: readFileSync(bundle) }));
+  await c.route((url) => url.host === supaHost, supabase);
+  const p = await c.newPage(); p.on("pageerror", (e) => errors.push(`link page: ${e.message}`)); return p;
+};
+await step("an expired email link says what to do", async () => {
+  const p = await freshPage();
+  await p.goto(base + "#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired");
+  await p.waitForSelector("form[data-form=signin-email]"); await p.waitForSelector("text=expired or was already used");
+  if (/error/.test(await p.evaluate(() => location.href))) throw new Error("the error stayed in the address");
+  await p.screenshot({ path: join(shots, "live-7-expired-link.png") }); await p.context().close();
+});
+await step("the email link signs you in", async () => {
+  const p = await freshPage();
+  await p.goto(base + `#access_token=${session.access_token}&expires_at=${exp}&expires_in=3600&refresh_token=r1&token_type=bearer&type=signup`);
+  await p.waitForFunction(() => !document.querySelector("form[data-form^=signin]") && !/Signing you in/.test(document.querySelector("#app").textContent) && /Test Fellowship|Find your church/.test(document.querySelector("#app").textContent), null, { timeout: 15000 });
+  if (/access_token/.test(await p.evaluate(() => location.href))) throw new Error("the sign-in token stayed in the address");
+  await p.context().close();
+});
+await step("the code box takes the code however it's typed", async () => {
+  const p = await freshPage(); await p.goto(base); await p.fill("form[data-form=signin-email] input[name=email]", "tester@example.com"); await p.click("form[data-form=signin-email] button.btn");
+  await p.waitForSelector("form[data-form=signin-code]"); await p.fill("input[name=code]", "123 456"); await p.click("form[data-form=signin-code] button.btn");
+  await p.waitForFunction(() => !document.querySelector("form[data-form^=signin]"), null, { timeout: 15000 });
+  await p.context().close();
+});
 await step("signs out", async () => {
   await page.evaluate(() => window.__signOutForTest?.() || null);
   await page.evaluate(() => { location.hash = "me"; }); await page.waitForTimeout(400);

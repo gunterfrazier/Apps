@@ -18,7 +18,13 @@ const Backend = {
       const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/+esm");
       this.client = createClient(PLATFORM.supabaseUrl, PLATFORM.supabasePublishableKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     } catch (e) { console.error("Supabase didn't load", e); this.failed = true; render(); return; }
-    const { data } = await this.client.auth.getSession();
+    const { data } = await this.client.auth.getSession(); // also finishes a sign-in from an email link
+    // An email link that didn't work comes back with an error in the address. Say what happened, and tidy the address.
+    const back = new URLSearchParams(location.hash.slice(1) + "&" + location.search.slice(1));
+    if (back.get("error") || back.get("error_description")) {
+      signinNotice = back.get("error_code") === "otp_expired" ? "That sign-in link has expired or was already used. Enter your email to get a new code." : `Signing in from the email link didn't work (${back.get("error_description") || back.get("error")}). Enter your email to get a code instead.`;
+      history.replaceState(null, "", location.pathname);
+    } else if (/^#(access_token|refresh_token)=/.test(location.hash)) history.replaceState(null, "", location.pathname);
     this.client.auth.onAuthStateChange((evt, session) => { if (evt === "SIGNED_OUT") { this.user = null; this.ready = false; this.synced = false; this.snap = new Map(); S.state = blankState(); S.flush(); go("signin"); } else if (session?.user && !this.user) { this.user = session.user; this.afterSignIn(); } });
     if (data.session?.user) { this.user = data.session.user; await this.afterSignIn(); }
     else render();
@@ -235,31 +241,44 @@ function blankState() {
 }
 
 // ----- Sign in with a code sent by email -----
-let signinEmail = "";
+let signinEmail = "", signinNotice = "";
+/** The address an email link brings people back to. It has to be listed under Redirect URLs in Supabase (SETUP.md). */
+const appAddress = () => location.origin + location.pathname;
 Screens.signin = () => {
   if (!Backend.on) return { redirect: "welcome" };
   if (Backend.user) return { redirect: "home" };
   return {
     page: html`<div class="welcome"><div class="wrap"><p class="brand-word">${PLATFORM.name}</p>${bannerHtml(PLATFORM_CHURCH, PLATFORM_BANNER)}<div style="margin-top:18px">
+      ${signinNotice ? html`<p class="panel notice" role="alert" style="margin-bottom:12px">${signinNotice}</p>` : ""}
       ${!signinEmail ? html`<form data-form="signin-email" class="panel" novalidate><label class="field" style="margin-top:0"><span>Your email</span><input type="email" name="email" autocomplete="email" required></label>
           <button class="btn block">Email me a sign-in code</button><p class="faint">New here? The same code creates your account.</p></form>`
-        : html`<form data-form="signin-code" class="panel" novalidate><p style="margin-top:0">We sent a 6-digit code to <b>${signinEmail}</b>.</p>
-          <label class="field"><span>Code</span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required style="font-size:1.4rem;letter-spacing:.3em;text-align:center"></label>
-          <button class="btn block">Sign in</button><button type="button" class="linkish" data-act="signin-back">Use a different email</button></form>`}
+        : html`<form data-form="signin-code" class="panel" novalidate><p style="margin-top:0">We emailed a code to <b>${signinEmail}</b>. Enter it here.</p>
+          <label class="field"><span>Code</span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required style="font-size:1.4rem;letter-spacing:.3em;text-align:center"></label>
+          <button class="btn block">Sign in</button>
+          <p class="faint">The email also has a link. It signs you in on the phone or computer where you open it, so on another device, use the code. Nothing yet? Check spam, or <button type="button" class="linkish" data-act="signin-resend">send a new code</button>.</p>
+          <button type="button" class="linkish" data-act="signin-back">Use a different email</button></form>`}
       <p style="text-align:center;margin-top:12px"><a class="linkish" href="#pair">${icon("lock")}Set up a church device</a></p></div></div></div>`,
   };
 };
 Forms["signin-email"] = async (d, f) => {
   if (!/^\S+@\S+\.\S+$/.test(d.email)) return formError(f, "Enter your email address.");
-  const { error } = await Backend.client.auth.signInWithOtp({ email: d.email, options: { emailRedirectTo: location.origin + location.pathname } });
-  if (error) return formError(f, error.message);
-  signinEmail = d.email; render();
+  const { error } = await Backend.client.auth.signInWithOtp({ email: d.email.trim(), options: { emailRedirectTo: appAddress() } });
+  if (error) return formError(f, /rate|security purposes|seconds/i.test(error.message) ? "A code was just sent. Wait a minute before asking for another." : error.message);
+  signinEmail = d.email.trim(); signinNotice = ""; render();
+};
+Actions["signin-resend"] = async (el) => {
+  el.disabled = true;
+  const { error } = await Backend.client.auth.signInWithOtp({ email: signinEmail, options: { emailRedirectTo: appAddress() } });
+  toast(error ? (/rate|security purposes|seconds/i.test(error.message) ? "Wait a minute before asking for another code" : error.message) : "New code sent. Use the newest email.");
+  setTimeout(() => { el.disabled = false; }, 60e3);
 };
 Forms["signin-code"] = async (d, f) => {
-  const { data, error } = await Backend.client.auth.verifyOtp({ email: signinEmail, token: d.code, type: "email" });
-  if (error) return formError(f, "That code didn't work. Check it, or ask for a new one.");
+  const code = String(d.code || "").replace(/\D/g, "");
+  if (code.length < 6) return formError(f, "Enter the code from the email.");
+  const { data, error } = await Backend.client.auth.verifyOtp({ email: signinEmail, token: code, type: "email" });
+  if (error) return formError(f, /expired/i.test(error.message) ? "That code has expired. Send a new one and use the newest email." : "That code didn't work. Check it, or send a new one.");
   Backend.user = data.user; signinEmail = ""; await Backend.afterSignIn();
   if (!S.me().name) go("welcome");
 };
-Actions["signin-back"] = () => { signinEmail = ""; render(); };
+Actions["signin-back"] = () => { signinEmail = ""; signinNotice = ""; render(); };
 Actions["sign-out"] = () => Backend.signOut();

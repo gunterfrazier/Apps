@@ -43,18 +43,21 @@ The publishable key is safe to publish: it can only do what the security rules a
 
 ## 3. Turn on sign-in by email code
 
-People sign in with a 6-digit code sent to their email, with no passwords to forget.
+People sign in with a code sent to their email, with no passwords to forget. Supabase sends two different emails, and both need the code in them: **Confirm signup** the first time someone signs in, and **Magic Link** every time after. Out of the box they only have a link, so a new person gets "confirm your email" with no code.
 
-1. **Authentication, Providers, Email**: keep Email on. Turn on **Confirm email**.
-2. **Authentication, Email Templates, Magic Link**: replace the body with something that includes the code, for example:
-   ```html
-   <h2>Your sign-in code</h2>
-   <p>Enter this code in the app: <strong style="font-size:24px">{{ .Token }}</strong></p>
-   <p>Or tap to sign in: <a href="{{ .ConfirmationURL }}">Sign in</a></p>
-   ```
-   Do the same for **Confirm signup**.
-3. **Authentication, URL Configuration**: set **Site URL** to your app address and add it under **Redirect URLs**.
-4. **Project Settings, Authentication, SMTP**: Supabase's built-in email is limited to a few messages an hour. Before inviting a congregation, connect a sender such as Resend, Postmark or SendGrid (each has a free tier).
+1. **Authentication, Sign In / Providers, Email**: keep Email on and **Confirm email** on. If there's an **Email OTP Length** setting, set it to 6.
+2. **Authentication, Emails** (or **Email Templates**), **Confirm signup**:
+   - Subject: `Your Our Faithful Church App code: {{ .Token }}`
+   - Message body: paste all of `church-platform/supabase/templates/confirm-signup.html`.
+   - Save.
+3. Same page, **Magic Link**: the same subject, and the body from `church-platform/supabase/templates/magic-link.html`. Save.
+4. **Authentication, URL Configuration**:
+   - **Site URL**: your app address, for example `https://gunterfrazier.github.io/Apps/`.
+   - **Redirect URLs**: add the same address with `**` on the end, for example `https://gunterfrazier.github.io/Apps/**`.
+   Without these, the link in the email goes to `localhost` and doesn't open. The code works either way.
+5. **Email sending**: Supabase's built-in email only delivers to the people on your Supabase team, and only a few an hour. That's enough for you to test; before anyone else signs in, open **Authentication, Emails, SMTP Settings** (or **Project Settings, Authentication, SMTP**) and connect a sender such as Resend, Postmark or SendGrid. Each has a free tier.
+
+To check it: in the app, enter your email, and the email that arrives should show the code in the subject and the message. A code from an older email stops working once a newer one is sent.
 
 ## 4. Point the app at the database
 

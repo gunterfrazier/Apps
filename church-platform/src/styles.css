@@ -933,3 +933,4 @@ button.sp-chip:hover { background: color-mix(in srgb, var(--pt, var(--ink)) 9%, 
 @media (min-width: 900px) { .song-bar { grid-column: 1; } }
 .sp-type { flex: 0 0 auto; }
 .sp-type select { width: auto; max-width: 140px; min-height: 40px; }
+.panel.notice { background: #fff6e8; color: #5c3600; border: 1px solid #f2cf98; font-size: .95rem; line-height: 1.45; }
