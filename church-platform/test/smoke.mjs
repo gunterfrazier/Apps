@@ -25,6 +25,19 @@ const base = `http://localhost:${server.address().port}/`;
 
 const browser = await playwright.chromium.launch({ executablePath: process.env.CHROME || (existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : undefined) });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, acceptDownloads: true });
+// Device voices, simulated: headless Chrome has none. Each utterance "plays" for 250 ms and is logged in window.__spoken.
+await ctx.addInitScript(() => {
+  const voices = [["Fred", "en-US", true, true], ["Google US English", "en-US", false], ["Samantha", "en-US", true], ["Ava (Premium)", "en-US", true, false, "com.apple.voice.premium.en-US.Ava"], ["Paulina", "es-MX", true], ["Bubbles", "en-US", true]]
+    .map(([name, lang, localService, isDefault = false, voiceURI = name]) => ({ name, lang, localService, default: isDefault, voiceURI }));
+  const spoken = (window.__spoken = []), synth = new EventTarget();
+  let queue = [], now = null, timer = null;
+  const next = () => { now = queue.shift() || null; if (!now) return; timer = setTimeout(() => { const u = now; now = null; u.onend?.({}); next(); }, 250); };
+  synth.getVoices = () => voices;
+  synth.speak = (u) => { if (u.text.trim()) spoken.push({ text: u.text, voice: u.voice?.name || null, rate: u.rate }); queue.push(u); if (!now) next(); };
+  synth.cancel = () => { clearTimeout(timer); const all = [now, ...queue].filter(Boolean); now = null; queue = []; all.forEach((u) => u.onerror?.({ error: "canceled" })); };
+  Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
+  window.SpeechSynthesisUtterance = class { constructor(text) { Object.assign(this, { text, voice: null, lang: "", rate: 1, pitch: 1, volume: 1 }); } };
+});
 const page = await ctx.newPage();
 page.setDefaultTimeout(+process.env.STEP_TIMEOUT || 8000);
 const errors = [];
@@ -530,6 +543,35 @@ await step("settings: Spanish, text size and notifications", async () => {
   await goTo("admin-news"); await page.click("[data-act=admin-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "Parking lot closed Sunday");
   await page.fill("#scrim textarea[name=body]", "Use the east lot and the shuttle."); await page.check("#scrim input[name=push]"); await sheetSubmit(); await sheetGone();
   await goTo("alerts"); await expectText("Parking lot closed Sunday");
+});
+await step("read aloud: the most natural voice, a voice picker, speed, and references said in words", async () => {
+  await goTo("settings"); await page.waitForSelector("#voice-en");
+  const opts = await page.$$eval("#voice-en option", (os) => os.map((o) => o.textContent));
+  if (!/^Best available: Ava \(Premium\)/.test(opts[0])) throw new Error(`the automatic voice should be Ava (Premium): ${opts[0]}`);
+  if (opts.some((o) => /Bubbles/.test(o))) throw new Error("a novelty voice is listed");
+  if (/Fred/.test(opts[1])) throw new Error("a dated voice is near the top");
+  await page.selectOption("#voice-en", "Samantha");
+  await page.waitForFunction(() => window.__spoken.some((s) => s.voice === "Samantha" && /read aloud will sound/.test(s.text)));
+  await page.$eval('input[name=rate][value="1.15"]', (el) => el.click()); // a forced tap here can land on the tab bar
+  await page.waitForFunction(() => window.__spoken.some((s) => s.voice === "Samantha" && s.rate === 1.15));
+  await shot("46-read-aloud-settings");
+  await page.evaluate(() => { window.__spoken.length = 0; });
+  await goTo("word"); await page.click("#sermon-list a.row >> nth=0"); await page.click('[data-act=listen][data-src^="passage:"]');
+  await page.waitForSelector('[data-act=listen][data-src^="passage:"][aria-pressed=true]');
+  await page.waitForFunction(() => window.__spoken.length >= 2);
+  const said = await page.evaluate(() => window.__spoken);
+  if (!/ chapter \d+, verses? \d+/.test(said[0].text)) throw new Error(`the reference wasn't said in words: ${said[0].text}`);
+  if (said.some((s) => s.voice !== "Samantha" || s.rate !== 1.15)) throw new Error("the chosen voice or speed wasn't used");
+  if (said.some((s) => s.text.length > 200)) throw new Error("a piece is too long to read smoothly");
+  if (/^\d/.test(said[1].text)) throw new Error(`verse numbers were read: ${said[1].text}`);
+  await page.click('[data-act=listen][data-src^="passage:"]');
+  await page.waitForSelector('[data-act=listen][data-src^="passage:"][aria-pressed=false]');
+  const n = await page.evaluate(() => window.__spoken.length); await page.waitForTimeout(600);
+  if ((await page.evaluate(() => window.__spoken.length)) !== n) throw new Error("reading went on after Stop");
+  await goTo("settings"); await page.selectOption("#voice-en", ""); await page.$eval('input[name=rate][value="1"]', (el) => el.click());
+  await page.click('[data-act=set-lang][data-v="es"]'); await page.waitForSelector("#voice-es");
+  if (!(await page.$("#voice-en"))) throw new Error("Spanish speakers need an English voice for the Bible too");
+  await expectText("Voz en español"); await page.click('[data-act=set-lang][data-v="en"]'); await page.waitForSelector("text=Language");
 });
 await step("giving statements as PDF", async () => {
   await goTo("history"); const [mine] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=statement-pdf] >> nth=0")]);

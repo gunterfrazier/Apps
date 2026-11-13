@@ -197,8 +197,8 @@ const Bible = {
     if (!this.cache[key]) this.cache[key] = fetch(`bible/${key}.json`).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
     try { return await this.cache[key]; } catch (e) { delete this.cache[key]; throw e; }
   },
-  /** Returns "1 I am the true vine... 2 ..." for a reference, or throws. */
-  async text(ref, t = "BSB") {
+  /** Returns "1 I am the true vine... 2 ..." for a reference (without the verse numbers if numbered is false), or throws. */
+  async text(ref, t = "BSB", numbered = true) {
     const r = parseRef(ref);
     if (!r) throw new Error("bad reference");
     const n = BOOKS.indexOf(r.book);
@@ -208,7 +208,7 @@ const Bible = {
     const a = r.verse || 1, b = Math.min(r.verseEnd || (r.verse ? r.verse : ch.length), ch.length);
     if (a > ch.length) throw new Error("no such verse");
     const out = [];
-    for (let v = a; v <= b; v++) out.push(`${v} ${ch[v - 1]}`);
+    for (let v = a; v <= b; v++) out.push(numbered ? `${v} ${ch[v - 1]}` : ch[v - 1]);
     return out.join(" ");
   },
 };
