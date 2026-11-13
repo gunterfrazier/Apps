@@ -559,6 +559,20 @@ await step("training checklist in the preview", async () => {
   await goTo("connect"); await page.click("[data-act=prayer-new]"); await page.fill("#scrim textarea[name=text]", "Checklist prayer"); await sheetSubmit(); await sheetGone();
   await goTo("training"); await page.waitForSelector(".train-row.done >> text=Share a prayer request"); await shot("49-training");
 });
+await step("shared training church (browser-only here)", async () => {
+  await goTo("church-riverside"); await goTo("admin-training"); await page.waitForSelector("form[data-form=training-create]");
+  await page.click("form[data-form=training-create] button.btn.block"); await page.waitForSelector(".training-bar");
+  await expectText("Invite link"); await shot("50-training-church");
+  await goTo("home"); await expectText("Parking lot repaving");   // sample content
+  await goTo("give"); await expectText("gifts here are pretend");
+  await goTo("admin-giving"); await page.click("[data-act=processor-pick][data-p=square]"); await page.fill("#scrim input[name=token]", "anything");
+  await page.click("#scrim form button.btn.block"); await page.waitForSelector(".proc-head .proc-mark.square");
+  await goTo("admin-training"); await page.click("form[data-form=training-reset] button.btn"); await page.click("#scrim [data-act=training-reset-yes]");
+  await page.waitForSelector("text=starts fresh");
+  await goTo("admin-training"); await page.click("[data-act=training-delete]"); await page.click("#scrim [data-act=training-delete-yes]");
+  await page.waitForFunction(() => !document.querySelector(".training-bar"));
+  await goTo("church-riverside"); await goTo("admin-training"); await page.waitForSelector("form[data-form=training-create]");
+});
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));

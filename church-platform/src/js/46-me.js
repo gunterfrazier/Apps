@@ -61,6 +61,9 @@ Screens.me = () => {
       </div></section>` : ""}
 
       ${Backend.on ? html`<section class="sec"><h2 class="sec-head">Practice</h2><div class="rows">
+        ${(() => { const real = isTrainingChurch(c) ? null : c, t = real && trainingChurchOf(real); if (!t) return "";
+          return S.isMember(t.id) ? html`<button class="row" data-act="switch-church" data-id="${t.id}"><span class="lead-ic">${icon("people")}</span><span class="body"><span class="t">${t.name}</span><span class="s">Your team's shared training church</span></span>${icon("chev")}</button>`
+            : html`<a class="row" href="#church-${t.id}"><span class="lead-ic">${icon("people")}</span><span class="body"><span class="t">Join ${t.name}</span><span class="s">Your team's shared training church: practise together</span></span>${icon("chev")}</a>`; })()}
         <button class="row" data-act="train-open"><span class="lead-ic">${icon("book")}</span><span class="body"><span class="t">Training</span><span class="s">Practice every feature with exercises, apart from your real church</span></span>${icon("chev")}</button>
         <a class="row" href="${location.pathname}?demo"><span class="lead-ic">${icon("play")}</span><span class="body"><span class="t">Demo</span><span class="s">Look around a sample church as its administrator</span></span>${icon("chev")}</a></div></section>
       <section class="sec"><div class="rows"><button class="row" data-act="sign-out"><span class="lead-ic">${icon("x")}</span><span class="body"><span class="t">Sign out</span><span class="s">${S.me().email}</span></span></button></div></section>` : html`<section class="sec"><h2 class="sec-head">${SANDBOX ? SANDBOX_NAMES[SANDBOX] : "Preview tools"}</h2><div class="rows">

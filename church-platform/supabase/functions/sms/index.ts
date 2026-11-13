@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
 
   const db = admin();
   const { data: churches } = await db.from("churches").select("id, name, data").not("data->textGive", "is", null);
-  const c = (churches || []).find((x) => digits(x.data.textGive?.number) === digits(params.To));
+  const c = (churches || []).find((x) => !x.data.training && digits(x.data.textGive?.number) === digits(params.To));   // never a training church
   if (!c) return twiml("This number isn't set up for giving.");
   const keyword = (c.data.textGive.keyword || "GIVE").toUpperCase();
   const m = (params.Body || "").toUpperCase().match(new RegExp(`^\\s*(?:${keyword}\\s*)?\\$?(\\d{1,6}(?:\\.\\d{1,2})?)\\s*$`));

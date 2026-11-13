@@ -164,6 +164,7 @@ async function hmacHex(secret, text) {
 }
 async function emit(event, data, churchId) {
   const c = S.church(churchId);
+  if (c?.training) return;   // a training church sends nothing to outside systems
   // With Supabase, the server signs and sends: the app only queues the event (see supabase/functions/webhooks).
   if (typeof Backend !== "undefined" && Backend.on) { if (c) { S.state.deliveries.unshift({ id: uid(), churchId: c.id, event, data, at: new Date().toISOString(), status: "queued", outbox: true }); S.save(); } return; }
   const hooks = (c?.integrations?.webhooks || []).filter((h) => h.active && h.events.includes(event));

@@ -1,4 +1,4 @@
--- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 5.
+-- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 6.
 -- Run this once in the Supabase SQL editor on a new project (see SETUP.md).
 --
 -- How it fits the app: the app keeps one list per kind of thing (sermons, events, prayers, gifts...). Each item is a
@@ -228,6 +228,9 @@ begin
   if tg_op = 'INSERT' then return new; end if;
   if old.data ? 'stripe' then new.data := new.data || jsonb_build_object('stripe', old.data->'stripe'); end if;
   if old.data ? 'payments' then new.data := new.data || jsonb_build_object('payments', old.data->'payments'); end if;
+  -- A training church is one from the start and stays one; a real church can't be turned into one.
+  new.data := new.data - 'training';
+  if old.data ? 'training' then new.data := new.data || jsonb_build_object('training', old.data->'training'); end if;
   if new.owner_id is distinct from old.owner_id and old.owner_id <> auth.uid() then raise exception 'Only the primary account holder can hand over the account'; end if;
   if (new.name, new.handle) is distinct from (old.name, old.handle) and not can(old.id, 'manage.church') then raise exception 'Your role cannot change the church name or ID'; end if;
   for k in select key from jsonb_each(new.data) union select key from jsonb_each(old.data) loop
@@ -311,6 +314,7 @@ create policy "staff remove media" on storage.objects for delete using (bucket_i
 create or replace function payment_key_set(c text, p text, s text) returns void language plpgsql security definer set search_path = public as $$
 declare sid uuid;
 begin
+  if exists (select 1 from churches where id = c and data ? 'training') then raise exception 'A training church can''t connect a payment processor'; end if;
   select secret_id into sid from payment_keys where church_id = c and provider = p;
   if sid is null then
     sid := vault.create_secret(s, 'payments/' || c || '/' || p || '/' || gen_random_uuid(), 'Payment processor keys');
@@ -327,6 +331,18 @@ create or replace function payment_key_forget() returns trigger language plpgsql
 begin delete from vault.secrets where id = old.secret_id; return old; end $$;
 create trigger payment_keys_forget after delete on payment_keys for each row execute function payment_key_forget();
 
+-- ---------- Shared training churches ----------
+-- A training church (data.training set when it's created) is a practice copy a team shares. Its managers can clear
+-- everything in it and start fresh; the app then fills it with sample content or a copy of the real church's setup.
+create or replace function reset_training_church(c text) returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from churches where id = c and data ? 'training') then raise exception 'Only a training church can be reset'; end if;
+  if not can(c, 'manage.church') then raise exception 'Ask an administrator of the training church to reset it'; end if;
+  delete from records where church_id = c;
+  delete from checkouts where church_id = c;
+  delete from payments where church_id = c;
+end $$;
+
 -- ---------- Live updates ----------
 alter publication supabase_realtime add table records;
 
@@ -342,3 +358,5 @@ revoke execute on function guard_church(), guard_membership(), guard_records(), 
 -- Payment keys: server functions only.
 revoke all on checkouts, payment_keys from anon, authenticated;
 revoke execute on function payment_key_set(text, text, text), payment_key_get(text, text), payment_key_forget() from public, anon, authenticated;
+revoke execute on function reset_training_church(text) from public, anon;
+grant execute on function reset_training_church(text) to authenticated;
