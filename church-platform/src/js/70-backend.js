@@ -22,7 +22,7 @@ const Backend = {
     // An email link that didn't work comes back with an error in the address. Say what happened, and tidy the address.
     const back = new URLSearchParams(location.hash.slice(1) + "&" + location.search.slice(1));
     if (back.get("error") || back.get("error_description")) {
-      signinNotice = back.get("error_code") === "otp_expired" ? "That sign-in link has expired or was already used. Enter your email to get a new one." : `Signing in from the email link didn't work (${back.get("error_description") || back.get("error")}). Enter your email to try again.`;
+      signinNotice = { email: "", text: back.get("error_code") === "otp_expired" ? "That sign-in link has expired or was already used. Choose how to sign in to get a new one." : `Signing in from the email link didn't work (${back.get("error_description") || back.get("error")}). Choose how to sign in to try again.` };
       history.replaceState(null, "", location.pathname);
     } else if (/^#(access_token|refresh_token)=/.test(location.hash)) history.replaceState(null, "", location.pathname);
     this.client.auth.onAuthStateChange((evt, session) => { if (evt === "SIGNED_OUT") { this.user = null; this.ready = false; this.synced = false; this.snap = new Map(); S.state = blankState(); S.flush(); go("signin"); } else if (session?.user && !this.user) { this.user = session.user; this.afterSignIn(); } });
@@ -240,37 +240,95 @@ function blankState() {
   return Object.assign(s, { current: null, me: { id: Backend.user?.id || "", name: "", email: Backend.user?.email || "", phone: "", household: [], pickups: [] } });
 }
 
-// ----- Sign in with a code sent by email -----
-let signinEmail = "", signinNotice = "";
+// ----- Signing in: new people confirm their email with a code, then choose a name and password; after that, email and password -----
+let signinMode = "", signinEmail = "", signinNotice = { text: "", email: "" };
 /** The address an email link brings people back to. It has to be listed under Redirect URLs in Supabase (SETUP.md). */
 const appAddress = () => location.origin + location.pathname;
+// Someone resetting a password signs in with a code first; this remembers to ask for the new password, even after an email link reloads the page.
+const RESET_KEY = "our-faithful-reset";
+const resetting = () => { try { return !!Backend.user && localStorage.getItem(RESET_KEY) === Backend.user.email; } catch { return false; } };
+/** A signed-in person who hasn't chosen a password yet (or is resetting it) finishes their account first. Church devices never do. */
+const needsAccountSetup = () => Backend.on && Backend.ready && !!Backend.user && !DEVICE_EMAIL.test(Backend.user.email || "") && (!Backend.user.user_metadata?.password_set || resetting());
+const tooSoon = (e) => /rate|security purposes|seconds/i.test(e?.message || "");
+const passwordField = (name, label, auto) => html`<label class="field"><span>${label}</span><span class="pw-wrap"><input type="password" name="${name}" autocomplete="${auto}" required minlength="8">
+  <button type="button" class="icon-btn sm pw-eye" data-act="pw-toggle" aria-label="Show password" aria-pressed="false">${icon("eye")}</button></span></label>`;
+Actions["pw-toggle"] = (el) => {
+  const show = el.getAttribute("aria-pressed") !== "true";
+  $$("input[type=password], input[data-pw]", el.closest("form")).forEach((i) => { i.type = show ? "text" : "password"; i.dataset.pw = "1"; });
+  $$("[data-act=pw-toggle]", el.closest("form")).forEach((b) => { b.setAttribute("aria-pressed", String(show)); b.setAttribute("aria-label", show ? "Hide password" : "Show password"); b.innerHTML = flat(icon(show ? "eyeoff" : "eye")); });
+};
+
 Screens.signin = () => {
   if (!Backend.on) return { redirect: "welcome" };
   if (Backend.user) return { redirect: "home" };
+  const email = signinEmail || signinNotice.email || "";
+  const back = html`<button type="button" class="linkish" data-act="signin-mode" data-mode="">${icon("back")}Back</button>`;
+  let body;
+  if (signinEmail) {
+    const heading = signinMode === "new" ? "Confirm your email" : signinMode === "reset" ? "Reset your password" : "Sign in with a code";
+    body = html`<form data-form="signin-code" class="panel" novalidate><h2 class="signin-h">${heading}</h2>
+      <p style="margin-top:0">We emailed a 6-digit code to <b>${signinEmail}</b>. Enter it here.</p>
+      <label class="field"><span>Code from the email</span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required class="code-input"></label>
+      <button class="btn block">${signinMode === "new" ? "Confirm" : "Continue"}</button>
+      <p class="faint">Or tap the link in the email on this phone or computer. Nothing yet? Check spam, or <button type="button" class="linkish" data-act="signin-resend">send another email</button>.</p>
+      <button type="button" class="linkish" data-act="signin-back">Use a different email</button></form>`;
+  } else if (signinMode === "existing") {
+    body = html`<form data-form="signin-password" class="panel" novalidate>${back}<h2 class="signin-h">Sign in</h2>
+      <label class="field" style="margin-top:0"><span>Email</span><input type="email" name="email" autocomplete="email" required value="${email}"></label>
+      ${passwordField("password", "Password", "current-password")}
+      <button class="btn block">Sign in</button>
+      <p class="signin-alt"><button type="button" class="linkish" data-act="signin-forgot">Forgot your password?</button><button type="button" class="linkish" data-act="signin-code-instead">Email me a code instead</button></p>
+      <p class="faint">New here? <button type="button" class="linkish" data-act="signin-mode" data-mode="new">Create an account</button></p></form>`;
+  } else if (signinMode === "new" || signinMode === "reset") {
+    const isNew = signinMode === "new";
+    body = html`<form data-form="signin-email" class="panel" novalidate>${back}<h2 class="signin-h">${isNew ? "Create your account" : "Reset your password"}</h2>
+      <p style="margin-top:0">${isNew ? "First, confirm your email. We'll send a 6-digit code; then you'll add your name and choose a password." : "We'll email you a 6-digit code. Then you'll choose a new password."}</p>
+      <label class="field"><span>Your email</span><input type="email" name="email" autocomplete="email" required value="${email}"></label>
+      <button class="btn block">Email me a code</button>
+      ${isNew ? html`<p class="faint">Already have an account? <button type="button" class="linkish" data-act="signin-mode" data-mode="existing">Sign in</button></p>` : ""}</form>`;
+  } else {
+    body = html`<div class="panel signin-choice"><h2 class="signin-h">Welcome</h2><p style="margin-top:0">Are you new here, or do you already have an account?</p>
+      <button type="button" class="choice" data-act="signin-mode" data-mode="existing"><span class="lead-ic">${icon("user")}</span><span><b>I have an account</b><small>Sign in with your email and password</small></span>${icon("chev")}</button>
+      <button type="button" class="choice" data-act="signin-mode" data-mode="new"><span class="lead-ic">${icon("plus")}</span><span><b>I'm new here</b><small>Create an account. It takes a minute.</small></span>${icon("chev")}</button></div>`;
+  }
   return {
     page: html`<div class="welcome"><div class="wrap"><p class="brand-word">${PLATFORM.name}</p>${bannerHtml(PLATFORM_CHURCH, PLATFORM_BANNER)}<div style="margin-top:18px">
-      ${signinNotice ? html`<p class="panel notice" role="alert" style="margin-bottom:12px">${signinNotice}</p>` : ""}
-      ${!signinEmail ? html`<form data-form="signin-email" class="panel" novalidate><label class="field" style="margin-top:0"><span>Your email</span><input type="email" name="email" autocomplete="email" required></label>
-          <button class="btn block">Email me a sign-in link</button><p class="faint">New here? The same email creates your account. No password needed.</p></form>`
-        : html`<form data-form="signin-code" class="panel" novalidate><p style="margin-top:0">We sent an email to <b>${signinEmail}</b>. Open it on this phone or computer and tap the link to sign in.</p>
-          <p class="faint" style="margin-top:0">Reading email on another device? If the email shows a code, enter it here.</p>
-          <label class="field"><span>Code from the email</span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required style="font-size:1.4rem;letter-spacing:.3em;text-align:center"></label>
-          <button class="btn block">Sign in</button>
-          <p class="faint">Nothing yet? Check spam, or <button type="button" class="linkish" data-act="signin-resend">send another email</button>.</p>
-          <button type="button" class="linkish" data-act="signin-back">Use a different email</button></form>`}
+      ${signinNotice.text ? html`<p class="panel notice" role="alert" style="margin-bottom:12px">${signinNotice.text}</p>` : ""}
+      ${body}
       <p style="text-align:center;margin-top:12px"><a class="linkish" href="#pair">${icon("lock")}Set up a church device</a></p></div></div></div>`,
   };
 };
+const setNotice = (text, email = "") => { signinNotice = { text, email }; };
+Actions["signin-mode"] = (el) => { signinMode = el.dataset.mode; signinEmail = ""; setNotice(""); render(); $("#app input[type=email]")?.focus(); };
+Actions["signin-back"] = () => { signinEmail = ""; setNotice(""); render(); };
+Actions["signin-forgot"] = () => { const e = $("#app input[name=email]")?.value.trim() || ""; signinMode = "reset"; signinEmail = ""; setNotice("", e); render(); };
+async function sendCode(email, f) {
+  // New accounts are only made from "I'm new here"; signing in with a code or resetting a password needs an account already.
+  const { error } = await Backend.client.auth.signInWithOtp({ email, options: { emailRedirectTo: appAddress(), shouldCreateUser: signinMode === "new" } });
+  if (error) {
+    const msg = tooSoon(error) ? "An email was just sent. Wait a minute before asking for another."
+      : /signups? not allowed|not found|otp_disabled/i.test(error.message + (error.code || "")) ? "There's no account with that email yet. Choose Create an account." : error.message;
+    if (f) formError(f, msg); else toast(msg);
+    return false;
+  }
+  try { if (signinMode === "reset") localStorage.setItem(RESET_KEY, email); else localStorage.removeItem(RESET_KEY); } catch {}
+  signinEmail = email; setNotice(""); render(); $("#app input[name=code]")?.focus();
+  return true;
+}
 Forms["signin-email"] = async (d, f) => {
-  if (!/^\S+@\S+\.\S+$/.test(d.email)) return formError(f, "Enter your email address.");
-  const { error } = await Backend.client.auth.signInWithOtp({ email: d.email.trim(), options: { emailRedirectTo: appAddress() } });
-  if (error) return formError(f, /rate|security purposes|seconds/i.test(error.message) ? "An email was just sent. Wait a minute before asking for another." : error.message);
-  signinEmail = d.email.trim(); signinNotice = ""; render();
+  const email = String(d.email || "").trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return formError(f, "Enter your email address.");
+  await sendCode(email, f);
+};
+Actions["signin-code-instead"] = async () => {
+  const email = $("#app input[name=email]")?.value.trim().toLowerCase() || "";
+  if (!/^\S+@\S+\.\S+$/.test(email)) { toast("Enter your email first"); $("#app input[name=email]")?.focus(); return; }
+  await sendCode(email, $("#app form"));
 };
 Actions["signin-resend"] = async (el) => {
   el.disabled = true;
-  const { error } = await Backend.client.auth.signInWithOtp({ email: signinEmail, options: { emailRedirectTo: appAddress() } });
-  toast(error ? (/rate|security purposes|seconds/i.test(error.message) ? "Wait a minute before asking for another email" : error.message) : "Sent. Use the newest email.");
+  const { error } = await Backend.client.auth.signInWithOtp({ email: signinEmail, options: { emailRedirectTo: appAddress(), shouldCreateUser: signinMode === "new" } });
+  toast(error ? (tooSoon(error) ? "Wait a minute before asking for another email" : error.message) : "Sent. Use the newest email.");
   setTimeout(() => { el.disabled = false; }, 60e3);
 };
 Forms["signin-code"] = async (d, f) => {
@@ -278,8 +336,64 @@ Forms["signin-code"] = async (d, f) => {
   if (code.length < 6) return formError(f, "Enter the code from the email.");
   const { data, error } = await Backend.client.auth.verifyOtp({ email: signinEmail, token: code, type: "email" });
   if (error) return formError(f, /expired/i.test(error.message) ? "That code has expired. Send a new one and use the newest email." : "That code didn't work. Check it, or send a new one.");
-  Backend.user = data.user; signinEmail = ""; await Backend.afterSignIn();
-  if (!S.me().name) go("welcome");
+  const wasNew = signinMode === "new";
+  Backend.user = data.user; signinEmail = ""; signinMode = "";
+  if (wasNew && data.user?.user_metadata?.password_set) toast("You already have an account, so you're signed in");
+  await Backend.afterSignIn();
 };
-Actions["signin-back"] = () => { signinEmail = ""; signinNotice = ""; render(); };
-Actions["sign-out"] = () => Backend.signOut();
+Forms["signin-password"] = async (d, f) => {
+  const email = String(d.email || "").trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return formError(f, "Enter your email address.");
+  if (!d.password) return formError(f, "Enter your password.");
+  const { data, error } = await Backend.client.auth.signInWithPassword({ email, password: d.password });
+  if (error) {
+    return formError(f, /invalid login|invalid_credentials/i.test(error.message + (error.code || ""))
+      ? "That email and password don't match. Check them, or choose Forgot your password. (If you signed up before passwords were added, choose Email me a code instead.)"
+      : tooSoon(error) ? "Too many tries. Wait a minute and try again." : error.message);
+  }
+  Backend.user = data.user; signinMode = ""; await Backend.afterSignIn();
+};
+
+// ----- Finishing an account: name and password (or a new password after a reset) -----
+Screens.setup = () => {
+  if (!needsAccountSetup()) return { redirect: S.church() ? "home" : "churches" };
+  const reset = resetting() && Backend.user.user_metadata?.password_set;
+  return {
+    page: html`<div class="welcome"><div class="wrap"><p class="brand-word">${PLATFORM.name}</p><div style="margin-top:18px">
+      <form data-form="account-setup" class="panel" novalidate><h2 class="signin-h">${reset ? "Choose a new password" : "Finish creating your account"}</h2>
+        <p style="margin-top:0">${reset ? html`For <b>${Backend.user.email}</b>.` : html`Your email <b>${Backend.user.email}</b> is confirmed. Next time, sign in with it and this password.`}</p>
+        ${reset ? "" : html`<label class="field"><span>Your name</span><input type="text" name="name" autocomplete="name" required maxlength="80" value="${S.me().name || ""}"></label>`}
+        ${passwordField("password", reset ? "New password" : "Choose a password", "new-password")}
+        ${passwordField("password2", "Type it again", "new-password")}
+        <small class="faint">At least 8 characters. A short phrase is easy to remember.</small>
+        <label class="field" id="nonce-field" hidden><span>Code from the email</span><input type="text" name="nonce" inputmode="numeric" autocomplete="one-time-code" maxlength="12" class="code-input"></label>
+        <button class="btn block" style="margin-top:12px">${reset ? "Save new password" : "Create account"}</button>
+        <button type="button" class="linkish" data-act="sign-out">Use a different email</button></form></div></div></div>`,
+  };
+};
+Forms["account-setup"] = async (d, f) => {
+  const reset = resetting() && Backend.user.user_metadata?.password_set;
+  if (!reset && !String(d.name || "").trim()) return formError(f, "Enter your name.");
+  if (String(d.password || "").length < 8) return formError(f, "Choose a password with at least 8 characters.");
+  if (d.password !== d.password2) return formError(f, "The two passwords don't match.");
+  const attrs = { password: d.password, data: { password_set: true } };
+  if (d.nonce) attrs.nonce = String(d.nonce).replace(/\D/g, "");
+  const { data, error } = await Backend.client.auth.updateUser(attrs);
+  if (error) {
+    // Supabase may ask people who signed in a while ago to confirm it's them before changing a password.
+    if (/reauthenticat/i.test(error.message + (error.code || "")) && !d.nonce) {
+      await Backend.client.auth.reauthenticate();
+      $("#nonce-field", f).hidden = false; $("input[name=nonce]", f).focus();
+      return formError(f, "To keep your account safe, we emailed you a code. Enter it, then save again.");
+    }
+    return formError(f, /same.?password|should be different/i.test(error.message + (error.code || "")) ? "That's already your password. Choose a different one."
+      : /weak|pwned|leaked/i.test(error.message + (error.code || "")) ? `Choose a stronger password. ${error.message}` : error.message);
+  }
+  Backend.user = data.user;
+  try { localStorage.removeItem(RESET_KEY); } catch {}
+  if (!reset) { S.me().name = String(d.name).trim(); S.save(); }
+  toast(reset ? "Password changed" : "Your account is ready");
+  const r = pendingRoute; pendingRoute = null;
+  go(r && r !== "setup" ? r : S.church() ? "home" : "churches");
+};
+Actions["sign-out"] = () => { try { localStorage.removeItem(RESET_KEY); } catch {} signinMode = ""; Backend.signOut(); };

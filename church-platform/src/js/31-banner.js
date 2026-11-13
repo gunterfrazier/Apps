@@ -51,7 +51,8 @@ function bannerHtml(c, b = bannerOf(c), { mini = false, name = false } = {}) {
   const color = b.bg.type === "color" ? b.bg.color || c.color : c.color;
   const ink = bannerTextColor(b, c.color);
   const words = String(b.text.headline || "").trim().split(/\s+/).filter(Boolean);
-  const logo = b.logo.size !== "off" ? (c.logo ? html`<img class="bn-logo ${b.logo.size}" src="${c.logo}" alt="">` : html`<span class="bn-logo mono ${b.logo.size}" style="background:${onColor(c.color) === "#ffffff" ? "#ffffff" : "#111827"};color:${c.color}">${initials(c.name)}</span>`) : "";
+  // The whole logo always shows: inside a white tile, or on its own at its own shape.
+  const logo = b.logo.size !== "off" ? (c.logo ? html`<img class="bn-logo ${b.logo.size} ${b.logo.frame === "none" ? "bare" : ""}" src="${c.logo}" alt="">` : html`<span class="bn-logo mono ${b.logo.size}" style="background:${onColor(c.color) === "#ffffff" ? "#ffffff" : "#111827"};color:${c.color}">${initials(c.name)}</span>`) : "";
   return html`<div class="banner ${mini ? "mini" : b.height || "tall"} align-${b.text.align || "left"}" style="--b:${color};--bink:${ink};background:${raw(esc(bannerBackground(b, color)))}" role="img" aria-label="${[c.name, b.text.headline, b.text.sub].filter(Boolean).join(". ")}">
     ${(b.graphics || []).map((g) => html`<img class="bn-graphic" alt="" src="${graphicSrc(g)}" style="left:${g.x}%;top:${g.y}%;width:${g.size}%;opacity:${(g.opacity ?? 100) / 100};transform:translate(-50%,-50%) rotate(${g.rotate || 0}deg)">`)}
     ${b.logo.align === "top" && !mini && logo ? html`<div class="bn-top">${logo}</div>` : ""}
@@ -96,7 +97,8 @@ AdminScreens.banner = () => {
         <section class="sec"><h2 class="sec-head">Logo</h2><div class="panel">
           <div class="radios">${opt("logoSize", "off", "Hide", b.logo.size)}${opt("logoSize", "sm", "Small", b.logo.size)}${opt("logoSize", "md", "Medium", b.logo.size)}${opt("logoSize", "lg", "Large", b.logo.size)}</div>
           <div class="radios" style="margin-top:8px">${opt("logoAlign", "left", "With the text", b.logo.align)}${opt("logoAlign", "top", "Top corner", b.logo.align)}</div>
-          <p class="faint" style="margin-bottom:0">${c.logo ? "Uses the logo from Account details." : html`No logo uploaded yet, so your initials show. <a href="#admin-account">Upload a logo</a>.`}</p>
+          ${c.logo ? html`<div class="radios" style="margin-top:8px">${opt("logoFrame", "tile", "On a white tile", b.logo.frame || "tile")}${opt("logoFrame", "none", "No frame", b.logo.frame || "tile")}</div>` : ""}
+          <p class="faint" style="margin-bottom:0">${c.logo ? "Uses the logo from Account details. The whole logo always shows; a wide logo looks best with No frame." : html`No logo uploaded yet, so your initials show. <a href="#admin-account">Upload a logo</a>.`}</p>
         </div></section>
 
         <section class="sec"><h2 class="sec-head">Graphics</h2>
@@ -119,7 +121,7 @@ function bannerFromForm(f) {
   const fd = new FormData(f), v = (k) => fd.get(k), b = bannerDraft;
   b.text = { headline: v("headline") || "", sub: v("sub") || "", style: v("style") || "bold", size: v("size") || "l", align: v("align") || "left", color: v("color") || "auto", shadow: !!v("shadow") };
   b.bg = { type: v("bgType") || "gradient", preset: v("preset") || b.bg.preset, color: v("bgColor") || b.bg.color, image: v("bgImage") || "", dim: +(v("dim") ?? b.bg.dim) };
-  b.logo = { size: v("logoSize") || "md", align: v("logoAlign") || "left" };
+  b.logo = { size: v("logoSize") || "md", align: v("logoAlign") || "left", frame: v("logoFrame") || b.logo.frame || "tile" };
   b.height = v("height") || "tall";
   b.graphics.forEach((g, i) => { ["size", "x", "y", "rotate", "opacity"].forEach((k) => { if (fd.has(`g${i}_${k}`)) g[k] = +fd.get(`g${i}_${k}`); }); if (fd.has(`g${i}_color`)) g.color = fd.get(`g${i}_color`); });
   return b;

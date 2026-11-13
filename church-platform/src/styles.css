@@ -77,7 +77,7 @@ main.view { max-width: 640px; margin: 0 auto; padding: 6px 18px 24px; }
 .avatar.lg { width: 60px; height: 60px; font-size: 1.2rem; }
 .me-link { text-decoration: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; }
 .monogram { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; font: 700 1rem var(--display); background: var(--brand); color: var(--on-brand); flex: none; }
-.logo-mark { border-radius: 13px; object-fit: cover; background: #fff; flex: none; display: block; box-shadow: var(--sh-1); }
+.logo-mark { border-radius: 13px; object-fit: contain; padding: 3px; box-sizing: border-box; background: #fff; flex: none; display: block; box-shadow: var(--sh-1); }
 
 /* ---------- Home header and banner ---------- */
 .home-top { padding-top: env(safe-area-inset-top, 0px); }
@@ -100,8 +100,14 @@ main.view { max-width: 640px; margin: 0 auto; padding: 6px 18px 24px; }
 .banner.align-center .bn-top { left: 50%; transform: translateX(-50%); }
 .bn-text { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .banner.align-center .bn-text { align-items: center; text-align: center; }
-.bn-logo { border-radius: 14px; object-fit: cover; box-shadow: 0 6px 18px rgba(0, 0, 0, .18); background: #fff; display: block; margin-bottom: 6px; }
-.bn-logo.sm { width: 36px; height: 36px; border-radius: 11px; } .bn-logo.md { width: 50px; height: 50px; } .bn-logo.lg { width: 72px; height: 72px; border-radius: 18px; }
+.bn-logo { border-radius: 14px; object-fit: contain; padding: 4px; box-sizing: border-box; box-shadow: 0 6px 18px rgba(0, 0, 0, .18); background: #fff; display: block; margin-bottom: 6px; }
+.bn-logo.sm { width: 36px; height: 36px; border-radius: 11px; padding: 3px; } .bn-logo.md { width: 50px; height: 50px; } .bn-logo.lg { width: 72px; height: 72px; border-radius: 18px; padding: 6px; }
+/* No frame: the logo at its own shape, as tall as the size chosen and as wide as it needs (up to most of the banner). */
+/* A logo image takes its own shape: square logos stay square, a wide wordmark gets a wide tile. */
+img.bn-logo.sm, img.bn-logo.md, img.bn-logo.lg { width: auto; max-width: min(78%, 320px); }
+img.bn-logo.sm { min-width: 36px; } img.bn-logo.md { min-width: 50px; } img.bn-logo.lg { min-width: 72px; }
+.bn-logo.bare { background: none; box-shadow: none; padding: 0; border-radius: 0; width: auto; max-width: min(78%, 320px); filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .22)); }
+.bn-logo.bare.sm { height: 34px; } .bn-logo.bare.md { height: 52px; } .bn-logo.bare.lg { height: 84px; }
 .bn-logo.mono { display: grid; place-items: center; font: 800 1.05rem var(--display); }
 .bn-logo.mono.lg { font-size: 1.5rem; }
 .bn-name { font: 600 .95rem var(--display); opacity: .85; margin: 0; }
@@ -239,7 +245,8 @@ a.row:hover, button.row:hover { background: color-mix(in srgb, var(--brand) 4%, 
 .field { display: block; margin: 14px 0; }
 .field > span { display: block; font-weight: 700; margin-bottom: 6px; }
 .field small { display: block; color: var(--ink-2); font-size: .85rem; margin-top: 5px; }
-input[type=text], input[type=email], input[type=tel], input[type=number], input[type=date], input[type=time], input[type=datetime-local], input[type=search], input[type=url], select, textarea {
+[hidden] { display: none !important; }
+input[type=text], input[type=email], input[type=password], input[type=tel], input[type=number], input[type=date], input[type=time], input[type=datetime-local], input[type=search], input[type=url], select, textarea {
   width: 100%; min-height: 50px; padding: 11px 14px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); transition: border-color .12s, box-shadow .12s; }
 textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
 textarea.notes { min-height: 200px; font-family: var(--serif); }
@@ -828,7 +835,7 @@ mark { background: color-mix(in srgb, #ffd43b 55%, transparent); color: inherit;
 .sg-welcome .sg-big { text-shadow: 0 .4cqmin 3cqmin rgba(0, 0, 0, .25); }
 .sg-welcome .sg-sub { margin-top: 0; }
 .sg-mark { width: 20cqmin; height: 20cqmin; border-radius: 5cqmin; overflow: hidden; display: grid; place-items: center; background: #fff; color: var(--brand); font: 800 8cqmin var(--display); box-shadow: 0 2cqmin 6cqmin rgba(0, 0, 0, .25); }
-.sg-mark img { width: 100%; height: 100%; object-fit: cover; }
+.sg-mark img { width: 100%; height: 100%; object-fit: contain; padding: 8%; box-sizing: border-box; }
 .sg-church { position: absolute; left: 0; right: 0; bottom: 5cqmin; font: 600 3.2cqmin var(--display); opacity: .85; }
 .sg-verse { justify-content: center; height: 100%; box-sizing: border-box; }
 .sg-scripture { font-family: var(--serif); font-size: 6.6cqmin; line-height: 1.34; text-wrap: balance; }
@@ -934,3 +941,19 @@ button.sp-chip:hover { background: color-mix(in srgb, var(--pt, var(--ink)) 9%, 
 .sp-type { flex: 0 0 auto; }
 .sp-type select { width: auto; max-width: 140px; min-height: 40px; }
 .panel.notice { background: #fff6e8; color: #5c3600; border: 1px solid #f2cf98; font-size: .95rem; line-height: 1.45; }
+
+/* ---------- Sign in ---------- */
+.signin-h { font: 700 1.3rem var(--display); margin: 4px 0 8px; }
+.signin-choice { display: grid; gap: 10px; }
+.signin-choice .signin-h, .signin-choice > p { margin-bottom: 0; }
+.choice { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px; border-radius: var(--r-l); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.choice:hover { background: var(--sunken); }
+.choice > span:nth-child(2) { flex: 1; display: grid; gap: 2px; }
+.choice b { font: 600 1.02rem var(--display); }
+.choice small { color: var(--ink-2); font-size: .9rem; }
+.choice > svg.i:last-child { color: var(--ink-3); }
+.pw-wrap { position: relative; display: block; }
+.pw-wrap input { width: 100%; padding-right: 48px; box-sizing: border-box; }
+.pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+.code-input { font-size: 1.4rem !important; letter-spacing: .3em; text-align: center; }
+.signin-alt { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin: 10px 0 0; }

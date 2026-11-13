@@ -119,7 +119,7 @@ Edit the files in `src/`, not `dist/`. `src/vendor/qrcode.js` (MIT) and `public/
 The preview runs everything in one browser. [SETUP.md](SETUP.md) walks through connecting real services, step by step:
 
 1. **Host it** on GitHub Pages with the included workflow (`.github/workflows/our-faithful-pages.yml`), or any static host.
-2. **Shared data and sign-in** with Supabase: run `supabase/schema.sql`, turn on email codes, and put the project's URL and public key in `config.js`. `src/js/70-backend.js` then signs people in, loads what each person may see, writes only what changed, and follows other people's changes live. Row-level security in the schema checks each person's role and location access on every read and write.
+2. **Shared data and sign-in** with Supabase: run `supabase/schema.sql`, turn on email sign-in (a code confirms the email, then a password for later), and put the project's URL and public key in `config.js`. `src/js/70-backend.js` then signs people in, loads what each person may see, writes only what changed, and follows other people's changes live. Row-level security in the schema checks each person's role and location access on every read and write.
 3. **Real giving** with Stripe Connect: each church connects its own account; Checkout handles cards, Apple Pay, Google Pay and bank accounts; a webhook records gifts, recurring gifts, tickets, form fees and refunds. Text-to-give works through a Twilio number. Year-end statements download as PDFs.
 4. **Push notifications** with Web Push (VAPID keys and a database webhook).
 5. **AI drafts** through your own Anthropic API key, with a daily limit per person.

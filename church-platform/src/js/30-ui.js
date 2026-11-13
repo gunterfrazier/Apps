@@ -66,7 +66,9 @@ function render() {
     const away = head !== "pair" && deviceGate(head, tail);
     if (away) { go(away); return; }
     if (head === "display" || head === "stage" || head === "overlay") { Screens[head](tail); return; }
-    if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
+    // Signed in with a code but no password yet (or resetting it): finish the account first.
+    if (needsAccountSetup()) { if (head !== "setup") { if (head !== "home") pendingRoute = pendingRoute || route; head = "setup"; tail = ""; } }
+    else if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
     else if (!me.name && head !== "welcome" && !signedOutOk && !thisDevice()) { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
     else if (!S.church() && !OPEN_ROUTES.includes(head)) { head = "churches"; tail = ""; }
   }
