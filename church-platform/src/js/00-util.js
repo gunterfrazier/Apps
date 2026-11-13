@@ -14,10 +14,30 @@ const PLATFORM = {
 };
 // Older config files call the publishable key the anon key.
 PLATFORM.supabasePublishableKey ||= PLATFORM.supabaseAnonKey || "";
+const BASE_STORAGE_KEY = PLATFORM.storageKey;
 // A live site keeps its own copy in the browser, apart from anything tried in preview mode.
 if (PLATFORM.supabaseUrl && !/claude/i.test(location.hostname)) PLATFORM.storageKey += "-live";
 /** True inside the Claude preview frame, where other sites can't be framed and cameras, popups and service workers are off. */
 const IN_PREVIEW = /claude/i.test(location.hostname);
+
+// ---------- Demo and training sandboxes ----------
+// "Try the demo" and "Training" run the app on practice data kept in this browser only: nothing reaches a church's
+// real data, no money moves, and Reset starts over. They open with ?demo or ?training and stay on until Exit
+// (see 73-sandbox.js). Each keeps its own copy, apart from the live app's.
+const SANDBOX_KEY = "our-faithful-sandbox";
+const SANDBOX = (() => {
+  try {
+    const q = new URLSearchParams(location.search), want = q.has("demo") ? "demo" : q.has("training") ? "training" : "";
+    if (want) {
+      localStorage.setItem(SANDBOX_KEY, want);
+      q.delete("demo"); q.delete("training");
+      history.replaceState(null, "", location.pathname + (q.toString() ? `?${q}` : "") + location.hash);
+    }
+    const mode = localStorage.getItem(SANDBOX_KEY);
+    return mode === "demo" || mode === "training" ? mode : "";
+  } catch { return ""; }
+})();
+if (SANDBOX) PLATFORM.storageKey = `${BASE_STORAGE_KEY}-sandbox-${SANDBOX}`;
 
 // ---------- Safe HTML templating ----------
 // Every interpolated value is escaped unless it is itself the result of html``.

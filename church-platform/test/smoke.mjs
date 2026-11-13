@@ -554,6 +554,11 @@ await step("payment processors and a linked giving page", async () => {
   await shot("48-give-link");
   await goTo("admin-giving"); await page.click("[data-act=giving-link-remove]"); await goTo("give"); await page.waitForSelector("form[data-form=give]");
 });
+await step("training checklist in the preview", async () => {
+  await goTo("me"); await page.click("a.row[href='#training']"); await page.waitForSelector(".train-row");
+  await goTo("connect"); await page.click("[data-act=prayer-new]"); await page.fill("#scrim textarea[name=text]", "Checklist prayer"); await sheetSubmit(); await sheetGone();
+  await goTo("training"); await page.waitForSelector(".train-row.done >> text=Share a prayer request"); await shot("49-training");
+});
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));

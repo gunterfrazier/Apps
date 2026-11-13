@@ -83,7 +83,9 @@ const filterRows = (rows, params) => {
   return rows;
 };
 const calls = new Set();
+let supaCalls = 0;   // every request the app makes to Supabase
 async function supabase(route) {
+  supaCalls++;
   const req = route.request(), u = new URL(req.url()), m = req.method();
   const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*", "access-control-expose-headers": "*" };
   if (m === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
@@ -277,6 +279,20 @@ await step("cancelling at PayPal comes back to the Give screen", async () => {
   await page.waitForSelector("text=Payment was cancelled");
   if ((await page.evaluate(() => location.hash)) !== "#give") throw new Error("didn't go back to Give");
 });
+await step("staff can practice on a copy of their church", async () => {
+  await page.goto(base + "?debug#me"); await page.waitForSelector("[data-act=train-open]", { timeout: 15000 }); await page.click("[data-act=train-open]");
+  await page.click("#scrim [data-act=train-copy]"); await page.waitForSelector(".sandbox-bar", { timeout: 15000 });
+  await page.waitForSelector("text=Practice copy of Test Fellowship");
+  const calls = supaCalls;
+  await page.evaluate(() => { location.hash = "admin-news"; }); await page.waitForTimeout(300);
+  await page.evaluate(() => { const S = __app.S; S.add("news", { title: "Practice only", body: "Not real", urgent: false, locationId: null, at: new Date().toISOString() }); S.flush(); __app.render(); });
+  await page.waitForTimeout(800);
+  if (supaCalls !== calls) throw new Error(`training reached Supabase ${supaCalls - calls} time(s)`);
+  if ((db.records || []).some((r) => r.data?.title === "Practice only")) throw new Error("practice data reached the database");
+  await shot("12-training-copy");
+  await page.click(".sandbox-bar [data-act=sandbox-exit]"); await page.waitForFunction(() => !document.querySelector(".sandbox-bar") && /Test Fellowship/.test(document.querySelector("#app").textContent), null, { timeout: 15000 });
+  if (await page.evaluate(() => /Practice only/.test(document.querySelector("#app").textContent))) throw new Error("practice data showed in the live app");
+});
 await step("an expired email link says what to do", async () => {
   const p = await freshPage();
   await p.goto(base + "#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired");
@@ -315,6 +331,41 @@ await step("an account made before passwords is asked to choose one", async () =
   await p.fill("input[name=name]", "Early Member"); await p.fill("input[name=password]", "first light"); await p.fill("input[name=password2]", "first light");
   await p.click("form[data-form=account-setup] button.btn"); await p.waitForFunction(() => !document.querySelector("form[data-form=account-setup]"));
   if (accounts["early@example.com"].password !== "first light") throw new Error("password not saved"); await p.context().close();
+});
+await step("the demo runs on a sample church without touching the database", async () => {
+  const p = await freshPage(); await p.goto(base + "?debug"); await p.waitForSelector(".signin-choice");
+  const calls = supaCalls;
+  await p.click(".signin-try a[href='?demo']"); await p.waitForSelector(".sandbox-bar", { timeout: 15000 });
+  if (/demo/.test(await p.evaluate(() => location.search))) throw new Error("the address still says ?demo");
+  await p.waitForSelector("text=Riverside"); await p.screenshot({ path: join(shots, "live-13-demo.png") });
+  await p.evaluate(() => { location.hash = "connect"; }); await p.click("[data-act=prayer-new]");
+  await p.fill("#scrim textarea[name=text]", "Demo prayer for the retreat"); await p.click("#scrim form button.btn:not([type=button])");
+  await p.waitForSelector("text=Demo prayer for the retreat");
+  await p.evaluate(() => { location.hash = "admin"; }); await p.waitForSelector("text=Account details");   // the primary account holder sees everything
+  await p.click(".sandbox-bar [data-act=demo-role]"); await p.click("#scrim [data-act=demo-role-set][data-id=member]");
+  await p.waitForSelector("text=You're now: Member");
+  await p.reload(); await p.waitForSelector(".sandbox-bar");
+  await p.evaluate(() => { location.hash = "connect"; }); await p.waitForSelector("text=Demo prayer for the retreat");   // kept across a reload
+  if (supaCalls !== calls) throw new Error(`the demo reached Supabase ${supaCalls - calls} time(s)`);
+  await p.click(".sandbox-bar [data-act=sandbox-reset]"); await p.click("#scrim [data-act=sandbox-reset-yes]");
+  await p.waitForSelector(".sandbox-bar"); await p.evaluate(() => { location.hash = "connect"; }); await p.waitForTimeout(400);
+  if (await p.$("text=Demo prayer for the retreat")) throw new Error("Reset didn't clear the demo");
+  await p.click(".sandbox-bar [data-act=sandbox-exit]"); await p.waitForSelector(".signin-choice", { timeout: 15000 });
+  if (await p.$(".sandbox-bar")) throw new Error("still in the demo after Exit");
+  await p.context().close();
+});
+await step("training ticks off exercises as they're done", async () => {
+  const p = await freshPage(); await p.goto(base + "?training"); await p.waitForSelector("text=Training", { timeout: 15000 });
+  await p.waitForSelector(".train-row"); const total = await p.$$eval(".train-row", (r) => r.length);
+  if (!(await p.textContent(".sandbox-bar")).includes(`0 of ${total} done`)) throw new Error("the checklist didn't start at 0");
+  await p.screenshot({ path: join(shots, "live-14-training.png") });
+  await p.click(".train-row[href='#connect']"); await p.click("[data-act=prayer-new]");
+  await p.fill("#scrim textarea[name=text]", "Practice prayer"); await p.click("#scrim form button.btn:not([type=button])");
+  await p.waitForSelector("text=Done: Share a prayer request");
+  await p.waitForSelector(`.sandbox-bar >> text=1 of ${total} done`);
+  await p.evaluate(() => { location.hash = "training"; }); await p.waitForSelector(".train-row.done >> text=Share a prayer request");
+  await p.screenshot({ path: join(shots, "live-15-training-progress.png") });
+  await p.context().close();
 });
 await step("signs out", async () => {
   await page.evaluate(() => window.__signOutForTest?.() || null);

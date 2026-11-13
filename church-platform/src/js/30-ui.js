@@ -80,6 +80,7 @@ function render() {
   document.body.classList.toggle("presenting", !!view.present);
   document.body.classList.toggle("kiosk-mode", !!view.kiosk);
   app.innerHTML = view.page ? flat(view.page) : flat(html`<a class="skip" href="#main" data-act="skip">${lang() === "es" ? "Saltar al contenido" : "Skip to content"}</a>
+    ${SANDBOX && !view.present && !view.kiosk ? sandboxBar() : ""}
     ${view.band ? view.band : bar(view.title, view.back)}
     <main class="view" id="main" tabindex="-1">${view.body}</main>
     ${tabs(view.tab)}`);
@@ -90,6 +91,7 @@ function render() {
     lastRoute = route;
   }
   view.after?.();
+  sandboxAfterRender(head);
 }
 let pendingRoute = null;
 

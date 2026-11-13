@@ -1,5 +1,6 @@
 // ---------- Start ----------
 S.load();
+sandboxStart();
 applyDisplay();
 window.addEventListener("hashchange", () => { closeSheet(true); render(); });
 window.addEventListener("pagehide", () => S.flush());

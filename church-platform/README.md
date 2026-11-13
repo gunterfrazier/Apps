@@ -102,6 +102,13 @@ The default link is your private Veritas Logos page, so links only open for you.
 
 The preview keeps everything in the browser and starts with three sample churches. Under **Me, Preview tools** you can become the primary account holder of a sample church or try any role. **Reset sample data** starts over. No money moves.
 
+The live app has the same sandbox, in two forms, for anyone to open without an account:
+
+- **Demo** (`?demo`, or **Try the demo** on the sign-in screen): a sample church with you as its primary account holder. Create and change anything; **View as** shows the church as any role.
+- **Training** (`?training`, or **practice in training**): the same, plus a checklist of 21 exercises across giving, events, groups, services, presenting, check-in, signage, roles and reports. Each ticks itself off when it's done. Staff who are signed in can also train on a practice copy of their own church from **Me, Practice, Training**.
+
+Both run in the browser only (`src/js/73-sandbox.js`): the app never talks to Supabase while a sandbox is open, payment processors connect in name only, and no money moves. **Reset** starts over; **Exit** goes back to the live app, and the practice data waits for next time.
+
 ## Build and test
 
 Needs Node 22 or later. There are no dependencies.

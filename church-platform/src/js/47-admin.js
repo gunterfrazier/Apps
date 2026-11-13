@@ -637,7 +637,8 @@ function processorPanel(c) {
     return html`<div class="panel">
       <div class="proc-head"><span class="proc-mark ${pay.provider}">${name}</span>${pay.mode === "test" ? html`<span class="tag warn">Test mode</span>` : html`<span class="tag ok">Live</span>`}</div>
       <p>Gifts, tickets and form fees go ${pay.account ? html`to <b>${pay.account}</b> through ${name}` : `to ${c.name}'s ${name} account`}. ${name} sends receipts.${pay.recurring ? "" : ` Recurring gifts aren't available with ${name}, so givers choose one-time gifts.`}</p>
-      ${pay.mode === "test" ? html`<p class="faint">These are test keys, so no real money moves. Connect your live keys when you're ready.</p>` : ""}
+      ${pay.practice ? html`<p class="faint">Connected for practice: no keys were checked, and checkout stays a practice checkout.</p>`
+        : pay.mode === "test" ? html`<p class="faint">These are test keys, so no real money moves. Connect your live keys when you're ready.</p>` : ""}
       ${canSetPayments() ? html`<div class="btns"><button type="button" class="btn ghost sm" data-act="processor-pick" data-p="${pay.provider}">Update keys</button>
         <button type="button" class="btn ghost sm" data-act="processor-choose">Use a different processor</button>
         <button type="button" class="btn danger sm" data-act="processor-disconnect" data-p="${pay.provider}">Disconnect</button></div>` : ""}</div>`;
@@ -671,6 +672,10 @@ Forms["processor-connect"] = async (d, f) => {
   const k = d.provider, name = PROCESSORS[k]?.name;
   const keys = k === "stripe" ? { secret: d.secret } : k === "paypal" ? { clientId: d.clientId, secret: d.secret } : { token: d.token, locationId: d.locationId };
   if (Object.entries(keys).some(([n, v]) => n !== "locationId" && !v)) return formError(f, "Fill in every box.");
+  if (SANDBOX) {   // practice: it connects in name only, and checkout stays a practice checkout
+    S.updateChurch({ payments: { provider: k, ready: true, mode: "test", account: "", methods: PROCESSORS[k].methods.map(([v]) => v), recurring: PROCESSORS[k].recurring, practice: true } });
+    closeSheet(true); toast(`${name} connected for practice. No keys were checked and no money moves.`); render(); return;
+  }
   if (typeof Backend === "undefined" || !Backend.on) return formError(f, `Processors connect once the app is on your own website with Supabase set up (see SETUP.md). In this preview nothing connects, and no money moves.`);
   const btn = $("button.btn.block", f); btn.disabled = true; btn.textContent = `Checking with ${name}...`;
   try {
@@ -686,6 +691,7 @@ Actions["processor-disconnect"] = (el) => {
 };
 Actions["processor-disconnect-yes"] = async (el) => {
   const k = el.dataset.p; el.disabled = true;
+  if (typeof Backend === "undefined" || !Backend.on) { S.updateChurch({ payments: null }); closeSheet(true); toast(`${PROCESSORS[k].name} disconnected`); render(); return; }
   try { await Backend.call("payments-setup", { action: "disconnect", churchId: S.state.current, provider: k }); await Backend.pull().catch(() => {}); closeSheet(true); toast(`${PROCESSORS[k].name} disconnected`); render(); }
   catch (e) { el.disabled = false; toast(`Couldn't disconnect: ${e.message || "try again"}`); }
 };
