@@ -174,6 +174,8 @@ await step("adds an announcement, which survives a reload", async () => {
   if (!(await appText()).includes("Test Fellowship")) throw new Error("church missing after reload");
   await shot("5-after-reload");
 });
+// For checking the real security rules: the rows the app wrote, as it would send them to Supabase.
+if (process.env.DUMP_DB) (await import("node:fs")).writeFileSync(process.env.DUMP_DB, JSON.stringify({ uid, db }, null, 1));
 await step("pairs a presentation screen as a device", async () => {
   await page.evaluate(() => { location.hash = "devices"; }); await page.click("[data-act=device-new]");
   await page.locator("#scrim input[name=type][value=display]").evaluate((el) => el.click());
