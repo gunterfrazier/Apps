@@ -193,6 +193,7 @@ Screens.admin = (section) => {
         row("manage.locations", "admin-locations", "pin", "Campuses and locations", `${plural(c.locations.length, "location")}, rooms, service times and livestreams`),
         row("manage.page", "admin-banner", "star", "Home banner", "Background, logo, graphics and text art at the top of Home"),
         row("manage.page", "admin-page", "image", "Landing page", `${plural(c.landing.blocks.length, "block")}${c.landing.showOnHome ? ", shown on Home" : ""}`),
+        row("manage.church", "admin-training", "book", "Training church", isTrainingChurch(c) ? "Invite your team, or start fresh" : trainingChurchOf(c) ? `${trainingChurchOf(c).name}: your team's shared practice church` : "A practice copy your whole team shares"),
         row("manage.integrations", "admin-integrations", "bolt", "Webhooks and embeds", `${plural(c.integrations.webhooks.length, "webhook")}, ${plural(c.integrations.embeds.length, "embedded page")}`),
       ])}
       ${sec("Sunday", [
@@ -581,9 +582,9 @@ AdminScreens.giving = () => {
         <label class="field"><span>Giving page address</span><input type="url" name="url" value="${c.givingLink?.url || ""}" placeholder="https://tithe.ly/give?c=..." inputmode="url"></label>
         <p class="faint">Gifts made there stay in that service, so they don't show in giving reports or statements here.</p>
         <div class="btns"><button class="btn ghost sm">Save link</button>${c.givingLink?.url ? html`<button type="button" class="btn ghost sm" data-act="giving-link-remove">Remove link</button>` : ""}</div></form></section>
-      <section class="sec"><h2 class="sec-head">Text to give and statements</h2><form data-form="give-settings" class="panel" novalidate>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field" style="margin-top:0"><span>Text-to-give number</span><input type="tel" name="number" value="${c.textGive?.number || ""}" placeholder="(770) 555-0199"><small>A Twilio number pointed at your sms function.</small></label>
-            <label class="field" style="margin-top:0"><span>Keyword</span><input type="text" name="keyword" value="${c.textGive?.keyword || "GIVE"}" maxlength="20"></label></div>
+      <section class="sec"><h2 class="sec-head">${isTrainingChurch(c) ? "Statements" : "Text to give and statements"}</h2><form data-form="give-settings" class="panel" novalidate>
+          ${isTrainingChurch(c) ? html`<input type="hidden" name="number" value=""><input type="hidden" name="keyword" value="GIVE">` : html`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field" style="margin-top:0"><span>Text-to-give number</span><input type="tel" name="number" value="${c.textGive?.number || ""}" placeholder="(770) 555-0199"><small>A Twilio number pointed at your sms function.</small></label>
+            <label class="field" style="margin-top:0"><span>Keyword</span><input type="text" name="keyword" value="${c.textGive?.keyword || "GIVE"}" maxlength="20"></label></div>`}
           <label class="field"><span>Tax ID (EIN) for statements</span><input type="text" name="taxId" value="${c.taxId || ""}" maxlength="20" placeholder="12-3456789"></label>
           <button class="btn ghost sm">Save</button></form></section>
       <section class="sec"><h2 class="sec-head">Year-end statements</h2><div class="panel">
@@ -631,7 +632,7 @@ const canSetPayments = () => S.can("manage.church");
 const processorChoices = () => html`<div class="rows proc-list">${Object.entries(PROCESSOR_SETUP).map(([k, p]) => html`<button type="button" class="row" data-act="processor-pick" data-p="${k}">
   <span class="proc-mark ${k}">${PROCESSORS[k].name}</span><span class="body"><span class="s">${p.blurb}</span></span>${icon("chev")}</button>`)}</div>`;
 function processorPanel(c) {
-  const pay = c.payments?.ready && PROCESSORS[c.payments.provider] ? c.payments : null;
+  const p0 = practiceMode(c) ? c.practicePayments : c.payments, pay = p0?.ready && PROCESSORS[p0.provider] ? p0 : null;
   if (pay) {
     const name = PROCESSORS[pay.provider].name;
     return html`<div class="panel">
@@ -672,8 +673,8 @@ Forms["processor-connect"] = async (d, f) => {
   const k = d.provider, name = PROCESSORS[k]?.name;
   const keys = k === "stripe" ? { secret: d.secret } : k === "paypal" ? { clientId: d.clientId, secret: d.secret } : { token: d.token, locationId: d.locationId };
   if (Object.entries(keys).some(([n, v]) => n !== "locationId" && !v)) return formError(f, "Fill in every box.");
-  if (SANDBOX) {   // practice: it connects in name only, and checkout stays a practice checkout
-    S.updateChurch({ payments: { provider: k, ready: true, mode: "test", account: "", methods: PROCESSORS[k].methods.map(([v]) => v), recurring: PROCESSORS[k].recurring, practice: true } });
+  if (practiceMode()) {   // practice: it connects in name only, and checkout stays a practice checkout
+    S.updateChurch({ practicePayments: { provider: k, ready: true, mode: "test", account: "", methods: PROCESSORS[k].methods.map(([v]) => v), recurring: PROCESSORS[k].recurring, practice: true } });
     closeSheet(true); toast(`${name} connected for practice. No keys were checked and no money moves.`); render(); return;
   }
   if (typeof Backend === "undefined" || !Backend.on) return formError(f, `Processors connect once the app is on your own website with Supabase set up (see SETUP.md). In this preview nothing connects, and no money moves.`);
@@ -691,7 +692,7 @@ Actions["processor-disconnect"] = (el) => {
 };
 Actions["processor-disconnect-yes"] = async (el) => {
   const k = el.dataset.p; el.disabled = true;
-  if (typeof Backend === "undefined" || !Backend.on) { S.updateChurch({ payments: null }); closeSheet(true); toast(`${PROCESSORS[k].name} disconnected`); render(); return; }
+  if (practiceMode() || typeof Backend === "undefined" || !Backend.on) { S.updateChurch({ practicePayments: null }); closeSheet(true); toast(`${PROCESSORS[k].name} disconnected`); render(); return; }
   try { await Backend.call("payments-setup", { action: "disconnect", churchId: S.state.current, provider: k }); await Backend.pull().catch(() => {}); closeSheet(true); toast(`${PROCESSORS[k].name} disconnected`); render(); }
   catch (e) { el.disabled = false; toast(`Couldn't disconnect: ${e.message || "try again"}`); }
 };

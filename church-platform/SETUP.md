@@ -209,6 +209,8 @@ Share these links with churches you're inviting, or with new staff and volunteer
 
 They need no account and nothing to set up. Each opens a sample church in the visitor's own browser, with them as its administrator, so they can try and change everything. Nothing they do reaches your database, and no money moves. Signed-in staff can also choose **Me, Practice, Training, Practice with a copy of** their church, to rehearse changes on their own church's setup.
 
+**A shared training church** lets a whole team practise together, on any device, and see each other's changes. An administrator creates it under **Admin, Training church**, filled with sample content or a copy of the church's setup (its sermons, events, classes, songs, services, forms, signage and settings, but no people, gifts, prayers, messages or drafts). Share the invite link; members of the church also find it under **Me, Practice**. People who join can practise everything unless you choose otherwise. A training church can't connect a payment processor, sends nothing to webhooks or text-to-give, is hidden from **Find your church**, and its administrators can reset it to fresh content or delete it from **Admin, Training church**. It needs `supabase/upgrade-6.sql` (new projects get it from `schema.sql`).
+
 ## Troubleshooting
 
 - **"Some changes weren't saved. Your role may not allow them."** A security rule refused a change. Check the person's role and location access under **Admin, People**. The browser console names the record and the rule's message.

@@ -108,6 +108,7 @@ async function supabase(route) {
   }
   if (p === "/auth/v1/user") return json(200, caller(req) || user);
   if (p === "/auth/v1/logout") return route.fulfill({ status: 204, headers: cors });
+  if (p === "/rest/v1/rpc/reset_training_church") { const c = body(req).c; db.records = (db.records || []).filter((r) => r.church_id !== c); return json(200, null); }
   if (p.startsWith("/rest/v1/rpc/")) return json(200, []);
   if (p === "/functions/v1/device-pair") { const b = JSON.parse(req.postData() || "{}"); if (b.action === "pair") { const [status, body] = pairDevice(String(b.code).toUpperCase()); return json(status, body); } return json(200, { ok: true }); }
   if (p === "/functions/v1/payments-setup") {
@@ -278,6 +279,65 @@ await step("cancelling at PayPal comes back to the Give screen", async () => {
   await page.goto(base + "?unpaid=gift&to=give&token=PAYPALORDER"); await page.waitForSelector("#give-btn", { timeout: 15000 });
   await page.waitForSelector("text=Payment was cancelled");
   if ((await page.evaluate(() => location.hash)) !== "#give") throw new Error("didn't go back to Give");
+});
+let trainingId = "";
+await step("creates a shared training church from a copy of the real one", async () => {
+  await page.goto(base + "?debug#admin"); await page.waitForSelector("a[href='#admin-training']", { timeout: 15000 });
+  await page.click("a[href='#admin-training']"); await page.waitForSelector("form[data-form=training-create]");
+  await page.locator("input[name=source][value=copy]").evaluate((el) => el.click());
+  await page.click("form[data-form=training-create] button.btn.block");
+  await page.waitForSelector(".training-bar", { timeout: 15000 }); await page.waitForTimeout(1200);
+  const t = (db.churches || []).find((c) => c.data?.training);
+  if (!t) throw new Error("no training church in the database");
+  trainingId = t.id;
+  const real = db.churches.find((c) => c.id === t.data.training.of);
+  if (real?.data?.trainingChurch !== t.id) throw new Error("the real church doesn't point to its training church");
+  if (t.data.defaults?.roleId !== "admin") throw new Error("people who join should be able to practise everything");
+  const copied = (db.records || []).filter((r) => r.church_id === t.id && r.kind === "news");
+  if (!copied.some((r) => /Coffee after the service/.test(r.data.title))) throw new Error("the announcement wasn't copied");
+  if (copied.some((r) => (db.records || []).some((x) => x !== r && x.kind === r.kind && x.id === r.id))) throw new Error("copied records reused the real church's IDs");
+  if ((db.records || []).some((r) => r.church_id === t.id && ["gifts", "prayers", "event_regs"].includes(r.kind))) throw new Error("personal records were copied");
+  await shot("16-training-church");
+});
+await step("a teammate joins the training church and the team sees each other's changes", async () => {
+  const p = await freshPage(); await p.goto(base);
+  await p.click("[data-act=signin-mode][data-mode=new]");
+  await p.fill("form[data-form=signin-email] input[name=email]", "teammate@example.com"); await p.click("form[data-form=signin-email] button.btn");
+  await p.fill("form[data-form=signin-code] input[name=code]", "123456"); await p.click("form[data-form=signin-code] button.btn");
+  await p.fill("form[data-form=account-setup] input[name=name]", "Terry Teammate"); await p.fill("input[name=password]", "practice makes"); await p.fill("input[name=password2]", "practice makes");
+  await p.click("form[data-form=account-setup] button.btn"); await p.waitForFunction(() => !document.querySelector("form[data-form=account-setup]"));
+  await p.evaluate(() => { location.hash = "churches"; }); await p.waitForSelector("#church-list");
+  if (/Training/.test(await p.textContent("#church-list"))) throw new Error("the training church shows in Find your church");
+  await p.evaluate((id) => { location.hash = `church-${id}`; }, trainingId); await p.click("[data-act=join-church]", { timeout: 15000 });
+  await p.waitForSelector(".training-bar", { timeout: 15000 });
+  for (let i = 0; i < 30 && !(db.memberships || []).some((x) => x.church_id === trainingId && x.user_id !== uid); i++) await p.waitForTimeout(200);   // saved a moment later
+  const m = (db.memberships || []).find((x) => x.church_id === trainingId && x.user_id !== uid);
+  if (m?.role_key !== "admin") throw new Error(`the teammate joined as ${m?.role_key}`);
+  await p.evaluate(() => { location.hash = "connect"; }); await p.click("[data-act=prayer-new]");
+  await p.fill("#scrim textarea[name=text]", "Terry's practice prayer"); await p.click("#scrim form button.btn:not([type=button])");
+  await p.waitForSelector("text=Terry's practice prayer"); await p.waitForTimeout(1200);
+  await p.context().close();
+  await page.reload(); await page.waitForSelector(".training-bar", { timeout: 15000 });
+  await page.evaluate(() => { location.hash = "connect"; }); await page.waitForSelector("text=Terry's practice prayer");
+});
+await step("resets the training church to sample content", async () => {
+  await page.evaluate(() => { location.hash = "admin-training"; }); await page.waitForSelector("form[data-form=training-reset]");
+  await page.locator("form[data-form=training-reset] input[name=source][value=sample]").evaluate((el) => el.click());
+  await page.click("form[data-form=training-reset] button.btn"); await page.click("#scrim [data-act=training-reset-yes]");
+  await page.waitForSelector("text=starts fresh", { timeout: 15000 }); await page.waitForTimeout(1500);
+  const recs = (db.records || []).filter((r) => r.church_id === trainingId);
+  if (recs.some((r) => /Terry's practice prayer/.test(JSON.stringify(r.data)))) throw new Error("the teammate's prayer survived the reset");
+  if (!recs.some((r) => r.kind === "news" && /Parking lot/.test(r.data.title))) throw new Error("sample content didn't arrive");
+  if (!(db.memberships || []).some((x) => x.church_id === trainingId && x.user_id !== uid)) throw new Error("the reset removed the teammate");
+});
+await step("deletes the training church; the real church is untouched", async () => {
+  const realId = db.churches.find((c) => c.id === trainingId).data.training.of;
+  const realNews = (db.records || []).filter((r) => r.church_id === realId).length;
+  await page.evaluate(() => { location.hash = "admin-training"; }); await page.click("[data-act=training-delete]"); await page.click("#scrim [data-act=training-delete-yes]");
+  await page.waitForFunction(() => !document.querySelector(".training-bar"), null, { timeout: 15000 }); await page.waitForTimeout(1500);
+  if ((db.churches || []).some((c) => c.id === trainingId)) throw new Error("the training church is still there");
+  if (db.churches.find((c) => c.id === realId).data.trainingChurch) throw new Error("the real church still points to it");
+  if ((db.records || []).filter((r) => r.church_id === realId).length !== realNews) throw new Error("the real church's records changed");
 });
 await step("staff can practice on a copy of their church", async () => {
   await page.goto(base + "?debug#me"); await page.waitForSelector("[data-act=train-open]", { timeout: 15000 }); await page.click("[data-act=train-open]");

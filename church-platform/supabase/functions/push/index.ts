@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
   const { data: c } = await db.from("churches").select("data").eq("id", record.church_id).maybeSingle();
   const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: c?.data?.timeZone || "America/New_York" }).format(new Date()));
   if (prefs.quiet && (hour >= 21 || hour < 7)) return json({ skipped: "quiet" });
-  const payload = JSON.stringify({ title: n.title, body: n.body, url: `${env("APP_URL")}${n.link || "#alerts"}`, tag: record.id });
+  const payload = JSON.stringify({ title: c?.data?.training ? `Training: ${n.title}` : n.title, body: n.body, url: `${env("APP_URL")}${n.link || "#alerts"}`, tag: record.id });
   let sent = 0;
   for (const s of subs || []) {
     try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload, { TTL: 60 * 60 * 12 }); sent++; }

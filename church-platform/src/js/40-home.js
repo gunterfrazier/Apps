@@ -45,7 +45,7 @@ function churchCard(c) {
 }
 Screens.churches = () => {
   const mine = S.myChurches();
-  const all = S.churches().sort((a, b) => a.name.localeCompare(b.name));
+  const all = S.churches().filter((c) => !c.training || S.isMember(c.id)).sort((a, b) => a.name.localeCompare(b.name));
   return {
     title: "Find your church", back: S.church() ? "home" : null,
     body: html`

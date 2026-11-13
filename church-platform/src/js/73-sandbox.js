@@ -85,69 +85,80 @@ Actions["train-copy"] = () => {
 };
 
 // ----- The training checklist -----
-// Each exercise reads the practice data: it's done when its number goes up (or its value changes) from where it
-// stood when training began. Visiting a screen counts for the exercises that are about looking.
-const visited = (route) => (st) => (st.training?.visited?.[route] ? 1 : 0);
-const mine = (list, key = "by") => (st) => (st[list] || []).filter((x) => x[key] === st.me.id).length;
+// Each exercise reads the practice data for the church you're in: it's done when its number goes up (or its value
+// changes) from where it stood when you began. Visiting a screen counts for the exercises that are about looking.
+// In a shared training church, changes that arrive from teammates move the starting point instead of ticking yours.
+const here = (st, cid, list) => (st[list] || []).filter((x) => x.churchId === cid);
+const visited = (route) => (st, cid) => (st.training?.[cid]?.visited?.[route] ? 1 : 0);
+const mine = (list) => (st, cid) => here(st, cid, list).filter((x) => x.by === st.me.id).length;
 const TRAINING = [
   { area: "Everyone", items: [
     ["household", "Add someone to your household", "Me, Household", "household", "people", (st) => st.me.household.length],
     ["give", "Give a practice gift", "Give", "give", "give", mine("gifts")],
-    ["event", "Sign up for an event", "Events, choose one, Sign up", "events", "calendar", (st) => st.events.reduce((n, e) => n + (e.registrations || []).filter((r) => r.by === st.me.id).length, 0)],
-    ["group", "Join a class or group", "Connect, Classes and groups", "classes", "people", (st) => st.gatherings.reduce((n, g) => n + (g.members || []).filter((m) => m.userId === st.me.id).length, 0)],
+    ["event", "Sign up for an event", "Events, choose one, Sign up", "events", "calendar", (st, cid) => here(st, cid, "events").reduce((n, e) => n + (e.registrations || []).filter((r) => r.by === st.me.id).length, 0)],
+    ["group", "Join a class or group", "Connect, Classes and groups", "classes", "people", (st, cid) => here(st, cid, "gatherings").reduce((n, g) => n + (g.members || []).filter((m) => m.userId === st.me.id).length, 0)],
     ["prayer", "Share a prayer request", "Connect, Prayer", "connect", "pray", mine("prayers")],
     ["notes", "Take notes on a sermon", "Word, open a sermon, Notes", "word", "note", (st) => Object.keys(st.notes || {}).length],
   ] },
   { area: "Church staff", items: [
-    ["news", "Post an announcement", "Admin, Announcements, Add", "admin-news", "bell", (st) => st.news.length],
-    ["newevent", "Create an event", "Admin, Events, Add", "admin-events", "calendar", (st) => st.events.length],
-    ["banner", "Change the Home banner", "Admin, Home banner", "admin-banner", "star", (st) => JSON.stringify(st.churches[st.current]?.banner || null)],
-    ["form", "Build a form", "Admin, Forms", "forms", "note", (st) => st.forms.length],
-    ["role", "Create a role", "Admin, Roles and permissions", "admin-roles", "key", (st) => Object.values(st.churches).reduce((n, c) => n + c.roles.length, 0)],
+    ["news", "Post an announcement", "Admin, Announcements, Add", "admin-news", "bell", (st, cid) => here(st, cid, "news").length],
+    ["newevent", "Create an event", "Admin, Events, Add", "admin-events", "calendar", (st, cid) => here(st, cid, "events").length],
+    ["banner", "Change the Home banner", "Admin, Home banner", "admin-banner", "star", (st, cid) => JSON.stringify(st.churches[cid]?.banner || null)],
+    ["form", "Build a form", "Admin, Forms", "forms", "note", (st, cid) => here(st, cid, "forms").length],
+    ["role", "Create a role", "Admin, Roles and permissions", "admin-roles", "key", (st, cid) => (st.churches[cid]?.roles || []).length],
     ["followup", "Look over follow-up for new people", "Admin, Follow-up", "followup", "people", visited("followup")],
   ] },
   { area: "Sunday", items: [
-    ["song", "Add a song with sections", "Ministry tools, Songs", "songs", "music", (st) => st.songs.length],
-    ["plan", "Plan a service", "Ministry tools, Services", "services", "list", (st) => JSON.stringify(st.services.map((p) => [p.id, (p.segments || []).length]))],
-    ["schedule", "Schedule a volunteer", "Admin, Volunteer scheduling", "teams", "hand", (st) => st.services.reduce((n, p) => n + (p.assignments || []).length, 0)],
+    ["song", "Add a song with sections", "Ministry tools, Songs", "songs", "music", (st, cid) => here(st, cid, "songs").length],
+    ["plan", "Plan a service", "Ministry tools, Services", "services", "list", (st, cid) => JSON.stringify(here(st, cid, "services").map((p) => [p.id, (p.segments || []).length]))],
+    ["schedule", "Schedule a volunteer", "Admin, Volunteer scheduling", "teams", "hand", (st, cid) => here(st, cid, "services").reduce((n, p) => n + (p.assignments || []).length, 0)],
     ["present", "Present a service", "Services, open one, Present", "services", "screen", visited("present")],
-    ["checkin", "Check in a child at the kiosk", "Admin, Check-in kiosk", "kiosk", "kid", (st) => st.checkins.length],
-    ["sign", "Make a slide for the lobby screens", "Admin, Digital signage", "signs", "image", (st) => JSON.stringify(st.signage)],
+    ["checkin", "Check in a child at the kiosk", "Admin, Check-in kiosk", "kiosk", "kid", (st, cid) => here(st, cid, "checkins").length],
+    ["sign", "Make a slide for the lobby screens", "Admin, Digital signage", "signs", "image", (st, cid) => JSON.stringify(here(st, cid, "signage"))],
   ] },
   { area: "Giving and reports", items: [
-    ["processor", "Connect a payment processor (practice)", "Admin, Giving, Online payments", "admin-giving", "give", (st) => (st.churches[st.current]?.payments ? 1 : 0)],
-    ["fund", "Add a giving fund", "Admin, Giving, Funds", "admin-giving", "give", (st) => (st.churches[st.current]?.funds || []).length],
+    ["processor", "Connect a payment processor (practice)", "Admin, Giving, Online payments", "admin-giving", "give", (st, cid) => (st.churches[cid]?.practicePayments || st.churches[cid]?.payments ? 1 : 0)],
+    ["fund", "Add a giving fund", "Admin, Giving, Funds", "admin-giving", "give", (st, cid) => (st.churches[cid]?.funds || []).length],
     ["reports", "Read the reports", "Admin, Reports", "reports", "list", visited("reports")],
   ] },
 ];
 const TRAINING_ITEMS = TRAINING.flatMap((g) => g.items);
+/** Exercises counted from what the whole church has, which teammates' changes can move. The rest are yours alone. */
+const SHARED_ITEMS = new Set(["news", "newevent", "banner", "form", "role", "song", "plan", "schedule", "checkin", "sign", "processor", "fund"]);
 
-/** The training record in practice data: where each exercise stood at the start, screens visited, exercises done. */
-function trainingState() {
+/** Where you train: a sandbox, a shared training church, or the checklist opened in the browser-only preview. */
+const trainingHere = () => SANDBOX === "training" || isTrainingChurch() || (typeof Backend !== "undefined" && !Backend.on && !!S.state.training);
+/** Your checklist for the church you're in: where each exercise stood at the start, screens visited, exercises done. */
+function trainingState(cid = S.state.current) {
   const st = S.state;
-  if (!st.training) {
-    st.training = { base: {}, visited: {}, done: {} };
-    TRAINING_ITEMS.forEach(([id, , , , , read]) => { st.training.base[id] = read(st); });
-  }
-  return st.training;
+  if (!st.training || st.training.base) st.training = {};   // an earlier one-church checklist starts over
+  const t = (st.training[cid] ||= { base: null, visited: {}, done: {} });
+  if (!t.base) { t.base = {}; TRAINING_ITEMS.forEach(([id, , , , , read]) => { t.base[id] = read(st, cid); }); }
+  return t;
 }
 function trainingDone(id) {
   const t = trainingState(), item = TRAINING_ITEMS.find((x) => x[0] === id);
   if (t.done[id]) return true;
-  const now = item[5](S.state), was = t.base[id];
+  const now = item[5](S.state, S.state.current), was = t.base[id];
   return typeof now === "number" ? now > (was || 0) : now !== was;
 }
 function trainingProgress() {
   return { done: TRAINING_ITEMS.filter(([id]) => trainingDone(id)).length, total: TRAINING_ITEMS.length };
 }
+// The first screen after the app opens, and screens redrawn for a teammate's change, move the starting points.
+let trainingFresh = true, trainingRemote = false;
 
 /** After each screen: note the visit, and cheer each exercise the moment it's done. */
 function sandboxAfterRender(head) {
-  // Training mode, or the checklist opened in the browser-only preview. Never on the live app's real data.
-  if (!(SANDBOX === "training" || (!Backend.on && S.state.training))) return;
-  const t = trainingState();
+  if (!S.state.current || !trainingHere()) return;
+  const t = trainingState(), cid = S.state.current;
   let changed = !t.visited[head];
   t.visited[head] = true;
+  if (trainingFresh || trainingRemote) {
+    trainingFresh = trainingRemote = false;
+    TRAINING_ITEMS.forEach(([id, , , , , read]) => { if (!t.done[id] && SHARED_ITEMS.has(id)) t.base[id] = read(S.state, cid); });
+    S.save(); return;
+  }
   const fresh = TRAINING_ITEMS.filter(([id]) => !t.done[id] && trainingDone(id));
   fresh.forEach(([id]) => { t.done[id] = new Date().toISOString(); });
   if (fresh.length) {
@@ -161,13 +172,13 @@ function sandboxAfterRender(head) {
 }
 
 Screens.training = () => {
-  if (!SANDBOX && typeof Backend !== "undefined" && Backend.on) return { redirect: "me" };
+  if (!SANDBOX && typeof Backend !== "undefined" && Backend.on && !isTrainingChurch()) return { redirect: "me" };
   trainingState();
   const p = trainingProgress(), pct = Math.round((p.done / p.total) * 100);
   return {
     title: "Training", back: "me",
     body: html`<div class="panel train-head" style="margin-top:16px">
-        <p style="margin-top:0">${S.state.sandbox?.copyOf ? `This is a practice copy of ${S.state.sandbox.copyOf}.` : "This is a sample church, and you're its primary account holder."} Try each exercise; it ticks itself off when you've done it. Nothing here reaches anyone's real data, and no money moves.</p>
+        <p style="margin-top:0">${isTrainingChurch() && !SANDBOX ? `${S.church().name} is your team's shared training church. What you do here, your teammates see too.` : S.state.sandbox?.copyOf ? `This is a practice copy of ${S.state.sandbox.copyOf}.` : "This is a sample church, and you're its primary account holder."} Try each exercise; it ticks itself off when you've done it. Nothing here reaches anyone's real data, and no money moves.</p>
         <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="${p.total}" aria-valuenow="${p.done}" aria-label="Exercises done"><i style="width:${pct}%"></i></div>
         <p class="faint" style="margin-bottom:0">${p.done} of ${p.total} done${p.done === p.total ? ". You've tried everything." : ""}</p></div>
       ${TRAINING.map((g) => html`<section class="sec"><h2 class="sec-head">${g.area}</h2><div class="rows">${g.items.map(([id, title, where, go, ic]) => {
@@ -175,8 +186,8 @@ Screens.training = () => {
         return html`<a class="row train-row ${done ? "done" : ""}" href="#${go}"><span class="lead-ic">${icon(done ? "check" : ic)}</span>
           <span class="body"><span class="t">${title}</span><span class="s">${where}</span></span>${done ? html`<span class="tag ok">Done</span>` : icon("chev")}</a>`;
       })}</div></section>`)}
-      <section class="sec"><div class="rows">
+      ${SANDBOX ? html`<section class="sec"><div class="rows">
         <button type="button" class="row" data-act="sandbox-reset"><span class="lead-ic">${icon("x")}</span><span class="body"><span class="t">Start over</span><span class="s">Clear what you changed and the checklist</span></span></button>
-      </div></section>`,
+      </div></section>` : isTrainingChurch() && S.can("manage.church") ? html`<p class="faint" style="text-align:center">To start the whole church fresh, go to Admin, Training church.</p>` : ""}`,
   };
 };

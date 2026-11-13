@@ -107,7 +107,9 @@ The live app has the same sandbox, in two forms, for anyone to open without an a
 - **Demo** (`?demo`, or **Try the demo** on the sign-in screen): a sample church with you as its primary account holder. Create and change anything; **View as** shows the church as any role.
 - **Training** (`?training`, or **practice in training**): the same, plus a checklist of 21 exercises across giving, events, groups, services, presenting, check-in, signage, roles and reports. Each ticks itself off when it's done. Staff who are signed in can also train on a practice copy of their own church from **Me, Practice, Training**.
 
-Both run in the browser only (`src/js/73-sandbox.js`): the app never talks to Supabase while a sandbox is open, payment processors connect in name only, and no money moves. **Reset** starts over; **Exit** goes back to the live app, and the practice data waits for next time.
+A **shared training church** (`src/js/74-training-church.js`, Admin, Training church) is the team version: a practice church in the database, created from sample content or a copy of the real church's setup, that everyone on the team joins with an invite link. It never takes payments or calls outside systems, and its administrators can reset or delete it.
+
+The demo and training sandboxes run in the browser only (`src/js/73-sandbox.js`): the app never talks to Supabase while a sandbox is open, payment processors connect in name only, and no money moves. **Reset** starts over; **Exit** goes back to the live app, and the practice data waits for next time.
 
 ## Build and test
 

@@ -11,8 +11,9 @@ handle(async (req) => {
   for (const q of queue || []) {
     if (q.data.nextAt && new Date(q.data.nextAt) > now) continue;
     const { data: integ } = await db.from("records").select("data").eq("kind", "integrations").eq("id", q.church_id).maybeSingle();
-    const { data: church } = await db.from("churches").select("id, handle").eq("id", q.church_id).single();
-    const hooks = (integ?.data?.webhooks || []).filter((h: any) => h.active && h.events.includes(q.data.event));
+    const { data: church } = await db.from("churches").select("id, handle, data").eq("id", q.church_id).single();
+    // A training church sends nothing to outside systems.
+    const hooks = church?.data?.training ? [] : (integ?.data?.webhooks || []).filter((h: any) => h.active && h.events.includes(q.data.event));
     let failed = 0;
     for (const h of hooks) {
       const body = JSON.stringify({ id: q.id, event: q.data.event, church: { id: church!.id, handle: church!.handle }, at: q.data.at, data: q.data.data });

@@ -14,7 +14,7 @@ const Pay = {
   /** The processor this church takes payments with: its own keys, or Stripe through the platform's Stripe Connect. */
   provider(c = S.church()) { return c?.payments?.ready && PROCESSORS[c.payments.provider] ? c.payments.provider : c?.stripe?.chargesEnabled ? "stripe" : ""; },
   /** True when this church can take real payments here. */
-  live(c = S.church()) { return !IN_PREVIEW && typeof Backend !== "undefined" && Backend.on && !!this.provider(c); },
+  live(c = S.church()) { return !IN_PREVIEW && !c?.training && typeof Backend !== "undefined" && Backend.on && !!this.provider(c); },
   name(c = S.church()) { return PROCESSORS[this.provider(c)]?.name || ""; },
   /** Can givers set up weekly or monthly gifts? Always in test mode. */
   recurring(c = S.church()) { return !this.live(c) || (c.payments?.ready ? c.payments.recurring !== false : true); },
@@ -37,7 +37,7 @@ const Pay = {
         <p class="muted" style="margin-top:0">${title}</p>
         <table class="mini-table">${lines.filter((l) => l.qty !== 0).map((l) => html`<tr><td>${l.label}${(l.qty || 1) > 1 ? ` × ${l.qty}` : ""}</td><td class="num">${money(l.amount * (l.qty || 1))}</td></tr>`)}
           <tr class="total"><td>Total${recurring ? `, ${recurring}` : ""}</td><td class="num">${money(total)}</td></tr></table>
-        ${demoNote(SANDBOX ? "Practice payment. Nothing is charged here." : IN_PREVIEW ? "Test payment. No money moves in the preview. On your own website this opens the church's secure checkout with Stripe, PayPal or Square." : "Test payment. Online payments aren't set up for this church yet, so nothing is charged.")}
+        ${demoNote(practiceMode() ? "Practice payment. Nothing is charged here." : IN_PREVIEW ? "Test payment. No money moves in the preview. On your own website this opens the church's secure checkout with Stripe, PayPal or Square." : "Test payment. Online payments aren't set up for this church yet, so nothing is charged.")}
         <div class="btns"><button class="btn" data-act="pay-test">${icon("give")}Pay ${money(total)} (test)</button><button class="btn ghost" data-act="pay-cancel">Cancel</button></div></div>`);
     });
   },
