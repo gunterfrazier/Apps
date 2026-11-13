@@ -574,15 +574,18 @@ AdminScreens.giving = () => {
   return {
     title: "Giving", back: "admin",
     body: html`${Pay.live() ? "" : demoNote("Totals include sample gifts and test gifts. No money has moved.")}
-      <section class="sec" style="margin-top:12px"><h2 class="sec-head">Online giving</h2><div class="panel">
-        ${c.stripe?.chargesEnabled ? html`<p style="margin-top:0">${icon("check")} Stripe is connected. Gifts, tickets and form fees go straight to ${c.name}'s Stripe account${PLATFORM.platformFeePercent ? `, less a ${PLATFORM.platformFeePercent}% platform fee` : ""}.</p><button class="btn ghost sm" data-act="stripe-connect">${icon("link")}Open Stripe settings</button>`
-          : c.stripe?.accountId ? html`<p style="margin-top:0">Stripe needs a few more details before gifts can come in.</p><button class="btn sm" data-act="stripe-connect">Finish setting up Stripe</button>`
-          : html`<p style="margin-top:0">Connect a Stripe account to take real gifts by card and bank account, sell tickets and collect form fees. Money goes straight to ${c.name}. Stripe sends receipts.</p><button class="btn sm" data-act="stripe-connect">${icon("give")}Connect Stripe</button>`}
-        <form data-form="give-settings" novalidate style="margin-top:14px">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Text-to-give number</span><input type="tel" name="number" value="${c.textGive?.number || ""}" placeholder="(770) 555-0199"><small>A Twilio number pointed at your sms function.</small></label>
-            <label class="field"><span>Keyword</span><input type="text" name="keyword" value="${c.textGive?.keyword || "GIVE"}" maxlength="20"></label></div>
+      <section class="sec" style="margin-top:12px"><h2 class="sec-head">Online payments</h2>${processorPanel(c)}</section>
+      <section class="sec"><h2 class="sec-head">Another giving service</h2><form data-form="giving-link" class="panel" novalidate>
+        <p style="margin-top:0">Already take gifts through Tithe.ly, Pushpay, Givelify or another service? Link your giving page and the Give screen leads with it.${Pay.provider() ? " Gifts made here still go through your processor." : ""}</p>
+        <label class="field"><span>Service</span><select name="service">${GIVING_SERVICES.map(([k, l]) => html`<option value="${k}" ${attr((c.givingLink?.service || "tithely") === k, "selected")}>${l}</option>`)}</select></label>
+        <label class="field"><span>Giving page address</span><input type="url" name="url" value="${c.givingLink?.url || ""}" placeholder="https://tithe.ly/give?c=..." inputmode="url"></label>
+        <p class="faint">Gifts made there stay in that service, so they don't show in giving reports or statements here.</p>
+        <div class="btns"><button class="btn ghost sm">Save link</button>${c.givingLink?.url ? html`<button type="button" class="btn ghost sm" data-act="giving-link-remove">Remove link</button>` : ""}</div></form></section>
+      <section class="sec"><h2 class="sec-head">Text to give and statements</h2><form data-form="give-settings" class="panel" novalidate>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field" style="margin-top:0"><span>Text-to-give number</span><input type="tel" name="number" value="${c.textGive?.number || ""}" placeholder="(770) 555-0199"><small>A Twilio number pointed at your sms function.</small></label>
+            <label class="field" style="margin-top:0"><span>Keyword</span><input type="text" name="keyword" value="${c.textGive?.keyword || "GIVE"}" maxlength="20"></label></div>
           <label class="field"><span>Tax ID (EIN) for statements</span><input type="text" name="taxId" value="${c.taxId || ""}" maxlength="20" placeholder="12-3456789"></label>
-          <button class="btn ghost sm">Save</button></form></div></section>
+          <button class="btn ghost sm">Save</button></form></section>
       <section class="sec"><h2 class="sec-head">Year-end statements</h2><div class="panel">
         <label class="field" style="margin-top:0"><span>Year</span><select id="stmt-year">${[y, y - 1, y - 2].map((n) => html`<option ${attr(n === (now.getMonth() < 2 ? y - 1 : y), "selected")}>${n}</option>`)}</select></label>
         <div class="btns"><button class="btn sm" data-act="statements-all" data-year="${y}">${icon("download")}All statements (PDF)</button><button class="btn ghost sm" data-act="statements-csv">${icon("download")}Gifts (CSV)</button></div>
@@ -600,6 +603,100 @@ Forms["give-settings"] = (d, f) => {
   if (d.number && digits(d.number).length < 10) return formError(f, "Enter the full text-to-give number, with area code.");
   S.updateChurch({ textGive: d.number ? { number: d.number, keyword: (d.keyword || "GIVE").toUpperCase() } : null, taxId: d.taxId }); toast("Saved"); render();
 };
+// ----- Payment processors: each church connects its own Stripe, PayPal or Square (see 62-pay.js and SETUP.md) -----
+const PROCESSOR_SETUP = {
+  stripe: {
+    blurb: "Cards, Apple Pay, Google Pay and bank accounts. Weekly and monthly gifts.",
+    steps: [html`Sign in at <a href="https://dashboard.stripe.com" target="_blank" rel="noopener">dashboard.stripe.com</a> with the church's Stripe account, or create one. Stripe asks for the church's EIN and bank account.`,
+      "Open Developers, then API keys.", "Next to Secret key, choose Reveal and copy it. It starts with sk_live_."],
+    fields: () => passwordField("secret", "Secret key", "off"),
+    test: "To try it first, switch Stripe to test mode and use the key that starts with sk_test_.",
+  },
+  paypal: {
+    blurb: "PayPal, Pay Later and cards. Weekly and monthly gifts.",
+    steps: [html`Sign in at <a href="https://developer.paypal.com" target="_blank" rel="noopener">developer.paypal.com</a> with the church's PayPal business account.`,
+      "Open Apps and Credentials, choose Live at the top, then Create App.", "Copy the app's Client ID and Secret."],
+    fields: () => html`<label class="field"><span>Client ID</span><input type="text" name="clientId" autocomplete="off" required spellcheck="false"></label>${passwordField("secret", "Secret", "off")}`,
+    test: "Sandbox credentials work too, for a trial run.",
+  },
+  square: {
+    blurb: "Cards, Apple Pay and Google Pay. One-time payments only.",
+    steps: [html`Sign in at <a href="https://developer.squareup.com/apps" target="_blank" rel="noopener">developer.squareup.com</a> with the church's Square account.`,
+      "Create an application (call it anything, such as Church app) and open it.", "On Credentials, choose Production and copy the Access token."],
+    fields: () => html`${passwordField("token", "Access token", "off")}<label class="field"><span>Location ID (optional)</span><input type="text" name="locationId" autocomplete="off" spellcheck="false"><small>Leave it blank to use your main location that takes cards.</small></label>`,
+    test: "A sandbox access token works too, for a trial run.",
+  },
+};
+const canSetPayments = () => S.can("manage.church");
+const processorChoices = () => html`<div class="rows proc-list">${Object.entries(PROCESSOR_SETUP).map(([k, p]) => html`<button type="button" class="row" data-act="processor-pick" data-p="${k}">
+  <span class="proc-mark ${k}">${PROCESSORS[k].name}</span><span class="body"><span class="s">${p.blurb}</span></span>${icon("chev")}</button>`)}</div>`;
+function processorPanel(c) {
+  const pay = c.payments?.ready && PROCESSORS[c.payments.provider] ? c.payments : null;
+  if (pay) {
+    const name = PROCESSORS[pay.provider].name;
+    return html`<div class="panel">
+      <div class="proc-head"><span class="proc-mark ${pay.provider}">${name}</span>${pay.mode === "test" ? html`<span class="tag warn">Test mode</span>` : html`<span class="tag ok">Live</span>`}</div>
+      <p>Gifts, tickets and form fees go ${pay.account ? html`to <b>${pay.account}</b> through ${name}` : `to ${c.name}'s ${name} account`}. ${name} sends receipts.${pay.recurring ? "" : ` Recurring gifts aren't available with ${name}, so givers choose one-time gifts.`}</p>
+      ${pay.mode === "test" ? html`<p class="faint">These are test keys, so no real money moves. Connect your live keys when you're ready.</p>` : ""}
+      ${canSetPayments() ? html`<div class="btns"><button type="button" class="btn ghost sm" data-act="processor-pick" data-p="${pay.provider}">Update keys</button>
+        <button type="button" class="btn ghost sm" data-act="processor-choose">Use a different processor</button>
+        <button type="button" class="btn danger sm" data-act="processor-disconnect" data-p="${pay.provider}">Disconnect</button></div>` : ""}</div>`;
+  }
+  if (c.stripe?.accountId) return html`<div class="panel">${c.stripe.chargesEnabled
+    ? html`<p style="margin-top:0">${icon("check")} Stripe is connected. Gifts, tickets and form fees go straight to ${c.name}'s Stripe account${PLATFORM.platformFeePercent ? `, less a ${PLATFORM.platformFeePercent}% platform fee` : ""}.</p><button type="button" class="btn ghost sm" data-act="stripe-connect">${icon("link")}Open Stripe settings</button>`
+    : html`<p style="margin-top:0">Stripe needs a few more details before gifts can come in.</p><button type="button" class="btn sm" data-act="stripe-connect">Finish setting up Stripe</button>`}
+    ${canSetPayments() ? html`<p class="faint">Or connect the church's own processor instead:</p>${processorChoices()}` : ""}</div>`;
+  return html`<div class="panel">
+    <p style="margin-top:0">Choose the payment processor ${c.name} uses for gifts, event tickets and form fees. Money goes straight into the church's own account; the app never holds it.</p>
+    ${canSetPayments() ? processorChoices() : html`<p class="faint" style="margin-bottom:0">Someone who manages the church account can set this up.</p>`}</div>`;
+}
+Actions["processor-choose"] = () => openSheet("Payment processor", html`<p style="margin-top:0">Gifts and payments made from now on go through the one you choose. Recurring gifts already set up keep going through the processor they started with.</p>${processorChoices()}`);
+Actions["processor-pick"] = async (el) => {
+  const k = el.dataset.p, p = PROCESSOR_SETUP[k], name = PROCESSORS[k].name;
+  openSheet(`Connect ${name}`, html`<form data-form="processor-connect" novalidate><input type="hidden" name="provider" value="${k}">
+    <p style="margin-top:0">${p.blurb}</p>
+    <ol class="steps-list">${p.steps.map((s) => html`<li>${s}</li>`)}</ol>
+    ${p.fields()}
+    <p class="faint">${p.test} The app checks the keys with ${name}, sets up payment notices, and stores the keys encrypted where only its server can read them.</p>
+    <button class="btn block">Connect ${name}</button>
+    ${k === "stripe" ? html`<div id="stripe-connect-slot"></div>` : ""}</form>`);
+  // A platform with Stripe Connect set up can also offer Stripe's own sign-up, with no keys to copy.
+  if (k === "stripe" && typeof Backend !== "undefined" && Backend.on) {
+    const o = await Backend.call("payments-setup", { action: "options", churchId: S.state.current }).catch(() => null);
+    const slot = $("#stripe-connect-slot");
+    if (o?.stripeConnect && slot) slot.innerHTML = String(html`<p class="faint" style="text-align:center">or</p><button type="button" class="btn ghost block" data-act="stripe-connect">Sign up through Stripe instead</button>`);
+  }
+};
+Forms["processor-connect"] = async (d, f) => {
+  const k = d.provider, name = PROCESSORS[k]?.name;
+  const keys = k === "stripe" ? { secret: d.secret } : k === "paypal" ? { clientId: d.clientId, secret: d.secret } : { token: d.token, locationId: d.locationId };
+  if (Object.entries(keys).some(([n, v]) => n !== "locationId" && !v)) return formError(f, "Fill in every box.");
+  if (typeof Backend === "undefined" || !Backend.on) return formError(f, `Processors connect once the app is on your own website with Supabase set up (see SETUP.md). In this preview nothing connects, and no money moves.`);
+  const btn = $("button.btn.block", f); btn.disabled = true; btn.textContent = `Checking with ${name}...`;
+  try {
+    await Backend.call("payments-setup", { action: "connect", churchId: S.state.current, provider: k, keys });
+    await Backend.pull().catch(() => {});
+    closeSheet(true); toast(`${name} connected`); render();
+  } catch (e) { btn.disabled = false; btn.textContent = `Connect ${name}`; formError(f, e.message || "That didn't work. Try again."); }
+};
+Actions["processor-disconnect"] = (el) => {
+  const k = el.dataset.p, name = PROCESSORS[k].name;
+  openSheet(`Disconnect ${name}?`, html`<p style="margin-top:0">Online gifts, tickets and form fees stop until you connect a processor again. The app forgets the ${name} keys and stops hearing from ${name}, so recurring gifts set up through ${name} keep charging but no longer show here. Stop them in ${name} if you need to.</p>
+    <div class="btns"><button class="btn danger" data-act="processor-disconnect-yes" data-p="${k}">Disconnect ${name}</button><button class="btn ghost" data-act="close-sheet">Keep it</button></div>`);
+};
+Actions["processor-disconnect-yes"] = async (el) => {
+  const k = el.dataset.p; el.disabled = true;
+  try { await Backend.call("payments-setup", { action: "disconnect", churchId: S.state.current, provider: k }); await Backend.pull().catch(() => {}); closeSheet(true); toast(`${PROCESSORS[k].name} disconnected`); render(); }
+  catch (e) { el.disabled = false; toast(`Couldn't disconnect: ${e.message || "try again"}`); }
+};
+Forms["giving-link"] = (d, f) => {
+  let url = d.url;
+  if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
+  try { if (url) new URL(url); } catch { return formError(f, "Enter the full address of your giving page, starting with https://"); }
+  if (url && !/^https:\/\//i.test(url)) return formError(f, "Use the secure address of your giving page, starting with https://");
+  S.updateChurch({ givingLink: url ? { service: d.service, url } : null }); toast(url ? "Giving page linked" : "Link removed"); render();
+};
+Actions["giving-link-remove"] = () => { S.updateChurch({ givingLink: null }); toast("Link removed"); render(); };
 Actions["stripe-connect"] = async () => {
   if (typeof Backend === "undefined" || !Backend.on) { openSheet("Connect Stripe", html`<p style="margin-top:0">Stripe connects once the app is on your own website with Supabase set up. SETUP.md walks through it: create a Stripe account for the platform, turn on Connect, and add the keys to your server functions.</p><p class="muted">After that, this button takes ${S.church().name} to Stripe to verify its bank account. It takes about ten minutes.</p><button class="btn block" data-act="close-sheet">OK</button>`); return; }
   try { toast("Opening Stripe..."); const { url } = await Backend.call("stripe-connect", { churchId: S.state.current, returnTo: location.href }); location.href = url; }

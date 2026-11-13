@@ -2,13 +2,13 @@
 
 The preview keeps everything in one browser. This guide connects the app to the services that let real people share data, sign in, give money and get notifications. Do the steps in order. Steps 1 to 5 give you a working shared app; the rest add payments, push notifications, AI drafts, schedules and text-to-give, and can come later.
 
-You'll need about two hours, a GitHub account (you have one), and free accounts at Supabase and Stripe.
+You'll need about two hours, a GitHub account (you have one), and a free Supabase account. Each church brings its own Stripe, PayPal or Square account.
 
 | Service | What it does here | Cost to start (check current prices) |
 | --- | --- | --- |
 | GitHub Pages | Hosts the app's files | Free |
 | Supabase | Database, sign-in, file storage, live updates, server functions | Free tier; Pro is $25 a month when you outgrow it |
-| Stripe | Gifts, tickets and form fees, straight to each church's bank | No monthly fee; about 2.9% + 30¢ per card payment, 0.8% for bank payments (capped at $5) |
+| Stripe, PayPal or Square (each church picks) | Gifts, tickets and form fees, straight to each church's account | No monthly fee; each processor charges per payment (see their pricing pages) |
 | Anthropic API | AI drafts for teachers | Pay per use; a draft costs about a cent |
 | Twilio (optional) | Text-to-give number | About $1.15 a month per number plus a cent per text |
 
@@ -78,42 +78,43 @@ From here the app is shared: sign-ups, prayer requests, chats, check-ins and eve
 
 > Data from the preview doesn't move over. Sample churches only exist in the preview.
 
-## 6. Take real gifts, tickets and form fees (Stripe)
+## 6. Take real gifts, tickets and form fees (Stripe, PayPal or Square)
 
-Each church connects its own Stripe account, so money goes straight to that church. Your platform account only coordinates (and can keep an optional small fee).
+Each church chooses its own payment processor in the app, under **Admin, Giving, Online payments**, and pastes its keys there. Money goes straight into the church's own Stripe, PayPal or Square account; the app never holds it.
 
-**Set up your platform account (once):**
+| Processor | What givers can use | Recurring gifts | The church needs |
+|---|---|---|---|
+| Stripe | Cards, Apple Pay, Google Pay, US bank accounts | Weekly and monthly | Its Stripe **secret key** (Developers, API keys) |
+| PayPal | PayPal, Pay Later, cards | Weekly and monthly | A **Client ID** and **Secret** from an app at developer.paypal.com |
+| Square | Cards, Apple Pay, Google Pay | Not yet | An **access token** from an app at developer.squareup.com |
 
-1. Create an account at [stripe.com](https://stripe.com). Stay in **Test mode** (the toggle at the top) until everything works.
-2. Open **Connect** and finish the platform setup. Choose **Standard** accounts, so each church has its own Stripe dashboard and handles its own refunds and disputes.
-3. Open **Developers, API keys** and copy the **Secret key** (`sk_test_...`).
-4. Open **Developers, Webhooks, Add endpoint**:
-   - Endpoint URL: `https://iigterjskwnqmnoysbha.supabase.co/functions/v1/stripe-webhook`
-   - Select **Listen to events on Connected accounts**
-   - Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `invoice.paid`, `customer.subscription.deleted`, `charge.refunded`, `account.updated`
-   - Copy the **Signing secret** (`whsec_...`).
+The app shows these steps next to each choice. When a church connects, the app checks the keys with the processor, sets up the processor's payment notices (a webhook) by itself, and stores the keys encrypted in Supabase Vault, where only the server functions can read them. Test keys (Stripe test mode, PayPal sandbox, Square sandbox) work too, and the app marks the church as **Test mode** until live keys are connected.
 
-**Deploy the server functions.** Install the [Supabase CLI](https://supabase.com/docs/guides/cli) and, from the `church-platform` folder:
+A church that already gives through Tithe.ly, Pushpay, Givelify, Planning Center, Subsplash, Vanco or another service can link its giving page under **Admin, Giving, Another giving service**. The Give screen then leads with that link. Gifts made there stay in that service, so they don't show in the app's reports or statements.
+
+**Do this once for the whole app.** Run `supabase/upgrade-5.sql` in the SQL editor if you set up the database before this version (new projects get it from `schema.sql`). Then install the [Supabase CLI](https://supabase.com/docs/guides/cli) and, from the `church-platform` folder:
 
 ```bash
 supabase login
 supabase link --project-ref iigterjskwnqmnoysbha
-supabase secrets set APP_URL=https://YOUR-APP-ADDRESS/ \
-  STRIPE_SECRET_KEY=sk_test_... STRIPE_WEBHOOK_SECRET=whsec_... PLATFORM_FEE_PERCENT=0
+supabase secrets set APP_URL=https://YOUR-APP-ADDRESS/
+supabase functions deploy payments-setup
 supabase functions deploy checkout
-supabase functions deploy stripe-webhook
-supabase functions deploy stripe-connect
+supabase functions deploy pay-confirm
+supabase functions deploy pay-webhook
 supabase functions deploy refund
 supabase functions deploy recurring
 ```
 
-`supabase/config.toml` turns off the platform's own token check, which doesn't work with publishable and secret keys. Each function checks its caller itself: signed-in people through Supabase Auth, Stripe and Twilio by their signatures, the database webhook and the schedules by a shared secret.
+No Stripe, PayPal or Square keys of your own are needed for this: each church brings its own.
 
-**Connect a church:** in the app, **Admin, Giving, Connect Stripe**. Stripe asks for the church's legal name, EIN and bank account (about ten minutes). When Stripe finishes checking, the test-mode notes disappear and gifts, tickets and form fees go through Stripe Checkout, which handles cards, Apple Pay, Google Pay and bank accounts, and emails receipts.
+`supabase/config.toml` turns off the platform's own token check, which doesn't work with publishable and secret keys. Each function checks its caller itself: signed-in people through Supabase Auth, the processors and Twilio by their signatures, the database webhook and the schedules by a shared secret.
 
-**Test it** with card `4242 4242 4242 4242`, any future date and any CVC. Check that the gift appears under **Giving history** and **Admin, Giving**. Then try a recurring gift, a ticket and its refund.
+**Test it** with a church connected in test mode. With Stripe, use card `4242 4242 4242 4242`, any future date and any CVC; with PayPal, a sandbox buyer account from developer.paypal.com; with Square, the sandbox test card `4111 1111 1111 1111`. Check that the gift appears under **Giving history** and **Admin, Giving**. Then try a recurring gift (Stripe or PayPal), a ticket and its refund.
 
-**Go live:** switch Stripe to live mode, repeat the webhook step there, and set the live keys with `supabase secrets set`. Each church reconnects once in live mode.
+**Go live:** each church connects its live keys under **Admin, Giving, Update keys**.
+
+**Optional: Stripe Connect.** If you'd rather churches sign up for Stripe through your own platform account (with no keys to copy, and an optional platform fee), set that up too: in Stripe, open **Connect** and finish the platform setup with **Standard** accounts; add a webhook at `https://iigterjskwnqmnoysbha.supabase.co/functions/v1/stripe-webhook` that listens to events on connected accounts (`checkout.session.completed`, `checkout.session.async_payment_succeeded`, `invoice.paid`, `customer.subscription.deleted`, `charge.refunded`, `account.updated`); then run `supabase secrets set STRIPE_SECRET_KEY=sk_... STRIPE_WEBHOOK_SECRET=whsec_... PLATFORM_FEE_PERCENT=0` and deploy `stripe-connect` and `stripe-webhook`. The Stripe choice in the app then also offers **Sign up through Stripe instead**.
 
 Year-end statements need nothing extra: members download a PDF under **Giving history**, and staff download every giver's statement in one PDF under **Admin, Giving**. Add the church's EIN there so it prints on statements.
 
@@ -203,7 +204,8 @@ For signage, make a playlist under **Admin, Digital signage** first, then add a 
 
 - **"Some changes weren't saved. Your role may not allow them."** A security rule refused a change. Check the person's role and location access under **Admin, People**. The browser console names the record and the rule's message.
 - **Sign-in codes don't arrive.** Check spam, then **Authentication, Logs**. Connect your own SMTP sender (step 3.4).
-- **Stripe says the church isn't set up.** Finish onboarding from **Admin, Giving**; Stripe has to enable charges before checkout works. The `account.updated` webhook flips it on in the app.
+- **Checkout says the church isn't set up for online payments.** Connect a processor under **Admin, Giving, Online payments**. If connecting fails, the message says what the processor didn't accept.
+- **A payment went through but doesn't show in the app.** Check **Edge Functions, pay-webhook, Logs** in Supabase, and in the processor's dashboard check that the webhook pointing at `pay-webhook` is enabled. Reconnecting the church's keys sets the webhook up again.
 - **Push doesn't arrive.** Check the Database Webhook's logs and that the phone allowed notifications for the site.
 - **A function fails.** `supabase functions logs FUNCTION-NAME` shows its errors.
 

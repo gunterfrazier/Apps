@@ -1,8 +1,15 @@
 // ---------- Giving ----------
-// Gifts go through Pay: Stripe Checkout on the church's own connected account once it's set up (see SETUP.md),
-// a test checkout everywhere else. Text-to-give links (#give-CHURCH~AMOUNT) open this screen with the amount filled in.
+// Gifts go through Pay: the checkout of the church's own payment processor (Stripe, PayPal or Square) once it's set up
+// under Admin, Giving, a test checkout everywhere else. A church that already gives through another service (Tithe.ly,
+// Pushpay, Givelify...) can link its giving page instead, and the Give screen leads with it. Text-to-give links (#give-CHURCH~AMOUNT) open this screen with the amount filled in.
 
 const FREQ = { once: "One time", weekly: "Every week", monthly: "Every month" };
+/** Giving services a church may already use. Gifts made there stay in that service, not in the app's history. */
+const GIVING_SERVICES = [["tithely", "Tithe.ly"], ["pushpay", "Pushpay"], ["givelify", "Givelify"], ["planningcenter", "Planning Center Giving"], ["subsplash", "Subsplash Giving"],
+  ["vanco", "Vanco"], ["zeffy", "Zeffy"], ["paypal", "PayPal"], ["venmo", "Venmo"], ["cashapp", "Cash App"], ["other", "Our giving page"]];
+const givingService = (l) => l?.name || GIVING_SERVICES.find(([k]) => k === l?.service)?.[1] || "Our giving page";
+const methodLabel = (m) => ({ bank: "Bank", cash: "Cash or check", paypal: "PayPal" })[m] || "Card";
+const hostOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } };
 const nextGiftDate = (r) => {
   const d = new Date(r.lastAt || r.at), step = () => (r.frequency === "weekly" ? d.setDate(d.getDate() + 7) : d.setMonth(d.getMonth() + 1));
   step(); while (d < new Date()) step();
@@ -18,22 +25,29 @@ Screens.give = (tail = "") => {
   const year = new Date().getFullYear();
   const total = myGifts().filter((g) => new Date(g.at).getFullYear() === year).reduce((n, g) => n + g.amount, 0);
   const recurring = S.list("recurring").filter((r) => r.by === S.me().id && r.active);
+  const link = c.givingLink?.url ? c.givingLink : null, inApp = !link || Pay.live(), methods = Pay.methods();
   return {
     title: "Give", tab: "give",
     body: html`
-      ${Pay.live() ? "" : demoNote(html`<b>Test mode:</b> gifts are recorded here, but no money moves. Real gifts start once ${c.name} connects Stripe under Admin, Giving.`)}
+      ${link ? html`<a class="panel give-out" href="${link.url}" target="_blank" rel="noopener"><span class="lead-ic">${icon("give")}</span>
+        <span class="body"><span class="t">Give with ${givingService(link)}</span><span class="s">Opens ${hostOf(link.url)}. Gifts made there show in ${givingService(link) === "Our giving page" ? "that service" : givingService(link)}, not in your history here.</span></span>${icon("link")}</a>` : ""}
+      ${!inApp ? "" : html`${link ? html`<h2 class="sec-head" style="margin-top:22px">Or give here</h2>` : ""}
+      ${Pay.live() ? "" : demoNote(html`<b>Test mode:</b> gifts are recorded here, but no money moves. Real gifts start once ${c.name} sets up online giving under Admin, Giving.`)}
       <form data-form="give" class="panel" novalidate>
         <label for="amount" class="sr">Amount in dollars</label>
         <div style="display:flex;align-items:center;justify-content:center"><span class="amount" aria-hidden="true" style="color:var(--ink-3)">$</span><input id="amount" class="amount" name="amount" type="text" inputmode="decimal" value="${preset}" data-input="give-amount" autocomplete="off" style="width:${Math.max(3, String(preset).length + 1)}ch"></div>
         <div class="radios" style="justify-content:center" role="group" aria-label="Quick amounts">${[25, 50, 100, 250].map((n) => html`<button type="button" class="chip" data-act="give-preset" data-n="${n}">${money(n)}</button>`)}</div>
         <fieldset class="field" style="border:0;padding:0;margin-top:18px"><legend style="font-weight:700;margin-bottom:6px">Fund</legend>
           ${c.funds.map((f) => html`<label class="check" style="padding:8px 0"><input type="radio" name="fund" value="${f.id}" ${attr(f.id === defFund, "checked")}><span><b>${f.name}</b><br><span class="faint">${f.description}</span></span></label>`)}</fieldset>
-        <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">How often</legend>
-          <div class="radios">${Object.entries(FREQ).map(([k, l], i) => html`<label><input type="radio" name="frequency" value="${k}" ${i === 0 ? raw("checked") : ""}><span>${l}</span></label>`)}</div></fieldset>
-        <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Pay with</legend>
-          <div class="radios"><label><input type="radio" name="method" value="card" checked><span>Card</span></label><label><input type="radio" name="method" value="bank"><span>Bank account</span></label></div></fieldset>
+        ${Pay.recurring() ? html`<fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">How often</legend>
+          <div class="radios">${Object.entries(FREQ).map(([k, l], i) => html`<label><input type="radio" name="frequency" value="${k}" ${i === 0 ? raw("checked") : ""}><span>${l}</span></label>`)}</div></fieldset>`
+          : html`<input type="hidden" name="frequency" value="once">`}
+        ${methods.length > 1 ? html`<fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Pay with</legend>
+          <div class="radios">${methods.map(([v, l], i) => html`<label><input type="radio" name="method" value="${v}" ${attr(i === 0, "checked")}><span>${l}</span></label>`)}</div></fieldset>`
+          : html`<input type="hidden" name="method" value="${methods[0][0]}">`}
         <button class="btn block" id="give-btn">Give ${money(preset)}</button>
-      </form>
+        ${Pay.live() ? html`<p class="faint pay-via">${icon("lock")}You'll finish on ${Pay.name()}'s secure page${methods.length === 1 ? ` (${methods[0][1]})` : ""}.</p>` : ""}
+      </form>`}
       <section class="sec"><div class="sec-head"><h2>Your giving</h2><a href="#history">History</a></div>
         <div class="stat"><div><b>${money(total)}</b><span>Given in ${year}</span></div><div><b>${recurring.length}</b><span>Recurring gift${recurring.length === 1 ? "" : "s"}</span></div></div>
         ${recurring.length ? html`<div class="rows" style="margin-top:12px">${recurring.map((r) => html`<div class="row"><span class="lead-ic">${icon("give")}</span><span class="body"><span class="t">${money(r.amount)} ${FREQ[r.frequency].toLowerCase()}</span><span class="s">${fundName(r.fundId)}, since ${fmtShort(r.at)}. Next gift ${fmtShort(nextGiftDate(r))}.</span></span><button class="btn ghost sm" data-act="give-stop" data-id="${r.id}">Stop</button></div>`)}</div>` : ""}
@@ -82,7 +96,7 @@ Screens.history = () => {
     body: gifts.length ? years.map((y) => {
       const list = gifts.filter((g) => new Date(g.at).getFullYear() === y);
       return html`<section class="sec"><div class="sec-head"><h2>${y}</h2><span class="muted"><b>${money(list.reduce((n, g) => n + g.amount, 0))}</b></span></div>
-        <div class="rows">${list.map((g) => html`<div class="row"><span class="body"><span class="t">${money(g.amount)}</span><span class="s">${fundName(g.fundId)}, ${fmtShort(g.at)}${g.demo ? " (test)" : ""}${g.status === "refunded" ? ", refunded" : ""}</span></span><span class="faint">${g.method === "bank" ? "Bank" : "Card"}</span></div>`)}</div>
+        <div class="rows">${list.map((g) => html`<div class="row"><span class="body"><span class="t">${money(g.amount)}</span><span class="s">${fundName(g.fundId)}, ${fmtShort(g.at)}${g.demo ? " (test)" : ""}${g.status === "refunded" ? ", refunded" : ""}</span></span><span class="faint">${methodLabel(g.method)}</span></div>`)}</div>
         <div class="btns"><button class="btn ghost sm" data-act="statement-pdf" data-year="${y}">${icon("download")}${y} statement (PDF)</button><button class="btn ghost sm" data-act="copy" data-done="Statement copied" data-text="${statement(y)}">${icon("copy")}Copy as text</button></div></section>`;
     }) : html`<div class="rows" style="margin-top:14px">${empty("Gifts you give through the app show up here.", html`<a class="btn ghost" href="#give">Give</a>`)}</div>`,
   };

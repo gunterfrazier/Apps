@@ -1,4 +1,4 @@
--- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 4.
+-- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 5.
 -- Run this once in the Supabase SQL editor on a new project (see SETUP.md).
 --
 -- How it fits the app: the app keeps one list per kind of thing (sermons, events, prayers, gifts...). Each item is a
@@ -80,6 +80,14 @@ create index records_parent on records ((data->>'_parent')) where kind in ('even
 create table push_subscriptions (endpoint text primary key, user_id uuid not null references auth.users on delete cascade, keys jsonb not null, created_at timestamptz not null default now());
 create table payments (id text primary key, church_id text references churches on delete set null, kind text, ref text, user_id uuid, amount numeric(12, 2), status text, data jsonb, created_at timestamptz not null default now());
 create table ai_usage (user_id uuid, day date, n int not null default 0, primary key (user_id, day));
+-- A checkout someone started with the church's payment processor: what it's for and how much, so the payment is
+-- recorded from these details rather than from anything the browser sends back.
+create table checkouts (id text primary key, church_id text not null references churches on delete cascade, provider text not null, provider_ref text,
+  user_id uuid, kind text, ref text, amount numeric(12, 2), meta jsonb not null default '{}', status text not null default 'open', created_at timestamptz not null default now());
+create index checkouts_provider_ref on checkouts (provider, provider_ref);
+-- Each church's payment processor keys (Stripe, PayPal, Square), encrypted in Supabase Vault. Only server functions read them.
+create table payment_keys (church_id text not null references churches on delete cascade, provider text not null, secret_id uuid not null,
+  updated_at timestamptz not null default now(), primary key (church_id, provider));
 
 create or replace function touch() returns trigger language plpgsql set search_path = public as $$ begin new.updated_at = now(); new.updated_by = auth.uid(); return new; end $$;
 create trigger records_touch before update on records for each row execute function touch();
@@ -191,7 +199,7 @@ create or replace function child_counts(churches text[]) returns table (kind tex
 
 -- ---------- Row-level security ----------
 do $$ declare t text; begin
-  foreach t in array array['profiles', 'contacts', 'families', 'profile_private', 'churches', 'roles', 'locations', 'memberships', 'records', 'push_subscriptions', 'payments', 'ai_usage'] loop
+  foreach t in array array['profiles', 'contacts', 'families', 'profile_private', 'churches', 'roles', 'locations', 'memberships', 'records', 'push_subscriptions', 'payments', 'ai_usage', 'checkouts', 'payment_keys'] loop
     execute format('alter table %I enable row level security', t);
   end loop;
 end $$;
@@ -210,30 +218,34 @@ create policy "find churches" on churches for select using (true);
 create policy "register church" on churches for insert with check (owner_id = auth.uid());
 create policy "edit church" on churches for update using (is_member(id));
 create policy "delete church" on churches for delete using (is_primary(id));
--- Each part of a church's settings needs the permission for that part. Stripe status is set by the server only.
+-- Each part of a church's settings needs the permission for that part. Payment processor status is set by the server only.
 create or replace function guard_church() returns trigger language plpgsql security definer set search_path = public as $$
 declare k text; need text;
 begin
   if auth.uid() is null then return new; end if;   -- server functions
+  -- Payment status belongs to the server: whatever a browser sends, keep what the server last set.
+  new.data := new.data - 'stripe' - 'payments';
+  if tg_op = 'INSERT' then return new; end if;
+  if old.data ? 'stripe' then new.data := new.data || jsonb_build_object('stripe', old.data->'stripe'); end if;
+  if old.data ? 'payments' then new.data := new.data || jsonb_build_object('payments', old.data->'payments'); end if;
   if new.owner_id is distinct from old.owner_id and old.owner_id <> auth.uid() then raise exception 'Only the primary account holder can hand over the account'; end if;
   if (new.name, new.handle) is distinct from (old.name, old.handle) and not can(old.id, 'manage.church') then raise exception 'Your role cannot change the church name or ID'; end if;
   for k in select key from jsonb_each(new.data) union select key from jsonb_each(old.data) loop
     if new.data->k is distinct from old.data->k then
       need := case
         when k in ('landing', 'banner') then 'manage.page'
-        when k in ('funds', 'textGive', 'taxId') then 'view.giving'
+        when k in ('funds', 'textGive', 'taxId', 'givingLink') then 'view.giving'
         when k in ('teams', 'positions') then 'schedule.teams'
         when k in ('followupSteps', 'followupLead') then 'manage.followup'
         when k = 'podcast' then 'manage.sermons'
         when k = 'kidsRooms' then 'manage.classes'
-        when k = 'stripe' then 'server'
         else 'manage.church' end;
-      if need = 'server' or not can(old.id, need) then raise exception 'Your role cannot change %', k; end if;
+      if not can(old.id, need) then raise exception 'Your role cannot change %', k; end if;
     end if;
   end loop;
   return new;
 end $$;
-create trigger churches_guard before update on churches for each row execute function guard_church();
+create trigger churches_guard before insert or update on churches for each row execute function guard_church();
 
 -- Roles: you only change roles below your own; only the primary changes Administrator.
 create policy "read roles" on roles for select using (is_member(church_id));
@@ -294,6 +306,27 @@ create policy "staff upload media" on storage.objects for insert with check (buc
 create policy "staff change media" on storage.objects for update using (bucket_id = 'media' and (can((storage.foldername(name))[1], 'manage.sermons') or can((storage.foldername(name))[1], 'manage.page')));
 create policy "staff remove media" on storage.objects for delete using (bucket_id = 'media' and (can((storage.foldername(name))[1], 'manage.sermons') or can((storage.foldername(name))[1], 'manage.page')));
 
+-- ---------- Payment processor keys ----------
+-- Server functions save and read each church's keys through these; the keys themselves live encrypted in Vault.
+create or replace function payment_key_set(c text, p text, s text) returns void language plpgsql security definer set search_path = public as $$
+declare sid uuid;
+begin
+  select secret_id into sid from payment_keys where church_id = c and provider = p;
+  if sid is null then
+    sid := vault.create_secret(s, 'payments/' || c || '/' || p || '/' || gen_random_uuid(), 'Payment processor keys');
+    insert into payment_keys (church_id, provider, secret_id) values (c, p, sid);
+  else
+    perform vault.update_secret(sid, s);
+    update payment_keys set updated_at = now() where church_id = c and provider = p;
+  end if;
+end $$;
+create or replace function payment_key_get(c text, p text) returns text language sql stable security definer set search_path = public as $$
+  select d.decrypted_secret from payment_keys k join vault.decrypted_secrets d on d.id = k.secret_id where k.church_id = c and k.provider = p $$;
+-- Removing a church's keys (or the church) removes the encrypted copy too.
+create or replace function payment_key_forget() returns trigger language plpgsql security definer set search_path = public as $$
+begin delete from vault.secrets where id = old.secret_id; return old; end $$;
+create trigger payment_keys_forget after delete on payment_keys for each row execute function payment_key_forget();
+
 -- ---------- Live updates ----------
 alter publication supabase_realtime add table records;
 
@@ -306,3 +339,6 @@ grant select, insert, update, delete on all tables in schema public to authentic
 grant usage, select on all sequences in schema public to authenticated, service_role;
 grant execute on all functions in schema public to anon, authenticated, service_role;   -- the permission helpers run inside the rules
 revoke execute on function guard_church(), guard_membership(), guard_records(), touch() from public, anon, authenticated;   -- triggers only
+-- Payment keys: server functions only.
+revoke all on checkouts, payment_keys from anon, authenticated;
+revoke execute on function payment_key_set(text, text, text), payment_key_get(text, text), payment_key_forget() from public, anon, authenticated;

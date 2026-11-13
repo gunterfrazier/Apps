@@ -49,7 +49,7 @@ function statementPages(c, giver, year, gifts) {
     p.push({ line: [54, y - 6, 558, y - 6] }); y -= 22;
     gifts.slice(i, i + perPage).forEach((g) => {
       const amt = money(g.amount);
-      p.push({ t: fmt(g.at, { month: "short", day: "numeric", year: "numeric" }), x: 54, y, size: 10 }, { t: fundName(g.fundId, c), x: 170, y, size: 10 }, { t: g.method === "bank" ? "Bank" : g.method === "cash" ? "Cash or check" : "Card", x: 360, y, size: 10 }, { t: amt, x: 558 - textWidth(amt, 10), y, size: 10 });
+      p.push({ t: fmt(g.at, { month: "short", day: "numeric", year: "numeric" }), x: 54, y, size: 10 }, { t: fundName(g.fundId, c), x: 170, y, size: 10 }, { t: methodLabel(g.method), x: 360, y, size: 10 }, { t: amt, x: 558 - textWidth(amt, 10), y, size: 10 });
       y -= 18;
     });
     if (i + perPage >= gifts.length) {
