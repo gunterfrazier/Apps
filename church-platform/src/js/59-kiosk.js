@@ -114,8 +114,8 @@ Screens.kiosk = () => {
   } else if (kiosk.step === "guest") {
     const kidRow = (i) => html`<fieldset class="guest-kid" ${attr(i > 0, "hidden")} data-row="${i}"><legend>Child ${i + 1}</legend>
       <label class="field"><span>Name</span><input type="text" name="kid${i}" maxlength="60" autocapitalize="words"></label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Birthday</span><input type="date" name="birth${i}" max="${isoDay(new Date())}"></label>
-        <label class="field"><span>Allergies</span><input type="text" name="allergy${i}" maxlength="60" placeholder="None"></label></div></fieldset>`;
+      ${birthdayField(`birth${i}`, "Birthday")}
+      <label class="field"><span>Allergies</span><input type="text" name="allergy${i}" maxlength="60" placeholder="None"></label></fieldset>`;
     main = html`<h1>Welcome! We're glad you're here.</h1><p class="kiosk-sub">Tell us a little about your family. It only takes a minute.</p>
       <form data-form="kiosk-guest" class="kiosk-form" novalidate>
         <label class="field"><span>Your name</span><input type="text" name="name" required maxlength="60" autocomplete="off" autocapitalize="words"></label>
@@ -177,6 +177,7 @@ Actions["kiosk-reset"] = () => { Object.assign(kiosk, { step: "find", q: "", fam
 Actions["kiosk-guest"] = () => { kiosk.step = "guest"; render(); };
 Actions["kiosk-more"] = (el) => { const next = $(".guest-kid[hidden]"); if (next) { next.hidden = false; $("input", next).focus(); } if (!$(".guest-kid[hidden]")) el.remove(); };
 Forms["kiosk-guest"] = (d, f) => {
+  for (const i of [0, 1, 2, 3, 4]) { const bad = d[`kid${i}`] && birthdayProblem(f, `birth${i}`); if (bad) return formError(f, `${d[`kid${i}`]}'s birthday: ${bad}`); }
   if (!d.name) return formError(f, "Enter your name.");
   if (digits(d.phone).length < 7) return formError(f, "Enter a phone number we can reach you at.");
   const c = S.church(), last = d.name.trim().split(/\s+/).slice(-1)[0];

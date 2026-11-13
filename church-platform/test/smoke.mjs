@@ -65,7 +65,10 @@ await step("campus filter", async () => {
 await step("household", async () => {
   for (const [name, birth, notes] of [["Ellie", "2019-04-02", "Peanut allergy"], ["Sam", "2022-02-10", ""]]) {
     await goTo("household"); await page.click("[data-act=person-edit]:not([data-id])");
-    await page.fill("#scrim input[name=name]", name); await page.fill("#scrim input[name=birth]", birth); await page.fill("#scrim input[name=notes]", notes);
+    const [y, m, dd] = birth.split("-");
+    await page.fill("#scrim input[name=name]", name); await page.fill("#scrim [data-bd=m]", String(+m)); await page.fill("#scrim [data-bd=d]", String(+dd)); await page.fill("#scrim [data-bd=y]", y);
+    await page.fill("#scrim input[name=notes]", notes);
+    if ((await page.inputValue("#scrim input[name=birth]")) !== birth) throw new Error(`birthday boxes made ${await page.inputValue("#scrim input[name=birth]")}, not ${birth}`);
     await sheetSubmit(); await sheetGone();
   }
 });
@@ -295,7 +298,9 @@ await step("check-in kiosk", async () => {
   await shot("27-kiosk-tags");
   await page.click(".kiosk-done [data-act=kiosk-reset]"); await page.fill("#kq", "alva"); await page.waitForSelector(".kiosk-fam"); await page.fill("#kq", "");
   await page.click("[data-act=kiosk-guest]"); await page.fill("input[name=name]", "Rosa Diaz"); await page.fill("input[name=phone]", "(770) 555-0199");
-  await page.fill("input[name=kid0]", "Ava"); await page.fill("input[name=allergy0]", "Eggs"); await page.click("[data-act=kiosk-more]"); await page.fill("input[name=kid1]", "Leo");
+  await page.fill("input[name=kid0]", "Ava"); await page.fill("input[name=allergy0]", "Eggs");
+  await page.fill("[data-row='0'] [data-bd=m]", "Mar"); await page.fill("[data-row='0'] [data-bd=d]", "14"); await page.fill("[data-row='0'] [data-bd=y]", "2020");
+  if ((await page.inputValue("input[name=birth0]")) !== "2020-03-14") throw new Error("kiosk birthday boxes didn't make a date"); await shot("26b-kiosk-guest"); await page.click("[data-act=kiosk-more]"); await page.fill("input[name=kid1]", "Leo");
   await page.click("form[data-form=kiosk-guest] button.btn:not([type=button])"); await page.waitForSelector(".kiosk-done"); await expectText("Allergy: Eggs");
   await page.click("[data-act=kiosk-exit]"); await page.click("#scrim [data-act=kiosk-leave]"); await page.waitForSelector("form[data-form=checkout]");
 });
@@ -572,6 +577,13 @@ await step("shared training church (browser-only here)", async () => {
   await goTo("admin-training"); await page.click("[data-act=training-delete]"); await page.click("#scrim [data-act=training-delete-yes]");
   await page.waitForFunction(() => !document.querySelector(".training-bar"));
   await goTo("church-riverside"); await goTo("admin-training"); await page.waitForSelector("form[data-form=training-create]");
+});
+await step("invite a friend by text or email", async () => {
+  await goTo("home"); await page.click("[data-act=invite]"); await page.waitForSelector("#invite-sms");
+  await page.fill("#invite-text", "Join me Sunday!");
+  if (!/^sms:[?&]body=Join%20me%20Sunday!$/.test(await page.getAttribute("#invite-sms", "href"))) throw new Error("text message link is wrong");
+  if (!/^mailto:\?subject=Join%20me%20at%20.+&body=Join%20me%20Sunday!$/.test(await page.getAttribute("#invite-mail", "href"))) throw new Error("email link is wrong");
+  await page.click("[data-act=close-sheet]"); await sheetGone();
 });
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");

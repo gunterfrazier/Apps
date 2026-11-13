@@ -143,13 +143,14 @@ Actions["person-edit"] = (el) => {
     <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">This person is</legend><div class="radios">
       <label><input type="radio" name="kind" value="child" ${attr(p.kind === "child", "checked")}><span>A child</span></label>
       <label><input type="radio" name="kind" value="adult" ${attr(p.kind === "adult", "checked")}><span>An adult</span></label></div></fieldset>
-    <label class="field"><span>Birthday</span><input type="date" name="birth" value="${p.birth || ""}" max="${isoDay(new Date())}"><small>Used to find the right classes and kids room.</small></label>
+    ${birthdayField("birth", "Birthday", p.birth || "", "Used to find the right classes and kids room.")}
     <label class="field"><span>Allergies</span><input type="text" name="allergies" value="${p.allergies || ""}" maxlength="60" placeholder="Peanuts, tree nuts"><small>Printed in bold on name tags and shown to teachers.</small></label>
     <label class="field"><span>Other care notes</span><input type="text" name="notes" value="${p.notes || ""}" maxlength="80" placeholder="Has an inhaler in her bag"></label>
     <div class="btns"><button class="btn">${p.id ? "Save" : "Add"}</button>${p.id ? html`<button type="button" class="btn danger" data-act="person-remove" data-id="${p.id}">Remove</button>` : ""}</div></form>`);
 };
 Forms["person-save"] = (d, f) => {
   if (!d.name) return formError(f, "Enter a name.");
+  const bad = birthdayProblem(f, "birth"); if (bad) return formError(f, `Birthday: ${bad}`);
   const list = S.me().household;
   const rec = { name: d.name, kind: d.kind || "child", birth: d.birth || "", allergies: d.allergies || "", notes: d.notes || "" };
   if (d.id) Object.assign(list.find((x) => x.id === d.id), rec); else list.push({ id: uid(), ...rec });

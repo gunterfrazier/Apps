@@ -239,6 +239,91 @@ async function copyText(text, done = "Copied") {
   }
 }
 
+// ---------- Birthday picker ----------
+// Month, day and year boxes. Type into them (3, 03, Mar or March; 7; 2016 or 16) or tap the arrow on each for the
+// phone's own list. A hidden field carries the date as YYYY-MM-DD, so forms read it like any other date field.
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTH_NAMES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const monthName = (n) => (lang() === "es" ? MONTH_NAMES_ES[n - 1].replace(/^./, (ch) => ch.toUpperCase()) : MONTH_NAMES[n - 1]);
+function birthdayField(name, label, value = "", hint = "") {
+  const [y, m, d] = /^\d{4}-\d{2}-\d{2}$/.test(value || "") ? value.split("-").map(Number) : [];
+  const nowY = new Date().getFullYear();
+  const part = (key, ph, val, options, auto, mode, max) => html`<span class="bd-part">
+    <input type="text" inputmode="${mode}" placeholder="${ph}" aria-label="${label}: ${ph.toLowerCase()}" value="${val}" autocomplete="${auto}" maxlength="${max}" data-bd="${key}" data-input="bd-type" data-change="bd-done">
+    <select tabindex="-1" aria-label="Choose the ${ph.toLowerCase()}" data-bd-pick="${key}" data-change="bd-pick"><option value="">${ph}</option>${options}</select>${icon("down")}</span>`;
+  const opt = (v, text, on) => html`<option value="${v}" ${attr(on, "selected")}>${text}</option>`;
+  return html`<div class="field bd-field" role="group" aria-label="${label}"><span>${label}</span>
+    <input type="hidden" name="${name}" value="${y ? value : ""}">
+    <div class="bd-row">
+      ${part("m", "Month", m ? monthName(m) : "", MONTH_NAMES.map((n, i) => opt(i + 1, n, i + 1 === m)), "bday-month", "text", 9)}
+      ${part("d", "Day", d || "", Array.from({ length: 31 }, (_, i) => opt(i + 1, i + 1, i + 1 === d)), "bday-day", "numeric", 2)}
+      ${part("y", "Year", y || "", Array.from({ length: 111 }, (_, i) => opt(nowY - i, nowY - i, nowY - i === y)), "bday-year", "numeric", 4)}</div>
+    ${hint ? html`<small>${hint}</small>` : ""}<small class="bd-msg" aria-live="polite"></small></div>`;
+}
+/** Reads one box: a number, 0 when empty, or -1 when it can't be a date part (yet). */
+function bdParse(key, raw) {
+  const s = String(raw || "").trim().toLowerCase().replace(/\.$/, "");
+  if (!s) return 0;
+  if (key === "m") {
+    if (/^\d{1,2}$/.test(s)) return +s >= 1 && +s <= 12 ? +s : -1;
+    const hits = [MONTH_NAMES, MONTH_NAMES_ES].flatMap((list) => list.map((n, i) => (n.toLowerCase().startsWith(s) ? i + 1 : 0))).filter(Boolean);
+    return new Set(hits).size === 1 ? hits[0] : -1;
+  }
+  if (!/^\d+$/.test(s)) return -1;
+  if (key === "d") return +s >= 1 && +s <= 31 ? +s : -1;
+  const nowY = new Date().getFullYear();
+  if (s.length === 2) return 2000 + +s <= nowY ? 2000 + +s : 1900 + +s;
+  return s.length === 4 && +s >= nowY - 120 && +s <= nowY ? +s : -1;
+}
+/** Puts the boxes together into the hidden date. Returns what's wrong, if anything ("" when it's fine or empty). */
+function bdCompose(field) {
+  const box = (k) => $(`[data-bd=${k}]`, field), [m, d, y] = ["m", "d", "y"].map((k) => bdParse(k, box(k).value));
+  ["m", "d", "y"].forEach((k, i) => { const sel = $(`[data-bd-pick=${k}]`, field); sel.value = [m, d, y][i] > 0 ? String([m, d, y][i]) : ""; });
+  const hidden = $("input[type=hidden]", field), msg = $(".bd-msg", field);
+  let problem = "";
+  if (!m && !d && !y) hidden.value = "";
+  else if (m <= 0 || d <= 0 || y <= 0) { hidden.value = ""; problem = m < 0 ? "Choose a month from the list, or type 1 to 12." : d < 0 ? "The day is a number from 1 to 31." : y < 0 ? "Type the year with four digits, like 2016." : "Enter the month, day and year."; }
+  else {
+    const dt = new Date(y, m - 1, d);
+    if (dt.getMonth() !== m - 1) { hidden.value = ""; problem = `${MONTH_NAMES[m - 1]} doesn't have ${d} days.`; }
+    else if (dt > new Date()) { hidden.value = ""; problem = "That date hasn't happened yet."; }
+    else hidden.value = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+  const age = hidden.value ? ageFrom(hidden.value) : null;
+  // Once a problem has been pointed out, keep the message current as it's fixed; otherwise show the age, or nothing.
+  if (problem) msg.textContent = msg.classList.contains("bad") ? problem : "";
+  else { msg.classList.remove("bad"); msg.textContent = age != null ? (age < 1 ? "Under a year old" : `Age ${age}`) : ""; }
+  return problem;
+}
+Inputs["bd-type"] = (el) => {
+  const field = el.closest(".bd-field"), key = el.dataset.bd, v = el.value.trim();
+  bdCompose(field);
+  // Move on once a box can't take more: two digits, or a digit no longer number starts with. Names wait for the next box.
+  const next = key === "m" ? "d" : key === "d" ? "y" : null;
+  if (next && /^\d+$/.test(v) && bdParse(key, v) > 0 && (v.length === 2 || (key === "m" ? +v > 1 : +v > 3))) $(`[data-bd=${next}]`, field).focus();
+};
+Inputs["bd-done"] = (el) => {
+  const field = el.closest(".bd-field"), n = bdParse(el.dataset.bd, el.value);
+  if (el.dataset.bd === "m" && n > 0) el.value = monthName(n);
+  if (el.dataset.bd === "y" && n > 0) el.value = String(n);
+  const problem = bdCompose(field), msg = $(".bd-msg", field);
+  // Point out a problem once the last box is filled or left, not while someone is still typing.
+  if (problem && (el.dataset.bd === "y" || $("[data-bd=y]", field).value)) { msg.classList.add("bad"); msg.textContent = problem; }
+};
+Inputs["bd-pick"] = (el) => {
+  const field = el.closest(".bd-field"), key = el.dataset.bdPick, box = $(`[data-bd=${key}]`, field);
+  box.value = !el.value ? "" : key === "m" ? monthName(+el.value) : el.value;
+  Inputs["bd-done"](box);
+};
+/** For a form's submit: a birthday that's started but not finished, or not a real date. */
+function birthdayProblem(form, name) {
+  const field = $(`input[type=hidden][name="${name}"]`, form)?.closest(".bd-field");
+  if (!field) return "";
+  const problem = bdCompose(field);
+  if (problem) { const msg = $(".bd-msg", field); msg.classList.add("bad"); msg.textContent = problem; $("[data-bd=m]", field).focus(); }
+  return problem;
+}
+
 // ---------- Event delegation ----------
 document.addEventListener("click", (e) => {
   const el = e.target.closest("[data-act]");
