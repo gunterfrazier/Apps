@@ -1,9 +1,18 @@
 # Settings for `supabase functions deploy` (see SETUP.md).
 # With publishable and secret API keys, the platform's own JWT check is turned off for every function. Each function
-# checks its caller itself: signed-in people through Supabase Auth, Stripe and Twilio by their signatures,
+# checks its caller itself: signed-in people through Supabase Auth, Stripe, PayPal, Square and Twilio by their signatures,
 # the database webhook by x-hook-secret and the schedules by x-cron-secret.
 
 [functions.checkout]
+verify_jwt = false
+
+[functions.payments-setup]
+verify_jwt = false
+
+[functions.pay-confirm]
+verify_jwt = false
+
+[functions.pay-webhook]
 verify_jwt = false
 
 [functions.stripe-webhook]

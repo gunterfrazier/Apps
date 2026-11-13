@@ -44,6 +44,10 @@ export async function hmacHex(secret: string, text: string, hash = "SHA-256") {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash }, false, ["sign"]);
   return [...new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(text)))].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+export async function hmacBase64(secret: string, text: string, hash = "SHA-256") {
+  const hex = await hmacHex(secret, text, hash);
+  return btoa(String.fromCharCode(...hex.match(/../g)!.map((h) => parseInt(h, 16))));
+}
 /** Merge a patch into one record's data. */
 export async function patchRecord(db: SupabaseClient, kind: string, id: string, patch: Record<string, unknown>) {
   const { data: row } = await db.from("records").select("data").eq("kind", kind).eq("id", id).maybeSingle();

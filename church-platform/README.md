@@ -65,7 +65,7 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - Permission slips take one response per child, prefill allergies from the household, and collect a parent's drawn signature and typed name. An event with a slip asks for it after sign-up and shows which kids still need one.
 - Responses with search, a detail view with the signature, and CSV download. Someone chosen is notified of each new response.
 - Room booking: a day view of every room with what's in it (bookings, events, classes and groups, and worship services), requests once or weekly, live conflict checks that suggest rooms that are free, and approval by people who manage locations. Events can't be saved into a room that's already in use.
-- Payments go through one checkout. In the preview and until Stripe is connected it runs in test mode and nothing is charged.
+- Payments go through one checkout, with the processor each church picks under Admin, Giving: Stripe, PayPal or Square. A church that already uses Tithe.ly, Pushpay, Givelify or another giving service can link its giving page instead. In the preview and until a processor is connected, checkout runs in test mode and nothing is charged.
 
 **Sermon media and AI help**
 - Sermons with a video link (YouTube, Vimeo, Facebook or a file) and an audio file, played in the app with playback speeds.
@@ -109,7 +109,8 @@ Needs Node 22 or later. There are no dependencies.
 ```bash
 node build.mjs          # writes dist/: index.html (one self-contained file), icons, the QR reader and the Bible text
 node test/smoke.mjs     # clicks through every feature at phone size (needs Playwright)
-node test/live.mjs      # the published setup: a sub-path and Supabase sign-in, sync and devices (Supabase simulated)
+node test/live.mjs      # the published setup: a sub-path and Supabase sign-in, sync, devices and payments (Supabase simulated)
+deno run -A test/payments.ts   # the payment functions with Stripe, PayPal and Square stand-ins
 ```
 
 Edit the files in `src/`, not `dist/`. `src/vendor/qrcode.js` (MIT) and `public/vendor/jsQR.js` (Apache-2.0) are the QR libraries.
@@ -120,13 +121,13 @@ The preview runs everything in one browser. [SETUP.md](SETUP.md) walks through c
 
 1. **Host it** on GitHub Pages with the included workflow (`.github/workflows/our-faithful-pages.yml`), or any static host.
 2. **Shared data and sign-in** with Supabase: run `supabase/schema.sql`, turn on email sign-in (a code confirms the email, then a password for later), and put the project's URL and public key in `config.js`. `src/js/70-backend.js` then signs people in, loads what each person may see, writes only what changed, and follows other people's changes live. Row-level security in the schema checks each person's role and location access on every read and write.
-3. **Real giving** with Stripe Connect: each church connects its own account; Checkout handles cards, Apple Pay, Google Pay and bank accounts; a webhook records gifts, recurring gifts, tickets, form fees and refunds. Text-to-give works through a Twilio number. Year-end statements download as PDFs.
+3. **Real giving** with each church's own Stripe, PayPal or Square account, connected from Admin, Giving: the app checks the keys, sets up the processor's webhook itself and keeps the keys encrypted in Supabase Vault. Gifts (once or recurring with Stripe and PayPal), tickets, form fees and refunds are recorded when the person comes back from checkout and again by the webhook, once each. Stripe Connect through a platform account is optional. Text-to-give works through a Twilio number. Year-end statements download as PDFs.
 4. **Push notifications** with Web Push (VAPID keys and a database webhook).
 5. **AI drafts** through your own Anthropic API key, with a daily limit per person.
 6. **Schedules** for webhook delivery and reminders, with pg_cron.
 7. **Podcast feed** at a public address for Apple Podcasts and Spotify.
 
-The server functions are in `supabase/functions/`: `checkout`, `stripe-webhook`, `stripe-connect`, `refund`, `recurring`, `push`, `reminders`, `webhooks`, `ai`, `podcast` and `sms`.
+The server functions are in `supabase/functions/`: `payments-setup`, `checkout`, `pay-confirm`, `pay-webhook`, `refund`, `recurring`, `stripe-connect` and `stripe-webhook` (optional Stripe Connect), `push`, `reminders`, `webhooks`, `ai`, `podcast` and `sms`. The payment processors share one interface in `supabase/functions/_shared/payments.ts`.
 
 Before launch, write a privacy policy that covers children's names, birthdays, allergies and pickup photos, prayer requests, messages and giving records.
 

@@ -537,6 +537,23 @@ await step("giving statements as PDF", async () => {
   await page.click("form[data-form=give-settings] button"); await goTo("give"); await expectText("Text to give");
   await page.click("[data-act=stripe-connect]").catch(() => {}); await goTo("give-riverside~75"); await page.waitForSelector("#give-btn:has-text('$75')");
 });
+await step("payment processors and a linked giving page", async () => {
+  await goTo("admin-giving"); await expectText("Online payments"); await page.waitForSelector(".proc-list [data-p=square]"); await shot("46-giving-admin");
+  await page.click("[data-act=processor-pick][data-p=stripe]"); await page.waitForSelector("#scrim .steps-list li >> nth=2");
+  await page.fill("#scrim input[name=secret]", "sk_test_123"); await page.click("#scrim form button.btn.block");
+  await page.waitForSelector("#scrim .err:has-text('your own website')"); await shot("47-connect-stripe");
+  await page.click("[data-act=close-sheet]"); await sheetGone();
+  await page.click("[data-act=processor-pick][data-p=paypal]"); await page.waitForSelector("#scrim input[name=clientId]"); await page.click("[data-act=close-sheet]"); await sheetGone();
+  await page.click("[data-act=processor-pick][data-p=square]"); await page.waitForSelector("#scrim input[name=locationId]");
+  await page.click("#scrim form button.btn.block"); await page.waitForSelector("#scrim .err:has-text('Fill in every box')"); await page.click("[data-act=close-sheet]"); await sheetGone();
+  await page.selectOption("form[data-form=giving-link] select[name=service]", "pushpay");
+  await page.fill("form[data-form=giving-link] input[name=url]", "pushpay.com/g/riverside"); await page.click("form[data-form=giving-link] button.btn:not([type=button])");
+  await goTo("give"); await page.waitForSelector(".give-out:has-text('Give with Pushpay')");
+  if ((await page.getAttribute(".give-out", "href")) !== "https://pushpay.com/g/riverside") throw new Error("giving link not made secure");
+  if (await page.$("form[data-form=give]")) throw new Error("the test-mode form should give way to the church's giving page");
+  await shot("48-give-link");
+  await goTo("admin-giving"); await page.click("[data-act=giving-link-remove]"); await goTo("give"); await page.waitForSelector("form[data-form=give]");
+});
 await step("lesson builder", async () => {
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));

@@ -58,6 +58,7 @@ function account(email, create) {
   return accounts[email] || null;
 }
 const body = (req) => { try { return JSON.parse(req.postData() || "{}"); } catch { return {}; } };
+const payCalls = [];   // what the app asked the checkout function for
 const sessionFor = (u) => ({ access_token: `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: u.id, exp, role: "authenticated", aud: "authenticated", email: u.email })}.x`, token_type: "bearer", expires_in: 3600, expires_at: exp, refresh_token: `r-${u.id}`, user: u });
 const session = sessionFor(user);
 const caller = (req) => { try { return users[JSON.parse(Buffer.from((req.headers().authorization || "").split(".")[1] || "", "base64url").toString()).sub] || null; } catch { return null; } };
@@ -107,6 +108,23 @@ async function supabase(route) {
   if (p === "/auth/v1/logout") return route.fulfill({ status: 204, headers: cors });
   if (p.startsWith("/rest/v1/rpc/")) return json(200, []);
   if (p === "/functions/v1/device-pair") { const b = JSON.parse(req.postData() || "{}"); if (b.action === "pair") { const [status, body] = pairDevice(String(b.code).toUpperCase()); return json(status, body); } return json(200, { ok: true }); }
+  if (p === "/functions/v1/payments-setup") {
+    const b = body(req), church = (db.churches || []).find((c) => c.id === b.churchId);
+    if (b.action === "options") return json(200, { stripeConnect: false, providers: ["stripe", "paypal", "square"] });
+    if (b.action === "connect") {
+      if (b.provider !== "paypal" || b.keys?.clientId !== "pp-client" || b.keys?.secret !== "pp-secret") return json(400, { error: "PayPal didn't accept that Client ID and Secret. Copy them again from your app under Apps and Credentials." });
+      church.data = { ...church.data, payments: { provider: "paypal", ready: true, mode: "test", account: "", methods: ["paypal"], recurring: true } };
+      return json(200, { payments: church.data.payments });
+    }
+    if (b.action === "disconnect") { delete church.data.payments; return json(200, { ok: true }); }
+  }
+  if (p === "/functions/v1/checkout") { payCalls.push(body(req)); const b = body(req); return json(200, { url: `${b.origin}?paid=${b.kind}&checkout=co_live1&token=PAYPALORDER` }); }
+  if (p === "/functions/v1/pay-confirm") {
+    const b = body(req), last = payCalls.at(-1);
+    if (b.checkout !== "co_live1" || !last) return json(404, { error: "Payment not found" });
+    (db.records ||= []).push({ kind: "gifts", id: "paypal_CAP1", church_id: last.churchId, owner: uid, data: { by: uid, name: "Test Person", fundId: last.ref, amount: last.lines[0].amount, frequency: last.frequency, method: last.method, at: new Date().toISOString(), status: "paid", provider: "paypal" } });
+    return json(200, { status: "paid", kind: "gift" });
+  }
   if (p.startsWith("/functions/v1/")) return json(200, { ok: true });
   if (!p.startsWith("/rest/v1/")) return json(404, { message: "not simulated" });
   const table = p.slice(9), rows = (db[table] ||= []), params = [...u.searchParams];
@@ -233,6 +251,32 @@ const freshPage = async () => {
   await c.route((url) => url.host === supaHost, supabase);
   const p = await c.newPage(); p.on("pageerror", (e) => errors.push(`link page: ${e.message}`)); return p;
 };
+await step("connects PayPal from Admin, Giving", async () => {
+  await page.evaluate(() => { location.hash = "admin-giving"; }); await page.waitForSelector(".proc-list");
+  await page.click("[data-act=processor-pick][data-p=paypal]"); await page.waitForSelector("form[data-form=processor-connect]");
+  await page.fill("#scrim input[name=clientId]", "pp-client"); await page.fill("#scrim input[name=secret]", "wrong secret");
+  await page.click("form[data-form=processor-connect] button.btn.block"); await page.waitForSelector("#scrim .err:has-text(\"didn't accept\")");
+  await page.fill("#scrim input[name=secret]", "pp-secret"); await page.click("form[data-form=processor-connect] button.btn.block");
+  await page.waitForSelector(".proc-head .proc-mark.paypal"); await page.waitForSelector("text=Test mode"); await shot("9-paypal-connected");
+});
+await step("gives through PayPal and comes back to a thank-you", async () => {
+  await page.evaluate(() => { location.hash = "give"; }); await page.waitForSelector("#give-btn");
+  if (await page.$("input[name=method][type=radio]")) throw new Error("PayPal has one way to pay; no choice should show");
+  await page.waitForSelector("text=You'll finish on PayPal's secure page"); await shot("10-give-paypal");
+  await page.click("[data-act=give-preset][data-n='100']"); await page.locator("input[name=frequency][value=monthly]").evaluate((el) => el.click());
+  await page.click("#give-btn");
+  await page.waitForSelector("text=Thank you!", { timeout: 15000 });
+  const sent = payCalls.at(-1);
+  if (sent.kind !== "gift" || sent.lines[0].amount !== 100 || sent.method !== "paypal" || sent.frequency !== "monthly" || !/\/Apps\/$/.test(sent.origin)) throw new Error(`checkout got ${JSON.stringify(sent)}`);
+  if (await page.evaluate(() => location.search.includes("checkout"))) throw new Error("the address still has the checkout in it");
+  await shot("11-paid");
+  await page.evaluate(() => { location.hash = "history"; }); await page.waitForSelector("#main .row:has-text('PayPal')");
+});
+await step("cancelling at PayPal comes back to the Give screen", async () => {
+  await page.goto(base + "?unpaid=gift&to=give&token=PAYPALORDER"); await page.waitForSelector("#give-btn", { timeout: 15000 });
+  await page.waitForSelector("text=Payment was cancelled");
+  if ((await page.evaluate(() => location.hash)) !== "#give") throw new Error("didn't go back to Give");
+});
 await step("an expired email link says what to do", async () => {
   const p = await freshPage();
   await p.goto(base + "#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired");

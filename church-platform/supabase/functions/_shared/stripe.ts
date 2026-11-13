@@ -1,5 +1,6 @@
-import Stripe from "npm:stripe@16.12.0";
+// The platform's own Stripe account, used for Stripe Connect (optional; see SETUP.md). Churches that connect their
+// own Stripe, PayPal or Square keys don't need it.
 import { env } from "./util.ts";
-export const stripe = new Stripe(env("STRIPE_SECRET_KEY"), { apiVersion: "2024-06-20", httpClient: Stripe.createFetchHttpClient() });
-export const cryptoProvider = Stripe.createSubtleCryptoProvider();
-export type { Stripe };
+import { stripeApi } from "./payments.ts";
+export { cryptoProvider } from "./payments.ts";
+export const platformStripe = () => stripeApi(env("STRIPE_SECRET_KEY"));

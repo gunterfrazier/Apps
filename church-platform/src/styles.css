@@ -957,3 +957,24 @@ button.sp-chip:hover { background: color-mix(in srgb, var(--pt, var(--ink)) 9%, 
 .pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
 .code-input { font-size: 1.4rem !important; letter-spacing: .3em; text-align: center; }
 .signin-alt { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin: 10px 0 0; }
+
+/* ---------- Payment processors and giving links ---------- */
+.proc-list { margin: 4px -4px 0; }
+.proc-list .row { padding: 12px 8px; border-radius: 14px; }
+.proc-list .row + .row { border-top: 1px solid var(--line); border-radius: 0; }
+.proc-list .row .s { white-space: normal; }
+.proc-mark { flex: none; min-width: 84px; padding: 7px 10px; border-radius: 10px; font: 800 .95rem/1 var(--display); text-align: center; background: var(--sunken); color: var(--ink); letter-spacing: -.01em; }
+.proc-mark.stripe { color: color-mix(in srgb, #635bff 72%, var(--ink)); background: color-mix(in srgb, #635bff 12%, var(--surface)); }
+.proc-mark.paypal { color: color-mix(in srgb, #0070e0 72%, var(--ink)); background: color-mix(in srgb, #009cde 13%, var(--surface)); }
+.proc-mark.square { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, var(--surface)); }
+.proc-head { display: flex; align-items: center; gap: 10px; }
+.give-out { display: flex; align-items: center; gap: 14px; color: inherit; text-decoration: none; margin-top: 14px; }
+.give-out .body { flex: 1; min-width: 0; }
+.give-out .t { display: block; font-weight: 800; font-size: 1.05rem; }
+.give-out .s { display: block; color: var(--ink-2); font-size: .9rem; margin-top: 2px; }
+.give-out > svg.i { color: var(--ink-3); flex: none; }
+.pay-via { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 10px 0 0; font-size: .85rem; }
+.pay-via svg.i { width: 15px; height: 15px; }
+.spinner { display: inline-block; width: 52px; height: 52px; border-radius: 50%; border: 5px solid color-mix(in srgb, var(--brand) 18%, transparent); border-top-color: var(--brand); animation: spin .9s linear infinite; margin-top: 10px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.5s; } }
