@@ -3,9 +3,9 @@ import fs from "node:fs";
 import zlib from "node:zlib";
 import path from "node:path";
 import { before, test } from "node:test";
-import { getPassage, getVerse, searchText, TRANSLATIONS } from "../src/core/bible";
+import { getChapter, getPassage, getVerse, isOnline, localTranslation, onlineNotice, searchText, setOnlineSource, TRANSLATIONS } from "../src/core/bible";
 import { checkReferences, coerceDraftSections, coerceInsight } from "../src/core/ai";
-import { PACKED, parseData, setLoader } from "../src/core/data";
+import { load, PACKED, parseData, setLoader } from "../src/core/data";
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, resolveGuide, sanitizeGuide } from "../src/core/guide";
 import { getInsights } from "../src/core/insights";
 import { decodeMorph, gematria, getConcordance, getLexEntry, getVerseWords, searchLexicon } from "../src/core/lexicon";
@@ -41,6 +41,27 @@ test("data files: the app reads them packed, as published, or plain", async () =
   assert.deepEqual(await parseData(raw), value);
 });
 
+test("per-book folders are read from one bundle where the build made one", async () => {
+  const plain = async (p: string) => JSON.parse(await fs.promises.readFile(path.join("public/data", p), "utf8"));
+  const xref = await plain("xref/43.json");
+  const asked: string[] = [];
+  try {
+    setLoader(async (p) => {
+      asked.push(p);
+      if (p === "xref.bundle.json") return { "43.json": xref };
+      throw new Error(`Could not load ${p} (HTTP 404)`);
+    });
+    assert.deepEqual(await load("xref/43.json"), xref);
+    await assert.rejects(load("xref/01.json"));
+    await assert.rejects(load("links/01.json"));
+    await assert.rejects(load("links/02.json"));
+    // One try for each bundle; a missing one isn't asked for again.
+    assert.deepEqual(asked, ["xref.bundle.json", "xref/01.json", "links.bundle.json", "links/01.json", "links/02.json"]);
+  } finally {
+    setLoader(plain);
+  }
+});
+
 test("verses are real text in each translation, never invented", async () => {
   // Spot checks against known wording, including verses the old prototype fabricated.
   assert.match(await getVerse("KJV", 43, 3, 16), /For God so loved the world/);
@@ -56,8 +77,53 @@ test("verses are real text in each translation, never invented", async () => {
 });
 
 test("translations genuinely differ", async () => {
-  const texts = new Set(await Promise.all(TRANSLATIONS.map((t) => getVerse(t.id, 1, 1, 27))));
-  assert.equal(texts.size, TRANSLATIONS.length);
+  const local = TRANSLATIONS.filter((t) => !isOnline(t.id));
+  const texts = (await Promise.all(local.map((t) => getVerse(t.id, 1, 1, 27)))).filter(Boolean);
+  assert.ok(texts.length >= 15);
+  // A few KJV updates keep this verse word for word.
+  assert.ok(new Set(texts).size >= texts.length - 3);
+});
+
+test("added Bibles are numbered like the English ones", async () => {
+  assert.match(await getVerse("DRC", 19, 23, 1), /The Lord ruleth me/);
+  assert.match(await getVerse("DRC", 19, 10, 1), /Why, O Lord, hast thou retired afar off/);
+  assert.match(await getVerse("CPDV", 19, 51, 19), /sacrifice/i);
+  assert.match(await getVerse("DRC", 17, 10, 3), /Mardochai/);
+  assert.match(await getVerse("DRC", 27, 3, 24), /Nabuchodonosor/);
+  assert.match(await getVerse("JPS", 29, 2, 28), /pour out My spirit upon all flesh/);
+  assert.match(await getVerse("JPS", 2, 8, 1), /Let My people go/);
+  assert.match(await getVerse("JPS", 19, 23, 1), /The LORD is my shepherd/);
+  assert.doesNotMatch(await getVerse("JPS", 1, 2, 4), /HaShem|G-d/);
+  assert.match(await getVerse("GNV", 18, 41, 1), /Liuiathan/);
+  assert.match(await getVerse("LEB", 43, 3, 16), /God loved the world/);
+  assert.equal(await getVerse("TCNT", 1, 1, 1), "");
+});
+
+test("licensed translations: fetched by the reader only, kept briefly, never used elsewhere", async () => {
+  const asked: string[] = [];
+  setOnlineSource(async (t, b, c) => {
+    asked.push(`${t} ${b}:${c}`);
+    return { verses: Array.from({ length: 30 }, (_, i) => `${t} ${b}:${c}:${i + 1}`), notice: "Notice from the publisher." };
+  });
+  try {
+    const ch = await getChapter("NIV", 43, 3);
+    assert.equal(ch[15].text, "NIV 43:3:16");
+    assert.equal(onlineNotice("NIV", 43, 3), "Notice from the publisher.");
+    assert.equal(await getVerse("NIV", 43, 3, 16), "NIV 43:3:16");
+    await getChapter("NIV", 43, 3);
+    assert.equal(asked.length, 1);
+    // Search, passages and AI grounding use the BSB.
+    const p = await getPassage("NIV", "John 3:16");
+    assert.equal(p?.translation, "BSB");
+    assert.match(p!.parts[0].verses[0].text, /For God so loved the world/);
+    assert.equal(localTranslation("ESV"), "BSB");
+    // Only a few hundred verses stay in memory: John 3 is dropped once 15 more chapters have been read.
+    for (let c = 4; c <= 18; c++) await getChapter("NIV", 43, c);
+    assert.match(await getVerse("NIV", 43, 3, 16), /For God so loved the world/);
+  } finally {
+    setOnlineSource(null);
+  }
+  await assert.rejects(getChapter("ESV", 1, 1), /connector/);
 });
 
 test("references out of range are refused", async () => {

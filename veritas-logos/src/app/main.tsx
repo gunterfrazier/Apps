@@ -24,6 +24,7 @@ import { AskPage } from "./pages/ask";
 import { AiWorkPage, AiWorkPill } from "./pages/ai-work";
 import { SymbolsPage } from "./pages/symbols";
 import { initJobs } from "./ai-jobs";
+import { initOnlineBible } from "./online-bible";
 
 class Boundary extends Component<{ children: ReactNode; route: string }, { failed: boolean }> {
   state = { failed: false };
@@ -207,6 +208,7 @@ function App() {
 initJobs();
 createRoot(document.getElementById("root")!).render(<App />);
 connectCloud();
+initOnlineBible();
 
 // Small lookups used everywhere load quietly once the app is idle, so later screens open at once.
 const idle = (window as any).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 1200));

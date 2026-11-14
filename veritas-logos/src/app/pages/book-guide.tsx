@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { getVerse, translationInfo } from "../../core/bible";
+import { getVerse, translationInfo, localTranslation } from "../../core/bible";
 import { at, guideDigest, type BookGuide, type KeyWord, type Witness } from "../../core/bookguide";
 import { blankGuide, lensName, newId, type Guide, type GuideSection } from "../../core/guide";
 import { getChronology, getDictionary, DICT_NAMES } from "../../core/scholar";
@@ -45,7 +45,7 @@ function Orig({ id, text, className = "" }: { id: string; text: string; classNam
 function VerseLine({ book, cv }: { book: number; cv: string }) {
   const { prefs } = useData();
   const [c, v] = cv.split(":").map(Number);
-  const { data } = useAsync(() => getVerse(prefs.translation, book, c, v), [prefs.translation, book, cv]);
+  const { data } = useAsync(() => getVerse(localTranslation(prefs.translation), book, c, v), [prefs.translation, book, cv]);
   return (
     <li className="bg-verse">
       <RefLink refText={at(book, cv)}>{cv}</RefLink> <span className="verse-text">{data ?? "…"}</span>
@@ -377,7 +377,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
         {g.glance.chapters > 1 && <ChapterBars guide={g} />}
       </Sec>
 
-      <Sec id="own" title="In its own words" basis={["counted"]} intro={`${selfIntro(g)} Shown in the ${translationInfo(prefs.translation).name}.`}>
+      <Sec id="own" title="In its own words" basis={["counted"]} intro={`${selfIntro(g)} Shown in the ${translationInfo(localTranslation(prefs.translation)).name}.`}>
         <ul className="bg-verses">{g.self.map((cv) => <VerseLine key={cv} book={g.book} cv={cv} />)}</ul>
         {g.psalmTitles && (
           <>

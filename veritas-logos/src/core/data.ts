@@ -29,15 +29,44 @@ let loader: Loader = async (path) => {
 };
 const cache = new Map<string, Promise<unknown>>();
 
+/** Folders of small per-book files that the published build ships as one file each, "<folder>.bundle.json", an object
+ * keyed by file name (scripts/build.mjs), to stay under the host's limit on files per version. Where there's no bundle
+ * (public/data, the dev server) each file is read on its own. */
+export const BUNDLED_DIRS = ["links", "xref"];
+const bundles = new Map<string, Promise<Record<string, unknown> | null>>();
+
+function bundle(dir: string): Promise<Record<string, unknown> | null> {
+  let b = bundles.get(dir);
+  if (!b) {
+    b = loader(`${dir}.bundle.json`).then(
+      (x) => x as Record<string, unknown>,
+      (e) => {
+        // Not there: read the folder's files one by one from now on. Anything else (a dropped connection): try again later.
+        if (!/404|ENOENT/.test(String(e?.message ?? e) + String(e?.code ?? ""))) bundles.delete(dir);
+        return null;
+      },
+    );
+    bundles.set(dir, b);
+  }
+  return b;
+}
+
+function read(path: string): Promise<unknown> {
+  const m = /^([a-z]+)\/([^/]+)$/.exec(path);
+  if (!m || !BUNDLED_DIRS.includes(m[1])) return loader(path);
+  return bundle(m[1]).then((b) => (b && m[2] in b ? b[m[2]] : loader(path)));
+}
+
 export function setLoader(next: Loader): void {
   loader = next;
   cache.clear();
+  bundles.clear();
 }
 
 export function load<T>(path: string): Promise<T> {
   let p = cache.get(path);
   if (!p) {
-    p = loader(path).catch((e) => {
+    p = read(path).catch((e) => {
       cache.delete(path);
       throw e;
     });

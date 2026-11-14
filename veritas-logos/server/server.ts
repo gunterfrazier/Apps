@@ -21,7 +21,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { chatPreamble, checkReferences, exegesisStagePrompt, explorePrompt, genrePrompt, symbolPrompt, topicPrompt, guideDraftPrompt, insightPrompt, isLens } from "../src/core/ai";
-import { getPassage, isTranslationId, searchText, TRANSLATIONS, DEFAULT_TRANSLATION, translationInfo, decodeVerseCode, refOf, getVerse, type TranslationId } from "../src/core/bible";
+import { getPassage, isOnline, isTranslationId, searchText, TRANSLATIONS, DEFAULT_TRANSLATION, translationInfo, decodeVerseCode, refOf, getVerse, type TranslationId } from "../src/core/bible";
 import { getTopic, searchTopics } from "../src/core/content";
 import { parseData, setLoader } from "../src/core/data";
 import { allFigures, buildSubgraph, findShortestPath, getFigure, describeRelationshipStep } from "../src/core/figure-graph";
@@ -107,9 +107,11 @@ export function createServer(opts: ServerOptions = {}) {
     catch { throw new HttpError(400, "bad_json", "The request body isn't valid JSON."); }
   };
 
+  // The API serves the built-in Bibles; the licensed ones are read in the app through the owner's connector.
+  const SERVED = TRANSLATIONS.filter((x) => !isOnline(x.id));
   const translationOf = (u: URL): TranslationId => {
     const t = (u.searchParams.get("translation") ?? DEFAULT_TRANSLATION).toUpperCase();
-    if (!isTranslationId(t)) throw new HttpError(400, "bad_translation", `Unknown translation. Use one of: ${TRANSLATIONS.map((x) => x.id).join(", ")}.`);
+    if (!isTranslationId(t) || isOnline(t)) throw new HttpError(400, "bad_translation", `${isTranslationId(t) ? `The ${t} is licensed for reading in the app only. ` : "Unknown translation. "}Use one of: ${SERVED.map((x) => x.id).join(", ")}.`);
     return t;
   };
   const required = (u: URL, name: string) => {
@@ -133,7 +135,7 @@ export function createServer(opts: ServerOptions = {}) {
     if (method === "GET" && p === "/v1") return send(res, 200, { name: "Veritas Logos API", version: "1", docs: "/v1/openapi.json" });
     if (method === "GET" && p === "/v1/openapi.json") return send(res, 200, OPENAPI);
     if (method === "GET" && p === "/v1/health") return send(res, 200, { ok: true });
-    if (method === "GET" && p === "/v1/translations") return send(res, 200, { translations: TRANSLATIONS });
+    if (method === "GET" && p === "/v1/translations") return send(res, 200, { translations: SERVED });
 
     if (method === "GET" && p === "/v1/passages") {
       const t = translationOf(u);

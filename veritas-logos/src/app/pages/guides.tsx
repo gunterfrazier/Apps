@@ -146,7 +146,7 @@ export function NewGuidePage({ initial }: { initial?: string }) {
         </div>
         <div className="two-col">
           <div><label className="label" htmlFor="guide-lens">Theological lens</label><LensSelect id="guide-lens" value={lens} onChange={setLens} /></div>
-          <div><label className="label" htmlFor="guide-translation">Translation</label><TranslationSelect id="guide-translation" value={translation} onChange={setTranslation} /></div>
+          <div><label className="label" htmlFor="guide-translation">Translation</label><TranslationSelect localOnly id="guide-translation" value={translation} onChange={setTranslation} /></div>
         </div>
         <div><label className="label" htmlFor="guide-title">Title (optional)</label><input id="guide-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
         <fieldset className="checks">
@@ -299,7 +299,7 @@ export function GuidePage({ id }: { id: string }) {
       <input id="guide-title-edit" aria-label="Guide title" className="title-input" value={guide.title} onChange={(e) => set({ ...guide, title: e.target.value })} />
       {guide.subtitle && <p className="sub">{guide.subtitle}</p>}
       <div className="two-col">
-        <div><label className="label" htmlFor="gt">Translation</label><TranslationSelect id="gt" value={guide.translation} onChange={(t) => set({ ...guide, translation: t })} /></div>
+        <div><label className="label" htmlFor="gt">Translation</label><TranslationSelect localOnly id="gt" value={guide.translation} onChange={(t) => set({ ...guide, translation: t })} /></div>
         <div><label className="label" htmlFor="gl">Lens</label><LensSelect id="gl" value={guide.lens} onChange={(l) => set({ ...guide, lens: l, subtitle: `${GUIDE_FORMATS.find((f) => f.id === guide.format)?.name} · ${lensName(l)}` })} /></div>
       </div>
       <div className="segmented" role="tablist">

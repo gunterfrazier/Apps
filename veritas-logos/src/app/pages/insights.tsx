@@ -1,3 +1,4 @@
+import { localTranslation } from "../../core/bible";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TranslationId } from "../../core/bible";
 import { checkReferences, type AiInsight } from "../../core/ai";
@@ -21,7 +22,7 @@ export function addSectionsToGuide(sections: GuideSection[], title: string, guid
     toast(`Added to "${active.title}"`);
   } else {
     const now = new Date().toISOString();
-    saveGuide({ id: newId("g"), title, format: "inductive", lens, translation, createdAt: now, updatedAt: now, sections, subtitle: "Started from the reader" });
+    saveGuide({ id: newId("g"), title, format: "inductive", lens, translation: localTranslation(translation), createdAt: now, updatedAt: now, sections, subtitle: "Started from the reader" });
     toast("Started a new guide. Find it under Guides.");
   }
 }

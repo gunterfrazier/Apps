@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { TRANSLATIONS } from "../../core/bible";
+import { GROUP_NAMES, TRANSLATIONS, type TranslationGroup } from "../../core/bible";
+import { CONNECTOR } from "../online-bible";
 import { getFigure } from "../../core/figure-graph";
 import { ensureFigures } from "../../core/people";
 import { bookName } from "../../core/references";
@@ -61,7 +62,16 @@ export function LibraryPage() {
         <div className="form">
           <h3>Reading</h3>
           <div><label className="label" htmlFor="set-translation">Bible translation</label><TranslationSelect id="set-translation" value={prefs.translation} onChange={(t) => setPref("translation", t)} /></div>
-          <ul className="fine-list">{TRANSLATIONS.map((t) => <li key={t.id}><strong>{t.id}</strong> {t.name} ({t.year}). {t.style}.</li>)}</ul>
+          <details className="bg-key">
+            <summary>About the {TRANSLATIONS.length} translations</summary>
+            {(Object.keys(GROUP_NAMES) as TranslationGroup[]).map((g) => (
+              <div key={g}>
+                <h4>{GROUP_NAMES[g]}</h4>
+                <ul className="fine-list">{TRANSLATIONS.filter((t) => t.group === g).map((t) => <li key={t.id}><strong>{t.id}</strong> {t.name} ({t.year}). {t.style}{t.covers ? `; it has ${t.covers}` : ""}. <span className="fine">{t.notice}</span>{t.link && <> <a href={t.link.url} target="_blank" rel="noopener noreferrer">{t.link.label}</a></>}</li>)}</ul>
+              </div>
+            ))}
+            <p className="fine">The licensed translations are read a chapter at a time through your "{CONNECTOR}" connector, with your own free keys for Crossway's ESV API and API.Bible. Their terms allow non-commercial use only, keep only a few hundred verses on the device at a time, and don't allow turning the text into speech, so search, AI tools and read aloud use the built-in translations.</p>
+          </details>
           <div><label className="label" htmlFor="set-lens">Theological lens</label><LensSelect id="set-lens" value={prefs.lens} onChange={(l) => setPref("lens", l)} /></div>
           <div><label className="label" htmlFor="set-theme">Appearance</label><select id="set-theme" value={prefs.theme} onChange={(e) => setPref("theme", e.target.value as "system" | "light" | "dark")}><option value="system">Match this device</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
           <div><label className="label" htmlFor="set-voice">Read-aloud voice</label><select id="set-voice" value={prefs.readVoice} onChange={(e) => setPref("readVoice", e.target.value === "builtin" ? "builtin" : "device")}><option value="device">This device's voice, when it has one</option>{BUILT_IN && <option value="builtin">{BUILT_IN.name}, built into Veritas Logos</option>}</select>

@@ -9,7 +9,7 @@ import zlib from "node:zlib";
 import * as esbuild from "esbuild";
 
 const watch = process.argv.includes("--watch");
-const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=Noto+Serif+Hebrew:wght@400;600&family=Noto+Serif:wght@400&display=swap">`;
+const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=Noto+Serif+Hebrew:wght@400;600&family=Noto+Serif:wght@400&display=swap">`;
 const shell = (title, script, extraHead = "") => `<!doctype html>
 <html lang="en">
 <head>
@@ -17,7 +17,7 @@ const shell = (title, script, extraHead = "") => `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${title}</title>
 <meta name="description" content="Bible study guides, Hebrew and Greek tools, cultural and theological insights, and biblical people.">
-<meta name="theme-color" content="#1c1917">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0e1015" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -50,6 +50,25 @@ const packAll = (dir) => {
   }
 };
 if (!watch) packAll("dist/data");
+
+// The host holds at most 512 files per version, so folders of small per-book files go out as one packed file each,
+// "<folder>.bundle.json", an object keyed by file name. src/core/data.ts reads a bundle where there is one and the
+// separate files where there isn't (public/data). Keep this list the same as BUNDLED_DIRS there.
+const BUNDLED_DIRS = ["links", "xref"];
+const bundleDir = (dir) => {
+  const src = path.join("public/data", dir);
+  const files = fs.readdirSync(src).filter((f) => f.endsWith(".json")).sort();
+  const all = Object.fromEntries(files.map((f) => [f, JSON.parse(fs.readFileSync(path.join(src, f), "utf8"))]));
+  const raw = Buffer.from(JSON.stringify(all));
+  const packed = Buffer.from(JSON.stringify(zlib.gzipSync(raw, { level: 9 }).toString("base64")));
+  const back = JSON.parse(zlib.gunzipSync(Buffer.from(JSON.parse(packed.toString()), "base64")).toString());
+  for (const f of files) {
+    if (JSON.stringify(back[f]) !== JSON.stringify(JSON.parse(fs.readFileSync(path.join(src, f), "utf8")))) throw new Error(`${dir}/${f} doesn't come back from its bundle`);
+  }
+  fs.rmSync(path.join("dist/data", dir), { recursive: true, force: true });
+  fs.writeFileSync(path.join("dist/data", `${dir}.bundle.json`), packed);
+};
+if (!watch) BUNDLED_DIRS.forEach(bundleDir);
 
 // The built-in read-aloud voice, for browsers without a speech engine (Android's in-app viewer). It's stored in
 // public/voice as one compact binary file (scripts/build_voice.py), which the host would turn away, so it's split

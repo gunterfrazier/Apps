@@ -1,4 +1,4 @@
-import { getPassage, isTranslationId, DEFAULT_TRANSLATION, translationInfo, type TranslationId, type VerseLine, getVerse, decodeVerseCode } from "./bible";
+import { getPassage, isTranslationId, DEFAULT_TRANSLATION, localTranslation, translationInfo, type TranslationId, type VerseLine, getVerse, decodeVerseCode } from "./bible";
 import { getBookMeta, getTopic, LENS_IDS, searchTopics, type LensId, type TopicItem } from "./content";
 import { getCrossRefs, getLexEntry, getLexIndex, getVerseWords, normalizeStrongs, type LexIndexRow } from "./lexicon";
 import { BOOKS, bookName, formatSegment, parseReference, type RefSegment } from "./references";
@@ -489,7 +489,7 @@ export function sanitizeGuide(raw: unknown): Guide | null {
     subtitle: str(g.subtitle, 300),
     format: isGuideFormat(g.format) ? g.format : "inductive",
     lens: LENS_IDS.includes(g.lens as LensId) ? (g.lens as LensId) : "all",
-    translation: isTranslationId(g.translation) ? g.translation : DEFAULT_TRANSLATION,
+    translation: isTranslationId(g.translation) ? localTranslation(g.translation) : DEFAULT_TRANSLATION,
     source: str(g.source, 300),
     createdAt: str(g.createdAt, 40) || now,
     updatedAt: str(g.updatedAt, 40) || now,
@@ -627,5 +627,6 @@ export const quickVerse = async (t: TranslationId, code: number) => {
 /** A new empty guide for building by hand. */
 export function blankGuide(title: string, format: GuideFormat, lens: LensId, translation: TranslationId): Guide {
   const now = new Date().toISOString();
-  return { id: newId("g"), title: title.trim() || "Untitled study", format, lens, translation, createdAt: now, updatedAt: now, sections: [], subtitle: `${GUIDE_FORMATS.find((f) => f.id === format)?.name} · ${LENS_NAMES[lens]}` };
+  // Guides quote the built-in text, which can be printed and shared; a licensed translation's can't.
+  return { id: newId("g"), title: title.trim() || "Untitled study", format, lens, translation: localTranslation(translation), createdAt: now, updatedAt: now, sections: [], subtitle: `${GUIDE_FORMATS.find((f) => f.id === format)?.name} · ${LENS_NAMES[lens]}` };
 }

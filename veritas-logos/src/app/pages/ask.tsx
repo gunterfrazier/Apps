@@ -65,7 +65,7 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
           <div className="filters">
             <label className="field-inline" htmlFor="ask-lens">Lens <LensSelect id="ask-lens" value={prefs.lens} onChange={(l) => setPref("lens", l)} /></label>
             <label className="field-inline" htmlFor="ask-research"><input id="ask-research" type="checkbox" checked={research} onChange={(e) => setResearch(e.target.checked)} /> Research mode</label>
-            <label className="field-inline" htmlFor="ask-translation">Text <TranslationSelect id="ask-translation" value={prefs.translation} onChange={(t) => setPref("translation", t)} /></label>
+            <label className="field-inline" htmlFor="ask-translation">Text <TranslationSelect localOnly id="ask-translation" value={prefs.translation} onChange={(t) => setPref("translation", t)} /></label>
           </div>
           {research && <p className="fine">In research mode, the assistant must tie every claim to a passage, writer, creed or term in this app. The app then checks each quote word for word, and marks anything it can't confirm as unsupported.</p>}
           {context && <p className="context-chip">Looking at <RefText text={context} /> <button type="button" className="link-btn" onClick={() => setContext(undefined)}>Remove</button></p>}

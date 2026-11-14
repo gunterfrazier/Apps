@@ -3,7 +3,7 @@
  * Claude viewer) and the API server (through the Claude API) share these prompts and tools, so both
  * answer the same way and both are grounded in the same checked data.
  */
-import { getPassage, getVerseCounts, isTranslationId, searchText, translationInfo, DEFAULT_TRANSLATION, type TranslationId } from "./bible";
+import { getPassage, getVerseCounts, isTranslationId, localTranslation, searchText, translationInfo, DEFAULT_TRANSLATION, type TranslationId } from "./bible";
 import { LENS_IDS, getTopic, searchTopics, type LensId } from "./content";
 import { getFigure } from "./figure-graph";
 import { searchFigures } from "./figure-search";
@@ -263,7 +263,7 @@ async function groundingFor(reference: string, translation: TranslationId): Prom
     possibleAllusions: i.possibleAllusions.slice(0, 6).map((q) => q.ref),
     originalWordsOfFirstVerse: words.map((w) => `${w[0]} (${w[1]}) "${w[2]}" ${w[3]}`),
   };
-  return `Passage: ${passage.reference} (${translationInfo(translation).name})\n<passage_text>\n${text}\n</passage_text>\n<app_data>\n${clip(JSON.stringify(data), 24000)}\n</app_data>`;
+  return `Passage: ${passage.reference} (${translationInfo(localTranslation(translation)).name})\n<passage_text>\n${text}\n</passage_text>\n<app_data>\n${clip(JSON.stringify(data), 24000)}\n</app_data>`;
 }
 
 /** What each lens means here, so the assistant reads from inside it. Only named where a label alone would be unclear. */
@@ -286,7 +286,7 @@ Use empty arrays where there is nothing solid to say. Do not pad. Name quotation
 
 export async function chatPreamble(translation: TranslationId, lens: LensId, contextRef?: string): Promise<string> {
   const context = contextRef ? `\n\nThe reader is looking at this passage:\n${await groundingFor(contextRef, translation)}` : "";
-  return `${AI_RULES}\n\nThe reader's translation is ${translationInfo(translation).name} and their theological lens is ${lensName(lens)}.${lensGuide(lens)} Use your tools to look up what you need before answering. Answer in a few short paragraphs unless asked for more.${context}`;
+  return `${AI_RULES}\n\nThe reader's translation is ${translationInfo(localTranslation(translation)).name} and their theological lens is ${lensName(lens)}.${lensGuide(lens)} Use your tools to look up what you need before answering. Answer in a few short paragraphs unless asked for more.${context}`;
 }
 
 // ---------- Researching and expanding ----------
@@ -319,7 +319,7 @@ export async function explorePrompt(c: ExploreContext, request: string, hasTools
   const first = c.refs[0] ? await groundingFor(c.refs[0], c.translation).catch(() => "") : "";
   return `${AI_RULES}
 
-The reader is studying${c.guideTitle ? ` "${c.guideTitle}"` : ""} in ${translationInfo(c.translation).name}, and wants to explore one section further. ${lens}
+The reader is studying${c.guideTitle ? ` "${c.guideTitle}"` : ""} in ${translationInfo(localTranslation(c.translation)).name}, and wants to explore one section further. ${lens}
 Passages in view: ${c.refs.join("; ") || "none named"}.
 ${first}
 <section heading="${c.heading.replace(/"/g, "'")}" kind="${c.kind}">
@@ -519,7 +519,7 @@ export async function topicPrompt(reference: string, query: string, translation:
     : "The app found no direct match: the word isn't in these verses in this translation, and no Hebrew or Greek word here is rendered that way. Say so plainly. Leave occurrences empty, and use conceptual to say whether and how this tradition connects the idea to these verses, and on what basis. Don't imply the word is present.";
   return `${AI_RULES}
 
-The reader selected ${reference} in ${translationInfo(translation).name} and searched it for this word or topic:
+The reader selected ${reference} in ${translationInfo(localTranslation(translation)).name} and searched it for this word or topic:
 <search>${query.slice(0, 80)}</search>
 ${lensText}
 ${presence}

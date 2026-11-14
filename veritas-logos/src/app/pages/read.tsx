@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { chapterCount, getChapter, getVerse, refOf, translationInfo, verseCount, type TranslationId } from "../../core/bible";
+import { chapterCount, getChapter, getVerseIn, isOnline, onlineNotice, OnlineTextError, refOf, translationInfo, verseCount, DEFAULT_TRANSLATION, type TranslationId } from "../../core/bible";
 import { getCrossRefs, decodeMorph, getVerseWords, normalizeStrongs, type WordTuple } from "../../core/lexicon";
 import { newId } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
@@ -170,11 +170,17 @@ export function VerseSheet({ book, chapter, verse, initialEnd, onClose, docked }
   useEffect(() => setEnd(initialEnd ?? verse), [book, chapter, verse, initialEnd]);
   const { data: total } = useAsync(() => verseCount(book, chapter), [book, chapter]);
   const reference = refOf(book, chapter, verse, end);
-  const { data: text } = useAsync(async () => {
+  const { data: got } = useAsync(async () => {
     const parts: string[] = [];
-    for (let v = verse; v <= end; v++) parts.push((await getVerse(prefs.translation, book, chapter, v)) || "(not in this translation)");
-    return parts.join(" ");
+    let from: TranslationId = prefs.translation;
+    for (let v = verse; v <= end; v++) {
+      const r = await getVerseIn(prefs.translation, book, chapter, v);
+      from = r.translation;
+      parts.push(r.text || "(not in this translation)");
+    }
+    return { text: parts.join(" "), from };
   }, [book, chapter, verse, end, prefs.translation]);
+  const text = got?.text;
   const key = vKey(book, chapter, verse);
   const marked = bookmarks.includes(key);
   const setColor = (c: HighlightColor | null) => {
@@ -202,7 +208,7 @@ export function VerseSheet({ book, chapter, verse, initialEnd, onClose, docked }
       </div>
       <div className="action-row">
         <button type="button" className="btn small primary" onClick={add}>Add to guide</button>
-        <button type="button" className="btn small" onClick={() => copyText(`${text} (${reference}, ${prefs.translation})`, "Verse copied")}>Copy</button>
+        <button type="button" className="btn small" onClick={() => copyText(`${text} (${reference}, ${got?.from ?? prefs.translation})`, "Verse copied")}>Copy</button>
         <button type="button" className="btn small" onClick={() => update((d) => ({ ...d, bookmarks: marked ? d.bookmarks.filter((x) => x !== key) : [key, ...d.bookmarks] }))}>{marked ? "Bookmarked" : "Bookmark"}</button>
         <a className="btn small" href={`#ask-${readHash({ book, chapter, verse, verseEnd: end }).slice(5)}`} onClick={onClose}>Ask AI</a>
       </div>
@@ -241,6 +247,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   const speaking = speech.state === "reading" ? speech.verse : null;
   const stopSpeak = useRef<(() => void) | null>(null);
   const translation = route?.translation ?? prefs.translation;
+  const info = translationInfo(translation);
   const wide = useMedia("(min-width: 1100px)");
   // On a wide screen the study panel sits beside the text and follows the verse you pick.
   useEffect(() => {
@@ -328,10 +335,12 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
               <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => setPref("compare", t)} />
               <label className="label" htmlFor="text-size">Text size</label>
               <input id="text-size" type="range" min="15" max="28" value={prefs.textSize} onChange={(e) => setPref("textSize", Number(e.target.value))} />
-              {canReadAloud()
+              {isOnline(translation)
+                ? <p className="fine read-aloud-off">Read aloud isn't offered for licensed translations like the {translation}, whose terms don't allow turning the text into speech. Choose a built-in translation, such as the BSB, to listen.</p>
+                : canReadAloud()
                 ? <button type="button" className="btn small" onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); toggleSpeak(); }}>{speech.state !== "idle" ? "Stop reading" : "Read chapter aloud"}</button>
                 : <p className="fine read-aloud-off">{NO_SPEECH}</p>}
-              {canReadAloud() && builtIn && BUILT_IN && speech.state === "idle" && (
+              {!isOnline(translation) && canReadAloud() && builtIn && BUILT_IN && speech.state === "idle" && (
                 <p className="fine read-aloud-off">{saved === false
                   ? `${BUILT_IN.name}, the voice built into Veritas Logos, reads here. The first time, it downloads ${mb(BUILT_IN.downloadBytes)}, which this browser keeps.`
                   : `${BUILT_IN.name}, the voice built into Veritas Logos, reads here.`}</p>
@@ -353,8 +362,16 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       </div>
 
       {loading && <Loading label="Loading Scripture" />}
-      <ErrorNote error={error} />
-      {verses && (
+      {error instanceof OnlineTextError
+        ? <div className="note warn" role="alert"><p>{error.message}</p><button type="button" className="btn small" onClick={() => setPref("translation", DEFAULT_TRANSLATION)}>Read in the BSB instead</button></div>
+        : <ErrorNote error={error} />}
+      {verses && verses.every((v) => !v.text) && (
+        <div className="note" role="status">
+          <p>{info.covers ? `The ${info.name} has only ${info.covers}, so it doesn't include ${bookName(book)}.` : `The ${info.name} doesn't include ${bookName(book)} ${chapter}.`}</p>
+          <button type="button" className="btn small" onClick={() => setPref("translation", DEFAULT_TRANSLATION)}>Read in the BSB</button>
+        </div>
+      )}
+      {verses && verses.some((v) => v.text) && (
         <div className="scripture" style={{ fontSize: `${prefs.textSize}px` }}>
           <h2 className="chapter-title"><span>{bookName(book)}</span> {chapter}</h2>
           {verses.map((v) => {
@@ -364,13 +381,16 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
               <div key={v.verse} id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${inRange(v.verse) ? "target" : ""} ${wide && sheet && v.verse >= sheet.verse && v.verse <= (sheet.end ?? sheet.verse) ? "picked" : ""}`} role="button" tabIndex={0}
                 onClick={() => setSheet({ verse: v.verse })} onKeyDown={(e) => { if (e.key === "Enter") setSheet({ verse: v.verse }); }}>
                 <sup>{v.verse}</sup>
-                {v.text ? <span>{v.text}</span> : <em className="missing">This verse isn't in the {translation} text. Some manuscripts include it, so it's kept as a footnote in many Bibles.</em>}
+                {v.text ? <span>{v.text}</span> : <em className="missing">This verse isn't in the {translation} text. Some manuscripts include it, so many Bibles keep it as a footnote, and some number their verses differently.</em>}
                 {hasNote && <Tag tone="note">Note</Tag>}
                 {compare && compare[v.verse - 1]?.text && <div className="compare"><strong>{compareInfo?.id}</strong> {compare[v.verse - 1].text}</div>}
               </div>
             );
           })}
-          <p className="fine notice">{translationInfo(translation).notice}</p>
+          <p className="fine notice">
+            {isOnline(translation) ? onlineNotice(translation, book, chapter) : info.notice}
+            {info.link && <> <a href={info.link.url} target="_blank" rel="noopener noreferrer">{info.link.label}</a></>}
+          </p>
         </div>
       )}
 
