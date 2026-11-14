@@ -16,7 +16,7 @@ const S = {
       // Added after the first v2 release: named layouts and saved builder items.
       const seed = buildSeed();
       for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "devices", "signage", "roomSessions"]) if (!saved[k]) saved[k] = seed[k];
-      saved.me.pickups ||= [];
+      saved.me.pickups ||= []; saved.verseNotes ||= {}; saved.highlights ||= {};
       Object.values(seed.users).forEach((u) => { const mine = saved.users[u.id]; if (!mine) { if (u.guestOf) saved.users[u.id] = u; } else if (!mine.family) Object.assign(mine, { family: u.family, pickups: u.pickups }); });
       Object.values(saved.churches).forEach((c) => {
         c.positions ||= JSON.parse(JSON.stringify(DEFAULT_POSITIONS));

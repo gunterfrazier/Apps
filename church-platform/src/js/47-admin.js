@@ -96,6 +96,7 @@ const ADMIN = {
     ],
     check: (d) => { const bad = d.days.flatMap((l) => l.split(";").map((x) => x.trim())).filter((x) => x && !parseRef(x)); return bad.length ? `These don't look like Bible references: ${bad.slice(0, 3).join(", ")}` : null; },
     save: (d) => ({ name: d.name, description: d.description, days: d.days.map((l) => l.split(";").map((x) => x.trim()).filter(Boolean)).filter((x) => x.length) }),
+    tools: () => (AI.possible() ? html`<button class="btn ghost" data-act="plan-topic">${icon("bolt")}Draft a plan from a topic</button>` : ""),
   },
   gatherings: {
     title: "Classes and groups", one: "class or group", many: "classes and groups", icon: "door", perm: "manage.classes",
@@ -229,14 +230,15 @@ function adminList(kind) {
         : empty(`No ${a.many || a.one + "s"} yet.`)}</div>`,
   };
 }
-Actions["admin-edit"] = (el) => {
-  const kind = el.dataset.kind, a = ADMIN[kind];
-  const rec = el.dataset.id ? S.get(kind, el.dataset.id) : {};
+Actions["admin-edit"] = (el) => adminEdit(el.dataset.kind, el.dataset.id ? S.get(el.dataset.kind, el.dataset.id) : {});
+/** The add or edit form for one item. A new item can come filled in (a drafted reading plan, say) for a person to check. */
+function adminEdit(kind, rec = {}) {
+  const a = ADMIN[kind];
   openSheet(rec.id ? `Edit ${a.one}` : `New ${a.one}`, html`${rec.id && a.extra ? a.extra(rec) : ""}
     <form data-form="admin-save" novalidate><input type="hidden" name="_kind" value="${kind}"><input type="hidden" name="_id" value="${rec.id || ""}">
     ${a.fields.map((f) => adminField(f, rec))}
     <div class="btns"><button class="btn">${rec.id ? "Save changes" : `Add ${a.one}`}</button>${rec.id ? html`<button type="button" class="btn danger" data-act="admin-delete" data-kind="${kind}" data-id="${rec.id}">Delete</button>` : ""}</div></form>`);
-};
+}
 Forms["admin-save"] = (d, f, fd) => {
   const kind = d._kind, a = ADMIN[kind], rec = d._id ? S.get(kind, d._id) : null;
   if (!S.can(a.perm)) return formError(f, "Your role can't change this.");

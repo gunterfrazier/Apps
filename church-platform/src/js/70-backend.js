@@ -105,7 +105,7 @@ const Backend = {
     const st = blankState(), p = priv?.data || {};
     st.me = { id: uid, name: prof?.name || "", email: contact[uid]?.email || this.user.email || "", phone: contact[uid]?.phone || "", household: fam?.family || [], pickups: fam?.pickups || [] };
     if (p.training && !p.training.base) st.training = p.training;   // your training checklists, on every device
-    Object.assign(st, { prefs: p.prefs || st.prefs, notes: p.notes || {}, saved: p.saved || [], progress: p.progress || {}, seen: p.seen || [], chatSeen: p.chatSeen || {}, reminded: p.reminded || [], campus: p.campus || {}, current: look || (p.current && mine.includes(p.current) ? p.current : mine[0] || null) });
+    Object.assign(st, { prefs: p.prefs || st.prefs, notes: p.notes || {}, verseNotes: p.verseNotes || {}, highlights: p.highlights || {}, saved: p.saved || [], progress: p.progress || {}, seen: p.seen || [], chatSeen: p.chatSeen || {}, reminded: p.reminded || [], campus: p.campus || {}, current: look || (p.current && mine.includes(p.current) ? p.current : mine[0] || null) });
     profiles.filter((x) => x.id !== uid).forEach((x) => { st.users[x.id] = { id: x.id, name: x.name, email: contact[x.id]?.email || "", phone: contact[x.id]?.phone || "", household: x.household || x.name, family: [], pickups: [] }; });
     families.forEach((f) => { if (st.users[f.user_id]) Object.assign(st.users[f.user_id], { family: f.family || [], pickups: f.pickups || [] }); });
     st.memberships = memberships.map((m) => ({ churchId: m.church_id, userId: m.user_id, roleId: m.role_key, locations: m.locations, listed: m.listed, joined: m.joined }));
@@ -151,7 +151,7 @@ const Backend = {
     row("profiles", uid, { id: uid, name: meRest.name, household: `${meRest.name}${household.length ? " and family" : ""}` });
     row("contacts", uid, { user_id: uid, email: meRest.email, phone: meRest.phone });
     row("families", uid, { user_id: uid, family: household, pickups: pickups || [] });
-    row("profile_private", uid, { user_id: uid, data: { prefs: st.prefs, notes: st.notes, saved: st.saved, progress: st.progress, seen: st.seen, chatSeen: st.chatSeen, reminded: st.reminded, campus: st.campus, current: st.current, training: st.training || null } });
+    row("profile_private", uid, { user_id: uid, data: { prefs: st.prefs, notes: st.notes, verseNotes: st.verseNotes || {}, highlights: st.highlights || {}, saved: st.saved, progress: st.progress, seen: st.seen, chatSeen: st.chatSeen, reminded: st.reminded, campus: st.campus, current: st.current, training: st.training || null } });
     st.memberships.forEach((m) => row("memberships", `${m.churchId}|${m.userId}`, { church_id: m.churchId, user_id: m.userId, role_key: m.roleId, locations: m.locations, listed: !!m.listed, joined: m.joined }));
     Object.values(st.churches).forEach((c) => {
       const { roles, locations, integrations, ownerId, previousOwner, ...data } = c;
