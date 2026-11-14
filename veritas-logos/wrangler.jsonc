@@ -1,0 +1,12 @@
+// For hosting the website with Cloudflare Workers (Workers & Pages > Create application > Import a repository).
+// Build command: npm run build. Deploy command: npx wrangler deploy. Path (root directory): veritas-logos.
+// The Worker's name in the dashboard must match "name" below. Cloudflare Pages ignores this file.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "veritas-logos",
+  "compatibility_date": "2026-11-01",
+  // A static site: no Worker code, just the files the build writes to dist/ (with public/_headers).
+  "assets": {
+    "directory": "./dist"
+  }
+}
