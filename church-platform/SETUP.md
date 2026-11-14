@@ -186,6 +186,8 @@ supabase functions deploy device-pair
 2. On the device, open the app and choose **Set up a church device** (under the sign-in box), or scan the QR code next to the code. Enter the code. The device signs in and goes straight to its screen.
 3. To sign a device out, open it in **Screens and devices** and choose **Remove device**. Its account is deleted and the screen goes back to sign-in.
 
+**If a code "didn't work":** make the code while signed in to your church on this website, not in the demo, in training or in a preview. Those keep everything in the one browser, so their codes (marked "practice code") mean nothing to another device. Codes last 30 minutes; **New code** on the device's row makes a fresh one. The app shows a code only after the server has saved the device, and says so if it couldn't.
+
 A device is paired once. It keeps its own sign-in and signs itself back in after a restart, a power cut, a long time offline or lost browser storage, so nobody types a code again. On an iPad, add the app to the Home Screen and pair it from there: Safari can clear a website's storage after a week without use, but not a Home Screen app's.
 
 Each device gets only what its job needs: a kiosk can check kids in, presentation and stage screens and the booth can present, and a signage screen can only read its church's playlists and public information. Device accounts don't appear in the member directory or the people list. Codes are single-use and expire; a wrong code is refused after a short pause.

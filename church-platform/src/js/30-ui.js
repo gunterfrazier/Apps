@@ -78,6 +78,8 @@ function render() {
     else if (!me.name && head !== "welcome" && !signedOutOk && !thisDevice()) { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
     else if (!S.church() && !OPEN_ROUTES.includes(head)) { head = "churches"; tail = ""; }
   }
+  // Someone who can approve a kind of request never waits on their own.
+  if (!Backend.on || Backend.ready) try { approveOwnRequests(); } catch (err) { console.error(err); }
   applyBrand();
   let view;
   try { view = (Screens[head] || Screens.home)(tail); }

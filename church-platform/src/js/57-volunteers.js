@@ -104,7 +104,7 @@ Forms["ask-decline"] = (d) => {
 Actions["team-join"] = (el) => {
   const team = el.dataset.team;
   if (myTeams().includes(team) || myTeamRequest(team)) return;
-  if (volunteerPreApproved()) { S.add("teamMembers", { team, userId: S.me().id, at: new Date().toISOString() }); emit("volunteer.joined", { team, person: S.me().name }); toast(`You joined ${team}`); render(); return; }
+  if (volunteerPreApproved()) { S.add("teamMembers", { team, userId: S.me().id, at: new Date().toISOString() }); emit("volunteer.joined", { team, person: S.me().name }); toast(`You're on the ${team} team. No approval needed.`); render(); return; }
   openSheet(`Ask to join ${team}`, html`<form data-form="team-request" novalidate><input type="hidden" name="team" value="${team}">
     <p class="muted" style="margin-top:0">Someone who schedules the teams approves each request. You'll get a notification when they do.</p>
     <label class="field"><span>A note for them (optional)</span><input type="text" name="note" maxlength="160" placeholder="I've run sound at my last church"></label>

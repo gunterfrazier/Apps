@@ -137,10 +137,12 @@ function registrationPanel(g, entries) {
     ${entries.length ? html`${entries.map((m) => html`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 0"><span><b>${m.childId ? m.name : "You"}</b> <span class="tag ${m.status === "in" ? "ok" : ""}">${m.status === "in" ? "Registered" : "Waiting for approval"}</span></span><button class="link-btn" style="color:var(--warn)" data-act="g-unregister" data-id="${g.id}" data-entry="${m.id}">Cancel</button></div>`)}
       <button class="btn ghost sm" style="margin-top:8px" data-act="g-register" data-id="${g.id}">Register someone else</button>`
       : gFull(g) ? html`<p style="margin:0"><b>This ${gLabel(g)} is full.</b></p>`
-      : html`<p style="margin-top:0">${g.registration === "approval" ? `The ${g.type === "class" ? "teacher" : "leader"} approves each request.` : "Registration is required."}${g.capacity ? ` ${g.capacity - gCount(g)} spots left.` : ""}</p>
-        <button class="btn block" data-act="g-register" data-id="${g.id}">${g.registration === "approval" ? "Ask to join" : "Register"}</button>`}
+      : html`<p style="margin-top:0">${gWaits(g) ? `The ${g.type === "class" ? "teacher" : "leader"} approves each request.` : g.registration === "approval" ? "You can approve requests to join, so you're in as soon as you register." : "Registration is required."}${g.capacity ? ` ${g.capacity - gCount(g)} spots left.` : ""}</p>
+        <button class="btn block" data-act="g-register" data-id="${g.id}">${gWaits(g) ? "Ask to join" : "Register"}</button>`}
   </div>`;
 }
+/** Does a sign-up for this class or group wait for approval? Not when the person signing up could approve it themselves. */
+const gWaits = (g) => g.registration === "approval" && !canApprove("groups", g.leaders || []);
 Actions["g-register"] = (el) => {
   const g = S.get("gatherings", el.dataset.id), me = S.me();
   const taken = new Set(myEntries(g).map((m) => m.childId || "me"));
@@ -153,14 +155,14 @@ Actions["g-register"] = (el) => {
       ${kids.map((k) => html`<label class="check"><input type="checkbox" name="who" value="${k.id}" ${attr(kidsOnly && fits(k), "checked")}><span>${k.name}${ageFrom(k.birth) != null ? `, age ${ageFrom(k.birth)}` : ""}${!fits(k) ? html` <span class="tag warn">Outside ages ${g.ageMin} to ${g.ageMax}</span>` : ""}</span></label>`)}
       ${!kids.length && kidsOnly ? html`<p class="muted">This ${gLabel(g)} is for kids. <a href="#household">Add your kids</a> first.</p>` : ""}
     </fieldset>
-    ${g.registration === "approval" ? approvalNotifyField("groups", g.leaders) : ""}
-    <button class="btn block">${g.registration === "approval" ? "Send request" : "Register"}</button></form>`);
+    ${gWaits(g) ? approvalNotifyField("groups", g.leaders) : ""}
+    <button class="btn block">${gWaits(g) ? "Send request" : "Register"}</button></form>`);
 };
 Forms["g-register"] = (d, f, fd) => {
   const g = S.get("gatherings", d.id), me = S.me(), who = fd.getAll("who");
   if (!who.length) return formError(f, "Choose who's coming.");
   if (g.capacity && gCount(g) + who.length > g.capacity) return formError(f, `Only ${g.capacity - gCount(g)} spots are left.`);
-  const status = g.registration === "approval" ? "requested" : "in";
+  const status = gWaits(g) ? "requested" : "in", auto = status === "in" && g.registration === "approval";
   who.forEach((w) => {
     const kid = w === "me" ? null : me.household.find((p) => p.id === w);
     g.members.push({ id: uid(), userId: me.id, childId: kid ? kid.id : null, name: kid ? kid.name : me.name, status, at: new Date().toISOString() });
@@ -168,7 +170,7 @@ Forms["g-register"] = (d, f, fd) => {
   const names = who.map((w) => w === "me" ? me.name : me.household.find((p) => p.id === w)?.name);
   emit("gathering.registered", { gathering: g.name, gatheringId: g.id, by: me.name, people: names, status });
   if (status === "requested" && d.notifyApprovers) notifyApprovers("groups", { title: `Request to join ${g.name}`, body: `${listJoin(names)}${names.length === 1 && names[0] === me.name ? "" : `, from ${me.name}`}`, link: `#gathering-${g.id}` }, g.leaders);
-  S.save(); closeSheet(); toast(status === "in" ? "Registered" : d.notifyApprovers ? "Request sent. The leaders will let you know." : "Request sent"); render();
+  S.save(); closeSheet(); toast(auto ? "Registered. Approved automatically." : status === "in" ? "Registered" : d.notifyApprovers ? "Request sent. The leaders will let you know." : "Request sent"); render();
 };
 Actions["g-unregister"] = (el) => { const g = S.get("gatherings", el.dataset.id); g.members = g.members.filter((m) => m.id !== el.dataset.entry); S.save(); toast("Cancelled"); render(); };
 

@@ -116,16 +116,42 @@ Forms["device-save"] = (d, f) => {
   const dev = S.add("devices", { name: d.name, type: d.type, locationId, settings, status: "waiting", code: pairCode(), codeExpires: new Date(Date.now() + 30 * 60e3).toISOString(), deviceUser: null, lastSeen: null, at: new Date().toISOString() });
   closeSheet(true); render(); pairSheet(dev);
 };
-function pairSheet(d) {
-  const fresh = new Date(d.codeExpires) > new Date();
-  openSheet(`Pair ${d.name}`, html`${fresh ? html`<p class="muted" style="margin-top:0">On the ${DEVICE_TYPES[d.type][0].toLowerCase()}, open ${PLATFORM.name}, choose <b>Set up a church device</b> and enter this code. It works for 30 minutes.</p>
-      <div class="pair-code" aria-label="Pairing code ${d.code.split("").join(" ")}">${d.code}</div>
-      <div class="pair-qr">${raw(qrSvg(appLink(`pair-${d.code}`), { size: 200 }))}<span>Or scan this with the device's camera</span></div>
-      <div class="copy-line"><input type="text" readonly value="${appLink(`pair-${d.code}`)}" aria-label="Pairing link"><button class="btn sm" data-act="copy" data-text="${appLink(`pair-${d.code}`)}">${icon("copy")}Copy</button></div>`
+/** Where pairing codes only work for practice: the demo, training, the preview and a copy with no server keep everything
+ *  in this one browser, so a code made there means nothing to any other device. */
+const practiceOnly = () => !Backend.on;
+const practicePlace = () => SANDBOX ? (SANDBOX === "demo" ? "the demo" : "training") : IN_PREVIEW ? "the preview" : "a copy with no server";
+function practiceNote() {
+  const place = practicePlace(), real = liveSite();
+  return html`<div class="room-msg warn" role="note">${icon("info")}<div><b>This is a practice code.</b> You're in ${place}, which keeps everything in this browser, so the code only works here: open ${PLATFORM.name} in another tab of this browser and choose <b>Set up a church device</b>.
+    <br>${SANDBOX && real ? `To set up a real screen, leave ${place}, sign in to your church and add the device there.` : SANDBOX || IN_PREVIEW ? "To set up a real screen, sign in to your church on its own website and add the device there." : "To set up screens on other devices, connect the app to its server first."}${SANDBOX || IN_PREVIEW ? " That code works on any device." : ""}
+    ${SANDBOX && real ? html`<br><button type="button" class="link-btn" data-act="sandbox-exit">Leave ${place} and sign in</button>` : ""}</div></div>`;
+}
+/** Shows a device's pairing code. On a live site the code is only shown once the server has it, so it's sure to work. */
+async function pairSheet(d) {
+  const id = d.id, name = d.name, title = `Pair ${name}`, mine = () => $("#scrim .pair-wait");
+  if (Backend.on && d.status !== "paired" && new Date(d.codeExpires) > new Date()) {
+    openSheet(title, html`<div class="pair-wait" data-id="${id}" role="status"><p class="muted" style="margin:0"><span class="ai-dot"></span> Getting the code ready...</p></div>`);
+    const ok = await Backend.saved("devices", id).catch(() => false);
+    if (mine()?.dataset.id !== id) return;   // closed, or another sheet opened, while it saved
+    if (!ok) { openSheet(title, html`<p class="room-msg warn" role="alert" style="margin-top:0">${icon("info")}<span><b>${name} couldn't be saved yet</b>, so its code wouldn't work. Check this phone or computer is online, then try again.</span></p>
+      <div class="btns"><button class="btn" data-act="device-code" data-id="${id}">${icon("bolt")}Try again</button><button class="btn danger" data-act="device-remove" data-id="${id}">Remove</button></div>`); return; }
+    d = S.get("devices", id) || d;
+    if (d.status === "paired") { closeSheet(true); toast(`${name} is paired`); render(); return; }
+  }
+  const fresh = new Date(d.codeExpires) > new Date(), link = appLink(`pair-${d.code}`);
+  openSheet(title, html`${fresh ? html`${practiceOnly() ? practiceNote() : html`<p class="muted" style="margin-top:0">On the ${DEVICE_TYPES[d.type][0].toLowerCase()}, open ${PLATFORM.name}, choose <b>Set up a church device</b> and enter this code. It works for 30 minutes.</p>`}
+      <div class="pair-code" data-id="${d.id}" aria-label="Pairing code ${d.code.split("").join(" ")}">${d.code}</div>
+      ${practiceOnly() ? "" : html`<div class="pair-qr">${raw(qrSvg(link, { size: 200 }))}<span>Or scan this with the device's camera</span></div>
+      <div class="copy-line"><input type="text" readonly value="${link}" aria-label="Pairing link"><button class="btn sm" data-act="copy" data-text="${link}">${icon("copy")}Copy</button></div>`}`
     : html`<p style="margin-top:0">This pairing code has expired.</p>`}
     <div class="btns"><button class="btn ghost" data-act="device-code" data-id="${d.id}">${icon("bolt")}New code</button><button class="btn danger" data-act="device-remove" data-id="${d.id}">Remove</button></div>`);
 }
-Actions["device-code"] = (el) => { const d = S.get("devices", el.dataset.id); Object.assign(d, { code: pairCode(), codeExpires: new Date(Date.now() + 30 * 60e3).toISOString(), status: "waiting" }); S.save(); render(); pairSheet(d); };
+/** Called when fresh data arrives: an open pairing sheet closes itself once its device has paired. */
+function pairSheetCheck() {
+  const d = S.get("devices", $("#scrim .pair-code")?.dataset.id || "");
+  if (d?.status === "paired") { closeSheet(true); toast(`${d.name} is paired`); render(); }
+}
+Actions["device-code"] = (el) => { const d = S.get("devices", el.dataset.id); if (!d) return; Object.assign(d, { code: pairCode(), codeExpires: new Date(Date.now() + 30 * 60e3).toISOString(), status: "waiting" }); S.save(); render(); pairSheet(d); };
 Actions["device-remove"] = (el) => openSheet("Remove this device?", html`<p style="margin-top:0">It's signed out right away and goes back to the normal sign-in screen. You can pair it again with a new code.</p>
   <div class="btns"><button class="btn danger" data-act="device-remove-yes" data-id="${el.dataset.id}">Remove</button><button class="btn ghost" data-act="close-sheet">Keep it</button></div>`);
 Actions["device-remove-yes"] = async (el) => {
@@ -141,14 +167,45 @@ Screens.pair = (code = "") => ({
     <form data-form="pair" class="panel pair-form" novalidate><h1 style="font-size:1.5rem">Set up a church device</h1>
       ${pairNotice ? html`<p class="room-msg warn" role="alert">${icon("info")}${pairNotice}</p>` : ""}
       <p class="muted">For a check-in kiosk, lobby screen, classroom or presentation screen, stage screen, or the booth computer. Ask a church admin to add the device under <b>Admin, Screens and devices</b> for a code.</p>
+      ${practiceOnly() ? html`<p class="room-msg warn" role="note">${icon("info")}<span>${SANDBOX && liveSite() ? `This browser is in ${practicePlace()}. A code from your church's real account works here too: pairing takes this browser out of ${practicePlace()}.`
+        : `You're in ${practicePlace()}, so only practice codes made in this browser work here.`}</span></p>` : ""}
       <p class="faint">You only pair a device once. It stays signed in, even after a restart or a power cut. On an iPad, add ${PLATFORM.name} to the Home Screen first (Share, then Add to Home Screen) and pair it from there so it's never signed out.</p>
       <label class="field"><span>Pairing code</span><input type="text" name="code" value="${code.toUpperCase()}" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" class="pair-input" required></label>
       <button class="btn block">Pair this device</button>
       <a class="linkish" href="#${Backend.on ? "signin" : S.me().name ? "home" : "welcome"}">Back</a></form></div></div>`,
 });
+/** True on a church's own website (it has a server), even while this browser is in the demo or training. */
+const liveSite = () => !IN_PREVIEW && !!PLATFORM.supabaseUrl && !!PLATFORM.supabasePublishableKey;
+/** Asks the church's server to pair without the signed-in client, for a browser that's in the demo or training. */
+async function pairRemote(code) {
+  const key = PLATFORM.supabasePublishableKey;
+  const res = await fetch(`${PLATFORM.supabaseUrl}/functions/v1/device-pair`, { method: "POST", headers: { "content-type": "application/json", apikey: key, Authorization: `Bearer ${key}` }, body: JSON.stringify({ action: "pair", code }) });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok || !out.email) throw new Error(out.error || "That code didn't work.");
+  return out;
+}
+/** Says why a code failed, and what to check: most often it was made somewhere that only practises. */
+function pairFailed(f, msg = "") {
+  if (/fetch|network|failed to send|load failed/i.test(msg)) return formError(f, "Couldn't reach the server. Check this device is online, then try again.");
+  formError(f, msg || "That code didn't work. Codes last 30 minutes; ask for a new one.");
+  if ($(".pair-help", f)) return;
+  const help = document.createElement("div"); help.className = "pair-help";
+  help.innerHTML = flat(html`<b>Things to check</b><ul>
+    <li>The code is typed exactly as shown and is less than 30 minutes old. <b>New code</b> under Screens and devices makes a fresh one.</li>
+    <li>It was made while signed in to your church. A code made in the demo, in training or in a preview only works in the browser that made it.</li></ul>`);
+  f.appendChild(help);
+}
+let pairing = false;
 Forms.pair = async (d, f) => {
   const code = String(d.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (code.length !== 6) return formError(f, "The code has 6 letters and numbers.");
+  if (pairing) return;   // a second tap while the first is on its way would pair the device twice
+  const btn = $("button.btn", f), label = btn?.textContent;
+  pairing = true; if (btn) { btn.disabled = true; btn.textContent = "Pairing..."; }
+  try { await pairDevice(code, f); }
+  finally { pairing = false; if (btn?.isConnected) { btn.disabled = false; btn.textContent = label; } }
+};
+async function pairDevice(code, f) {
   if (Backend.on) {
     try {
       DeviceSignin.clear();
@@ -161,17 +218,30 @@ Forms.pair = async (d, f) => {
       DeviceSignin.set({ email, password, name: thisDevice()?.name || "" }); pairNotice = "";
       try { await navigator.storage?.persist?.(); } catch {}
       go(deviceRoutes(thisDevice() || {})[0]);
-    } catch (e) { formError(f, e.message || "That code didn't work."); }
+    } catch (e) { pairFailed(f, e.message); }
     return;
   }
   S.load(); // pick up a device the admin just added in another tab
   const dev = (S.state.devices || []).find((x) => x.code === code && x.status !== "paired" && new Date(x.codeExpires) > new Date());
-  if (!dev) return formError(f, "That code didn't work. Codes last 30 minutes; ask for a new one.");
+  if (!dev) {
+    if (!(SANDBOX && liveSite())) return pairFailed(f);
+    // In the demo or training on the church's own site, a real code still pairs: this browser leaves the practice copy
+    // and comes back as the device, signed in with the device's own account.
+    try {
+      const { email, password } = await pairRemote(code);
+      DeviceSignin.set({ email, password, name: "" });
+      S.flush();
+      try { localStorage.removeItem(SANDBOX_KEY); } catch {}
+      try { await navigator.storage?.persist?.(); } catch {}
+      history.replaceState(null, "", appPath()); location.reload();
+    } catch (e) { pairFailed(f, e.message); }
+    return;
+  }
   const paired = { status: "paired", pairedAt: new Date().toISOString(), lastSeen: new Date().toISOString(), code: null };
   Object.assign(dev, paired); S.state.current = dev.churchId; S.save(); devicePing(dev, paired);
   try { sessionStorage.setItem(DEVICE_KEY, dev.id); } catch {}
   toast(`${dev.name} is set up`); go(deviceRoutes(dev)[0]);
-};
+}
 
 // ----- On the device: staying in its lane -----
 /** Called by render(). Sends a device to its home screen if it wanders, and keeps the screen awake. */

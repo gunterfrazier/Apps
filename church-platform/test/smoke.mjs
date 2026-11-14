@@ -390,7 +390,15 @@ await step("signage player slides", async () => {
 });
 await step("pair a kiosk", async () => {
   const code = await pairNew("kiosk", () => page.fill("#scrim input[name=exitPin]", "2468")); await shot("44-pair-sheet");
-  const k = await tab(1024, 768); await k.goto(base + "#pair"); await k.fill("input[name=code]", code.toLowerCase()); await k.click("form[data-form=pair] button");
+  // With no server behind it, the code is for practice in this browser only, and the sheet says so instead of offering a QR code.
+  if (!/practice code/.test(await page.textContent("#scrim")) || await page.$("#scrim .pair-qr")) throw new Error("the pairing sheet doesn't say the code is practice-only here");
+  const k = await tab(1024, 768); await k.goto(base + "#pair");
+  if (!/only practice codes made in this browser/.test(await k.textContent("form[data-form=pair]"))) throw new Error("the pairing screen doesn't say it only takes practice codes here");
+  // A code that isn't known says what to check, including where the code was made.
+  await k.fill("input[name=code]", "ZZZZZZ"); await k.click("form[data-form=pair] button.btn"); await k.waitForSelector("form[data-form=pair] .pair-help");
+  if (!/demo, in training or in a preview/.test(await k.textContent(".pair-help"))) throw new Error("a failed code doesn't explain practice codes");
+  await k.screenshot({ path: join(shots, "44b-pair-failed.png") });
+  await k.fill("input[name=code]", code.toLowerCase()); await k.click("form[data-form=pair] button.btn");
   await k.waitForSelector(".keypad"); await k.screenshot({ path: join(shots, "45-kiosk-device.png") });
   await page.waitForSelector("#scrim", { state: "detached" }); // the admin's pairing sheet closes by itself
   await k.evaluate(() => { location.hash = "home"; }); await k.waitForTimeout(150);
@@ -771,6 +779,12 @@ await step("approvals: requests notify everyone who can approve; volunteers can 
   if (!(await page.isChecked("#scrim input[name=notifyApprovers]"))) throw new Error("notifying approvers should be on by default");
   await page.fill("#scrim input[name=note]", "I can run slides"); await shot("61-team-request"); await sheetSubmit(); await sheetGone();
   await expectText("Requested");
+  // That request becomes someone else's (a person who can't approve it), and this person sends one of their own.
+  const other = await page.evaluate((t) => { const S = __app.S; const free = S.members().map((m) => m.userId).filter((u) => u !== S.me().id && S.user(u) && !S.list("teamMembers").some((m) => m.team === t && m.userId === u));
+    return free.find((u) => !S.role("riverside", u)?.perms?.["schedule.teams"]) || free[0]; }, team);
+  if (!other) throw new Error("no other member to send the request as");
+  await page.evaluate(([t, o]) => { const S = __app.S; S.list("teamMembers").find((m) => m.team === t && m.userId === S.me().id && m.status === "requested").userId = o; S.save(); __app.render(); }, [team, other]);
+  await page.click(`[data-act=team-join][data-team="${team}"]`); await page.waitForSelector("#scrim form[data-form=team-request]"); await sheetSubmit(); await sheetGone();
   const asked = await page.evaluate(() => __app.S.state.notifications.filter((n) => /wants to serve/.test(n.title)).map((n) => n.userId));
   const schedulers = await page.evaluate(() => __app.S.members().map((m) => m.userId).filter((u) => __app.S.role("riverside", u)?.perms?.["schedule.teams"]));
   if (!asked.length || asked.includes(me) || schedulers.some((u) => u !== me && !asked.includes(u))) throw new Error(`not every scheduler was notified: ${asked} vs ${schedulers}`);
@@ -780,7 +794,11 @@ await step("approvals: requests notify everyone who can approve; volunteers can 
   if (!(await page.$("#scrim input[name=who]:checked"))) await page.check("#scrim input[name=who] >> nth=0");
   await page.uncheck("#scrim input[name=notifyApprovers]"); await sheetSubmit(); await sheetGone();
   if ((await groupAsks()) !== asksBefore) throw new Error("approvers were notified though the box was unticked");
-  // A teacher's room request goes to everyone who manages rooms.
+  // A teacher's room request goes to everyone who manages rooms. (Teachers manage classes and groups here, so becoming
+  // one approves this person's own waiting group request: nobody approves their own request by hand.)
+  const toldBefore = await page.evaluate((u) => __app.S.state.notifications.filter((n) => n.userId === u && /Approved automatically/.test(n.body)).length, me);
+  const groupAsked = () => page.evaluate((u) => __app.S.get("gatherings", "riverside-couples").members.filter((m) => m.userId === u && m.status === "requested").length, me);
+  if (!(await groupAsked())) throw new Error("a member's request to join the group should wait");
   await asRole("teacher");
   await goTo("rooms"); await page.click("[data-act=room-request] >> nth=0"); await page.fill("#scrim input[name=title]", "Teachers' prayer");
   await page.fill("#scrim input[name=date]", await page.evaluate(() => { const d = new Date(Date.now() + 9 * 864e5); return d.toISOString().slice(0, 10); }));
@@ -789,11 +807,36 @@ await step("approvals: requests notify everyone who can approve; volunteers can 
   await sheetSubmit(); await sheetGone();
   const roomAsked = await page.evaluate(() => __app.S.state.notifications.filter((n) => /Room request/.test(n.title) && /Teachers' prayer/.test(n.body)).length);
   if (!roomAsked) throw new Error("nobody heard about the room request");
-  // Back as the admin: approve the waiting volunteer request; the person hears back and is on the team.
-  await asRole("primary"); await goTo("admin"); await expectText("waiting"); await goTo("teams"); await expectText("Asking to serve"); await expectText("I can run slides"); await shot("62-asking-to-serve");
+  // Now this person can approve all three kinds of request. Their own waiting requests (the team, the group and the room)
+  // are approved automatically, and they're told. Someone else's request still waits for them.
+  const mine = () => page.evaluate(([t, u]) => { const S = __app.S; return {
+    team: S.list("teamMembers").find((m) => m.team === t && m.userId === u)?.status || "on",
+    group: S.get("gatherings", "riverside-couples").members.some((m) => m.userId === u && m.status === "requested") ? "requested" : "in",
+    room: S.list("bookings").find((b) => b.title === "Teachers' prayer")?.status,
+    told: S.state.notifications.filter((n) => n.userId === u && /Approved automatically/.test(n.body)).length }; }, [team, me]);
+  const waiting = await mine();
+  if (waiting.team !== "requested" || waiting.room !== "requested") throw new Error(`the requests should be waiting first: ${JSON.stringify(waiting)}`);
+  await asRole("primary"); await page.waitForTimeout(150);
+  const after = await mine();
+  if (after.team !== "on" || after.group !== "in" || after.room !== "approved") throw new Error(`an approver's own requests weren't approved automatically: ${JSON.stringify(after)}`);
+  if (after.told - toldBefore !== 3) throw new Error(`the approver wasn't told about each automatic approval (${after.told - toldBefore})`);
+  // A new request from someone who can approve it never waits: a group that approves each request just registers them,
+  await goTo("gathering-riverside-couples");
+  while (await page.$("[data-act=g-unregister]")) { await page.click("[data-act=g-unregister]"); await page.waitForTimeout(150); }
+  await expectText("you're in as soon as you register"); await page.click("[data-act=g-register]"); await page.waitForSelector("#scrim form[data-form=g-register]");
+  if (await page.$("#scrim input[name=notifyApprovers]")) throw new Error("an approver was offered to notify approvers about their own sign-up");
+  if (!(await page.$("#scrim input[name=who]:checked"))) await page.check("#scrim input[name=who] >> nth=0");
+  await sheetSubmit(); await sheetGone(); await expectText("Registered");
+  if ((await mine()).group !== "in" || !(await page.evaluate((u) => __app.S.get("gatherings", "riverside-couples").members.some((m) => m.userId === u), me))) throw new Error("an approver's own sign-up had to wait");
+  // and a room is booked on the spot.
+  await goTo("rooms"); await page.click("[data-act=room-request] >> nth=0"); await page.waitForSelector("#scrim form");
+  if (!/booked as soon as you save/.test(await page.textContent("#scrim"))) throw new Error("the room form doesn't say an approver's booking is immediate");
+  await shot("62b-approver-books"); await page.click("#scrim [data-act=close-sheet]"); await sheetGone();
+  // Approve the other person's volunteer request; they hear back and are on the team.
+  await goTo("admin"); await expectText("waiting"); await goTo("teams"); await expectText("Asking to serve"); await expectText("I can run slides"); await shot("62-asking-to-serve");
   await page.click("[data-act=team-approve]"); await page.waitForTimeout(150);
-  if (!(await page.evaluate(([u, t]) => __app.S.list("teamMembers").some((m) => m.team === t && m.userId === u && !m.status), [me, team]))) throw new Error("approving didn't put them on the team");
-  if (!(await page.evaluate(([u, t]) => __app.S.state.notifications.some((n) => n.userId === u && n.title === `You're on the ${t} team`), [me, team]))) throw new Error("the volunteer wasn't told");
+  if (!(await page.evaluate(([u, t]) => __app.S.list("teamMembers").some((m) => m.team === t && m.userId === u && !m.status), [other, team]))) throw new Error("approving didn't put them on the team");
+  if (!(await page.evaluate(([u, t]) => __app.S.state.notifications.some((n) => n.userId === u && n.title === `You're on the ${t} team`), [other, team]))) throw new Error("the volunteer wasn't told");
   // Pre-approve chosen people: now this person joins a team straight away.
   await goTo("admin-approvals"); await page.check('input[name=pre][value=some]'); await page.check(`input[name=people][value="${me}"]`);
   await page.click("form[data-form=approvals-save] button.btn"); await page.waitForTimeout(150);

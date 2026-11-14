@@ -31,6 +31,10 @@ const Backend = {
       this.client = createClient(PLATFORM.supabaseUrl, PLATFORM.supabasePublishableKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     } catch (e) { console.error("Supabase didn't load", e); this.failed = true; render(); return; }
     const { data } = await this.client.auth.getSession(); // also finishes a sign-in from an email link
+    // A device sign-in saved here means this browser is a church device (it may have been paired from the demo or
+    // training, see Forms.pair): its own account takes over from a person's session left in this browser.
+    const cred = DeviceSignin.get();
+    if (cred && data.session?.user && data.session.user.email !== cred.email) { try { await this.client.auth.signOut({ scope: "local" }); } catch {} data.session = null; }
     // An email link that didn't work comes back with an error in the address. Say what happened, and tidy the address.
     const back = new URLSearchParams(location.hash.slice(1) + "&" + location.search.slice(1));
     if (back.get("error") || back.get("error_description")) {
@@ -183,6 +187,18 @@ const Backend = {
     try { await this.send(); } finally { this.pushing = false; }
     if (this.pending) { this.pending = false; this.sync(); }
   },
+  /** Writes what's waiting right now, and says whether one record has reached the server as it stands here.
+   *  For things another device depends on at once, like a pairing code. */
+  async saved(kind, id) {
+    if (!this.ready) return false;
+    clearTimeout(this.timer);
+    const key = `records:${kind}|${id}`, done = () => { const r = this.rows().find((x) => x.key === key); return !!r && this.snap.get(key) === r.json; };
+    for (let i = 0; i < 3 && !done(); i++) {
+      for (let n = 0; this.pushing && n < 200; n++) await new Promise((r) => setTimeout(r, 50));
+      await this.flush();
+    }
+    return done();
+  },
   async send() {
     const rows = this.rows(), now = new Map(rows.map((r) => [r.key, r])), ups = {}, dels = [];
     rows.forEach((r) => { if (this.snap.get(r.key) !== r.json) (ups[r.table] ||= []).push(r); });
@@ -224,7 +240,7 @@ const Backend = {
   rerender() {
     const a = document.activeElement;
     if (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName) && a.closest("#app") && a.value) { a.addEventListener("blur", () => render(), { once: true }); return; }
-    if (!$("#scrim")) render();
+    if (!$("#scrim")) render(); else pairSheetCheck();
   },
   /** Presentation moves for screens on other devices. The main screens use present:<church>; a room's screen gets its own topic. */
   chans: {},

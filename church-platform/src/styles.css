@@ -761,6 +761,10 @@ body.kiosk-mode #app { padding-bottom: 0; }
 .room-msg.ok { background: var(--ok-soft); color: var(--ok); }
 .room-msg.warn { background: var(--warn-soft); color: var(--ink); }
 .room-msg.warn > svg.i { color: var(--warn); }
+.pair-help { margin-top: 12px; text-align: left; font-size: .92rem; color: var(--ink-2); }
+.pair-help ul { margin: 6px 0 0; padding-left: 20px; }
+.pair-help li + li { margin-top: 6px; }
+.pair-wait .ai-dot { display: inline-block; vertical-align: -1px; margin-right: 6px; }
 
 /* ---------- Sermon media, transcripts, AI drafts ---------- */
 .sermon-video { margin-top: 14px; }

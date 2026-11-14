@@ -23,6 +23,35 @@ function approversFor(kind, extra = []) {
   const withPerm = S.members().map((m) => m.userId).filter((u) => S.role(c.id, u)?.perms?.[perm]);
   return [...new Set([c.ownerId, ...withPerm, ...extra])].filter((u) => u && u !== me);
 }
+/** Can this person approve this kind of request themselves? For a class or group, its teachers and leaders can too. */
+function canApprove(kind, extra = [], userId = S.me().id) {
+  const r = S.role(S.state.current, userId);
+  return !!r && !String(r.id).startsWith("device:") && (!!r.perms?.[APPROVALS[kind].perm] || extra.includes(userId));
+}
+/** Nobody approves their own request by hand. Anything of yours still waiting that you're allowed to approve is approved
+ *  here: a request sent before you were given the privilege, or one made on another device. Returns how many. */
+function approveOwnRequests() {
+  if (!S.church() || !S.isMember()) return 0;
+  const me = S.me().id, now = new Date().toISOString(), done = [];
+  if (canApprove("rooms")) S.list("bookings").filter((b) => b.by === me && b.status === "requested").forEach((b) => {
+    // Something else took the room since: that one stays for a person to sort out.
+    if (bookingConflicts(b, { kind: "booking", id: b.id }).some((u) => u.kind !== "booking" || u.status === "approved")) return;
+    Object.assign(b, { status: "approved", approvedBy: me, approvedAt: now });
+    done.push({ kind: "room", title: `${b.room} is booked`, body: `${b.title}, ${bookingWhen(b)}. Approved automatically, because you can approve room requests.`, link: "#rooms" });
+  });
+  if (volunteerPreApproved(me)) S.list("teamMembers").filter((m) => m.userId === me && m.status === "requested").forEach((m) => {
+    delete m.status; Object.assign(m, { approvedBy: me, approvedAt: now });
+    emit("volunteer.joined", { team: m.team, person: S.me().name });
+    done.push({ kind: "serve", title: `You're on the ${m.team} team`, body: "Approved automatically. You don't need anyone's approval to join a team.", link: "#serving" });
+  });
+  S.list("gatherings").filter((g) => g.registration === "approval" && canApprove("groups", g.leaders || [])).forEach((g) => (g.members || []).filter((m) => m.userId === me && m.status === "requested").forEach((m) => {
+    m.status = "in";
+    done.push({ kind: "group", title: `${m.childId ? m.name : "You"}${m.childId ? " is" : "'re"} in ${g.name}`, body: `Approved automatically, because you can approve requests to join this ${g.type === "class" ? "class" : "group"}.`, link: `#gathering-${g.id}` });
+  }));
+  if (!done.length) return 0;
+  S.save(); done.forEach((n) => notify(me, n));
+  return done.length;
+}
 /** A volunteer who can join a team without waiting: schedulers, and people the church pre-approved. */
 function volunteerPreApproved(userId = S.me().id) {
   if (S.role(S.state.current, userId)?.perms?.["schedule.teams"]) return true;
@@ -53,7 +82,7 @@ AdminScreens.approvals = () => {
   const people = S.members().filter((m) => S.user(m.userId)).map((m) => ({ id: m.userId, name: S.userName(m.userId) })).sort((a, b) => a.name.localeCompare(b.name));
   return {
     title: "Approvals", back: "admin",
-    body: html`<p class="muted" style="margin-top:16px">Choose who hears about requests, and which volunteers can join a team without waiting.</p>
+    body: html`<p class="muted" style="margin-top:16px">Choose who hears about requests, and which volunteers can join a team without waiting. Anyone who can approve a kind of request never waits on their own: it's approved automatically.</p>
       ${w.rooms.length || w.volunteers.length || w.groups.length ? html`<section class="sec"><h2 class="sec-head">Waiting now</h2><div class="rows">
         ${w.rooms.length ? html`<a class="row" href="#rooms"><span class="lead-ic">${icon("door")}</span><span class="body"><span class="t">${plural(w.rooms.length, "room request")}</span><span class="s">Approve or decline under Rooms</span></span><span class="tag warn">${w.rooms.length}</span></a>` : ""}
         ${w.volunteers.length ? html`<a class="row" href="#teams"><span class="lead-ic">${icon("hand")}</span><span class="body"><span class="t">${plural(w.volunteers.length, "request")} to serve</span><span class="s">${listJoin([...new Set(w.volunteers.map((m) => m.team))])}</span></span><span class="tag warn">${w.volunteers.length}</span></a>` : ""}

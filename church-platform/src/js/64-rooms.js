@@ -4,7 +4,7 @@
 // approve requests (their own bookings go straight through).
 
 const canBook = () => S.isMember() && S.canAny(["book.rooms", "manage.locations"]);
-const canApproveRooms = () => S.isMember() && S.can("manage.locations");
+const canApproveRooms = () => S.isMember() && canApprove("rooms");
 const sameRoom = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase() && !!String(a || "").trim();
 const atTime = (day, hhmm) => fromIsoDay(day, hhmm).getTime();
 const addMinutes = (hhmm, m) => { const [h, mm] = hhmm.split(":").map(Number), t = h * 60 + mm + m; return `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
@@ -122,7 +122,7 @@ function roomForm(b) {
     <label class="field"><span>Last date, if it repeats</span><input type="date" name="until" value="${b.until || ""}" data-change="room-check"><small>Leave blank to keep it going. Weekly bookings are checked six months ahead.</small></label>
     <label class="field"><span>Setup and notes</span><textarea name="note" maxlength="400" style="min-height:60px" placeholder="Tables in a circle, a TV and coffee">${b.note || ""}</textarea></label>
     <div id="room-check" aria-live="polite"></div>
-    ${canApproveRooms() ? "" : approvalNotifyField("rooms")}
+    ${canApproveRooms() ? html`<p class="faint" style="margin:4px 0 0">${icon("check")} You can approve room requests, so this is booked as soon as you save it.</p>` : approvalNotifyField("rooms")}
     <div class="btns"><button class="btn">${b.id ? "Save" : canApproveRooms() ? "Book it" : "Send request"}</button>${b.id ? html`<button type="button" class="btn danger" data-act="room-cancel" data-id="${b.id}">Cancel booking</button>` : ""}</div></form>`;
 }
 function openRoomForm(b) { openSheet(b.id ? "Edit booking" : "Request a room", roomForm(b), { wide: true }); Inputs["room-check"]($("#scrim form")); }
@@ -156,6 +156,7 @@ Forms["room-save"] = (d, f) => {
   if (bookingConflicts(b, { kind: "booking", id: b.id }).length) return formError(f, "That room is taken then. Use a free room or pick another time.");
   const approve = canApproveRooms(), old = b.id && S.get("bookings", b.id);
   const rec = { ...b, status: approve ? "approved" : "requested", by: old?.by || S.me().id, at: new Date().toISOString() };
+  if (approve && old?.status !== "approved") Object.assign(rec, { approvedBy: S.me().id, approvedAt: rec.at });
   delete rec.id;
   const saved = old ? S.update("bookings", old.id, rec) : S.add("bookings", rec);
   if (!approve && d.notifyApprovers) notifyApprovers("rooms", { title: `Room request: ${b.room}`, body: `${b.title}, ${bookingWhen(b)}. From ${S.me().name}.`, link: "#rooms" });
