@@ -1,4 +1,4 @@
--- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 7.
+-- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 8.
 -- Run this once in the Supabase SQL editor on a new project (see SETUP.md).
 --
 -- How it fits the app: the app keeps one list per kind of thing (sermons, events, prayers, gifts...). Each item is a
@@ -127,6 +127,12 @@ create or replace function shares_church(person uuid, perms text[], or_listed bo
   select exists (select 1 from memberships m where m.user_id = person and is_member(m.church_id)
     and ((or_listed and m.listed) or exists (select 1 from unnest(perms) p where can(m.church_id, p)))) $$;
 
+-- Volunteers the church lets join a team without waiting: everyone, or chosen people (Admin, Approvals).
+create or replace function volunteer_preapproved(c text) returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select case ch.data->'approvals'->'volunteers'->>'pre' when 'all' then true
+      when 'some' then coalesce(ch.data->'approvals'->'volunteers'->'people', '[]'::jsonb) ? auth.uid()::text else false end
+    from churches ch where ch.id = c), false) $$;
+
 -- Who can read each kind of record.
 create or replace function rec_read(k text, c text, loc text, own text, d jsonb) returns boolean language sql stable security definer set search_path = public as $$
   select case
@@ -170,9 +176,14 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
     when k in ('songs', 'library', 'services') then can(c, 'services.plan')
     when k in ('layouts', 'savedBlocks') then can(c, 'services.plan') or can(c, 'build.sermons') or can(c, 'build.lessons') or can(c, 'build.studies')
     when k = 'assignments' then can(c, 'schedule.teams') or (op = 'update' and own = auth.uid()::text)
-    when k in ('teamMembers', 'blockouts') then own = auth.uid()::text or can(c, 'schedule.teams')
+    -- Joining a volunteer team yourself is a request until a scheduler approves it, unless the church pre-approved you.
+    when k = 'teamMembers' then can(c, 'schedule.teams') or (own = auth.uid()::text and is_member(c) and (op = 'delete' or d->>'status' = 'requested' or volunteer_preapproved(c)))
+    when k = 'blockouts' then own = auth.uid()::text or can(c, 'schedule.teams')
     when k = 'event_regs' then (own = auth.uid()::text and is_member(c)) or can(c, 'manage.content')
-    when k = 'gathering_regs' then (own = auth.uid()::text and is_member(c)) or can(c, 'manage.classes') or leads(d->>'_parent')
+    -- Joining a class or group whose leader approves each request: your own sign-up has to wait as a request.
+    when k = 'gathering_regs' then (own = auth.uid()::text and is_member(c) and (op = 'delete' or d->>'status' = 'requested'
+        or not exists (select 1 from records g where g.kind = 'gatherings' and g.id = d->>'_parent' and g.data->>'registration' = 'approval')))
+      or can(c, 'manage.classes') or leads(d->>'_parent')
     -- Real gifts and recurring gifts are written by the payment webhook; people can only record test gifts themselves.
     when k = 'gifts' then own = auth.uid()::text and d->>'status' = 'test' and op = 'insert'
     when k = 'recurring' then own = auth.uid()::text and (op = 'update' or coalesce((d->>'test')::boolean, false))

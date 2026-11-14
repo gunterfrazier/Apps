@@ -192,6 +192,8 @@ Each device gets only what its job needs: a kiosk can check kids in, presentatio
 
 For signage, make a playlist under **Admin, Digital signage** first, then add a **Signage screen** device that plays it.
 
+**Approvals** (pre-approved volunteers, and requests that wait for approval) need `supabase/upgrade-8.sql` (new projects get it from `schema.sql`). Run it after `upgrade-7.sql`.
+
 **Rooms and room displays** need `supabase/upgrade-7.sql` (new projects get it from `schema.sql`) and the latest `device-pair`. Under **Screens and devices, Rooms**, give each room its number and where it is, then **Add a display** to the rooms with a TV or projector. Choose what it shows when no one is presenting: a signage playlist, or whatever the main screens show. A teacher whose class meets in the room, or someone with an approved booking, can present to it from their phone from 15 minutes before their time until it ends: they scan the QR code on the screen, or use **Present** on their class page or on the Rooms screen. Administrators, pastors, ministry staff and media coordinators also get **Present on any room's display, at any time**; turn it on for other roles under **Roles and permissions**. A room display can read bookings and presentations in rooms, and only the person presenting can start or change their own presentation.
 
 ## 13. Check that everything works

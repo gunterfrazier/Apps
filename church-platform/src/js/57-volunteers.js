@@ -5,8 +5,9 @@
 const canSchedule = () => S.isMember() && S.can("schedule.teams");
 const teamsOf = (c = S.church()) => c.teams || [];
 const positionsOf = (team, c = S.church()) => c.positions?.[team] || [];
-const teamMembersOf = (team) => S.list("teamMembers").filter((m) => m.team === team && S.user(m.userId));
-const myTeams = () => S.list("teamMembers").filter((m) => m.userId === S.me().id).map((m) => m.team);
+// A request to join (status "requested") isn't on the team until a scheduler approves it, unless the person was pre-approved.
+const teamMembersOf = (team) => S.list("teamMembers").filter((m) => m.team === team && m.status !== "requested" && S.user(m.userId));
+const myTeams = () => S.list("teamMembers").filter((m) => m.userId === S.me().id && m.status !== "requested").map((m) => m.team);
 const planLabel = (p) => `${p.title}, ${fmtShort(fromIsoDay(p.date))} at ${timeLabel(p.time)}`;
 const upcomingPlans = () => { const t = isoDay(new Date()); return S.list("services").filter((p) => p.date >= t).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)); };
 const myAssignments = (userId = S.me().id) => upcomingPlans().flatMap((p) => (p.assignments || []).filter((a) => a.userId === userId).map((a) => [p, a]));
@@ -65,9 +66,9 @@ Screens.serving = () => {
       ${pending.length ? html`<section class="sec"><h2 class="sec-head">Can you serve?</h2><div class="ask-list">${pending.map(askCard)}</div></section>` : ""}
       <section class="sec"><h2 class="sec-head">Your schedule</h2>${rest.length ? html`<div class="ask-list">${rest.map(askCard)}</div>` : html`<div class="rows">${empty(teams.length ? "You're not on the schedule yet. When a scheduler asks you to serve, it shows up here." : "Join a team below to be asked to serve.")}</div>`}</section>
       <section class="sec"><h2 class="sec-head">Teams</h2><div class="rows">${teamsOf().map((t, i) => {
-        const on = teams.includes(t), n = teamMembersOf(t).length;
+        const on = teams.includes(t), asked = !on && myTeamRequest(t), n = teamMembersOf(t).length;
         return html`<div class="row"><span class="lead-ic">${icon(on ? "check" : "hand")}</span><a class="body" href="#team-${i}" style="color:inherit;text-decoration:none"><span class="t">${t}</span><span class="s">${plural(n, "person", "people")}${positionsOf(t).length ? `. ${positionsOf(t).join(", ")}` : ""}</span></a>
-          <button class="btn ${on ? "ghost" : ""} sm" data-act="${on ? "team-leave" : "team-join"}" data-team="${t}">${on ? "Leave" : "Join"}</button></div>`;
+          ${asked ? html`<span class="tag">Requested</span><button class="btn ghost sm" data-act="team-leave" data-team="${t}" aria-label="Cancel your request to join ${t}">Cancel</button>` : html`<button class="btn ${on ? "ghost" : ""} sm" data-act="${on ? "team-leave" : "team-join"}" data-team="${t}">${on ? "Leave" : "Join"}</button>`}</div>`;
       })}</div></section>
       <section class="sec"><div class="sec-head"><h2>Dates you're away</h2><button class="btn ghost sm" data-act="away-add">${icon("plus")}Add dates</button></div>
         <p class="faint" style="margin-top:-4px">Schedulers see that you're away and won't ask you to serve on these days.</p>
@@ -99,8 +100,29 @@ Forms["ask-decline"] = (d) => {
   if (d.away && !isAway(S.me().id, p.date)) S.state.blockouts.push({ id: uid(), churchId: S.state.current, userId: S.me().id, from: p.date, to: p.date, note: d.note });
   S.save(); closeSheet(); toast("Thanks for letting us know"); render();
 };
-Actions["team-join"] = (el) => { if (!myTeams().includes(el.dataset.team)) S.add("teamMembers", { team: el.dataset.team, userId: S.me().id }); toast(`You joined ${el.dataset.team}`); render(); };
-Actions["team-leave"] = (el) => { S.state.teamMembers = S.state.teamMembers.filter((m) => !(m.churchId === S.state.current && m.team === el.dataset.team && m.userId === S.me().id)); S.save(); toast(`You left ${el.dataset.team}`); render(); };
+// Joining a team: pre-approved people (and schedulers) are on it right away; anyone else sends a request.
+Actions["team-join"] = (el) => {
+  const team = el.dataset.team;
+  if (myTeams().includes(team) || myTeamRequest(team)) return;
+  if (volunteerPreApproved()) { S.add("teamMembers", { team, userId: S.me().id, at: new Date().toISOString() }); emit("volunteer.joined", { team, person: S.me().name }); toast(`You joined ${team}`); render(); return; }
+  openSheet(`Ask to join ${team}`, html`<form data-form="team-request" novalidate><input type="hidden" name="team" value="${team}">
+    <p class="muted" style="margin-top:0">Someone who schedules the teams approves each request. You'll get a notification when they do.</p>
+    <label class="field"><span>A note for them (optional)</span><input type="text" name="note" maxlength="160" placeholder="I've run sound at my last church"></label>
+    ${approvalNotifyField("volunteers")}
+    <button class="btn block">Send request</button></form>`);
+};
+Forms["team-request"] = (d) => {
+  const team = d.team; if (myTeams().includes(team) || myTeamRequest(team)) { closeSheet(); return; }
+  S.add("teamMembers", { team, userId: S.me().id, status: "requested", note: String(d.note || "").trim(), at: new Date().toISOString() });
+  if (d.notifyApprovers) notifyApprovers("volunteers", { title: `${S.me().name} wants to serve`, body: `${team} team${d.note ? `. "${String(d.note).trim()}"` : ""}`, link: "#teams" });
+  emit("volunteer.requested", { team, person: S.me().name, note: d.note || "" });
+  closeSheet(); toast("Request sent. You'll get a notification when you're approved."); render();
+};
+Actions["team-leave"] = (el) => {
+  const asked = myTeamRequest(el.dataset.team);
+  S.state.teamMembers = S.state.teamMembers.filter((m) => !(m.churchId === S.state.current && m.team === el.dataset.team && m.userId === S.me().id)); S.save();
+  toast(asked ? "Request cancelled" : `You left ${el.dataset.team}`); render();
+};
 Actions["away-add"] = () => {
   const t = isoDay(new Date());
   openSheet("Dates you're away", html`<form data-form="away-save" novalidate>
@@ -125,7 +147,7 @@ Screens.teams = () => {
   const plans = upcomingPlans().slice(0, 8);
   return {
     title: "Volunteer teams", back: "ministry",
-    body: html`<section class="sec"><h2 class="sec-head">Upcoming services</h2><div class="rows">${plans.length ? plans.map((p) => {
+    body: html`${teamRequestsSection("")}<section class="sec"><h2 class="sec-head">Upcoming services</h2><div class="rows">${plans.length ? plans.map((p) => {
         const st = fillStats(p), d = fromIsoDay(p.date);
         return html`<a class="row" href="#crew-${p.id}"><span class="date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span><span class="body"><span class="t">${p.title} at ${timeLabel(p.time)}</span><span class="s">${fillText(st)}</span>
           <span class="meter" aria-hidden="true"><i style="width:${st.total ? Math.round((st.confirmed / st.total) * 100) : 0}%"></i><i class="w" style="width:${st.total ? Math.round((Math.min(st.waiting, st.total - st.confirmed) / st.total) * 100) : 0}%"></i></span></span>${icon("chev")}</a>`;
@@ -218,6 +240,7 @@ Screens.team = (i) => {
     title: team, back: edit ? "teams" : "serving",
     body: html`<section class="sec"><div class="sec-head"><h2>Positions</h2>${edit ? html`<button class="btn ghost sm" data-act="team-edit" data-i="${i}">${icon("edit")}Edit team</button>` : ""}</div>
         <div class="chips">${positions.length ? positions.map((x) => html`<span class="tag">${x}</span>`) : html`<span class="faint">No positions yet.</span>`}</div></section>
+      ${teamRequestsSection(team)}
       <section class="sec"><div class="sec-head"><h2>People</h2>${edit ? html`<button class="btn ghost sm" data-act="team-add" data-team="${team}">${icon("plus")}Add people</button>` : ""}</div>
         <div class="rows">${people.length ? people.map((m) => {
           const next = myAssignments(m.userId).find(([, a]) => a.team === team && a.status !== "declined"), away = awayDates(m.userId).filter((b) => (b.to || b.from) >= isoDay(new Date()));
@@ -270,5 +293,10 @@ Actions["team-add"] = (el) => {
     <div class="rows" id="team-cand">${people.map((u) => html`<button class="row" data-act="team-add-one" data-team="${team}" data-user="${u}" data-search="${S.userName(u)}">${avatar(S.user(u))}<span class="body"><span class="t">${S.userName(u)}</span></span>${icon("plus")}</button>`)}</div>
     <p id="team-none" class="faint" ${attr(people.length, "hidden")}>Everyone's already on this team.</p>`, { wide: true });
 };
-Actions["team-add-one"] = (el) => { S.add("teamMembers", { team: el.dataset.team, userId: el.dataset.user }); el.remove(); toast(`${S.userName(el.dataset.user)} added`); render(); };
+Actions["team-add-one"] = (el) => {
+  // Someone already asking to join: approve their request rather than adding them twice.
+  const asked = S.list("teamMembers").find((m) => m.team === el.dataset.team && m.userId === el.dataset.user && m.status === "requested");
+  if (asked) approveTeamRequest(asked); else S.add("teamMembers", { team: el.dataset.team, userId: el.dataset.user });
+  S.save(); el.remove(); toast(`${S.userName(el.dataset.user)} added`); render();
+};
 Actions["team-remove"] = (el) => { S.remove("teamMembers", el.dataset.id); render(); };
