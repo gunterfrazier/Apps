@@ -119,6 +119,7 @@ Screens.gathering = (id) => {
         ${next ? ext(gcalLink(g.name, next, new Date(next.getTime() + 90 * 60e3), g.description, fullAddress(g)), "Add to Google Calendar", "btn ghost sm", "calendar") : ""}
         ${(isIn(g) || isLeader(g)) && S.on("chat") && S.can("use.chat") ? html`<a class="btn ghost sm" href="#thread-g-${g.id}">${icon("chat")}${g.type === "class" ? "Class chat" : "Group chat"}</a>` : ""}
         ${(hasKid || (isLeader(g) && g.ageMin != null)) && S.on("chat") && S.can("use.chat") ? html`<a class="btn ghost sm" href="#thread-p-${g.id}">${icon("chat")}Parents chat</a>` : ""}
+        ${isLeader(g) && g.room && g.locationId ? html`<a class="btn ghost sm" href="#roompresent-${roomKey(g.locationId, g.room)}">${icon("screen")}Present in ${g.room}</a>` : ""}
         ${S.can("qr.create") ? html`<button class="btn ghost sm" data-act="qr-for" data-target="${g.registration === "none" ? `gathering-${g.id}` : `register-gathering-${g.id}`}" data-label="${g.name}">${icon("qr")}QR code</button>` : ""}
       </div>
       ${canLead ? leaderPanel(g) : ""}

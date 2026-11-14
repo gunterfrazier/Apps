@@ -129,6 +129,7 @@ const PERMS = [
   ["Leading", "book.rooms", "Request rooms for their groups and events"],
   ["Sunday", "services.plan", "Plan services, segments and songs"],
   ["Sunday", "present", "Run presentations on the screens"],
+  ["Sunday", "present.rooms", "Present on any room's display, at any time"],
   ["Sunday", "checkin.station", "Run check-in and see room rosters"],
   ["Sunday", "qr.create", "Make QR codes"],
   ["Sunday", "schedule.teams", "Schedule volunteer teams"],
@@ -152,9 +153,11 @@ const PERM_LABEL = Object.fromEntries(PERMS.map(([, k, l]) => [k, l]));
 const NEW_PERM_DEFAULTS = {
   "book.rooms": ["pastor", "staff", "teacher", "leader"], "schedule.teams": ["pastor", "staff", "media"],
   "manage.followup": ["pastor", "staff"], "view.reports": ["pastor", "staff"], "manage.devices": ["pastor", "staff", "media"],
+  "present.rooms": ["pastor", "staff", "media"],
 };
 /** What each kind of signed-in church device may do. Devices never get a person's role. */
-const DEVICE_PERMS = { kiosk: ["checkin.station", "use.checkin"], signage: [], display: ["present"], stage: ["present"], overlay: ["present"], booth: ["present"] };
+// A room display reads bookings ("rooms.view", a device-only permission) to know who has the room right now.
+const DEVICE_PERMS = { kiosk: ["checkin.station", "use.checkin"], signage: [], display: ["present"], room: ["present", "rooms.view"], stage: ["present"], overlay: ["present"], booth: ["present"] };
 const mmss = (secs) => { const s = Math.max(0, Math.round(secs)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const MODULES = [
   ["sermons", "Sermons"], ["plans", "Reading plans"], ["events", "Events"], ["classes", "Classes and Sunday school"], ["groups", "Small groups"],

@@ -429,6 +429,52 @@ await step("booth and signage devices", async () => {
   await s.waitForFunction(() => !document.body.classList.contains("device-mode")); await s.close();
   await goTo("devices"); await shot("49-devices");
 });
+await step("rooms: numbers and where they are, and a room display teachers present to", async () => {
+  await page.goto(base + "?debug#admin-rooms"); await expectText("Education building, 2nd floor");
+  await page.click('[data-act=room-info][data-room="riverside-main~Room%20106"]');
+  await page.fill("#scrim input[name=number]", "106B"); await page.fill("#scrim input[name=where]", "Kids wing, by the nursery"); await sheetSubmit(); await sheetGone();
+  await expectText("Kids wing, by the nursery"); await shot("50-rooms");
+  // Renaming a room carries through to its classes and bookings.
+  await page.click('[data-act=room-info][data-room="riverside-main~Room%20106"]'); await page.fill("#scrim input[name=name]", "Room 106B"); await sheetSubmit(); await sheetGone();
+  if (!(await page.evaluate(() => __app.S.list("gatherings").some((g) => g.room === "Room 106B")))) throw new Error("renaming didn't reach the class that meets there");
+  // A display for Room 201: signage when it's free.
+  await page.click('[data-act=room-info][data-room="riverside-main~Room%20201"]'); await page.click("#scrim [data-act=device-new][data-type=room]");
+  if ((await page.$eval("#scrim select[name=roomKey]", (s) => s.value)) !== "riverside-main~Room 201") throw new Error("the room wasn't filled in");
+  await page.selectOption("#scrim select[name=roomPlaylistId]", "sign-lobby"); await sheetSubmit(); await page.waitForSelector("#scrim .pair-code");
+  const code = (await page.textContent("#scrim .pair-code")).trim(); await page.click("#scrim [data-act=close-sheet]");
+  const tv = await tab(1280, 720); await tv.goto(base + `?debug#pair-${code}`); await tv.click("form[data-form=pair] button");
+  await tv.waitForSelector(".room-hint"); await tv.waitForSelector(".sign-player");
+  if ((await tv.evaluate(() => location.hash)) !== "#display-room") throw new Error("the room display went somewhere else");
+  await tv.screenshot({ path: join(shots, "51-room-display-free.png") });
+  // A teacher with the room presents from their phone; the display follows, without its QR card.
+  await goTo("roompresent-riverside-main~Room%20201"); await expectText("What do you want to show?"); await shot("52-room-present");
+  await page.click('[data-act=room-start][data-key^="doc-"] >> nth=0'); await page.waitForSelector(".room-strip");
+  await tv.waitForSelector(".display .slide.k-title", { timeout: 10000 });
+  const first = await tv.textContent(".display .slide");
+  await page.click('[data-act="pres-go"][data-d="1"]');
+  await tv.waitForFunction((t) => document.querySelector(".display .slide")?.textContent !== t, first, { timeout: 10000 });
+  if (await tv.$(".room-hint")) throw new Error("the QR card shows during a presentation");
+  await shot("53-room-presenting"); await tv.screenshot({ path: join(shots, "54-room-display-presenting.png") });
+  // Stopping hands the display back straight away.
+  await page.click(".room-strip [data-act=room-stop]"); await tv.waitForSelector(".sign-player", { timeout: 8000 });
+  await page.waitForFunction(() => location.hash.startsWith("#roompresent-"));
+  // So does time running out, on the display by itself and on the presenter's phone.
+  await page.click('[data-act=room-start][data-key^="doc-"] >> nth=0'); await tv.waitForSelector(".display .slide.k-title", { timeout: 10000 });
+  await tv.evaluate(() => __app.S.state.roomSessions.forEach((x) => { x.until = new Date(Date.now() - 1000).toISOString(); }));
+  await tv.waitForSelector(".sign-player", { timeout: 8000 });
+  await page.evaluate(() => { __app.pres.room.until = Date.now() - 1000; });
+  await page.waitForFunction(() => location.hash.startsWith("#roompresent-"), null, { timeout: 8000 });
+  if (await page.evaluate(() => __app.S.state.roomSessions.length)) throw new Error("the presentation's record wasn't cleared");
+  // Who has a room: the class's teacher from 15 minutes before it starts until it ends, and not on another day.
+  const access = await page.evaluate(() => {
+    const sun = new Date(); sun.setDate(sun.getDate() + ((7 - sun.getDay()) % 7 || 7)); sun.setHours(8, 50, 0, 0);
+    const at = (h, m) => { const d = new Date(sun); d.setHours(h, m); return d.getTime(); };
+    const a = (t) => __app.roomAccess("u-linda", "riverside-main", "Room 104", t);
+    return [a(at(8, 30)).ok, a(at(8, 50)).ok, a(at(10, 0)).ok, a(at(10, 20)).ok, a(at(8, 50)).until === at(10, 15), a(at(8, 50) + 86400e3).ok];
+  });
+  if (JSON.stringify(access) !== "[false,true,true,false,true,false]") throw new Error(`room access times are off: ${access}`);
+  await tv.close();
+});
 await step("pickups and allergies at home", async () => {
   await goTo("household"); await page.click("[data-act=person-edit][data-id] >> nth=0");
   await page.fill("#scrim input[name=allergies]", "Penicillin"); await sheetSubmit(); await sheetGone(); await expectText("Allergy: Penicillin");

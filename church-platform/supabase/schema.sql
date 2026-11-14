@@ -1,4 +1,4 @@
--- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 6.
+-- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 7.
 -- Run this once in the Supabase SQL editor on a new project (see SETUP.md).
 --
 -- How it fits the app: the app keeps one list per kind of thing (sermons, events, prayers, gifts...). Each item is a
@@ -101,9 +101,10 @@ create or replace function is_member(c text) returns boolean language sql stable
 create or replace function my_rank(c text) returns int language sql stable security definer set search_path = public as
   $$ select case when is_primary(c) then 100 else coalesce((select r.rank from memberships m join roles r on r.church_id = m.church_id and r.key = m.role_key where m.church_id = c and m.user_id = auth.uid()), 0) end $$;
 -- Signed-in church devices (kiosks, screens, the booth) have a membership with role_key 'device:<type>' instead of a role.
+-- A room display also reads bookings and presentations in rooms ('rooms.view', a permission only devices have).
 create or replace function device_perms(t text) returns text[] language sql immutable set search_path = public as $$
-  select case t when 'kiosk' then array['checkin.station', 'use.checkin'] when 'display' then array['present'] when 'stage' then array['present']
-    when 'overlay' then array['present'] when 'booth' then array['present'] else array[]::text[] end $$;
+  select case t when 'kiosk' then array['checkin.station', 'use.checkin'] when 'display' then array['present'] when 'room' then array['present', 'rooms.view']
+    when 'stage' then array['present'] when 'overlay' then array['present'] when 'booth' then array['present'] else array[]::text[] end $$;
 create or replace function can(c text, perm text) returns boolean language sql stable security definer set search_path = public as
   $$ select is_primary(c) or exists (select 1 from memberships m join roles r on r.church_id = m.church_id and r.key = m.role_key
        where m.church_id = c and m.user_id = auth.uid() and coalesce((r.perms->>perm)::boolean, false))
@@ -148,7 +149,9 @@ create or replace function rec_read(k text, c text, loc text, own text, d jsonb)
     when k = 'guests' then can(c, 'checkin.station') or can(c, 'manage.followup')
     when k = 'attendance' then can(c, 'view.reports')
     when k = 'formResponses' then can(c, 'manage.content') or exists (select 1 from records f where f.kind = 'forms' and f.id = d->>'formId' and f.data->>'notify' = auth.uid()::text)
-    when k = 'bookings' then can(c, 'book.rooms') or can(c, 'manage.locations')
+    when k = 'bookings' then can(c, 'book.rooms') or can(c, 'manage.locations') or can(c, 'rooms.view')
+    -- Someone presenting in a room: the presenter (as owner, above), the room displays and the people who manage screens.
+    when k = 'roomSessions' then can(c, 'rooms.view') or can(c, 'manage.devices')
     when k = 'channels' then d->'members' ? auth.uid()::text
     when k = 'messages' then in_channel(c, d->>'channelId')
     when k in ('deliveries', 'integrations') then can(c, 'manage.integrations')
@@ -181,6 +184,12 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
     when k = 'attendance' then can(c, 'view.reports') or can(c, 'checkin.station')
     when k = 'formResponses' then (own = auth.uid()::text and op <> 'update') or can(c, 'manage.content')
     when k = 'bookings' then (own = auth.uid()::text and can(c, 'book.rooms') and (op = 'delete' or d->>'status' = 'requested')) or can(c, 'manage.locations')
+    -- Presenting in a room is always in your own name. Room displays check the time (a booking or a class you lead, or
+    -- present.rooms); here only people who could have a room can start one. Screen managers can clear any.
+    when k = 'roomSessions' then (own = auth.uid()::text and d->>'by' = own and is_member(c) and (op = 'delete' or can(c, 'present.rooms')
+        or can(c, 'book.rooms') or can(c, 'teach.classes') or can(c, 'lead.groups')
+        or exists (select 1 from records g where g.kind = 'gatherings' and g.church_id = c and g.data->'leaders' ? auth.uid()::text)))
+      or (op = 'delete' and (can(c, 'manage.devices') or can(c, 'present.rooms')))
     when k = 'channels' then d->'members' ? auth.uid()::text and can(c, 'use.chat')
     when k = 'messages' then own = auth.uid()::text and in_channel(c, d->>'channelId')
     when k = 'notifications' then (op = 'insert' and is_member(c)) or own = auth.uid()::text

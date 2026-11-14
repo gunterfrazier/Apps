@@ -24,9 +24,9 @@ function defaultRoles() {
   const pick = (...keys) => Object.fromEntries(["use.prayer", "use.directory", "use.chat", "use.checkin", ...keys].map((k) => [k, true]));
   return [
     { id: "admin", name: "Administrator", rank: 90, perms: all, builtin: true },
-    { id: "pastor", name: "Pastor", rank: 70, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "build.sermons", "chat.leaders", "services.plan", "present", "qr.create", "manage.content", "manage.sermons", "manage.prayer", "book.rooms", "schedule.teams", "manage.followup", "view.reports", "manage.devices") },
-    { id: "staff", name: "Ministry staff", rank: 60, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "chat.leaders", "services.plan", "checkin.station", "qr.create", "manage.content", "manage.classes", "book.rooms", "schedule.teams", "manage.followup", "view.reports", "manage.devices") },
-    { id: "media", name: "Media coordinator", rank: 40, perms: pick("present", "services.plan", "qr.create", "schedule.teams", "manage.devices") },
+    { id: "pastor", name: "Pastor", rank: 70, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "build.sermons", "chat.leaders", "services.plan", "present", "qr.create", "manage.content", "manage.sermons", "manage.prayer", "book.rooms", "schedule.teams", "manage.followup", "view.reports", "manage.devices", "present.rooms") },
+    { id: "staff", name: "Ministry staff", rank: 60, perms: pick("lead.groups", "teach.classes", "build.studies", "build.lessons", "chat.leaders", "services.plan", "checkin.station", "qr.create", "manage.content", "manage.classes", "book.rooms", "schedule.teams", "manage.followup", "view.reports", "manage.devices", "present.rooms") },
+    { id: "media", name: "Media coordinator", rank: 40, perms: pick("present", "present.rooms", "services.plan", "qr.create", "schedule.teams", "manage.devices") },
     { id: "teacher", name: "Teacher", rank: 30, perms: pick("teach.classes", "build.lessons", "build.studies", "book.rooms") },
     { id: "leader", name: "Group leader", rank: 30, perms: pick("lead.groups", "build.studies", "book.rooms") },
     { id: "checkin", name: "Check-in team", rank: 20, perms: pick("checkin.station") },
@@ -120,10 +120,10 @@ function buildSeed() {
       tagline: "A family of ordinary people following Jesus by the river.", sign: ["All are welcome", "Sundays 9 and 11"],
       email: "hello@riverside.example", phone: "(770) 555-0100", website: "https://riverside.example",
       locations: [
-        loc("riverside", "main", { code: "MAIN", name: "Main campus", address: "2100 Riverbend Rd, Marietta, GA", rooms: ["Sanctuary", "Fellowship hall", "Room 104", "Room 106", "Room 201", "Kids wing"], services: [svc(0, "09:00", "Early service"), svc(0, "11:00", "Late service")] }),
+        loc("riverside", "main", { code: "MAIN", name: "Main campus", address: "2100 Riverbend Rd, Marietta, GA", rooms: ["Sanctuary", "Fellowship hall", "Room 104", "Room 106", "Room 201", "Kids wing"], roomInfo: { "Fellowship hall": { number: "", where: "Ground floor, behind the sanctuary" }, "Room 104": { number: "104", where: "Kids wing, 1st floor" }, "Room 106": { number: "106", where: "Kids wing, 1st floor" }, "Room 201": { number: "201", where: "Education building, 2nd floor" } }, services: [svc(0, "09:00", "Early service"), svc(0, "11:00", "Late service")] }),
         loc("riverside", "east", { code: "EAST", name: "East campus", address: "880 Canton Hwy, Marietta, GA", rooms: ["Auditorium", "Room 2", "Room 3"], services: [svc(0, "10:00", "Sunday gathering")] }),
         loc("riverside", "office", { code: "STAFF", name: "Staff offices", address: "2104 Riverbend Rd, Marietta, GA", visibility: "private", rooms: ["Conference room", "Prayer room"] }),
-      ],
+      ], roomInfo: { "Conference room": { number: "12", where: "1st floor, by the kitchen" } },
       funds: [...DEFAULT_FUNDS, { id: "benevolence", name: "Benevolence", description: "Help for neighbors in need" }],
       landing: { showOnHome: true, blocks: [
         { id: "b1", type: "text", title: "New here?", text: "Come as you are. Services last about 75 minutes, there's coffee in the lobby, and kids have their own rooms with background-checked teachers." },
@@ -431,7 +431,7 @@ function buildSeed() {
     churches: Object.fromEntries(churches.map((c) => [c.id, c])),
     sermons, events, news, prayers, gatherings, plans, gifts, docs, songs, library, services, layouts, savedBlocks,
     channels: [], messages, chatSeen: {}, deliveries: [], teamMembers, blockouts, notifications: [],
-    cards, checkins: [], serving: [], recurring: [], attendance, followups, forms: formsSeed, formResponses, bookings, devices: [], signage: signageSeed(),
+    cards, checkins: [], serving: [], recurring: [], attendance, followups, forms: formsSeed, formResponses, bookings, devices: [], signage: signageSeed(), roomSessions: [],
     notes: {}, progress: {}, saved: [], seen: [],
   };
 }
