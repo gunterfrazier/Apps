@@ -139,7 +139,7 @@ Edit the files in `src/`, not `dist/`. `src/vendor/qrcode.js` (MIT) and `public/
 
 The preview runs everything in one browser. [SETUP.md](SETUP.md) walks through connecting real services, step by step:
 
-1. **Host it** on GitHub Pages with the included workflow (`.github/workflows/our-faithful-pages.yml`), or any static host.
+1. **Host it** on Cloudflare Pages at its own domain (`https://ourfaithfulchurch.com/`, see SETUP.md, "Your own domain on Cloudflare"), on GitHub Pages with the included workflow (`.github/workflows/our-faithful-pages.yml`), or any static host. With a domain set as `home` in `config.js`, the `www` name and the address the app moved from forward to it.
 2. **Shared data and sign-in** with Supabase: run `supabase/schema.sql`, turn on email sign-in (a code confirms the email, then a password for later), and put the project's URL and public key in `config.js`. `src/js/70-backend.js` then signs people in, loads what each person may see, writes only what changed, and follows other people's changes live. Row-level security in the schema checks each person's role and location access on every read and write.
 3. **Real giving** with each church's own Stripe, PayPal or Square account, connected from Admin, Giving: the app checks the keys, sets up the processor's webhook itself and keeps the keys encrypted in Supabase Vault. Gifts (once or recurring with Stripe and PayPal), tickets, form fees and refunds are recorded when the person comes back from checkout and again by the webhook, once each. Stripe Connect through a platform account is optional. Text-to-give works through a Twilio number. Year-end statements download as PDFs.
 4. **Push notifications** with Web Push (VAPID keys and a database webhook).

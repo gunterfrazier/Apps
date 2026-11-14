@@ -233,8 +233,10 @@ await step("Bible highlights and notes save to the account", async () => {
   await page.click("#scrim form button.btn:not([type=button])"); await page.waitForSelector("#scrim", { state: "detached" }); await page.waitForTimeout(1500);
   const priv = (db.profile_private || []).find((r) => r.user_id === uid)?.data || {};
   if (priv.highlights?.["42.3.16"] !== "yellow" || priv.verseNotes?.["42.3.16-16"]?.text !== "For God so loved.") throw new Error("highlights and notes weren't saved to the account");
-  await page.reload(); await page.evaluate(() => { location.hash = "notes"; }); await page.waitForTimeout(1500);
-  if (!(await appText()).includes("For God so loved.")) throw new Error("the Bible note is missing after a reload");
+  // After a reload the note comes back from the account; wait for it rather than a fixed pause (a busy machine is slower).
+  await page.reload(); await page.evaluate(() => { location.hash = "notes"; });
+  await page.waitForFunction(() => document.querySelector("#app")?.textContent.includes("For God so loved."), null, { timeout: 15000 })
+    .catch(() => { throw new Error("the Bible note is missing after a reload"); });
 });
 // For checking the real security rules: the rows the app wrote, as it would send them to Supabase.
 if (process.env.DUMP_DB) (await import("node:fs")).writeFileSync(process.env.DUMP_DB, JSON.stringify({ uid, db }, null, 1));
@@ -578,6 +580,51 @@ await step("resets a forgotten password", async () => {
   await page.fill("input[name=password]", "peace be with you"); await page.fill("input[name=password2]", "peace be with you"); await page.click("form[data-form=account-setup] button.btn");
   await page.waitForFunction(() => /Test Fellowship/.test(document.querySelector("#app").textContent) && !document.querySelector("form[data-form=account-setup]"), null, { timeout: 15000 });
   if (accounts["tester@example.com"].password !== "peace be with you") throw new Error("new password not saved");
+});
+
+await step("the www name and the old address forward to the app's one address", async () => {
+  // Three made-up addresses serve the built app: its new home, the www name, and the old address under /Apps/.
+  const home = "https://ourfaithful.test/", old = "https://old.test/Apps/";
+  const settings = `window.OUR_FAITHFUL_CONFIG = ${JSON.stringify({ supabaseUrl, supabasePublishableKey: "sb_publishable_test", home, movedFrom: ["old.test"] })};`;
+  let newSiteUp = false;
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+  await c.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await c.route(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", headers: { "access-control-allow-origin": "*" }, body: readFileSync(bundle) }));
+  await c.route((url) => url.host === supaHost, supabase);
+  await c.route((url) => ["ourfaithful.test", "www.ourfaithful.test", "old.test"].includes(url.hostname), (route) => {
+    const u = new URL(route.request().url()), fresh = u.hostname !== "old.test";
+    // Until the new domain is set up, it answers like a parked domain: a page, but not this app.
+    if (fresh && !newSiteUp) return route.fulfill({ status: 200, contentType: "text/html", headers: { "access-control-allow-origin": "*" }, body: "<h1>This domain is parked</h1>" });
+    const path = (fresh ? u.pathname.slice(1) : u.pathname.replace(/^\/Apps\//, "")) || "index.html";
+    if (path === "config.js") return route.fulfill({ status: 200, contentType: "text/javascript", headers: { "access-control-allow-origin": "*" }, body: settings });
+    const file = join(root, path);
+    if (!file.startsWith(root) || !existsSync(file)) return route.fulfill({ status: 404, body: "" });
+    return route.fulfill({ status: 200, contentType: types[extname(file)] || "application/octet-stream", body: readFileSync(file) });
+  });
+  const p = await c.newPage(); p.on("pageerror", (e) => errors.push(`forwarding: ${e.message}`));
+  const settle = async () => { await p.waitForSelector("#app form, #app .welcome", { timeout: 15000 }); await p.waitForTimeout(700); return p.url(); };
+  // The new domain isn't serving the app yet: the old address keeps working.
+  await p.goto(old + "#signin");
+  if (!(await settle()).startsWith(old)) throw new Error(`the old address left for ${p.url()} before the new one was ready`);
+  // Now it is: the old address forwards, and the rest of the link comes along.
+  newSiteUp = true;
+  await p.goto(old + "?from=old#pair-ABC123"); await p.waitForURL(home + "?from=old#pair-ABC123", { timeout: 15000 });
+  await p.waitForSelector("form[data-form=pair]");
+  if ((await p.inputValue("input[name=code]")) !== "ABC123") throw new Error("the pairing code in the link didn't come along");
+  // It's remembered, so the next visit goes straight there, even if the new address is slow to answer.
+  newSiteUp = false; await p.goto(old + "#signin").catch(() => {}); await p.waitForURL(home + "#signin", { timeout: 15000 }); newSiteUp = true;
+  // ?stay keeps someone on the old address.
+  await p.goto(old + "?stay#signin");
+  if (!(await settle()).startsWith(old)) throw new Error("?stay didn't keep the old address");
+  // The www name forwards at once, and the app's own address stays put.
+  await p.goto("https://www.ourfaithful.test/#signin"); await p.waitForURL(home + "#signin", { timeout: 15000 });
+  if ((await settle()) !== home + "#signin") throw new Error(`the app's own address moved on to ${p.url()}`);
+  // A demo link to the old address opens the demo at the new one.
+  await p.evaluate(() => localStorage.removeItem("our-faithful-moved")).catch(() => {});
+  await p.goto(old + "?demo#welcome"); await p.waitForURL((u) => u.href.startsWith(home), { timeout: 15000 });
+  await p.waitForFunction(() => localStorage.getItem("our-faithful-sandbox") === "demo" && !/[?&]demo\b/.test(location.search), null, { timeout: 15000 })
+    .catch(() => { throw new Error("a demo link to the old address didn't open the demo at the new one"); });
+  await c.close();
 });
 
 console.log(`\nSupabase calls: ${[...calls].sort().join(", ")}`);

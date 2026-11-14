@@ -10,6 +10,8 @@ const PLATFORM = {
   color: "#4250d6",
   // Filled in by config.js on your own website (see SETUP.md). Empty means the app keeps data in the browser.
   supabaseUrl: "", supabasePublishableKey: "", vapidPublicKey: "", platformFeePercent: 0,
+  // When the app has its own domain: home is its one address, and movedFrom lists hosts it used to live at.
+  home: "", movedFrom: [],
   ...(typeof window !== "undefined" && window.OUR_FAITHFUL_CONFIG ? window.OUR_FAITHFUL_CONFIG : {}),
 };
 // Older config files call the publishable key the anon key.
@@ -20,6 +22,34 @@ if (PLATFORM.supabaseUrl && !/claude/i.test(location.hostname)) PLATFORM.storage
 /** True inside the Claude preview frame, where other sites can't be framed and cameras, popups and service workers are off. */
 const IN_PREVIEW = /claude/i.test(location.hostname);
 
+// ---------- One address ----------
+// Sign-ins, the home-screen install and paired screens all belong to the address they were made at. So when the app
+// has its own domain (config.js: home), every other way in forwards there: the www name at once, and an address the app
+// has moved from (config.js: movedFrom) as soon as the new one is really serving the app, so a domain that's still
+// being set up never strands anyone. The rest of the link (?demo, #pair-ABC123, a sign-in link's code) comes along.
+// To keep using an old address, add ?stay to it.
+const MOVED_KEY = "our-faithful-moved";
+const ARRIVED = location.search;   // the link as it was opened: ?demo and ?training are taken off the address further down
+function forwardHome() {
+  let home; try { home = new URL(PLATFORM.home); } catch { return false; }
+  if (IN_PREVIEW || !/^https?:$/.test(location.protocol) || location.origin === home.origin) return false;
+  const go = () => { location.replace(home.origin + home.pathname + ARRIVED + location.hash); return true; };
+  if (location.hostname === `www.${home.hostname}`) return go();
+  if (![].concat(PLATFORM.movedFrom || []).includes(location.hostname) || /[?&]stay\b/.test(ARRIVED)) return false;
+  try { if (localStorage.getItem(MOVED_KEY) === home.href) return go(); } catch { /* storage is off: ask each time */ }
+  fetch(new URL("config.js", home), { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).then((text) => {
+    if (!text.includes("OUR_FAITHFUL_CONFIG")) return;   // a parked domain or a half-finished setup answers differently
+    try {
+      localStorage.setItem(MOVED_KEY, home.href);
+      if (/[?&](demo|training)\b/.test(ARRIVED)) localStorage.removeItem(SANDBOX_KEY);   // the link's demo goes with it
+    } catch { /* fine */ }
+    go();
+  }).catch(() => { /* the new address isn't up yet: stay */ });
+  return false;
+}
+/** True when this page is on its way to the app's one address, so nothing should start here. */
+const FORWARDING = forwardHome();
+
 // ---------- Demo and training sandboxes ----------
 // "Try the demo" and "Training" run the app on practice data kept in this browser only: nothing reaches a church's
 // real data, no money moves, and Reset starts over. They open with ?demo or ?training and stay on until Exit
@@ -28,7 +58,7 @@ const SANDBOX_KEY = "our-faithful-sandbox";
 const SANDBOX = (() => {
   try {
     const q = new URLSearchParams(location.search), want = q.has("demo") ? "demo" : q.has("training") ? "training" : "";
-    if (want) {
+    if (want && !FORWARDING) {
       localStorage.setItem(SANDBOX_KEY, want);
       q.delete("demo"); q.delete("training");
       history.replaceState(null, "", location.pathname + (q.toString() ? `?${q}` : "") + location.hash);

@@ -1,19 +1,22 @@
 // ---------- Start ----------
-S.load();
-sandboxStart();
-applyDisplay();
-window.addEventListener("hashchange", () => { closeSheet(true); render(); });
-window.addEventListener("pagehide", () => S.flush());
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") S.flush(); });
-document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("presenting")) render(); });
-render();
-Backend.start();
-setTimeout(runReminders, 1500);
+// Opened at the www name or an old address? Go to the app's one address instead of starting here (see forwardHome).
+if (!FORWARDING) {
+  S.load();
+  sandboxStart();
+  applyDisplay();
+  window.addEventListener("hashchange", () => { closeSheet(true); render(); });
+  window.addEventListener("pagehide", () => S.flush());
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") S.flush(); });
+  document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("presenting")) render(); });
+  render();
+  Backend.start();
+  setTimeout(runReminders, 1500);
 
-// Offline support when the app runs on its own website. Inside the preview frame this is refused, which is fine.
-try {
-  if ("serviceWorker" in navigator && window.isSecureContext && !IN_PREVIEW) navigator.serviceWorker.register("sw.js").catch(() => {});
-} catch { /* not available here */ }
+  // Offline support when the app runs on its own website. Inside the preview frame this is refused, which is fine.
+  try {
+    if ("serviceWorker" in navigator && window.isSecureContext && !IN_PREVIEW) navigator.serviceWorker.register("sw.js").catch(() => {});
+  } catch { /* not available here */ }
+}
 
 // For local testing only: open the app with ?debug to reach the store from the console.
 if (/[?&]debug\b/.test(location.search)) window.__app = { S, roomUses, bookingConflicts, meetingTimes, Backend, RECORD_KINDS, SPLIT, signPlay, render, pres, roomAccess, activeRoomSession, DeviceSignin };
