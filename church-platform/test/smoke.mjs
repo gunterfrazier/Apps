@@ -213,7 +213,7 @@ await step("service plan and songs", async () => {
 const titles = (sel = "#sort-list > [data-index] .block-top b") => page.$$eval(sel, (bs) => bs.map((b) => b.textContent.trim()));
 async function drag(fromIndex, toIndex) {
   const h = await page.$(`#sort-list > [data-index="${fromIndex}"] [data-drag]`), target = await page.$(`#sort-list > [data-index="${toIndex}"]`);
-  await h.scrollIntoViewIfNeeded(); const a = await h.boundingBox(); const b = await target.boundingBox();
+  await h.evaluate((el) => el.scrollIntoView({ block: "center" })); const a = await h.boundingBox(); const b = await target.boundingBox();
   await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await page.mouse.down();
   const y = toIndex > fromIndex ? b.y + b.height * 0.8 : b.y + b.height * 0.2;
   for (let i = 1; i <= 8; i++) await page.mouse.move(a.x + a.width / 2, a.y + (y - a.y) * i / 8);
@@ -618,6 +618,52 @@ await step("read aloud: the most natural voice, a voice picker, speed, and refer
   await page.click('[data-act=set-lang][data-v="es"]'); await page.waitForSelector("#voice-es");
   if (!(await page.$("#voice-en"))) throw new Error("Spanish speakers need an English voice for the Bible too");
   await expectText("Voz en español"); await page.click('[data-act=set-lang][data-v="en"]'); await page.waitForSelector("text=Language");
+});
+await step("bible: reader, highlights, notes, related passages, past sermons and Logos links", async () => {
+  // Look up a passage from the Word tab: it opens in the Bible here.
+  await goTo("word"); await page.fill("form[data-form=bible-lookup] input[name=ref]", "John 15:5"); await page.press("form[data-form=bible-lookup] input[name=ref]", "Enter");
+  await page.waitForSelector("#v5.flash"); if ((await page.evaluate(() => location.hash)) !== "#bible-john-15-5") throw new Error("the look-up didn't open the reader");
+  if ((await page.$$(".bv")).length !== 27) throw new Error("John 15 should have 27 verses");
+  if (!(await page.$(".past"))) throw new Error("past sermons on John 15 aren't shown");
+  if (!(await page.$$(".bv.preached")).length) throw new Error("verses preached on aren't marked");
+  if (!/^https:\/\/ref\.ly\/Jn15$/.test(await page.getAttribute('.bible-tools a[href^="https://ref.ly/"]', "href"))) throw new Error("the Logos link for the chapter is wrong");
+  await page.evaluate(() => scrollTo(0, 0)); await shot("55-bible");
+  // Highlight two verses, write a note on one, see related passages.
+  await page.click("#v5"); await page.click("#v6"); await page.waitForSelector(".bible-actions");
+  if ((await page.textContent(".bible-actions b")) !== "John 15:5-6") throw new Error("the selection label is wrong");
+  if ((await page.getAttribute('.bible-actions a[href^="https://ref.ly/"]', "href")) !== "https://ref.ly/Jn15.5-6") throw new Error("the Logos link for the verses is wrong");
+  await shot("56-bible-selected");
+  await page.click("[data-act=bible-hl][data-c=green]"); await page.waitForSelector("#v5.hl-green"); await page.waitForSelector("#v6.hl-green");
+  await page.click("#v5"); await page.click(".bible-actions [data-act=bible-note]"); await page.fill("#scrim textarea[name=text]", "Remain: stay close every day."); await sheetSubmit(); await sheetGone();
+  await page.waitForSelector(".bv-note");
+  await page.click("#v5"); await page.click(".bible-actions [data-act=bible-xref]"); await page.waitForSelector("#xref-sheet .row");
+  if (!/OpenBible\.info/.test(await page.textContent("#xref-sheet"))) throw new Error("the cross-references aren't credited");
+  await shot("57-bible-related"); await page.click("#xref-sheet .row >> nth=0"); await page.waitForFunction(() => /^#bible-/.test(location.hash) && location.hash !== "#bible-john-15-5");
+  // The book and chapter picker, and the KJV.
+  await page.click("[data-act=bible-pick]"); await page.click('[data-act=bible-book][data-b="18"]'); await page.click('#bp-chapters [data-to="psalms-23"]');
+  await page.waitForFunction(() => location.hash === "#bible-psalms-23"); await page.click('[data-act=bible-t][data-t="KJV"]');
+  await page.waitForFunction(() => /maketh me to lie down in green pastures/.test(document.querySelector(".bible-text")?.textContent || ""), null, { timeout: 8000 }).catch(() => { throw new Error("the KJV didn't load"); });
+  await page.click('[data-act=bible-t][data-t="BSB"]');
+  // My notes lists the Bible note and the highlight; the sermon page shows related passages.
+  await goTo("notes"); await expectText("Remain: stay close every day."); await expectText("John 15:5-6"); await shot("58-my-notes");
+  const sid = await page.evaluate(() => __app.S.list("sermons").find((s) => s.passage === "John 15:1-8")?.id);
+  if (sid) { await goTo(`sermon-${sid}`); await page.click(".xref-panel summary"); await page.waitForSelector(".xref-panel .row"); }
+  // A reading plan drafted from a topic: references that aren't real passages are left out, and nothing saves until a person adds it.
+  await page.evaluate(() => { window.__aiStub = async () => ({ name: "Peace in worry", description: "A week on God's peace.", days: [["Philippians 4:4-9"], ["Psalm 23"], ["Hezekiah 4:2"], ["Matthew 6:25-34", "Isaiah 26:3"], ["John 14:27"]] }); });
+  const before = await page.evaluate(() => __app.S.list("plans").length);
+  await goTo("admin-plans"); await page.click("[data-act=plan-topic]"); await page.fill("#scrim input[name=topic]", "Worry"); await sheetSubmit();
+  await page.waitForSelector("#scrim form[data-form=admin-save]", { timeout: 8000 });
+  const days = await page.$eval("#scrim textarea[name=days]", (t) => t.value);
+  if (/Hezekiah/.test(days) || days.split("\n").length !== 4 || !/Matthew 6:25-34; Isaiah 26:3/.test(days)) throw new Error(`the drafted plan wasn't checked: ${days}`);
+  if ((await page.evaluate(() => __app.S.list("plans").length)) !== before) throw new Error("the drafted plan saved before anyone checked it");
+  await shot("59-plan-from-topic"); await sheetSubmit(); await sheetGone();
+  if ((await page.evaluate(() => __app.S.list("plans").length)) !== before + 1) throw new Error("the checked plan didn't save");
+  await page.evaluate(() => { delete window.__aiStub; });
+  // Read buttons can open Logos instead.
+  await goTo("settings"); await page.$eval('#bible-settings input[name=bibleOpen][value=logos]', (el) => el.click());
+  await goTo("word"); await page.fill("form[data-form=bible-lookup] input[name=ref]", "Romans 8:28");
+  if (!/Opens Romans 8:28 in Logos/.test(await page.textContent("#bible-hint"))) throw new Error("the look-up doesn't say it opens Logos");
+  await goTo("settings"); await page.$eval('#bible-settings input[name=bibleOpen][value=app]', (el) => el.click());
 });
 await step("giving statements as PDF", async () => {
   await goTo("history"); const [mine] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=statement-pdf] >> nth=0")]);

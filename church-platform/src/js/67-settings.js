@@ -25,6 +25,7 @@ Screens.settings = () => {
         <fieldset class="field" style="border:0;padding:0;margin-top:0"><legend class="flabel">Text size</legend><div class="radios">${[["m", "Default"], ["l", "Large"], ["xl", "Largest"]].map(([k, l]) => html`<label><input type="radio" name="text" value="${k}" data-change="pref-text" ${attr(p.text === k, "checked")}><span style="font-size:${k === "m" ? 1 : k === "l" ? 1.12 : 1.25}em">${l}</span></label>`)}</div></fieldset>
         <div class="rows">${toggle("contrast", "More contrast", "Darker text and stronger outlines", p.contrast)}${toggle("calm", "Reduce motion", "Turn off animations and moving effects", p.calm)}</div></section>
       ${readAloudSection()}
+      ${bibleSection()}
       <section class="sec"><h2 class="sec-head">Notifications</h2>
         <div class="rows">
           <div class="row"><span class="lead-ic">${icon("bell")}</span><span class="body"><span class="t">Push notifications</span><span class="s">${{ on: "On for this device", off: "Off. Turn on to get them even when the app is closed.", denied: "Blocked in your browser's settings for this site", unsupported: IN_PREVIEW ? "Work once the app is on your church's website" : "Not available in this browser. On iPhone, add the app to your Home Screen first." }[pushState]}</span></span>

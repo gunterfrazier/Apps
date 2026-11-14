@@ -241,7 +241,7 @@ function planTodayRow(p) {
   return html`<div class="panel"><div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><b>${p.name}</b><span class="faint">Day ${d + 1} of ${p.days.length}</span></div>
     <div class="progress" style="margin:8px 0 12px"><i style="width:${Math.round(done / p.days.length * 100)}%"></i></div>
     <p class="scripture" style="font-size:1.15rem;margin:0">${refs.join(", ")}</p>
-    <div class="btns">${Veritas.enabled() && Veritas.read(refs[0]) ? ext(Veritas.read(refs[0]), "Read", "btn sm", "word") : ""}<button class="btn ghost sm" data-act="plan-done" data-plan="${p.id}" data-day="${d}">${icon("check")}Mark as read</button></div></div>`;
+    <div class="btns">${readLink(refs[0])}<button class="btn ghost sm" data-act="plan-done" data-plan="${p.id}" data-day="${d}">${icon("check")}Mark as read</button></div></div>`;
 }
 
 function eventRow(e) {

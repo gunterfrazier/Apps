@@ -224,6 +224,16 @@ await step("adds an announcement, which survives a reload", async () => {
   if (!(await appText()).includes("Test Fellowship")) throw new Error("church missing after reload");
   await shot("5-after-reload");
 });
+await step("Bible highlights and notes save to the account", async () => {
+  await page.evaluate(() => { location.hash = "bible-john-3-16"; }); await page.waitForSelector("#v16", { timeout: 15000 });
+  await page.click("#v16"); await page.click("[data-act=bible-hl][data-c=yellow]"); await page.waitForSelector("#v16.hl-yellow");
+  await page.click("#v16"); await page.click(".bible-actions [data-act=bible-note]"); await page.fill("#scrim textarea[name=text]", "For God so loved.");
+  await page.click("#scrim form button.btn:not([type=button])"); await page.waitForSelector("#scrim", { state: "detached" }); await page.waitForTimeout(1500);
+  const priv = (db.profile_private || []).find((r) => r.user_id === uid)?.data || {};
+  if (priv.highlights?.["42.3.16"] !== "yellow" || priv.verseNotes?.["42.3.16-16"]?.text !== "For God so loved.") throw new Error("highlights and notes weren't saved to the account");
+  await page.reload(); await page.evaluate(() => { location.hash = "notes"; }); await page.waitForTimeout(1500);
+  if (!(await appText()).includes("For God so loved.")) throw new Error("the Bible note is missing after a reload");
+});
 // For checking the real security rules: the rows the app wrote, as it would send them to Supabase.
 if (process.env.DUMP_DB) (await import("node:fs")).writeFileSync(process.env.DUMP_DB, JSON.stringify({ uid, db }, null, 1));
 await step("pairs a presentation screen as a device", async () => {

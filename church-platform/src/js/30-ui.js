@@ -35,7 +35,7 @@ function applyBrand() {
   document.title = c ? `${c.name} | ${PLATFORM.name}` : PLATFORM.name;
 }
 
-const OPEN_ROUTES = ["welcome", "churches", "start", "church", "page", "display", "pair"];
+const OPEN_ROUTES = ["welcome", "churches", "start", "church", "page", "display", "pair", "bible"];
 // Screens that take a church ID after the dash (#give-riverside), so a QR code opens the right church.
 const CHURCH_SCOPED = ["home", "give", "checkin", "parents", "serve", "live", "events", "classes", "groups", "connect"];
 /** Which church a deep link belongs to, so links and QR codes switch the app to it. */

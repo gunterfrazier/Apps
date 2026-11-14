@@ -111,6 +111,7 @@ Screens.build = (id) => {
         <button class="btn ghost sm" data-act="doc-publish" data-id="${d.id}">${d.published ? "Unpublish" : "Publish"}</button>
         ${canAI() ? html`<button class="btn ghost sm" data-act="ai-build" data-id="${d.id}">${icon("bolt")}${d.kind === "lesson" && !d.blocks.some((b) => b.type !== "scripture") ? "Draft this lesson" : "Draft questions"}</button>` : ""}
       </div>
+      ${d.passage ? pastPanel(d.passage, { doc: d.id, label: "You've preached or taught on this before", max: 3 }) : ""}
       <p class="faint">${d.kind === "sermon" ? "Published sermons can be followed by members during the service." : d.kind === "lesson" ? `Published lessons show to the class${d.shareWithParents ? " and in parents' portal" : ""}.` : "Published guides show on the group's page."} Items marked private never appear on screen or to members.</p>
 
       <section class="sec"><div class="sec-head"><h2>Blocks</h2><span class="faint">${d.blocks.filter((b) => b.show && b.type !== "note").length} on screen, ${d.blocks.filter((b) => !b.show || b.type === "note").length} private</span></div>

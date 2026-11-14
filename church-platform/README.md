@@ -17,6 +17,10 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - Home with the church's banner, landing page blocks, quick actions, the latest sermon, service times, an events carousel, reading plan and announcements.
 - A Home banner each church designs with a live preview: a gradient, color or photo background, its logo, built-in graphics (cross, dove, sparkle, sunburst and more) or uploaded ones that can be sized, placed, turned and faded, and text art in seven styles.
 - Sermons with notes, reading plans, a passage lookup, and links into Veritas Logos.
+- A Bible reader (Berean Standard Bible and King James Version, both public domain) in the Word tab: pick a book and chapter, tap verses to highlight them in four colors, write private notes, copy, share or see related passages. Highlights and notes sync with the account and show under My notes.
+- Related passages under sermons and in the reader, from OpenBible.info's cross-references (CC BY): the ones people voted most useful, up to six per verse.
+- "From our church on this passage": wherever a passage shows (the reader, a sermon page, the builder), the church's earlier sermons, lessons and studies on it, and a marker on the verses they covered.
+- "Open in Logos" buttons (ref.ly links) for people who use Logos Bible, on by default for people who preach and teach. Settings chooses where Read buttons and passage look-ups open: the Bible here, Veritas Logos or Logos.
 - Events with sign-ups that can include kids, Google Calendar links and directions.
 - Classes and Sunday school (several sections and hours, each named) and small groups, with a room or place, a single date or a weekly schedule with start and end dates, and registration that is not needed, required, or approved by the leader.
 - Parent portal: each child's classes, groups and events, the teacher and room, what the class is learning, and check-in and check-out.
@@ -76,6 +80,7 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - A searchable archive: the Word tab searches titles, passages, speakers, series, summaries, outlines and every transcript, shows where each match was found, and filters by book of the Bible.
 - A podcast feed (RSS with Apple Podcasts tags) built from every sermon with audio, with a readiness check for cover art, owner email and file sizes, and a download of feed.xml.
 - AI help through Veritas Logos for people who teach: small-group discussion questions from a sermon (into a new study guide or the builder), a full kids Sunday school lesson from Sunday's passage, and a sermon summary and outline. Each prompt carries the passage text from the Bible data shared with Veritas Logos, and every result arrives as a draft to check and edit. In the preview it uses Claude through the page; on your own site it calls your AI function.
+- Reading plans from a topic: under Admin, Reading plans, **Draft a plan from a topic** suggests a 5 to 30 day plan. Every reference is checked against the Bible (made-up ones are left out), and it opens in the plan form for a person to change and save.
 
 **Notifications, Spanish and accessibility**
 - A notification center under the bell for asks to serve, answers, reminders, messages, room requests, form responses and new people to follow up. Announcements can be sent as notifications too.
@@ -162,6 +167,8 @@ src/js/70-backend.js  Supabase sign-in and sync (off in the preview and until co
 src/js/71-signage.js  Digital signage: playlists, slides that fill themselves in, the full-screen player
 src/js/72-devices.js  Church devices: pairing codes, device mode, screens that follow the booth, the booth computer
 src/js/75-room-displays.js  Rooms with numbers and places, room displays, and presenting in a room
+src/js/76-bible.js    The Bible reader, highlights and notes, cross-references, past sermons on a passage, Logos links, plans from a topic
+public/bible/xref/    Cross-references from OpenBible.info (CC BY), one file per book, built by tools/xrefs.mjs
 public/               Manifest, service worker (offline and push), icons, QR reader, config.example.js
 supabase/schema.sql   Database tables and security rules
 supabase/upgrade-4.sql  For a database made before signage and devices: run once

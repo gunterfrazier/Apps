@@ -432,6 +432,6 @@ function buildSeed() {
     sermons, events, news, prayers, gatherings, plans, gifts, docs, songs, library, services, layouts, savedBlocks,
     channels: [], messages, chatSeen: {}, deliveries: [], teamMembers, blockouts, notifications: [],
     cards, checkins: [], serving: [], recurring: [], attendance, followups, forms: formsSeed, formResponses, bookings, devices: [], signage: signageSeed(), roomSessions: [],
-    notes: {}, progress: {}, saved: [], seen: [],
+    notes: {}, verseNotes: {}, highlights: {}, progress: {}, saved: [], seen: [],
   };
 }
