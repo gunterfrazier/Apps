@@ -32,6 +32,8 @@ export interface TranslationInfo {
   covers?: string;
   /** A link its license asks every page that shows it to carry. */
   link?: { label: string; url: string };
+  /** Not offered yet, and why: it stays out of every picker until this is removed. */
+  waiting?: string;
 }
 
 export const TRANSLATIONS: readonly TranslationInfo[] = [
@@ -58,13 +60,16 @@ export const TRANSLATIONS: readonly TranslationInfo[] = [
   { id: "HAWEIS", group: "historic", name: "Haweis New Testament", year: "1795", style: "Thomas Haweis's New Testament", covers: "the New Testament", notice: "Thomas Haweis's New Testament (1795), public domain." },
   { id: "TYN", group: "historic", name: "Tyndale", year: "1525–1530", style: "William Tyndale's English, original spelling", covers: "Genesis, the Gospels, Acts, Romans, 1 Corinthians, Hebrews and Revelation", notice: "William Tyndale's translation (1525–1530), public domain. This digital edition has only some books." },
   { id: "WYC", group: "historic", name: "Wycliffe Bible", year: "c. 1395", style: "Middle English, from the Latin Vulgate", notice: "John Wycliffe's Bible (c. 1395), public domain. Its Psalms are shown under the English numbering." },
-  { id: "ESV", group: "online", name: "English Standard Version", year: "2001, 2016", style: "Modern and fairly literal", notice: "Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®), © 2001 by Crossway, a publishing ministry of Good News Publishers. Used by permission. All rights reserved. The ESV text may not be quoted in any publication made available to the public by a Creative Commons license. The ESV may not be translated into any other language. Users may not copy or download more than 500 verses of the ESV Bible or more than one half of any book of the ESV Bible.", link: { label: "www.esv.org", url: "https://www.esv.org" } },
+  { id: "ESV", group: "online", waiting: "Crossway hasn't approved the ESV API key yet.", name: "English Standard Version", year: "2001, 2016", style: "Modern and fairly literal", notice: "Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®), © 2001 by Crossway, a publishing ministry of Good News Publishers. Used by permission. All rights reserved. The ESV text may not be quoted in any publication made available to the public by a Creative Commons license. The ESV may not be translated into any other language. Users may not copy or download more than 500 verses of the ESV Bible or more than one half of any book of the ESV Bible.", link: { label: "www.esv.org", url: "https://www.esv.org" } },
   { id: "NIV", group: "online", name: "New International Version", year: "2011", style: "Modern and readable, balances wording and meaning", notice: "Scripture quotations taken from The Holy Bible, New International Version® NIV®. Copyright © 1973, 1978, 1984, 2011 by Biblica, Inc.™ Used by permission. All rights reserved worldwide." },
   { id: "NLT", group: "online", name: "New Living Translation", year: "2015", style: "Modern and very readable, thought for thought", notice: "Scripture quotations are taken from the Holy Bible, New Living Translation, copyright © 1996, 2004, 2015 by Tyndale House Foundation. Used by permission of Tyndale House Publishers, Carol Stream, Illinois 60188. All rights reserved." },
   { id: "NKJV", group: "online", name: "New King James Version", year: "1982", style: "The KJV's wording in modern English", notice: "Scripture taken from the New King James Version®. Copyright © 1982 by Thomas Nelson. Used by permission. All rights reserved." },
 ];
 export const DEFAULT_TRANSLATION: TranslationId = "BSB";
 export const isTranslationId = (v: unknown): v is TranslationId => TRANSLATIONS.some((t) => t.id === v);
+/** The translations readers can choose: all but those still waiting (the ESV, until Crossway approves its key). */
+export const OFFERED: readonly TranslationInfo[] = TRANSLATIONS.filter((t) => !t.waiting);
+export const isOffered = (v: unknown): v is TranslationId => OFFERED.some((t) => t.id === v);
 export const translationInfo = (id: TranslationId) => TRANSLATIONS.find((t) => t.id === id) ?? TRANSLATIONS[0];
 export const isOnline = (id: TranslationId) => translationInfo(id).group === "online";
 /** The built-in text used for a translation everywhere but the reader: search, AI, study tools and read aloud.

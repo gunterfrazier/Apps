@@ -64,6 +64,8 @@ These are under copyright, so the app doesn't store them. A page in Claude can't
 3. In Claude, add a custom connector named exactly **Veritas Bible Texts**, with the address `https://<project>.supabase.co/functions/v1/bible-texts/<BIBLE_CONNECTOR_TOKEN>`.
 4. The first time you open one of these Bibles in the reader, Claude asks you to allow the page to use the connector.
 
+Until Crossway approves the ESV key, the ESV is left out of every translation picker (its `waiting` note in `src/core/bible.ts`), and links to it open in the reader's own translation. Once `ESV_API_KEY` is set, delete that note to offer it.
+
 The artifact declares the `mcp` capability for that connector's `get_chapter` tool. The licensed text is used only in the reader: read-aloud, search, guides and the AI use the BSB. See `DATA-LICENSES.md` for the terms.
 
 ## The website (Cloudflare Pages)

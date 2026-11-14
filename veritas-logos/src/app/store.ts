@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { DEFAULT_TRANSLATION, isTranslationId, type TranslationId } from "../core/bible";
+import { DEFAULT_TRANSLATION, isOffered, type TranslationId } from "../core/bible";
 import { LENS_IDS, type LensId } from "../core/content";
 import { sanitizeGuide, type Guide } from "../core/guide";
 import type { CiteRecord } from "../core/cite";
@@ -74,8 +74,8 @@ export function mergeData(raw: any): UserData {
   const p = raw?.prefs ?? {};
   return {
     prefs: {
-      translation: isTranslationId(p.translation) ? p.translation : DEFAULT_TRANSLATION,
-      compare: isTranslationId(p.compare) ? p.compare : "",
+      translation: isOffered(p.translation) ? p.translation : DEFAULT_TRANSLATION,
+      compare: isOffered(p.compare) ? p.compare : "",
       lens: LENS_IDS.includes(p.lens) ? p.lens : "all",
       theme: p.theme === "light" || p.theme === "dark" ? p.theme : "system",
       textSize: typeof p.textSize === "number" ? Math.min(30, Math.max(14, p.textSize)) : 19,

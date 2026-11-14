@@ -3,7 +3,8 @@ import fs from "node:fs";
 import zlib from "node:zlib";
 import path from "node:path";
 import { before, test } from "node:test";
-import { getChapter, getPassage, getVerse, isOnline, localTranslation, onlineNotice, searchText, setOnlineSource, TRANSLATIONS } from "../src/core/bible";
+import { parseReadParts } from "../src/app/routes";
+import { getChapter, getPassage, getVerse, isOffered, isOnline, localTranslation, OFFERED, onlineNotice, searchText, setOnlineSource, TRANSLATIONS } from "../src/core/bible";
 import { checkReferences, coerceDraftSections, coerceInsight } from "../src/core/ai";
 import { load, PACKED, parseData, setLoader } from "../src/core/data";
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, resolveGuide, sanitizeGuide } from "../src/core/guide";
@@ -82,6 +83,17 @@ test("translations genuinely differ", async () => {
   assert.ok(texts.length >= 15);
   // A few KJV updates keep this verse word for word.
   assert.ok(new Set(texts).size >= texts.length - 3);
+});
+
+test("the ESV stays out of the pickers until Crossway approves its key", () => {
+  assert.ok(TRANSLATIONS.some((t) => t.id === "ESV"));
+  assert.ok(!OFFERED.some((t) => t.id === "ESV"));
+  assert.deepEqual(OFFERED.filter((t) => t.group === "online").map((t) => t.id), ["NIV", "NLT", "NKJV"]);
+  assert.equal(isOffered("ESV"), false);
+  assert.equal(isOffered("NIV"), true);
+  // A link to the ESV opens in the reader's own translation.
+  assert.deepEqual(parseReadParts("john-3-esv"), { book: 43, chapter: 3, verse: undefined, verseEnd: undefined, translation: undefined });
+  assert.equal(parseReadParts("john-3-niv")?.translation, "NIV");
 });
 
 test("added Bibles are numbered like the English ones", async () => {

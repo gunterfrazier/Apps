@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { getPassage, GROUP_NAMES, translationInfo, TRANSLATIONS, type TranslationGroup, type TranslationId } from "../core/bible";
+import { getPassage, GROUP_NAMES, OFFERED, translationInfo, type TranslationGroup, type TranslationId } from "../core/bible";
 import { LENS_IDS, type LensId } from "../core/content";
 import { lensName, ORIGIN_LABEL, type Origin } from "../core/guide";
 import { findReferences } from "../core/references";
@@ -86,7 +86,7 @@ export function TranslationSelect({ value, onChange, id = "translation", allowNo
       {allowNone && <option value="">None</option>}
       {groups.map((g) => (
         <optgroup key={g} label={GROUP_NAMES[g]}>
-          {TRANSLATIONS.filter((t) => t.group === g).map((t) => <option key={t.id} value={t.id}>{short ? t.id : `${t.id} · ${t.name}`}</option>)}
+          {OFFERED.filter((t) => t.group === g).map((t) => <option key={t.id} value={t.id}>{short ? t.id : `${t.id} · ${t.name}`}</option>)}
         </optgroup>
       ))}
     </select>

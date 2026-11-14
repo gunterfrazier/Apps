@@ -1,4 +1,4 @@
-import { isTranslationId, type TranslationId } from "../core/bible";
+import { isOffered, isTranslationId, type TranslationId } from "../core/bible";
 import { BOOKS, parseReference } from "../core/references";
 
 export const bookSlug = (book: number) => BOOKS[book - 1].name.toLowerCase().replace(/\s+/g, "");
@@ -20,7 +20,8 @@ export function parseReadParts(rest: string): ReadRoute | null {
   if (!book) return null;
   let translation: TranslationId | undefined;
   const last = parts[parts.length - 1]?.toUpperCase();
-  if (isTranslationId(last)) { translation = last; parts.pop(); }
+  // A translation that isn't offered yet (a link to the ESV, say) opens in the reader's own choice instead.
+  if (isTranslationId(last)) { if (isOffered(last)) translation = last; parts.pop(); }
   const [chapter, verse, verseEnd] = parts.slice(1).map(Number);
   if (!chapter || Number.isNaN(chapter)) return { book, chapter: 1, translation };
   return { book, chapter, verse: verse || undefined, verseEnd: verseEnd || undefined, translation };

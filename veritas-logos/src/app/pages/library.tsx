@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { GROUP_NAMES, TRANSLATIONS, type TranslationGroup } from "../../core/bible";
+import { GROUP_NAMES, OFFERED, TRANSLATIONS, type TranslationGroup } from "../../core/bible";
 import { CONNECTOR } from "../online-bible";
 import { getFigure } from "../../core/figure-graph";
 import { ensureFigures } from "../../core/people";
@@ -14,6 +14,12 @@ const keyToRef = (k: string) => {
   const [b, c, rest] = k.split(":");
   return `${bookName(Number(b))} ${c}:${(rest ?? "").replace("-", "–")}`;
 };
+
+
+/** "NIV, NLT and NKJV": the licensed translations on offer, and a line for any still waiting for approval. */
+const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+const ONLINE_OFFERED = andList(OFFERED.filter((t) => t.group === "online").map((t) => t.id));
+const WAITING_NOTE = TRANSLATIONS.filter((t) => t.waiting).map((t) => ` The ${t.id} will be added once its publisher approves the key.`).join("");
 
 export function LibraryPage() {
   const { prefs, notes, highlights, bookmarks, figures, guides } = useData();
@@ -63,14 +69,14 @@ export function LibraryPage() {
           <h3>Reading</h3>
           <div><label className="label" htmlFor="set-translation">Bible translation</label><TranslationSelect id="set-translation" value={prefs.translation} onChange={(t) => setPref("translation", t)} /></div>
           <details className="bg-key">
-            <summary>About the {TRANSLATIONS.length} translations</summary>
+            <summary>About the {OFFERED.length} translations</summary>
             {(Object.keys(GROUP_NAMES) as TranslationGroup[]).map((g) => (
               <div key={g}>
                 <h4>{GROUP_NAMES[g]}</h4>
-                <ul className="fine-list">{TRANSLATIONS.filter((t) => t.group === g).map((t) => <li key={t.id}><strong>{t.id}</strong> {t.name} ({t.year}). {t.style}{t.covers ? `; it has ${t.covers}` : ""}. <span className="fine">{t.notice}</span>{t.link && <> <a href={t.link.url} target="_blank" rel="noopener noreferrer">{t.link.label}</a></>}</li>)}</ul>
+                <ul className="fine-list">{OFFERED.filter((t) => t.group === g).map((t) => <li key={t.id}><strong>{t.id}</strong> {t.name} ({t.year}). {t.style}{t.covers ? `; it has ${t.covers}` : ""}. <span className="fine">{t.notice}</span>{t.link && <> <a href={t.link.url} target="_blank" rel="noopener noreferrer">{t.link.label}</a></>}</li>)}</ul>
               </div>
             ))}
-            <p className="fine">The licensed translations are read a chapter at a time through your "{CONNECTOR}" connector, with your own free keys for Crossway's ESV API and API.Bible. Their terms allow non-commercial use only, keep only a few hundred verses on the device at a time, and don't allow turning the text into speech, so search, AI tools and read aloud use the built-in translations.</p>
+            <p className="fine">The licensed translations are read a chapter at a time through your "{CONNECTOR}" connector, with your own free keys for Crossway's ESV API and API.Bible.{WAITING_NOTE} Their terms allow non-commercial use only, keep only a few hundred verses on the device at a time, and don't allow turning the text into speech, so search, AI tools and read aloud use the built-in translations.</p>
           </details>
           <div><label className="label" htmlFor="set-lens">Theological lens</label><LensSelect id="set-lens" value={prefs.lens} onChange={(l) => setPref("lens", l)} /></div>
           <div><label className="label" htmlFor="set-theme">Appearance</label><select id="set-theme" value={prefs.theme} onChange={(e) => setPref("theme", e.target.value as "system" | "light" | "dark")}><option value="system">Match this device</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
@@ -121,7 +127,7 @@ function About() {
       </dl>
       <h3>Sources and licenses</h3>
       <ul className="fine-list">
-        <li><strong>Bible text:</strong> BSB (CC0), NHEB, KJV (Crown rights apply in the UK), ASV and YLT (public domain), and the LEB (© 2012 Logos Bible Software, free to share with its notice) with 17 more public-domain Bibles, via scrollmapper/bible_databases. The ESV, NIV, NLT and NKJV aren't stored: the reader shows them a chapter at a time through the owner's connector, with each publisher's notice, under their free non-commercial terms. “About the translations” below lists every notice.</li>
+        <li><strong>Bible text:</strong> BSB (CC0), NHEB, KJV (Crown rights apply in the UK), ASV and YLT (public domain), and the LEB (© 2012 Logos Bible Software, free to share with its notice) with 17 more public-domain Bibles, via scrollmapper/bible_databases. The {ONLINE_OFFERED} aren't stored: the reader shows them a chapter at a time through the owner's connector, with each publisher's notice, under their free non-commercial terms.{WAITING_NOTE} “About the translations” below lists every notice.</li>
         <li><strong>Hebrew, Greek and lexicons:</strong> TAHOT, TAGNT, TBESH and TBESG from STEP Bible (Tyndale House, Cambridge), CC BY 4.0.</li>
         <li><strong>Strong's dictionaries:</strong> Open Scriptures, CC BY-SA.</li>
         <li><strong>Cross-references:</strong> OpenBible.info, CC BY. Quotations are detected from these by matching wording.</li>
