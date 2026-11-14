@@ -49,6 +49,12 @@ The build also packs the built-in read-aloud voice into `dist/voice`: `public/vo
 
 Checks: `npm run typecheck`, `npm test`, `npm run data:check`.
 
+### The built-in voice and its license
+
+The built-in voice turns text into phonemes with eSpeak NG, which is licensed GPL-3.0-or-later. It's compiled to WebAssembly from [rhasspy/espeak-ng](https://github.com/rhasspy/espeak-ng) at commit `8593723f10cfd9befd50de447f14bf0a9d2a14a4`, the fork Piper's voices were trained with, by `scripts/build_espeak.sh` (`npm run data:espeak`; it needs git, cmake, a C compiler and Zig from `pip install ziglang`). It writes `src/voice/espeak/espeak-ng.wasm` and the English data `src/voice/espeak/espeak-ng-data.bin`, and the build bundles both into `voice-worker.js`. Checked against phonemizer.js 1.2.1, which the app used before, it gives the same phonemes on 3,456 sampled verses, so the voice sounds the same.
+
+Because it carries eSpeak NG, `voice-worker.js` is offered under the GNU GPL, version 3 or later, as a whole. Its complete source is this repository's `src/voice` folder and `scripts/build_espeak.sh`, with that commit of rhasspy/espeak-ng and ONNX Runtime Web (MIT). The license text is in `LICENSES/GPL-3.0.txt` and is published with the app as `licenses/GPL-3.0.txt`, and the app's About screen links to both. The rest of the app doesn't contain eSpeak NG and only talks to the worker through messages. To keep the source available for as long as the app is shared, keep this repository public, and consider forking rhasspy/espeak-ng into your own GitHub account so that commit can't disappear.
+
 ### The ESV, NIV, NLT and NKJV
 
 These are under copyright, so the app doesn't store them. A page in Claude can't reach other sites, so the reader asks for them through a connector: `supabase/functions/bible-texts` is a small MCP server, deployed as the Supabase Edge Function `bible-texts` (with JWT checking off, since it checks its own token), that fetches a chapter from the ESV API or API.Bible. To set it up:
@@ -121,7 +127,6 @@ Any passage, term, writer, event or creed is one tap from the others:
 
 - A web page can't run while the phone has suspended it. AI work in a minimized app may pause and carries on when the app is opened again.
 - Read aloud uses the browser's own speech engine in Chrome, Safari, Edge and Firefox. Android's in-app viewer, which the Claude app uses there, has none, so a voice built into the app reads instead: Norman, a Piper voice run by ONNX Runtime in a worker, with eSpeak NG for pronunciation. The first time, it downloads about 54 MB, which the browser keeps. Each time the app opens it takes a few seconds to get ready, and it runs on one thread, because a page in Claude can't use shared memory. Like any page, it stops when the phone locks or the app is minimized. Settings can choose it everywhere. It mispronounces some names, as eSpeak's rules guess them.
-- The built-in voice uses eSpeak NG, which is GPL-3.0. That's fine for personal use; check what it means before a public release.
 - The packed data needs a browser from 2023 or later (Safari 16.4, Chrome 80, Firefox 113). An older browser shows a message asking for an update.
 
 - There is no sourced data yet for idioms, customs, or the first audience, so those rely on AI drafts. Public-domain works could be added as cited sources.
@@ -130,5 +135,5 @@ Any passage, term, writer, event or creed is one tap from the others:
 - Hebrew and Greek are linked word by word only to a tagged BSB, not to the other translations.
 - The ESV, NIV, NLT and NKJV need the owner's connector and are used only in the reader, one chapter at a time. API.Bible's free plan allows 5,000 requests a month and the ESV API 5,000 a day. Some older built-in Bibles are partial (Tyndale, the OEB, Noyes and the New Testament-only ones), and the reader says what each one covers.
 - By default, New Testament dates follow Ussher and Old Testament dates follow BibleData. A switch moves a few disputed dates to common modern ones, and Disputed dates lists the views, but most dates have only the source's value.
-- 77 entries in the owner's glossary were reworded by Claude at his request. They are unsourced editorial work, tagged "Corrected," and each shows the original wording. Four definitions are short quotations from copyrighted dictionaries and need replacing or permission before any public release.
+- 77 entries in the owner's glossary were reworded by Claude at his request. They are unsourced editorial work, tagged "Corrected," and each shows the original wording.
 - CCEL's Fathers and Calvin files came from a third-party copy on GitHub, and only 10 volumes of Calvin's commentaries are in it. See DATA-LICENSES.md.

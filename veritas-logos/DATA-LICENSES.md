@@ -32,9 +32,9 @@ The published copies in `dist/data` are gzip-compressed and base64-encoded to sa
 |---|---|---|
 | Norman voice (`en_US-norman-medium`) | Trained by Bryce Beattie on LibriVox recordings; published in [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices); this copy from [k2-fsa/sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models) | Recordings public domain (model card); piper-voices MIT. The app stores the weights as 16-bit floats, which is its only change |
 | ONNX Runtime Web 1.31.1 | [microsoft/onnxruntime](https://github.com/microsoft/onnxruntime) | MIT |
-| eSpeak NG, through phonemizer.js 1.2.1 | [espeak-ng](https://github.com/espeak-ng/espeak-ng), [xenova/phonemizer.js](https://github.com/xenova/phonemizer.js) | eSpeak NG: GPL-3.0. phonemizer.js: Apache-2.0. GPL-3.0 needs a look before a public release, since the app ships eSpeak NG inside `voice-worker.js` |
+| eSpeak NG (phonemes only), with its English data | [rhasspy/espeak-ng](https://github.com/rhasspy/espeak-ng) at commit `8593723f10cfd9befd50de447f14bf0a9d2a14a4`, the fork Piper's voices were trained with, compiled to WebAssembly by `scripts/build_espeak.sh` | GPL-3.0-or-later. So `voice-worker.js`, which carries it, is offered under GPL-3.0-or-later as a whole, with the license at `licenses/GPL-3.0.txt` beside the app and its complete source in this repository (`src/voice`, `scripts/build_espeak.sh`) and that commit. See README, "The built-in voice and its license" |
 
-This is a summary, not legal advice. Check the license terms yourself before a public launch, especially if the app will ever charge money.
+This is a summary, not legal advice. The app is meant to stay free and non-commercial, which several of these sources and both Bible APIs require. Check the terms again before any change to that.
 
 ## Church Fathers and later teachers
 
@@ -50,7 +50,7 @@ Results of the current build: 95,222 quotes on file, 24,229 kept. Left out: 41,9
 
 A quote in the Catena Aurea is as Aquinas collected it. It's often condensed, and his attributions aren't always certain.
 
-**The CCEL check and citations.** The Ante-Nicene and Nicene and Post-Nicene volumes come from the Christian Classics Ethereal Library's ThML files, whose rights field reads "Public Domain." CCEL's site couldn't be reached from the build environment, so these files came from [theology-corpus](https://github.com/timothyhartzog/theology-corpus), a third-party copy on GitHub that has no license of its own. Replace it with CCEL's files if `ccel.org` becomes reachable. CCEL's own [copyright page](https://www.ccel.org/about/copyright.html) couldn't be read from here either, so read it before any public release.
+**The CCEL check and citations.** The Ante-Nicene and Nicene and Post-Nicene volumes come from the Christian Classics Ethereal Library's ThML files, whose rights field reads "Public Domain." CCEL's site couldn't be reached from the build environment, so these files came from [theology-corpus](https://github.com/timothyhartzog/theology-corpus), a third-party copy on GitHub that has no license of its own. Replace it with CCEL's files if `ccel.org` becomes reachable. CCEL's [copyright policy](https://www.ccel.org/about/copyright.html) says its editions are based on books in the public domain in the United States, that they "may be used for personal, educational, or non-profit purposes", and asks to be contacted for permission to republish CCEL works or use them commercially. CCEL also claims copyright on its own formatting. The app keeps only the old works' own wording, with CCEL's markup and modern additions removed, credits CCEL, and is free and non-commercial. Because it republishes many excerpts, asking CCEL for permission before a public release is still the safe course.
 
 Two uses:
 
@@ -97,7 +97,7 @@ Built by `scripts/build_scholar.py`. Everything comes from a named source, and t
 | Clementine Vulgate | [jrichter/ClementineVulgateConverter](https://github.com/jrichter/ClementineVulgateConverter) | Text public domain |
 | Word links to the BSB | [tuscaroratech/berean-study-bible-with-strongs](https://github.com/tuscaroratech/berean-study-bible-with-strongs) | BSB is CC0, and the repository states no license for its tagging. 79% of verses match the app's BSB exactly, and the rest differ slightly in wording |
 | Greek edition differences, Qere and Ketiv | STEP Bible's TAGNT and TAHOT, Tyndale House | CC BY 4.0. This compares printed editions and isn't a manuscript apparatus |
-| Gospel synopsis | Section order and parallels from Aland's Synopsis, through [cbop-dev/aland-gospel-synopsis](https://github.com/cbop-dev/aland-gospel-synopsis) | MIT for the data file. Aland's own Greek text isn't included. Check the numbering's status before a commercial release |
+| Gospel synopsis | Section order and parallels from Aland's Synopsis, through [cbop-dev/aland-gospel-synopsis](https://github.com/cbop-dev/aland-gospel-synopsis) | MIT for the data file. Aland's own Greek text isn't included, and Aland is credited wherever a section number is shown. The numbers serve as references to his sections, in a free, non-commercial app; if the app ever became commercial, ask the Deutsche Bibelgesellschaft about using his arrangement |
 | Creeds and confessions | Schaff, The Creeds of Christendom, 6th ed., vols. 2–3, CCEL files marked public domain | Public domain. Schaff's footnotes are left out |
 | Deuterocanon | Douay-Rheims (1899) via [yoarikso/douayrheimsbible](https://github.com/yoarikso/douayrheimsbible), MIT. King James 1611 via [Saorsa-Ind](https://github.com/Saorsa-Ind/King-James-Version-1611-JSON-Dataset), CC0. Greek from Swete | Texts public domain, Greek CC BY-SA 4.0 |
 | Apostolic Fathers | Greek: [Open Apostolic Fathers](https://github.com/jtauber/apostolic-fathers), from Lake (1912), CC BY-SA 4.0. English: Ante-Nicene Fathers (1885–86), from CCEL | Paired by chapter. English is missing where numbering differs, and for 2 Clement and Hermas |
@@ -127,7 +127,7 @@ Built by `scripts/build_glossary.py`. The list of terms and which entry answers 
 The 18 terms that had no entry anywhere are filled from `scripts/glossary_filled.json`, preferring theological works, then dictionaries:
 
 - Public domain: Webster's Unabridged Dictionary (Project Gutenberg ebook 29765, via [matthewreagan/WebstersEnglishDictionary](https://github.com/matthewreagan/WebstersEnglishDictionary), checked against that file at build time), The Catholic Encyclopedia (1911, on New Advent), Encyclopædia Britannica (1911, read through a mirror of Wikisource) and Murray's New English Dictionary (1919, on the World English Historical Dictionary).
-- **Copyrighted, short quotations:** Merriam-Webster (Dispensationalism, Ecclesiology, Rapture) and John A. Hardon's Modern Catholic Dictionary on CatholicCulture.org (Kenosis). These are one sentence each, marked `modern` in the data and tagged in the app. Replace them or get permission before any public or paid release.
+- Also public domain, for terms the works above don't define: Augustus H. Strong's Systematic Theology (1907) for Ecclesiology, the International Standard Bible Encyclopedia (1915, Burton Scott Easton's article) for Kenosis, the Morrish Bible Dictionary (1897) for Rapture, and Webster's "dispensation" for Dispensationalism. These replaced four short quotations from Merriam-Webster and Hardon's Modern Catholic Dictionary, which are under copyright. No definition in the app is quoted from a copyrighted work.
 
 Where a definition states one tradition's view, Claude adds a short note labeled as its own and not from the source. The sources lean toward 1800s Protestant scholarship, and the app says so.
 

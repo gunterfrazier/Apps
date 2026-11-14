@@ -17,12 +17,12 @@
     "data:books": "python3 -I scripts/build_bookguides.py --out public/data",
     "data:translations": "python3 -I scripts/build_translations.py --out public/data",
     "data:voice": "python3 -I scripts/build_voice.py --out public/voice",
+    "data:espeak": "bash scripts/build_espeak.sh",
     "data:check": "node --no-warnings scripts/check-data.mjs",
     "api": "node --no-warnings dist-server/server.js"
   },
   "dependencies": {
     "onnxruntime-web": "1.31.1",
-    "phonemizer": "1.2.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

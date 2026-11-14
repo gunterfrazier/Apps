@@ -114,6 +114,9 @@ const options = {
   outdir: "dist",
   inject: [],
   define: { "process.env.NODE_ENV": watch ? '"development"' : '"production"', __VOICE__: JSON.stringify(voice) },
+  // The voice's phoneme engine and its data (scripts/build_espeak.sh), bundled into voice-worker.js as bytes.
+  loader: { ".wasm": "binary", ".bin": "binary" },
+  legalComments: "inline",
   logLevel: "warning",
 };
 const cssEntry = 'import "../app/styles.css";\n';

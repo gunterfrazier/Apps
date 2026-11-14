@@ -358,7 +358,11 @@ test("glossary: terms that had no definition now name a source", async () => {
     const t = (await termById(id))!;
     assert.ok(t.defs.length && t.defs.every((d) => d.source && d.text), id);
   }
-  assert.ok((await termById("rapture"))!.defs[0].modern);
+  // Every definition is public domain: none is quoted from a copyrighted dictionary.
+  const { terms } = await load<{ terms: { defs: { modern?: boolean }[] }[] }>("glossary.json");
+  assert.ok(terms.every((t) => t.defs.every((d) => !d.modern)));
+  assert.match((await termById("rapture"))!.defs[0].source, /Morrish Bible Dictionary \(1897\)/);
+  assert.match((await termById("kenosis"))!.defs[0].source, /International Standard Bible Encyclopedia \(1915\)/);
   assert.match((await termById("purgatory"))!.note!, /Protestant/);
   assert.match((await termById("logos"))!.defs[0].source, /Easton/);
 });
