@@ -14,7 +14,7 @@ import { symbolsHash } from "./symbols-link";
 import { draftKey, enqueueJob, exploreKey, markSeen, removeJob, useJob } from "../ai-jobs";
 import { appBase, copyText, decodeFromLink, encodeForLink, IS_ARTIFACT, saveFile } from "../files";
 import { deleteGuide, navigate, saveGuide, toast, update, useData } from "../store";
-import { Empty, ErrorNote, LensSelect, Loading, OriginTag, Paras, RefLink, RefText, Sheet, TranslationSelect, useAsync } from "../ui";
+import { Empty, ErrorNote, LensSelect, Loading, OriginTag, Paras, RefLink, RefText, Sheet, TranslationSelect, useAsync, NoAiNote } from "../ui";
 
 const STARTERS = ["Forgiveness", "Psalm 23", "Romans 8:28-39", "Prayer", "John 1:1-18", "Grace", "Matthew 5:1-12", "Covenant"];
 
@@ -370,7 +370,7 @@ function AiDraftSheet({ guide, onClose, onAccept }: { guide: Guide; onClose: () 
   return (
     <Sheet title="Draft with AI" onClose={onClose}>
       {mode === null && <Loading />}
-      {mode === "none" && <p className="note">The AI assistant isn't set up in this copy of the app. See Library for how to turn it on.</p>}
+      {mode === "none" && <NoAiNote what="Drafted guides" />}
       {mode && mode !== "none" && !job && (
         <>
           <p className="fine">The AI sees this guide's passages and the app's reference data. Anything it writes is labeled as an AI draft until you mark it checked.</p>

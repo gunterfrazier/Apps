@@ -66,9 +66,27 @@ These are under copyright, so the app doesn't store them. A page in Claude can't
 
 The artifact declares the `mcp` capability for that connector's `get_chapter` tool. The licensed text is used only in the reader: read-aloud, search, guides and the AI use the BSB. See `DATA-LICENSES.md` for the terms.
 
-## If you release it publicly later
+## The website (Cloudflare Pages)
 
-The app can also run on your own site. The hosted options are built and tested but not deployed. A public release would also need user accounts and billing if you charge a subscription or usage fee, and you should recheck the data licenses.
+The same app runs as a free public website on Cloudflare Pages, built straight from this repository on every push. Cloudflare's free plan allows 20,000 files of up to 25 MiB each with no bandwidth cap; the site is about 420 files and 180 MB. Everything works except the AI tools, which need a Claude account or a paid API key: notes, highlights and guides are kept in each visitor's browser, read-aloud uses the browser's voice or the built-in one, and the app works offline once opened.
+
+Set it up once, in the Cloudflare dashboard:
+
+1. Sign up for a free account at dash.cloudflare.com.
+2. Under Workers & Pages, create a Pages project by connecting to Git, allow Cloudflare to see this GitHub repository, and pick it.
+3. Name the project `veritas-logos`, so the site is at https://veritas-logos.pages.dev. Set the production branch to `claude/veritas-logos`, the root directory to `veritas-logos`, the build command to `npm run build` and the output directory to `dist`, with no framework preset. `.node-version` asks for Node 22.
+4. Save and deploy. Each later push to the branch redeploys the site.
+
+`site.config.json` holds the website's settings, which the build writes into `dist/index.html`:
+
+- `bibleTextsUrl`: the Bible function's `/web` address, where the website's reader gets the ESV, NIV, NLT and NKJV. That address answers only pages from https://veritas-logos.pages.dev and its preview addresses. If the site ends up at another address (the name was taken, or a custom domain), add the Supabase secret `BIBLE_WEB_ORIGINS` with the site's address, such as `https://my-name.pages.dev`; several can be listed, separated by commas.
+- `claudeUrl`: leave empty, or set it to the Claude version's link once that's shared, and the website points people there for the AI tools.
+
+`public/_headers` sets Cloudflare's caching. The offline cache (`public/sw.js`) is renamed after each build's contents, so visitors get new data after a deploy.
+
+## Other ways to host it
+
+The app can also run on any other static host or server. A public release that charged money would also need user accounts and billing, and you should recheck the data licenses and the Bible APIs' non-commercial terms.
 
 
 1. **Static site only (cheapest).** Upload `dist/` to any static host. Everything works except AI and saved API guides. It's about 100 MB, because the build packs the data files.

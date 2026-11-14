@@ -4,6 +4,9 @@
  * API keys for Crossway's ESV API and API.Bible. A page in Claude can't reach other sites, but it can call the
  * viewer's connectors through the `mcp` capability.
  *
+ * On the website (Cloudflare Pages) there's no Claude bridge, so the reader asks the same function's /web address,
+ * which answers only the website's own pages (VERITAS_CONFIG.bibleTextsUrl, from site.config.json).
+ *
  * The publishers' terms shape the rest: text is kept only in memory and only a few chapters at a time
  * (src/core/bible.ts), every chapter carries its notice, and the text is never searched, read aloud or sent to AI.
  */
@@ -46,11 +49,37 @@ function explain(t: TranslationId, e: any): OnlineTextError {
   return new OnlineTextError(text[code] ?? `"${CONNECTOR}" couldn't fetch the ${t}${e?.message ? `: ${e.message}` : "."}`, code);
 }
 
-/** Connects the reader's licensed translations to the connector, when the app runs in Claude. */
+const toVerses = (t: TranslationId, p: ChapterPayload, from: string) => {
+  if (!Array.isArray(p.verses) || !p.verses.length) throw new OnlineTextError(`${from} sent no text for this chapter of the ${t}.`, "empty");
+  const verses: string[] = [];
+  for (const v of p.verses) if (v.verse > 0) verses[v.verse - 1] = String(v.text ?? "");
+  return { verses: Array.from(verses, (x) => x ?? ""), notice: p.copyright || undefined };
+};
+
+/** The website's way in: a plain request to the Bible function's /web address. */
+async function fromWebsite(url: string, t: TranslationId, book: number, chapter: number) {
+  const q = new URLSearchParams({ translation: t, number: String(book), chapter: String(chapter), device: deviceId(), session });
+  let res: Response;
+  try {
+    res = await fetch(`${url}?${q}`, { cache: "no-store" });
+  } catch {
+    throw new OnlineTextError(`The ${t} couldn't be reached. Check your connection and try again.`, "network");
+  }
+  const body = (await res.json().catch(() => ({}))) as ChapterPayload & { error?: string };
+  if (!res.ok) {
+    const code = res.status === 429 ? "rate_limited" : res.status === 403 ? "not_allowed" : "upstream_error";
+    throw new OnlineTextError(body.error || `The ${t} couldn't be fetched (${res.status}).`, code);
+  }
+  return toVerses(t, body, "The Bible service");
+}
+
+/** Connects the reader's licensed translations to the connector in Claude, or to the Bible function on the website. */
 export function initOnlineBible(): void {
   setOnlineSource(async (t, book, chapter) => {
     // Looked up on each read: Claude's bridge may arrive after the app starts.
     const claude = (window as any).claude;
+    const webUrl: string | undefined = (window as any).VERITAS_CONFIG?.bibleTextsUrl;
+    if (!claude?.use && webUrl) return fromWebsite(webUrl, t, book, chapter);
     if (!claude?.use) throw new OnlineTextError(`The ${t} is read online through a Claude connector, which this copy of the app doesn't have.`, "no_connector");
     const mcp = await claude.use("mcp");
     if (!mcp) throw new OnlineTextError(`This view of the app can't use connectors, so the ${t} can't be shown here.`, "not_granted");
@@ -64,10 +93,6 @@ export function initOnlineBible(): void {
         try { result = await mcp.callTool(CONNECTOR, TOOL, input, { cache: false }); } catch (e2) { throw explain(t, e2); }
       } else throw explain(t, e);
     }
-    const p = (result?.payload ?? {}) as ChapterPayload;
-    if (!Array.isArray(p.verses) || !p.verses.length) throw new OnlineTextError(`"${CONNECTOR}" sent no text for this chapter.`, "empty");
-    const verses: string[] = [];
-    for (const v of p.verses) if (v.verse > 0) verses[v.verse - 1] = String(v.text ?? "");
-    return { verses: Array.from(verses, (x) => x ?? ""), notice: p.copyright || undefined };
+    return toVerses(t, (result?.payload ?? {}) as ChapterPayload, `"${CONNECTOR}"`);
   });
 }

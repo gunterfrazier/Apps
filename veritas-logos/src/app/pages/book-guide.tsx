@@ -8,7 +8,7 @@ import { enqueueJob, exploreKey, markSeen, removeJob, useJob } from "../ai-jobs"
 import { BOOKS } from "../../core/references";
 import { readHash } from "../routes";
 import { getData, navigate, saveGuide, saveNote, setPref, toast, useData } from "../store";
-import { LensSelect, Loading, Paras, RefLink, useAsync } from "../ui";
+import { LensSelect, Loading, Paras, RefLink, useAsync, NoAiNote } from "../ui";
 import { ExploreResult, JobError, JobProgress, useAiMode } from "./ai-explore";
 
 type Basis = "counted" | "quoted" | "ai" | "you";
@@ -244,7 +244,7 @@ function AiDraft({ g, ask }: { g: BookGuide; ask: AskId }) {
 function AiMissing() {
   const mode = useAiMode();
   if (mode !== "none") return null;
-  return <p className="note">AI drafts need the assistant, which isn't turned on in this copy of the app. See Library for how to turn it on.</p>;
+  return <NoAiNote what="AI drafts" />;
 }
 
 // ---------- Older introductions, loaded when opened ----------

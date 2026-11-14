@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import crypto from "node:crypto";
 import * as esbuild from "esbuild";
 
 const watch = process.argv.includes("--watch");
@@ -101,7 +102,11 @@ const packVoice = () => {
   return { id: manifest.id, name: manifest.name, sha256: manifest.sha256, engineVersion, manifest: `voice/${VOICE}.json`, downloadBytes };
 };
 const voice = packVoice();
-fs.writeFileSync("dist/index.html", shell("Veritas Logos", "app"));
+// The website's settings (site.config.json): where the reader fetches the licensed Bibles, and the Claude version to
+// point to for AI. The page published to Claude doesn't use them (see dist-artifact below).
+const site = fs.existsSync("site.config.json") ? JSON.parse(fs.readFileSync("site.config.json", "utf8")) : {};
+const siteConfig = `<script>window.VERITAS_CONFIG = ${JSON.stringify({ bibleTextsUrl: site.bibleTextsUrl || undefined, claudeUrl: site.claudeUrl || undefined })};</script>`;
+fs.writeFileSync("dist/index.html", shell("Veritas Logos", "app", siteConfig));
 fs.writeFileSync("dist/embed.html", shell("Veritas Logos", "embed"));
 
 const options = {
@@ -135,6 +140,13 @@ if (watch) {
   await esbuild.build({ entryPoints: ["server/server.ts"], bundle: true, platform: "node", format: "esm", target: "node22", outfile: "dist-server/server.js", external: ["node:*"], banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" }, logLevel: "warning" });
   const size = (p) => (fs.statSync(p).isDirectory() ? fs.readdirSync(p).reduce((a, f) => a + size(path.join(p, f)), 0) : fs.statSync(p).size);
   const count = (p) => (fs.statSync(p).isDirectory() ? fs.readdirSync(p).reduce((a, f) => a + count(path.join(p, f)), 0) : 1);
+  // The offline cache is named after what's in this build, so visitors get new data after each deploy.
+  const hash = crypto.createHash("sha256");
+  const feed = (p) => { for (const f of fs.readdirSync(p).sort()) { const q = path.join(p, f); if (fs.statSync(q).isDirectory()) feed(q); else hash.update(q).update(fs.readFileSync(q)); } };
+  ["dist/app.js", "dist/app.css"].forEach((f) => hash.update(fs.readFileSync(f)));
+  feed("dist/data");
+  const sw = fs.readFileSync("dist/sw.js", "utf8").replace('const VERSION = "veritas-v1";', `const VERSION = "veritas-${hash.digest("hex").slice(0, 12)}";`);
+  fs.writeFileSync("dist/sw.js", sw);
   console.log(`dist: ${count("dist")} files, ${(size("dist") / 1e6).toFixed(1)} MB. app.js ${(fs.statSync("dist/app.js").size / 1e3).toFixed(0)} KB, embed.js ${(fs.statSync("dist/embed.js").size / 1e3).toFixed(0)} KB, voice ${(size("dist/voice") / 1e6).toFixed(1)} MB + voice-worker.js ${(fs.statSync("dist/voice-worker.js").size / 1e3).toFixed(0)} KB`);
 }
 

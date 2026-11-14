@@ -11,6 +11,12 @@
 // lock. It speaks MCP's Streamable HTTP transport in its simplest form: one JSON-RPC message per POST, answered
 // with JSON, no sessions or streams.
 //
+// The website (Cloudflare Pages) can't use a Claude connector, so it asks at .../bible-texts/web instead:
+//   GET .../bible-texts/web?translation=NIV&number=43&chapter=3&device=...&session=...
+// That address has no secret token, since anyone can read a web page's code. It answers only pages served from the
+// addresses in BIBLE_WEB_ORIGINS (comma-separated; by default https://veritas-logos.pages.dev and its preview
+// addresses), and only a few chapters a minute to each visitor, so other sites can't spend the free quotas.
+//
 // The terms it keeps: both services are for non-commercial use; nothing is stored here; each chapter goes back
 // with its copyright notice; API.Bible's Fair Use (FUMS) is reported for each chapter shown.
 
@@ -174,9 +180,62 @@ async function handle(msg: any): Promise<unknown | null> {
   return fail(-32601, `Method not found: ${method}`);
 }
 
+// ----- The website's address: /web -----
+
+const DEFAULT_ORIGINS = "https://veritas-logos.pages.dev";
+
+/** Whether a page at origin may read chapters: one of the listed addresses, or a preview address under one. */
+function allowedOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  let o: URL;
+  try { o = new URL(origin); } catch { return false; }
+  if (o.protocol !== "https:") return false;
+  for (const entry of (Deno.env.get("BIBLE_WEB_ORIGINS") ?? DEFAULT_ORIGINS).split(",")) {
+    let a: URL;
+    try { a = new URL(entry.trim()); } catch { continue; }
+    if (o.host === a.host || o.host.endsWith(`.${a.host}`)) return true;
+  }
+  return false;
+}
+
+// A few chapters a minute for each visitor. Kept in this instance's memory only, so it's a brake, not a wall.
+const PER_MINUTE = 12;
+const recent = new Map<string, number[]>();
+function tooMany(visitor: string): boolean {
+  const now = Date.now();
+  const times = (recent.get(visitor) ?? []).filter((t) => now - t < 60_000);
+  if (times.length >= PER_MINUTE) { recent.set(visitor, times); return true; }
+  times.push(now);
+  recent.set(visitor, times);
+  if (recent.size > 5000) for (const [k, v] of recent) if (!v.some((t) => now - t < 60_000)) recent.delete(k);
+  return false;
+}
+
+async function web(req: Request, url: URL): Promise<Response> {
+  const origin = req.headers.get("Origin");
+  const ok = allowedOrigin(origin);
+  const headers: Record<string, string> = { "Content-Type": "application/json", "Cache-Control": "no-store", Vary: "Origin" };
+  if (ok) Object.assign(headers, { "Access-Control-Allow-Origin": origin!, "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Max-Age": "86400" });
+  const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers });
+  if (req.method === "OPTIONS") return new Response(null, { status: ok ? 204 : 403, headers });
+  if (!ok) return reply({ error: "This address only answers the Veritas Logos website." }, 403);
+  if (req.method !== "GET") return reply({ error: "Use GET." }, 405);
+  const visitor = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  if (tooMany(visitor)) return reply({ error: "That's a lot of chapters at once. Wait a minute and try again." }, 429);
+  const q = url.searchParams;
+  try {
+    return reply(await getChapter({ translation: q.get("translation"), number: q.get("number"), chapter: q.get("chapter"), device: q.get("device") ?? "", session: q.get("session") ?? "" }));
+  } catch (e) {
+    const text = e instanceof ToolError ? e.message : "Couldn't fetch the chapter.";
+    return reply({ error: text }, e instanceof ToolError ? 400 : 502);
+  }
+}
+
 Deno.serve(async (req: Request) => {
+  const url = new URL(req.url);
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (parts[parts.length - 1] === "web") return web(req, url);
   const token = Deno.env.get("BIBLE_CONNECTOR_TOKEN");
-  const parts = new URL(req.url).pathname.split("/").filter(Boolean);
   if (!token || parts[parts.length - 1] !== token) return new Response("Not found", { status: 404 });
   if (req.method === "GET") return new Response("This MCP server answers POST requests only.", { status: 405, headers: { Allow: "POST" } });
   if (req.method === "DELETE") return new Response(null, { status: 204 });

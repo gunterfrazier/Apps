@@ -8,7 +8,7 @@ import type { CheckedSource } from "../../core/research";
 import { detectAi, type AiMode } from "../ai-client";
 import { enqueueJob, exegesisKey, exploreKey, markSeen, removeJob, retryJob, stopJob, useJob, type AiJob, type JobTarget } from "../ai-jobs";
 import { getData, saveGuide, toast } from "../store";
-import { Loading, OriginTag, Paras, RefLink, RefText, Sheet, Tag, useAsync } from "../ui";
+import { Loading, OriginTag, Paras, RefLink, RefText, Sheet, Tag, useAsync, NoAiNote } from "../ui";
 
 export const useAiMode = () => {
   const [mode, setMode] = useState<AiMode | null>(null);
@@ -125,7 +125,7 @@ export function ExploreSheet({ context, where, target, onClose, onAdd, onReplace
   return (
     <Sheet wide title={`Explore: ${context.heading}`} onClose={onClose}>
       {mode === null && <Loading />}
-      {mode === "none" && <p className="note">The AI assistant isn't available in this copy of the app. See Library for how to turn it on.</p>}
+      {mode === "none" && <NoAiNote what="Answers here" />}
       {mode && mode !== "none" && !job && (
         <>
           <p className="fine">The assistant searches this app's library: Scripture, Hebrew and Greek, the writers, Easton's and Smith's dictionaries, Josephus, the creeds and church history. It can't search the live web from here. It also draws on its own knowledge, and it says where it does.</p>

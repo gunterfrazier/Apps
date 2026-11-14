@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { checkReferences } from "../../core/ai";
 import { lensName, newId } from "../../core/guide";
-import { detectAi, type AiMode, type Turn } from "../ai-client";
+import { CLAUDE_URL, detectAi, type AiMode, type Turn } from "../ai-client";
 import { askChat, markSeen, newChat, stopJob, useChat, useJob } from "../ai-jobs";
 import type { CheckedClaim, ResearchAnswer } from "../../core/research";
 import { saveGuide, setPref, useData, toast, navigate } from "../store";
@@ -21,7 +21,7 @@ export function AiSetupNote() {
     <div className="note">
       <p><strong>The AI assistant isn't set up in this copy of the app.</strong></p>
       <p>It works automatically when the app is opened inside Claude. Reading, word study, sourced insights, guides and people all work without it.</p>
-      <a className="btn small" href="#library">Open AI settings</a>
+      {CLAUDE_URL ? <a className="btn small" href={CLAUDE_URL} target="_blank" rel="noopener">Open the Claude version</a> : <a className="btn small" href="#library">Open AI settings</a>}
     </div>
   );
 }

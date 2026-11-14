@@ -5,6 +5,7 @@ import { lensName, ORIGIN_LABEL, type Origin } from "../core/guide";
 import { findReferences } from "../core/references";
 import { hashForReference } from "./routes";
 import { navigate, openPeek, useData, useUi } from "./store";
+import { CLAUDE_URL } from "./ai-client";
 
 export function useAsync<T>(fn: () => Promise<T>, deps: readonly unknown[]): { data?: T; error?: Error; loading: boolean } {
   const [s, setS] = useState<{ data?: T; error?: Error; loading: boolean }>({ loading: true });
@@ -151,4 +152,10 @@ export function LexText({ text }: { text: string }) {
   }
   pushPlain(text.slice(last));
   return <>{nodes}</>;
+}
+
+/** Where AI isn't available. On the website it points to the Claude version, which has the AI tools. */
+export function NoAiNote({ what }: { what: string }) {
+  if (CLAUDE_URL) return <p className="note">{what} come from the AI assistant, which isn't on this website. It's in the <a href={CLAUDE_URL} target="_blank" rel="noopener">Claude version of Veritas Logos</a>, for anyone with a Claude account.</p>;
+  return <p className="note">{what} come from the AI assistant, which isn't available in this copy of the app. See Library for how to turn it on.</p>;
 }
