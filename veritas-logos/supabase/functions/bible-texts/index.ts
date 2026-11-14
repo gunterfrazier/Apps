@@ -14,8 +14,8 @@
 // The website (Cloudflare Pages) can't use a Claude connector, so it asks at .../bible-texts/web instead:
 //   GET .../bible-texts/web?translation=NIV&number=43&chapter=3&device=...&session=...
 // That address has no secret token, since anyone can read a web page's code. It answers only pages served from the
-// addresses in BIBLE_WEB_ORIGINS (comma-separated; by default https://veritas-logos.pages.dev and its preview
-// addresses), and only a few chapters a minute to each visitor, so other sites can't spend the free quotas.
+// addresses in BIBLE_WEB_ORIGINS (comma-separated; by default the website, https://apps-c5t.pages.dev, and its
+// preview addresses), and only a few chapters a minute to each visitor, so other sites can't spend the free quotas.
 //
 // The terms it keeps: both services are for non-commercial use; nothing is stored here; each chapter goes back
 // with its copyright notice; API.Bible's Fair Use (FUMS) is reported for each chapter shown.
@@ -182,7 +182,7 @@ async function handle(msg: any): Promise<unknown | null> {
 
 // ----- The website's address: /web -----
 
-const DEFAULT_ORIGINS = "https://veritas-logos.pages.dev";
+const DEFAULT_ORIGINS = "https://apps-c5t.pages.dev";
 
 /** Whether a page at origin may read chapters: one of the listed addresses, or a preview address under one. */
 function allowedOrigin(origin: string | null): boolean {

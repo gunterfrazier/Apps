@@ -74,14 +74,14 @@ Set it up once, in the Cloudflare dashboard:
 
 1. Sign up for a free account at dash.cloudflare.com.
 2. Under Workers & Pages, create a Pages project by connecting to Git, allow Cloudflare to see this GitHub repository, and pick it.
-3. Name the project `veritas-logos`, so the site is at https://veritas-logos.pages.dev. Set the production branch to `claude/veritas-logos`, the root directory to `veritas-logos`, the build command to `npm run build` and the output directory to `dist`, with no framework preset. `.node-version` asks for Node 22.
+3. Name the project (it's `apps`, so the site is at https://apps-c5t.pages.dev). Set the production branch to `claude/veritas-logos`, the root directory to `veritas-logos`, the build command to `npm run build` and the output directory to `dist`, with no framework preset. `.node-version` asks for Node 22.
 4. Save and deploy. Each later push to the branch redeploys the site.
 
 Cloudflare's dashboard also offers Workers (Create application > Import a repository), which asks for a deploy command instead of an output directory. That works too, with `wrangler.jsonc`: name the project `veritas-logos`, set the build command to `npm run build`, the deploy command to `npx wrangler deploy` and the path (root directory) to `veritas-logos`. The site is then at `https://veritas-logos.<your-subdomain>.workers.dev`, so add that address to the Supabase secret `BIBLE_WEB_ORIGINS` (or ask for the function's default to be changed).
 
 `site.config.json` holds the website's settings, which the build writes into `dist/index.html`:
 
-- `bibleTextsUrl`: the Bible function's `/web` address, where the website's reader gets the ESV, NIV, NLT and NKJV. That address answers only pages from https://veritas-logos.pages.dev and its preview addresses. If the site ends up at another address (the name was taken, or a custom domain), add the Supabase secret `BIBLE_WEB_ORIGINS` with the site's address, such as `https://my-name.pages.dev`; several can be listed, separated by commas.
+- `bibleTextsUrl`: the Bible function's `/web` address, where the website's reader gets the ESV, NIV, NLT and NKJV. That address answers only pages from the website, https://apps-c5t.pages.dev, and its preview addresses (such as https://7dd4474a.apps-c5t.pages.dev). If the site moves to another address (a custom domain, say), add the Supabase secret `BIBLE_WEB_ORIGINS` with the site's address, such as `https://my-name.pages.dev`; several can be listed, separated by commas.
 - `claudeUrl`: leave empty, or set it to the Claude version's link once that's shared, and the website points people there for the AI tools.
 
 `public/_headers` sets Cloudflare's caching. The offline cache (`public/sw.js`) is renamed after each build's contents, so visitors get new data after a deploy.
