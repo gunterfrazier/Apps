@@ -40,7 +40,8 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - QR codes for joining the church, the landing page, giving, events, registration, classes, check-in and check-out, as PNG or SVG.
 
 **Volunteer teams and the worship team's screens**
-- Teams with positions (Worship: worship leader, vocals, keys and so on). People join teams themselves or a scheduler adds them.
+- Teams with positions (Worship: worship leader, vocals, keys and so on). People ask to join a team, or a scheduler adds them. A request waits for a scheduler to approve it (one at a time, or **Approve all**), unless the church pre-approved that person or everyone, under **Admin, Approvals**.
+- **Admin, Approvals**: requests (room bookings, joining a volunteer team, joining a class or group whose leader approves) notify everyone who can approve them; each kind can be turned off, and the person asking can untick it for one request. The page also lists what's waiting and sets who's pre-approved to serve: nobody (every request is reviewed), everyone, or chosen people. The security rules hold the same line: your own request stays a request until someone approves it.
 - Schedulers ask people to fill positions for each service plan. The schedule shows who's confirmed, waiting or can't serve. **Fill open spots** asks the team members who are free, skipping anyone away that day or already serving, and spreading the asks so the same people aren't asked every week. Schedulers can remind people who haven't answered, mark someone confirmed, or message them.
 - Volunteers see requests on Home and under **Me, Serving**, accept or decline with a note, and add the dates they're away.
 - Notifications under the bell: asks, answers and reminders. Once push is set up they also go to people's phones.
@@ -167,12 +168,13 @@ src/js/70-backend.js  Supabase sign-in and sync (off in the preview and until co
 src/js/71-signage.js  Digital signage: playlists, slides that fill themselves in, the full-screen player
 src/js/72-devices.js  Church devices: pairing codes, device mode, screens that follow the booth, the booth computer
 src/js/75-room-displays.js  Rooms with numbers and places, room displays, and presenting in a room
+src/js/77-approvals.js  Approvals: who hears about requests, pre-approved volunteers, volunteer team requests
 src/js/76-bible.js    The Bible reader, highlights and notes, cross-references, past sermons on a passage, Logos links, plans from a topic
 public/bible/xref/    Cross-references from OpenBible.info (CC BY), one file per book, built by tools/xrefs.mjs
 public/               Manifest, service worker (offline and push), icons, QR reader, config.example.js
 supabase/schema.sql   Database tables and security rules
 supabase/upgrade-4.sql  For a database made before signage and devices: run once
-supabase/upgrade-5.sql, upgrade-6.sql, upgrade-7.sql  Payments, training churches, room displays: run each once on an older database
+supabase/upgrade-5.sql to upgrade-8.sql  Payments, training churches, room displays, approvals: run each once on an older database
 supabase/functions/   Server functions: payments, push, reminders, webhooks, AI, podcast, text-to-give, device pairing
 supabase/cron.sql     Schedules for webhooks and reminders
 SETUP.md              Step-by-step guide to going live

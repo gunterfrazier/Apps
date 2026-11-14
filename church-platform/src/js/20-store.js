@@ -151,6 +151,7 @@ const WEBHOOK_EVENTS = [
   ["event.registered", "Someone signs up for an event"], ["gathering.registered", "Someone registers for a class or group"],
   ["gift.created", "A gift is made"], ["checkin.created", "A child is checked in"], ["checkin.completed", "A child is checked out"],
   ["volunteer.scheduled", "Someone is asked to serve"], ["volunteer.responded", "A volunteer accepts or declines"],
+  ["volunteer.requested", "Someone asks to join a volunteer team"], ["volunteer.joined", "Someone joins a volunteer team"],
   ["followup.created", "Someone new needs follow-up"], ["attendance.recorded", "Attendance is recorded for a service"],
   ["form.submitted", "Someone fills in a form"], ["room.booked", "A room is booked or requested"],
 ];

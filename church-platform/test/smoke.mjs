@@ -46,7 +46,7 @@ page.on("console", (m) => { if (m.type() === "error" && !/fonts\.g|Failed to loa
 await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
 
 let current = "";
-const step = async (name, fn) => { current = name; try { await fn(); } catch (e) { errors.push(`${name}: ${e.message.split("\n")[0]}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); } };
+const step = async (name, fn) => { current = name; try { await fn(); } catch (e) { const lines = e.message.split("\n"), waiting = lines.find((l) => /waiting for/.test(l)); errors.push(`${name}: ${lines[0]}${waiting ? ` (${waiting.replace(/\x1b\[[0-9;]*m/g, "").trim()})` : ""}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); } };
 const shot = (name) => page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
 const goTo = async (hash) => { await page.evaluate((h) => { location.hash = h; }, hash); await page.waitForTimeout(90); };
 const text = () => page.textContent("#app");
@@ -755,6 +755,54 @@ await step("register a church", async () => {
   await expectText("Primary: Gunter Frazier (you)");
   for (const h of ["home", "word", "plans", "notes", "events", "connect", "classes", "groups", "directory", "give", "history", "checkin", "live", "alerts", "me", "chat", "parents", "admin-roles", "admin-locations", "admin-page"]) await goTo(h);
   await shot("17-new-church");
+});
+await step("approvals: requests notify everyone who can approve; volunteers can be pre-approved", async () => {
+  await goTo("home"); await page.click("[data-act=open-switcher]"); await page.click('#scrim [data-id="riverside"]'); await page.waitForSelector(".home-top");
+  // Act as different people at Riverside, and put things back afterwards.
+  const before = await page.evaluate(() => { const S = __app.S, c = S.church(); return { owner: c.ownerId, role: S.membership(c.id).roleId }; });
+  const asRole = (r) => page.evaluate((r) => { const S = __app.S, c = S.church(); if (r === "primary") c.ownerId = S.me().id; else { if (c.ownerId === S.me().id) c.ownerId = "u-dana"; S.membership(c.id).roleId = r; } S.save(); __app.render(); }, r);
+  await asRole("primary"); await goTo("admin-approvals"); await expectText("Review every request"); await shot("60-approvals");
+  if (!(await page.isChecked('input[name=pre][value=none]'))) throw new Error("volunteer requests should be reviewed by default");
+  // A member asks to join a team: it's a request, and everyone who schedules teams hears about it.
+  await asRole("member");
+  const me = await page.evaluate(() => __app.S.me().id);
+  await goTo("serving"); const team = await page.getAttribute("[data-act=team-join]", "data-team");
+  await page.click(`[data-act=team-join][data-team="${team}"]`); await page.waitForSelector("#scrim form[data-form=team-request]");
+  if (!(await page.isChecked("#scrim input[name=notifyApprovers]"))) throw new Error("notifying approvers should be on by default");
+  await page.fill("#scrim input[name=note]", "I can run slides"); await shot("61-team-request"); await sheetSubmit(); await sheetGone();
+  await expectText("Requested");
+  const asked = await page.evaluate(() => __app.S.state.notifications.filter((n) => /wants to serve/.test(n.title)).map((n) => n.userId));
+  const schedulers = await page.evaluate(() => __app.S.members().map((m) => m.userId).filter((u) => __app.S.role("riverside", u)?.perms?.["schedule.teams"]));
+  if (!asked.length || asked.includes(me) || schedulers.some((u) => u !== me && !asked.includes(u))) throw new Error(`not every scheduler was notified: ${asked} vs ${schedulers}`);
+  // Joining a group whose leader approves: the leaders (and class managers) hear about it, unless the box is unticked.
+  const groupAsks = () => page.evaluate(() => __app.S.state.notifications.filter((n) => /Request to join Couples/.test(n.title)).length), asksBefore = await groupAsks();
+  await goTo("gathering-riverside-couples"); await page.click("[data-act=g-register]"); await page.waitForSelector("#scrim input[name=notifyApprovers]");
+  if (!(await page.$("#scrim input[name=who]:checked"))) await page.check("#scrim input[name=who] >> nth=0");
+  await page.uncheck("#scrim input[name=notifyApprovers]"); await sheetSubmit(); await sheetGone();
+  if ((await groupAsks()) !== asksBefore) throw new Error("approvers were notified though the box was unticked");
+  // A teacher's room request goes to everyone who manages rooms.
+  await asRole("teacher");
+  await goTo("rooms"); await page.click("[data-act=room-request] >> nth=0"); await page.fill("#scrim input[name=title]", "Teachers' prayer");
+  await page.fill("#scrim input[name=date]", await page.evaluate(() => { const d = new Date(Date.now() + 9 * 864e5); return d.toISOString().slice(0, 10); }));
+  await page.fill("#scrim input[name=start]", "06:00"); await page.fill("#scrim input[name=end]", "06:45");
+  if (!(await page.isChecked("#scrim input[name=notifyApprovers]"))) throw new Error("the room request should notify approvers by default");
+  await sheetSubmit(); await sheetGone();
+  const roomAsked = await page.evaluate(() => __app.S.state.notifications.filter((n) => /Room request/.test(n.title) && /Teachers' prayer/.test(n.body)).length);
+  if (!roomAsked) throw new Error("nobody heard about the room request");
+  // Back as the admin: approve the waiting volunteer request; the person hears back and is on the team.
+  await asRole("primary"); await goTo("admin"); await expectText("waiting"); await goTo("teams"); await expectText("Asking to serve"); await expectText("I can run slides"); await shot("62-asking-to-serve");
+  await page.click("[data-act=team-approve]"); await page.waitForTimeout(150);
+  if (!(await page.evaluate(([u, t]) => __app.S.list("teamMembers").some((m) => m.team === t && m.userId === u && !m.status), [me, team]))) throw new Error("approving didn't put them on the team");
+  if (!(await page.evaluate(([u, t]) => __app.S.state.notifications.some((n) => n.userId === u && n.title === `You're on the ${t} team`), [me, team]))) throw new Error("the volunteer wasn't told");
+  // Pre-approve chosen people: now this person joins a team straight away.
+  await goTo("admin-approvals"); await page.check('input[name=pre][value=some]'); await page.check(`input[name=people][value="${me}"]`);
+  await page.click("form[data-form=approvals-save] button.btn"); await page.waitForTimeout(150);
+  await asRole("member");
+  await goTo("serving"); const team2 = await page.getAttribute("[data-act=team-join]", "data-team"); await page.click(`[data-act=team-join][data-team="${team2}"]`); await page.waitForTimeout(150);
+  if (await page.$("#scrim form[data-form=team-request]")) throw new Error("a pre-approved person still had to ask");
+  if (!(await page.evaluate(([u, t]) => __app.S.list("teamMembers").some((m) => m.team === t && m.userId === u && !m.status), [me, team2]))) throw new Error("the pre-approved person isn't on the team");
+  await asRole("primary"); await goTo("admin-approvals"); await page.check('input[name=pre][value=none]'); await page.click("form[data-form=approvals-save] button.btn"); await page.waitForTimeout(150);
+  await page.evaluate((b) => { const S = __app.S, c = S.church(); c.ownerId = b.owner; S.membership(c.id).roleId = b.role; S.save(); __app.render(); }, before);
 });
 await step("basic role is limited", async () => {
   await goTo("home"); await page.click("[data-act=open-switcher]"); await page.click('#scrim [data-id="riverside"]'); await page.waitForSelector(".home-top");

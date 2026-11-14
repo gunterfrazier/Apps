@@ -189,6 +189,8 @@ Screens.admin = (section) => {
       ${sec("Church account", [
         row("manage.church", "admin-account", "church", "Account details", "Name, church ID, contact, logo, website and social links"),
         row("manage.church", "admin-features", "gear", "Features and defaults", "Turn features on or off; choose what new members get"),
+        S.canAny(["manage.church", "manage.locations", "schedule.teams", "manage.classes"]) ? (() => { const w = waitingRequests(), n = w.rooms.length + w.volunteers.length + w.groups.length;
+          return html`<a class="row" href="#admin-approvals"><span class="lead-ic">${icon("check")}</span><span class="body"><span class="t">Approvals</span><span class="s">Who hears about requests; pre-approved volunteers</span></span>${n ? html`<span class="tag warn">${n} waiting</span>` : icon("chev")}</a>`; })() : "",
         row("manage.roles", "admin-roles", "key", "Roles and permissions", `${plural(c.roles.length, "role")}; choose what each can do`),
         S.canAny(["manage.people", "manage.roles"]) ? html`<a class="row" href="#admin-people"><span class="lead-ic">${icon("people")}</span><span class="body"><span class="t">People</span><span class="s">${plural(S.members().length, "member")}; roles and location access</span></span>${icon("chev")}</a>` : "",
         row("manage.locations", "admin-locations", "pin", "Campuses and locations", `${plural(c.locations.length, "location")}, rooms, service times and livestreams`),

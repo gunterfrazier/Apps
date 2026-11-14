@@ -8,7 +8,6 @@ const canApproveRooms = () => S.isMember() && S.can("manage.locations");
 const sameRoom = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase() && !!String(a || "").trim();
 const atTime = (day, hhmm) => fromIsoDay(day, hhmm).getTime();
 const addMinutes = (hhmm, m) => { const [h, mm] = hhmm.split(":").map(Number), t = h * 60 + mm + m; return `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
-const roomApprovers = () => S.members().map((m) => m.userId).filter((u) => S.user(u) && S.role(S.state.current, u)?.perms["manage.locations"]);
 
 /** Start and end times of a booking that fall between from and to. */
 function bookingTimes(b, from, to) {
@@ -123,6 +122,7 @@ function roomForm(b) {
     <label class="field"><span>Last date, if it repeats</span><input type="date" name="until" value="${b.until || ""}" data-change="room-check"><small>Leave blank to keep it going. Weekly bookings are checked six months ahead.</small></label>
     <label class="field"><span>Setup and notes</span><textarea name="note" maxlength="400" style="min-height:60px" placeholder="Tables in a circle, a TV and coffee">${b.note || ""}</textarea></label>
     <div id="room-check" aria-live="polite"></div>
+    ${canApproveRooms() ? "" : approvalNotifyField("rooms")}
     <div class="btns"><button class="btn">${b.id ? "Save" : canApproveRooms() ? "Book it" : "Send request"}</button>${b.id ? html`<button type="button" class="btn danger" data-act="room-cancel" data-id="${b.id}">Cancel booking</button>` : ""}</div></form>`;
 }
 function openRoomForm(b) { openSheet(b.id ? "Edit booking" : "Request a room", roomForm(b), { wide: true }); Inputs["room-check"]($("#scrim form")); }
@@ -158,10 +158,10 @@ Forms["room-save"] = (d, f) => {
   const rec = { ...b, status: approve ? "approved" : "requested", by: old?.by || S.me().id, at: new Date().toISOString() };
   delete rec.id;
   const saved = old ? S.update("bookings", old.id, rec) : S.add("bookings", rec);
-  if (!approve) roomApprovers().filter((u) => u !== S.me().id).forEach((u) => notify(u, { kind: "room", title: `Room request: ${b.room}`, body: `${b.title}, ${bookingWhen(b)}. From ${S.me().name}.`, link: "#rooms" }));
+  if (!approve && d.notifyApprovers) notifyApprovers("rooms", { title: `Room request: ${b.room}`, body: `${b.title}, ${bookingWhen(b)}. From ${S.me().name}.`, link: "#rooms" });
   emit("room.booked", { title: b.title, room: b.room, location: locName(b.locationId), when: bookingWhen(b), status: saved.status, by: S.me().name });
   roomDay = b.date; roomLoc = b.locationId;
-  closeSheet(); toast(approve ? `${b.room} is booked` : "Request sent. You'll get a notification when it's approved."); render();
+  closeSheet(); toast(approve ? `${b.room} is booked` : d.notifyApprovers ? "Request sent to everyone who can approve it. You'll get a notification when it's approved." : "Request sent. It's waiting for approval under Rooms."); render();
 };
 Actions["room-cancel"] = (el) => { S.remove("bookings", el.dataset.id); closeSheet(); toast("Booking cancelled"); render(); };
 Actions["room-approve"] = (el) => {

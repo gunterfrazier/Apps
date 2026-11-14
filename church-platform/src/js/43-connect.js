@@ -153,6 +153,7 @@ Actions["g-register"] = (el) => {
       ${kids.map((k) => html`<label class="check"><input type="checkbox" name="who" value="${k.id}" ${attr(kidsOnly && fits(k), "checked")}><span>${k.name}${ageFrom(k.birth) != null ? `, age ${ageFrom(k.birth)}` : ""}${!fits(k) ? html` <span class="tag warn">Outside ages ${g.ageMin} to ${g.ageMax}</span>` : ""}</span></label>`)}
       ${!kids.length && kidsOnly ? html`<p class="muted">This ${gLabel(g)} is for kids. <a href="#household">Add your kids</a> first.</p>` : ""}
     </fieldset>
+    ${g.registration === "approval" ? approvalNotifyField("groups", g.leaders) : ""}
     <button class="btn block">${g.registration === "approval" ? "Send request" : "Register"}</button></form>`);
 };
 Forms["g-register"] = (d, f, fd) => {
@@ -164,8 +165,10 @@ Forms["g-register"] = (d, f, fd) => {
     const kid = w === "me" ? null : me.household.find((p) => p.id === w);
     g.members.push({ id: uid(), userId: me.id, childId: kid ? kid.id : null, name: kid ? kid.name : me.name, status, at: new Date().toISOString() });
   });
-  emit("gathering.registered", { gathering: g.name, gatheringId: g.id, by: me.name, people: who.map((w) => w === "me" ? me.name : me.household.find((p) => p.id === w)?.name), status });
-  S.save(); closeSheet(); toast(status === "in" ? "Registered" : "Request sent"); render();
+  const names = who.map((w) => w === "me" ? me.name : me.household.find((p) => p.id === w)?.name);
+  emit("gathering.registered", { gathering: g.name, gatheringId: g.id, by: me.name, people: names, status });
+  if (status === "requested" && d.notifyApprovers) notifyApprovers("groups", { title: `Request to join ${g.name}`, body: `${listJoin(names)}${names.length === 1 && names[0] === me.name ? "" : `, from ${me.name}`}`, link: `#gathering-${g.id}` }, g.leaders);
+  S.save(); closeSheet(); toast(status === "in" ? "Registered" : d.notifyApprovers ? "Request sent. The leaders will let you know." : "Request sent"); render();
 };
 Actions["g-unregister"] = (el) => { const g = S.get("gatherings", el.dataset.id); g.members = g.members.filter((m) => m.id !== el.dataset.entry); S.save(); toast("Cancelled"); render(); };
 
@@ -173,7 +176,7 @@ function leaderPanel(g) {
   const reqs = g.members.filter((m) => m.status === "requested"), ins = g.members.filter((m) => m.status === "in");
   const builder = g.type === "class" ? S.can("build.lessons") && (isLeader(g) || S.can("manage.classes")) : S.can("build.studies");
   return html`<section class="sec"><h2 class="sec-head">For ${g.type === "class" ? "teachers" : "leaders"}</h2><div class="panel">
-    ${reqs.length ? html`<b>Asking to join</b>${reqs.map((m) => html`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span>${m.name}${m.childId ? html` <span class="faint">(${S.userName(m.userId)}'s child)</span>` : ""}</span><span class="btns" style="margin:0"><button class="btn sm" data-act="g-approve" data-id="${g.id}" data-entry="${m.id}">Approve</button><button class="btn ghost sm" data-act="g-unregister" data-id="${g.id}" data-entry="${m.id}">Decline</button></span></div>`)}<hr>` : ""}
+    ${reqs.length ? html`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>Asking to join</b>${reqs.length > 1 ? html`<button class="btn sm" data-act="g-approve-all" data-id="${g.id}">${icon("check")}Approve all ${reqs.length}</button>` : ""}</div>${reqs.map((m) => html`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span>${m.name}${m.childId ? html` <span class="faint">(${S.userName(m.userId)}'s child)</span>` : ""}</span><span class="btns" style="margin:0"><button class="btn sm" data-act="g-approve" data-id="${g.id}" data-entry="${m.id}">Approve</button><button class="btn ghost sm" data-act="g-decline" data-id="${g.id}" data-entry="${m.id}">Decline</button></span></div>`)}<hr>` : ""}
     <b>Roster</b> <span class="faint">${plural(gCount(g), "person", "people")}${g.sampleCount ? `, ${g.sampleCount} from before this preview` : ""}</span>
     ${ins.length ? html`<ul style="margin:6px 0 0;padding-left:18px">${ins.map((m) => html`<li>${m.name}${m.childId ? html` <span class="faint">(${S.userName(m.userId)}'s child)</span>` : ""}</li>`)}</ul>` : html`<p class="faint" style="margin:4px 0 0">Nobody has registered through the app yet.</p>`}
     <div class="btns">
@@ -181,7 +184,22 @@ function leaderPanel(g) {
       ${S.can("manage.classes") ? html`<a class="btn ghost sm" href="#admin-gatherings">${icon("edit")}Edit ${gLabel(g)}</a>` : ""}
     </div></div></section>`;
 }
-Actions["g-approve"] = (el) => { const g = S.get("gatherings", el.dataset.id); const m = g.members.find((x) => x.id === el.dataset.entry); if (m) m.status = "in"; S.save(); toast("Approved"); render(); };
+Actions["g-approve"] = (el) => {
+  const g = S.get("gatherings", el.dataset.id), m = g.members.find((x) => x.id === el.dataset.entry); if (!m) return;
+  m.status = "in"; notify(m.userId, { kind: "group", title: `You're in ${g.name}`, body: `${m.name}'s request to join was approved.`, link: `#gathering-${g.id}` });
+  S.save(); toast("Approved"); render();
+};
+Actions["g-decline"] = (el) => {
+  const g = S.get("gatherings", el.dataset.id), m = g.members.find((x) => x.id === el.dataset.entry); if (!m) return;
+  g.members = g.members.filter((x) => x.id !== m.id);
+  notify(m.userId, { kind: "group", title: `Your request to join ${g.name}`, body: `${m.name}'s request wasn't approved this time.`, link: `#gathering-${g.id}` });
+  S.save(); toast("Declined"); render();
+};
+Actions["g-approve-all"] = (el) => {
+  const g = S.get("gatherings", el.dataset.id), list = g.members.filter((x) => x.status === "requested");
+  list.forEach((m) => { m.status = "in"; notify(m.userId, { kind: "group", title: `You're in ${g.name}`, body: `${m.name}'s request to join was approved.`, link: `#gathering-${g.id}` }); });
+  S.save(); toast(`${plural(list.length, "request")} approved`); render();
+};
 
 // ----- Directory (members only; people choose to be listed) -----
 function directoryEntries() {

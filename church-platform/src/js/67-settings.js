@@ -368,7 +368,7 @@ Actions["push-on"] = async () => { if (await Push.enable()) { toast("Push notifi
 Actions["push-off"] = async () => { await Push.disable(); toast("Push notifications are off"); render(); };
 
 // Which setting covers each kind of notification.
-const NOTIFY_GROUP = { serve: "serve", chat: "chat", news: "news", event: "event", form: "staff", follow: "staff", room: "staff" };
+const NOTIFY_GROUP = { serve: "serve", chat: "chat", news: "news", event: "event", group: "event", form: "staff", follow: "staff", room: "staff" };
 const wantsNotify = (n) => { const g = NOTIFY_GROUP[n.kind]; return !g || prefs().notify[g] !== false; };
 
 // ----- Reminders the day before -----
