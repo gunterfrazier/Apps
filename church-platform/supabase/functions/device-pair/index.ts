@@ -1,11 +1,11 @@
-// Signs in church devices (check-in kiosks, signage screens, presentation and stage screens, the booth computer).
+// Signs in church devices (check-in kiosks, signage screens, presentation, room and stage screens, the booth computer).
 // A device isn't a person: it gets its own account with a 'device:<type>' membership, so it can do its one job and nothing else.
 //   { action: "pair", code }              no sign-in needed: the 6-character code from Admin, Screens and devices is the key.
 //                                         Returns a one-time email and password the device signs in with.
 //   { action: "remove", deviceId, churchId }   staff with manage.devices: deletes the device's account, which signs it out.
 import { admin, caller, can, fail, handle, json } from "../_shared/util.ts";
 
-const DEVICE_TYPES = ["kiosk", "signage", "display", "stage", "overlay", "booth"];
+const DEVICE_TYPES = ["kiosk", "signage", "display", "room", "stage", "overlay", "booth"];
 const password = () => [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
 handle(async (req) => {

@@ -115,6 +115,8 @@ try { presChannel = "BroadcastChannel" in window ? new BroadcastChannel("our-fai
 const presLoc = (key) => { const [k, ...r] = key.split("-"); return S.get(k === "doc" ? "docs" : "services", r.join("-"))?.locationId || null; };
 function presBroadcast() {
   const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, live: pres.live, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "" };
+  // Presenting in a room: only that room's display hears it, on the room's own channel.
+  if (pres.room) { Object.assign(msg, { room: pres.room.token, loc: pres.room.loc, msg: "", captions: "" }); try { presChannel?.postMessage(msg); } catch {} if (Backend.on) Backend.broadcast(msg, roomTopic(pres.room.token)); return; }
   try { presChannel?.postMessage(msg); } catch {}
   if (Backend.on) Backend.broadcast(msg);
 }
@@ -123,6 +125,9 @@ function presBroadcast() {
 window.addEventListener("hashchange", (e) => {
   const was = new URL(e.oldURL).hash;
   if (!was.startsWith("#present-") || location.hash.startsWith("#present-")) return;
+  // Leaving a presentation in a room ends it, and only that room's display hears about it.
+  if (pres.room) { roomStop(); pres.wasRoom = false; return; }
+  if (pres.wasRoom) { pres.wasRoom = false; return; }
   const msg = { key: was.slice(9), loc: presLoc(was.slice(9)), ended: true, church: S.state.current };
   try { presChannel?.postMessage(msg); } catch {}
   if (Backend.on) Backend.broadcast(msg);
@@ -130,7 +135,7 @@ window.addEventListener("hashchange", (e) => {
 Screens.present = (tail) => {
   const [kind, ...rest] = tail.split("-"); const id = rest.join("-");
   const data = slidesFor(kind, id);
-  if (!data || !S.isMember() || !(S.can("present") || (kind === "doc" && canEditDoc(S.get("docs", id))))) return { redirect: "ministry" };
+  if (!data || !S.isMember() || !(S.can("present") || (kind === "doc" && canEditDoc(S.get("docs", id))) || (pres.room && pres.key === tail))) return { redirect: "ministry" };
   if (pres.key !== tail) Object.assign(pres, { key: tail, index: 0, live: null, black: false, logo: false, msg: "", startedAt: Date.now(), segKey: "" });
   const { slides } = data;
   pres.index = clamp(pres.index, 0, slides.length - 1);
@@ -139,13 +144,16 @@ Screens.present = (tail) => {
   if (pres.segKey !== segKey) Object.assign(pres, { segKey, segAt: Date.now() });
   const at = liveAt(slides, pres), cur = timedSlide(at.cur, pres.segAt), next = at.next, L = pres.live;
   const shown = pres.black ? { kind: "black" } : pres.logo ? { kind: "logo" } : cur;
+  const inRoom = !!pres.room;
+  if (inRoom && pres.mode === "stage") pres.mode = "slideshow";
   const stageMode = pres.mode === "stage";
   let lastSection = null;
   return {
     present: true,
     page: html`<div class="present ${pres.mode}">
-      <header class="present-bar"><a class="icon-btn" href="#${thisDevice() ? "booth" : data.back}" aria-label="Back">${icon("back")}</a><b class="present-title">${data.title}</b>
-        <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a><a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a></nav></header>
+      <header class="present-bar"><a class="icon-btn" href="#${thisDevice() ? "booth" : inRoom ? `roompresent-${roomKey(pres.room.loc, pres.room.room)}` : data.back}" aria-label="Back">${icon("back")}</a><b class="present-title">${data.title}</b>
+        <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a>${inRoom ? "" : html`<a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a>`}</nav></header>
+      ${inRoom ? roomStrip() : ""}
       ${pres.mode === "scroll" ? html`<div class="scroll-slides">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<h2 class="sec-head" style="color:#fff;margin-top:22px">${s.section}</h2>`) : ""}<div class="stage" aria-label="Slide ${i + 1}">${slideHtml(s)}</div>${s.notes ? html`<p class="scroll-notes">${icon("lock")} ${s.notes}</p>` : ""}`)}</div>`
       : html`<div class="present-main">
         ${stageMode ? stageMonitor(data, pres) : html`<div class="stage" id="stage" aria-live="polite" aria-label="Slide ${pres.index + 1} of ${slides.length}">${slideHtml(shown)}</div>`}
@@ -156,18 +164,18 @@ Screens.present = (tail) => {
           <button class="btn ghost" data-act="pres-black" aria-pressed="${pres.black}" aria-label="Black screen" title="Black screen (B)">${icon("black")}<span class="lbl">Black</span></button>
           <button class="btn ghost" data-act="pres-logo" aria-pressed="${pres.logo}" aria-label="Logo screen" title="Logo screen (L)">${icon("church")}<span class="lbl">Logo</span></button>
           <button class="btn ghost" data-act="pres-full" aria-label="Full screen" title="Full screen (F)">${icon("expand")}<span class="lbl">Full screen</span></button>
-          ${!IN_PREVIEW && presChannel ? html`<button class="btn ghost" data-act="pres-window" data-key="${tail}" aria-label="Open display window">${icon("screen")}<span class="lbl">Display window</span></button>
+          ${!IN_PREVIEW && presChannel && !inRoom ? html`<button class="btn ghost" data-act="pres-window" data-key="${tail}" aria-label="Open display window">${icon("screen")}<span class="lbl">Display window</span></button>
             <button class="btn ghost" data-act="pres-open" data-route="stage-${tail}" data-name="our-faithful-stage" aria-label="Open stage display">${icon("music")}<span class="lbl">Stage window</span></button>` : ""}
-          <button class="btn ghost" data-act="pres-overlay" data-key="${tail}" aria-label="Livestream overlay">${icon("live")}<span class="lbl">Overlay</span></button>
-          <button class="btn ghost" data-act="pres-captions" aria-pressed="${pres.cc}" aria-label="Live captions">${icon("chat")}<span class="lbl">Captions</span></button>
+          ${inRoom ? "" : html`<button class="btn ghost" data-act="pres-overlay" data-key="${tail}" aria-label="Livestream overlay">${icon("live")}<span class="lbl">Overlay</span></button>
+          <button class="btn ghost" data-act="pres-captions" aria-pressed="${pres.cc}" aria-label="Live captions">${icon("chat")}<span class="lbl">Captions</span></button>`}
         </div>
         ${songBar(slides, at.cur)}
         ${pres.cc ? html`<p class="cc-live" aria-live="polite"><b>Captions</b> <span data-captions>${pres.captions || "Listening..."}</span></p>` : ""}
         <div class="present-side">
           ${stageMode ? html`<div><b class="faint">The audience sees</b><div class="stage mini">${slideHtml(shown)}</div></div>` : html`<div class="present-notes"><b>Notes</b><p>${cur?.notes || "No notes for this slide."}</p></div>`}
-          <form class="stage-msg" data-form="stage-msg" novalidate><label for="stage-msg-in"><b>Message to the stage</b></label>
+          ${inRoom ? "" : html`<form class="stage-msg" data-form="stage-msg" novalidate><label for="stage-msg-in"><b>Message to the stage</b></label>
             <div class="copy-line"><input id="stage-msg-in" type="text" name="msg" value="${pres.msg}" maxlength="80" placeholder="Repeat the chorus"><button class="btn sm">Send</button></div>
-            ${pres.msg ? html`<button type="button" class="linkish" data-act="stage-msg-clear">Clear "${pres.msg}"</button>` : html`<small class="faint">Shows on the stage display, not the audience screen.</small>`}</form>
+            ${pres.msg ? html`<button type="button" class="linkish" data-act="stage-msg-clear">Clear "${pres.msg}"</button>` : html`<small class="faint">Shows on the stage display, not the audience screen.</small>`}</form>`}
           ${stageMode ? "" : next ? html`<div><b class="faint">Next</b><div class="stage mini">${slideHtml(next)}</div></div>` : html`<p class="faint">This is the last slide.</p>`}
         </div>
         <div class="slide-list">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<p class="slide-sec">${s.section}</p>`) : ""}<button class="slide-pick ${!L && i === pres.index ? "on" : ""}" data-act="pres-jump" data-i="${i}"><span>${i + 1}</span>${s.partType ? html`<i class="pt-dot pt-${s.partType}" aria-hidden="true"></i>` : ""}${slideLabel(s)}</button>`)}</div>
@@ -239,6 +247,7 @@ document.addEventListener("touchend", (e) => {
 // The audience display: just the slide, kept in step with the operator through BroadcastChannel.
 Screens.display = (tail) => {
   if (tail === "follow") return startFollow("display");
+  if (tail === "room") return startRoom();
   const [kind, ...rest] = tail.split("-"); const id = rest.join("-");
   const draw = (state = { index: 0 }) => {
     const data = slidesFor(kind, id);
@@ -249,5 +258,5 @@ Screens.display = (tail) => {
   document.body.classList.add("presenting");
   draw();
   if (Backend.on) Backend.onBroadcast((m) => presChannel?.onmessage?.({ data: m }));
-  if (presChannel) presChannel.onmessage = (e) => { if (e.data?.key === tail && location.hash === `#display-${tail}`) { S.load(); if (e.data.church) S.state.current = e.data.church; draw(e.data); } };
+  if (presChannel) presChannel.onmessage = (e) => { if (e.data?.key === tail && !e.data.room && location.hash === `#display-${tail}`) { S.load(); if (e.data.church) S.state.current = e.data.church; draw(e.data); } };
 };

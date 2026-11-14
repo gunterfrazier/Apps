@@ -176,7 +176,7 @@ Under **Admin, Sermons, Podcast feed**, fill in the show details and cover art, 
 
 ## 12. Church devices: kiosks, signage and screens
 
-Kiosks, lobby screens, presentation and stage screens and the booth computer sign in as devices, with their own accounts, so nobody leaves a staff login on a shared screen.
+Kiosks, lobby screens, presentation, classroom and stage screens and the booth computer sign in as devices, with their own accounts, so nobody leaves a staff login on a shared screen.
 
 ```bash
 supabase functions deploy device-pair
@@ -186,9 +186,13 @@ supabase functions deploy device-pair
 2. On the device, open the app and choose **Set up a church device** (under the sign-in box), or scan the QR code next to the code. Enter the code. The device signs in and goes straight to its screen.
 3. To sign a device out, open it in **Screens and devices** and choose **Remove device**. Its account is deleted and the screen goes back to sign-in.
 
+A device is paired once. It keeps its own sign-in and signs itself back in after a restart, a power cut, a long time offline or lost browser storage, so nobody types a code again. On an iPad, add the app to the Home Screen and pair it from there: Safari can clear a website's storage after a week without use, but not a Home Screen app's.
+
 Each device gets only what its job needs: a kiosk can check kids in, presentation and stage screens and the booth can present, and a signage screen can only read its church's playlists and public information. Device accounts don't appear in the member directory or the people list. Codes are single-use and expire; a wrong code is refused after a short pause.
 
 For signage, make a playlist under **Admin, Digital signage** first, then add a **Signage screen** device that plays it.
+
+**Rooms and room displays** need `supabase/upgrade-7.sql` (new projects get it from `schema.sql`) and the latest `device-pair`. Under **Screens and devices, Rooms**, give each room its number and where it is, then **Add a display** to the rooms with a TV or projector. Choose what it shows when no one is presenting: a signage playlist, or whatever the main screens show. A teacher whose class meets in the room, or someone with an approved booking, can present to it from their phone from 15 minutes before their time until it ends: they scan the QR code on the screen, or use **Present** on their class page or on the Rooms screen. Administrators, pastors, ministry staff and media coordinators also get **Present on any room's display, at any time**; turn it on for other roles under **Roles and permissions**. A room display can read bookings and presentations in rooms, and only the person presenting can start or change their own presentation.
 
 ## 13. Check that everything works
 
@@ -198,6 +202,8 @@ For signage, make a playlist under **Admin, Digital signage** first, then add a 
 - [ ] Turning on push and posting an announcement with **Also send it as a notification** reaches a phone with the app closed.
 - [ ] A webhook pointed at [webhook.site](https://webhook.site) receives `member.joined` with a valid signature.
 - [ ] The kiosk finds a family and prints a name tag on your label printer.
+- [ ] A room display shows its playlist and QR code; a teacher scans it during their class, presents a lesson, and the display goes back to its playlist when they stop.
+- [ ] Unplug a paired screen for a minute and plug it back in: it comes back on its own screen without a code.
 - [ ] A paired presentation screen on another computer shows the booth's slides as you move through them, and goes back to its logo or playlist when you close the presenter.
 
 ## Demo and training

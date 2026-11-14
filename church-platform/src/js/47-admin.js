@@ -477,7 +477,7 @@ Actions["loc-edit"] = (el) => {
     <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Who can see it</legend><div class="radios">
       <label><input type="radio" name="visibility" value="public" ${attr(l.visibility !== "private", "checked")}><span>Public</span></label>
       <label><input type="radio" name="visibility" value="private" ${attr(l.visibility === "private", "checked")}><span>Private</span></label></div></fieldset>
-    <label class="field"><span>Rooms</span><textarea name="rooms" placeholder="Room 104&#10;Fellowship hall">${(l.rooms || []).join("\n")}</textarea><small>One per line. Classes and events pick from these.</small></label>
+    <label class="field"><span>Rooms</span><textarea name="rooms" placeholder="Room 104&#10;Fellowship hall">${(l.rooms || []).join("\n")}</textarea><small>One per line. Classes and events pick from these. ${l.id ? html`Give them numbers, say where they are and add displays under <a href="#admin-rooms">Rooms</a>.` : ""}</small></label>
     <label class="field"><span>Room where services meet</span><input type="text" name="serviceRoom" value="${l.serviceRoom ?? (l.rooms || [])[0] ?? ""}" maxlength="60"><small>Room booking keeps it free for 90 minutes from each service time. Leave blank to skip.</small></label>
     <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Services</legend>
       ${svcs.map((s, i) => html`<div style="display:grid;grid-template-columns:1.1fr .9fr 1.4fr;gap:8px;margin-bottom:8px">
@@ -495,7 +495,9 @@ Forms["loc-save"] = (d, f) => {
   if (d.liveUrl && !isUrl(d.liveUrl)) return formError(f, "The livestream link should start with https://");
   const services = [];
   for (let i = 0; i < 30 && `time${i}` in d; i++) if (d[`time${i}`]) services.push(svc(+d[`day${i}`], d[`time${i}`], d[`label${i}`] || "Worship service"));
-  const rec = { name: d.name, code, address: d.address, visibility: d.visibility || "public", rooms: d.rooms.split("\n").map((x) => x.trim()).filter(Boolean), serviceRoom: d.serviceRoom, services: services.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)), liveUrl: d.liveUrl };
+  const rooms = d.rooms.split("\n").map((x) => x.trim()).filter(Boolean), oldInfo = (d.id && S.location(d.id)?.roomInfo) || {};
+  const roomInfo = Object.fromEntries(Object.entries(oldInfo).filter(([k]) => rooms.some((r) => sameRoom(r, k))));
+  const rec = { name: d.name, code, address: d.address, visibility: d.visibility || "public", rooms, roomInfo, serviceRoom: d.serviceRoom, services: services.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)), liveUrl: d.liveUrl };
   if (d.id) Object.assign(S.location(d.id), rec); else c.locations.push({ id: `${c.id}-${code.toLowerCase()}-${uid().slice(-3)}`, ...rec });
   S.save(); closeSheet(); toast("Location saved"); render();
 };

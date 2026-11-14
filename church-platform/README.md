@@ -51,6 +51,9 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - **Screens and devices** signs in the church's shared screens as devices, not as people: check-in kiosks, signage screens, presentation screens, stage displays, livestream overlays and the booth computer. Add a device, then open **Set up a church device** on it (or scan the QR code) and enter the 6-character code. It stays signed in and only opens its own screens, keeps the screen awake, and needs the exit code to leave.
 - A paired kiosk starts itself for the service happening now or next at its location, with its own label size. Presentation screens, stage displays and overlays follow whatever the booth presents at their location, and show a signage playlist or the church's logo in between. The booth computer lists the coming service plans and sermons to present.
 - Staff see each device's status (waiting to pair, online, last seen) and remove a device to sign it out right away.
+- Devices are paired once. A paired device keeps its own sign-in and signs itself back in after a restart, a power cut, a long time offline or lost browser storage, showing "signing back in" instead of the sign-in screen. Only removing it under **Screens and devices** ends that.
+- **Rooms** (under Screens and devices) gives each room at each campus a room number and where it is ("Education building, 2nd floor"). Renaming a room carries through to its bookings, classes, events and displays.
+- **Room displays** are TVs and projectors in classrooms and conference rooms. The teacher of a class that meets there, or whoever has an approved booking, can present to it from their own phone or laptop (from 15 minutes before their time until it ends), by scanning the QR code on the screen or with **Present** on the class page or the Rooms screen. People with **Present on any room's display** can present any time. When the time is up or they stop, the display goes back to its signage playlist, or to showing what the main screens show. The main screens never show a presentation meant for a room.
 
 **Kids check-in kiosk, new people and reports**
 - A self check-in kiosk for a tablet at the kids area. Families find themselves by the last four digits of their phone or their last name, tap who's here and get a name tag for each child plus a pickup tag with the same code. First-time families add themselves as guests in a minute. An optional exit code keeps kids from leaving kiosk mode, and the kiosk returns to the start if a family walks away.
@@ -158,9 +161,11 @@ src/js/40-69          Screens: home and Watch live, word, events, connect (class
 src/js/70-backend.js  Supabase sign-in and sync (off in the preview and until config.js names a project)
 src/js/71-signage.js  Digital signage: playlists, slides that fill themselves in, the full-screen player
 src/js/72-devices.js  Church devices: pairing codes, device mode, screens that follow the booth, the booth computer
+src/js/75-room-displays.js  Rooms with numbers and places, room displays, and presenting in a room
 public/               Manifest, service worker (offline and push), icons, QR reader, config.example.js
 supabase/schema.sql   Database tables and security rules
 supabase/upgrade-4.sql  For a database made before signage and devices: run once
+supabase/upgrade-5.sql, upgrade-6.sql, upgrade-7.sql  Payments, training churches, room displays: run each once on an older database
 supabase/functions/   Server functions: payments, push, reminders, webhooks, AI, podcast, text-to-give, device pairing
 supabase/cron.sql     Schedules for webhooks and reminders
 SETUP.md              Step-by-step guide to going live

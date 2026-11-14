@@ -245,7 +245,42 @@ await step("pairs a presentation screen as a device", async () => {
   await tv.screenshot({ path: join(shots, "live-6-device.png") });
   await page.waitForTimeout(300); await page.reload(); await page.evaluate(() => { location.hash = "devices"; }); await page.waitForTimeout(800);
   if (!/Online/.test(await appText())) throw new Error("the admin doesn't see the device online");
+  // The device stays signed in: with its session gone (a power cut mid-renewal, storage cleared), it signs itself back in.
+  const dropSession = () => tv.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("sb-")).forEach((k) => localStorage.removeItem(k)));
+  await dropSession(); await tv.reload();
+  await tv.waitForSelector(".display .slide", { timeout: 15000 });
+  if ((await tv.evaluate(() => location.hash)) !== "#display-follow") throw new Error(`after losing its session the device went to ${await tv.evaluate(() => location.hash)}`);
+  // Removed under Screens and devices (its account is gone): it asks for a new code instead of trying forever.
+  Object.keys(passwords).filter((e) => e.startsWith("device-")).forEach((e) => delete passwords[e]);
+  await dropSession(); await tv.reload();
+  await tv.waitForFunction(() => location.hash === "#pair", null, { timeout: 15000 });
+  if (!/removed or set up again/.test(await tv.textContent("#app"))) throw new Error("the removed device doesn't say why it needs a code");
+  if (await tv.evaluate(() => localStorage.getItem("our-faithful-device-signin"))) throw new Error("the removed device kept its saved sign-in");
   await ctx2.close();
+});
+await step("pairs a room display", async () => {
+  await page.evaluate(() => { location.hash = "admin-rooms"; }); await page.waitForSelector("[data-act=room-info][data-loc]");
+  await page.click("[data-act=room-info][data-loc] >> nth=0"); await page.waitForSelector("#scrim form[data-form=room-info]");
+  await page.fill("#scrim input[name=name]", "Room 12"); await page.fill("#scrim input[name=number]", "12"); await page.fill("#scrim input[name=where]", "Upstairs, by the library");
+  await page.click("#scrim form button.btn:not([type=button])"); await page.waitForSelector("#scrim", { state: "detached" }); await page.waitForTimeout(1200);
+  const loc = (db.locations || []).find((l) => (l.data.rooms || []).includes("Room 12"));
+  if (loc?.data.roomInfo?.["Room 12"]?.where !== "Upstairs, by the library") throw new Error("the room's details weren't saved");
+  await page.click('[data-act=room-info][data-room$="Room%2012"]'); await page.click("#scrim [data-act=device-new][data-type=room]");
+  await page.click("#scrim form button.btn:not([type=button])"); await page.waitForSelector("#scrim .pair-code");
+  const code = (await page.textContent("#scrim .pair-code")).trim(); await page.waitForTimeout(1200); await page.click("#scrim [data-act=close-sheet]");
+  const dev = (db.records || []).find((r) => r.kind === "devices" && r.data.code === code);
+  if (dev?.data.type !== "room" || dev.data.settings.room !== "Room 12" || dev.location_id !== loc.id) throw new Error("the room display wasn't saved with its room");
+  const ctx3 = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await ctx3.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await ctx3.route(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", headers: { "access-control-allow-origin": "*" }, body: readFileSync(bundle) }));
+  await ctx3.route((url) => url.host === supaHost, supabase);
+  const tv = await ctx3.newPage(); tv.on("pageerror", (e) => errors.push(`room display: ${e.message}`));
+  await tv.goto(base + `#pair-${code}`); await tv.click("form[data-form=pair] button.btn");
+  await tv.waitForSelector(".room-hint", { timeout: 15000 });
+  if ((await tv.evaluate(() => location.hash)) !== "#display-room") throw new Error(`the room display went to ${await tv.evaluate(() => location.hash)}`);
+  if (!/Room 12/.test(await tv.textContent(".room-hint"))) throw new Error("the room display doesn't name its room");
+  await tv.screenshot({ path: join(shots, "live-7-room-display.png") });
+  await ctx3.close();
 });
 const freshPage = async () => {
   const c = await browser.newContext({ viewport: { width: 390, height: 844 } });

@@ -7,8 +7,20 @@
 //   4. listens for other people's changes and presentation moves in real time.
 // Tables are in supabase/schema.sql. Server functions (payments, push, AI, podcast) are in supabase/functions.
 
+// ----- Church devices stay signed in -----
+// A paired device keeps its own sign-in (the device-only account device-pair made for it) on the device. If its session
+// is ever lost (a power cut while it was being renewed, storage cleared, a long time offline), it signs itself back in,
+// so nobody has to type a new code. Removing the device under Screens and devices deletes that account, which ends it.
+const DEVICE_SIGNIN = "our-faithful-device-signin";
+const DeviceSignin = {
+  get() { try { return JSON.parse(localStorage.getItem(DEVICE_SIGNIN) || "null"); } catch { return null; } },
+  set(v) { try { localStorage.setItem(DEVICE_SIGNIN, JSON.stringify(v)); } catch {} },
+  clear() { try { localStorage.removeItem(DEVICE_SIGNIN); } catch {} },
+};
+let pairNotice = "";
+
 const Backend = {
-  on: false, client: null, user: null, aiEnabled: true, ready: false, snap: new Map(), pending: false, warned: false, channel: null, present: null,
+  on: false, client: null, user: null, aiEnabled: true, ready: false, snap: new Map(), pending: false, warned: false, channel: null,
   configured() { return !IN_PREVIEW && !SANDBOX && !!PLATFORM.supabaseUrl && !!PLATFORM.supabasePublishableKey; },
 
   async start() {
@@ -25,19 +37,45 @@ const Backend = {
       signinNotice = { email: "", text: back.get("error_code") === "otp_expired" ? "That sign-in link has expired or was already used. Choose how to sign in to get a new one." : `Signing in from the email link didn't work (${back.get("error_description") || back.get("error")}). Choose how to sign in to try again.` };
       history.replaceState(null, "", location.pathname);
     } else if (/^#(access_token|refresh_token)=/.test(location.hash)) history.replaceState(null, "", location.pathname);
-    this.client.auth.onAuthStateChange((evt, session) => { if (evt === "SIGNED_OUT") { this.user = null; this.ready = false; this.synced = false; this.snap = new Map(); S.state = blankState(); S.flush(); go("signin"); } else if (session?.user && !this.user) { this.user = session.user; this.afterSignIn(); } });
+    this.client.auth.onAuthStateChange((evt, session) => {
+      if (evt === "SIGNED_OUT") {
+        this.user = null; this.ready = false; this.synced = false; this.snap = new Map(); S.state = blankState(); S.flush();
+        // A church device that lost its session signs itself back in (render shows that it's reconnecting).
+        if (DeviceSignin.get()) render(); else go(pairNotice ? "pair" : "signin");
+      } else if (session?.user && !this.user) { this.user = session.user; this.afterSignIn(); }
+    });
     if (data.session?.user) { this.user = data.session.user; await this.afterSignIn(); }
     else render();
   },
   /** Runs once per sign-in, even if the sign-in event and the sign-in form both ask. */
   afterSignIn() {
     return this.starting ||= (async () => {
-      try { await this.pull(); } catch (e) { console.error(e); toast("Couldn't load your churches. Check your connection."); }
+      try { await this.pull(); } catch (e) {
+        console.error(e);
+        // A church device keeps showing what it last had and tries again until the connection is back.
+        if (DeviceSignin.get()) { const retry = () => this.pull().then(() => { this.subscribe(); render(); }).catch(() => setTimeout(retry, 30e3)); setTimeout(retry, 15e3); }
+        else toast("Couldn't load your churches. Check your connection.");
+      }
       this.ready = true; this.subscribe(); render();
       if (pendingRoute) { const r = pendingRoute; pendingRoute = null; go(r); }
     })().finally(() => { this.starting = null; });
   },
   async signOut() { await this.client?.auth.signOut(); },
+  /** Signs a church device back in with the sign-in it saved when it was paired. Keeps trying while it's offline. */
+  resumeDevice() {
+    const cred = DeviceSignin.get();
+    if (!cred || !this.client || this.user) return Promise.resolve(false);
+    return this.resuming ||= (async () => {
+      for (let wait = 5e3; ; wait = Math.min(wait * 2, 60e3)) {
+        const { data, error } = await this.client.auth.signInWithPassword({ email: cred.email, password: cred.password }).catch((e) => ({ error: e }));
+        if (!error && data?.user) { this.user = data.user; await this.afterSignIn(); return true; }
+        // The device was removed (its account is gone) or paired again somewhere else: it needs a new code.
+        if (error?.code === "invalid_credentials" || error?.status === 400) { DeviceSignin.clear(); pairNotice = "This screen was removed or set up again somewhere else. Ask a church admin for a new code."; go("pair"); render(); return false; }
+        await new Promise((r) => setTimeout(r, wait));
+        if (DeviceSignin.get()?.email !== cred.email) return false;
+      }
+    })().finally(() => { this.resuming = null; });
+  },
 
   // ----- Reading -----
   async all(q) { const out = []; for (let from = 0; ; from += 1000) { const { data, error } = await q().range(from, from + 999); if (error) throw error; out.push(...data); if (data.length < 1000) return out; } },
@@ -188,16 +226,21 @@ const Backend = {
     if (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName) && a.closest("#app") && a.value) { a.addEventListener("blur", () => render(), { once: true }); return; }
     if (!$("#scrim")) render();
   },
-  /** Presentation moves for stage displays and overlays on other devices. */
-  broadcast(msg) {
+  /** Presentation moves for screens on other devices. The main screens use present:<church>; a room's screen gets its own topic. */
+  chans: {},
+  broadcast(msg, topic = `present:${S.state.current}`) {
     if (!this.ready) return;
-    if (!this.present) this.present = this.client.channel(`present:${S.state.current}`).subscribe();
-    this.present.send({ type: "broadcast", event: "slide", payload: msg });
+    (this.chans[topic] ||= this.client.channel(topic).subscribe()).send({ type: "broadcast", event: "slide", payload: msg });
   },
-  onBroadcast(cb) {
+  onBroadcast(cb, topic = `present:${S.state.current}`) {
     if (!this.ready) return;
-    this.present?.unsubscribe();
-    this.present = this.client.channel(`present:${S.state.current}`).on("broadcast", { event: "slide" }, ({ payload }) => cb(payload)).subscribe();
+    this.offBroadcast(topic);
+    this.chans[topic] = this.client.channel(topic).on("broadcast", { event: "slide" }, ({ payload }) => cb(payload)).subscribe();
+  },
+  offBroadcast(topic) {
+    const ch = this.chans[topic]; if (!ch) return;
+    delete this.chans[topic];
+    try { this.client.removeChannel(ch); } catch { try { ch.unsubscribe(); } catch {} }
   },
 
   // ----- Server functions -----
@@ -222,7 +265,7 @@ const Backend = {
 
 /** Collections kept in the records table, one row per item. */
 const RECORD_KINDS = ["sermons", "events", "news", "prayers", "gatherings", "plans", "gifts", "recurring", "docs", "songs", "library", "services", "layouts", "savedBlocks", "channels", "messages", "cards",
-  "checkins", "serving", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "deliveries", "devices", "signage"];
+  "checkins", "serving", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "deliveries", "devices", "signage", "roomSessions"];
 /** Lists inside a record that belong to one person each, stored as their own rows so security can follow the person. */
 const SPLIT = {
   events: { field: "registrations", kind: "event_regs", owner: (r) => r.by },
@@ -232,7 +275,7 @@ const SPLIT = {
 /** Who a record belongs to, for "your own" security rules. */
 function ownerOf(kind, r) {
   return { prayers: r.by, gifts: r.by, recurring: r.by, docs: r.authorId, cards: r.by, checkins: r.by, serving: r.by, teamMembers: r.userId, blockouts: r.userId, notifications: r.userId,
-    formResponses: r.by, bookings: r.by, messages: r.by, followups: r.assignedTo, devices: r.deviceUser }[kind] || null;
+    formResponses: r.by, bookings: r.by, messages: r.by, followups: r.assignedTo, devices: r.deviceUser, roomSessions: r.by }[kind] || null;
 }
 /** A fresh state with no sample churches, for signed-in use. */
 function blankState() {

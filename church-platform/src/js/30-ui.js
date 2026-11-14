@@ -57,6 +57,12 @@ function render() {
   // Back from an email sign-in link: Supabase finishes it as it starts.
   if (/^#(access_token|error)=/.test(location.hash) && !Backend.ready) { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Signing you in...</div>`); return; }
   const signedOutOk = head === "page" || head === "pair";
+  // A church device that lost its session signs itself back in. Until then it says so, rather than asking for a code.
+  if (Backend.on && !Backend.user && head !== "pair" && DeviceSignin.get()) {
+    const name = DeviceSignin.get().name || "This screen";
+    app.innerHTML = flat(html`<div class="loading" role="status"><div class="reconnect"><span class="ai-dot"></span><p><b>${name} is signing back in.</b></p><p class="faint">It does this by itself as soon as it can reach the internet. No code needed.</p></div></div>`);
+    Backend.resumeDevice(); return;
+  }
   // Signed out of a live site: email sign-in, and nothing below applies (the welcome form is for the browser-only preview).
   const mustSignIn = Backend.on && !Backend.user && !signedOutOk;
   if (mustSignIn) { if (head !== "signin") pendingRoute = pendingRoute || route; head = "signin"; tail = ""; }

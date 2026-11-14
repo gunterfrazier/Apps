@@ -144,6 +144,8 @@ const ES = {
   "Android: install or update Speech Services by Google from the Play Store.": "Android: instala o actualiza Servicios de voz de Google desde Play Store.",
   "Computers: Microsoft Edge has voices marked Natural, and Google Chrome has Google voices.": "Computadoras: Microsoft Edge tiene voces marcadas como Natural y Google Chrome tiene voces de Google.",
   "Tap Listen again to start reading": "Toca Escuchar otra vez para empezar la lectura", "Read aloud stopped. Try another voice in Settings.": "La lectura se detuvo. Prueba otra voz en Configuración.",
+  "Teaching here? Scan to present.": "¿Enseñas aquí? Escanea para presentar.",
+  "It does this by itself as soon as it can reach the internet. No code needed.": "Lo hace sola en cuanto se conecta a internet. No hace falta ningún código.",
   "There's nothing to read here yet": "Todavía no hay nada que leer aquí", "Listen to the passage": "Escuchar el pasaje", "Listen to the sermon": "Escuchar el sermón",
 
   // Serving
@@ -190,6 +192,8 @@ const ES_PATTERNS = [
   [/^Join (.+) to (.+)\.$/, (m, c, what) => churchNamed(c) ? `Únete a ${c} para ${tr(what) === what ? what : tr(what)}.` : null],
   [/^Sent to (.+)$/, (m, c) => churchNamed(c) ? `Enviado a ${c}` : null],
   [/^You joined (.+)$/, (m, c) => `Te uniste a ${c}`],
+  [/^Present in (.+)$/, (m, r) => `Presentar en ${r}`],
+  [/^(.+) is signing back in\.$/, (m, n) => `${n} está volviendo a iniciar sesión.`],
   [/^Goes to the staff at (.+)\.$/, (m, c) => `Llega al personal de ${c}.`],
   [/^Sign up for (.+)$/, (m, e) => `Inscribirme en ${e}`],
   [/^Tickets for (.+)$/, (m, e) => `Boletos para ${e}`],

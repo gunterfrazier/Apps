@@ -93,9 +93,13 @@ Screens.rooms = () => {
         <button class="btn sm" data-act="room-request" data-loc="${loc.id}" data-day="${roomDay}">${icon("plus")}Request a room</button></div>
       <p class="muted" style="margin:6px 0 0">${fmtDay(fromIsoDay(roomDay))}${roomDay === today ? " (today)" : ""}</p>
       <div class="room-scale" aria-hidden="true">${[6, 9, 12, 15, 18, 21].map((h) => html`<span style="left:${((h - W0) / (W1 - W0)) * 100}%">${h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}</span>`)}</div>
-      <div class="room-list">${loc.rooms.map((room) => { const uses = roomUses(loc.id, room, from, to);
+      <div class="room-list">${loc.rooms.map((room) => { const uses = roomUses(loc.id, room, from, to), sub = roomSub(loc, room, false);
+        // Present: for someone who has the room now (or any room), where the room has a display (as far as they can tell).
+        const present = roomAccess(S.me().id, loc.id, room).ok && (!canDevices() || roomScreens(loc.id, room).length);
         return html`<div class="room-card"><div class="rc-head"><b>${room}</b><span class="faint">${uses.length ? plural(uses.length, "booking") : "Free all day"}</span>
+            ${present ? html`<a class="btn sm" href="#roompresent-${roomKey(loc.id, room)}" aria-label="Present in ${room}">${icon("screen")}Present</a>` : ""}
             <button class="btn ghost sm" data-act="room-request" data-loc="${loc.id}" data-room="${room}" data-day="${roomDay}" aria-label="Request ${room}">Book</button></div>
+          ${sub ? html`<p class="rc-sub">${sub}</p>` : ""}
           <div class="timeline">${uses.map((u) => html`<i class="tl-b ${u.status === "requested" ? "req" : ""}" style="left:${pct(u.start)}%;width:${Math.max(1.2, pct(u.end) - pct(u.start))}%" title="${u.title}, ${fmtTime(u.start)} to ${fmtTime(u.end)}"></i>`)}</div>
           ${uses.length ? html`<ul class="uses">${uses.map((u) => html`<li><span class="ut">${fmtTime(u.start)} to ${fmtTime(u.end)}</span><span>${u.title}${u.status === "requested" ? html` <span class="tag">Requested</span>` : ""}${u.kind !== "booking" ? html` <span class="faint">${useKind(u)}</span>` : ""}</span></li>`)}</ul>` : ""}</div>`; })}</div>
       ${mine.length ? html`<section class="sec"><h2 class="sec-head">Your bookings</h2><div class="rows">${mine.map((b) => html`<button class="row" data-act="room-mine" data-id="${b.id}"><span class="lead-ic">${icon("door")}</span><span class="body"><span class="t">${b.title}</span><span class="s">${b.room}, ${bookingWhen(b)}</span></span><span class="tag ${b.status === "approved" ? "ok" : b.status === "declined" ? "warn" : ""}">${b.status === "approved" ? "Approved" : b.status === "declined" ? "Declined" : "Waiting"}</span></button>`)}</div></section>` : ""}`,
