@@ -84,6 +84,7 @@ const filterRows = (rows, params) => {
 };
 const calls = new Set();
 let supaCalls = 0;   // every request the app makes to Supabase
+let pairCalls = 0, refuseDevices = false;   // pairing requests seen; and a switch that makes the database refuse device records
 async function supabase(route) {
   supaCalls++;
   const req = route.request(), u = new URL(req.url()), m = req.method();
@@ -110,7 +111,7 @@ async function supabase(route) {
   if (p === "/auth/v1/logout") return route.fulfill({ status: 204, headers: cors });
   if (p === "/rest/v1/rpc/reset_training_church") { const c = body(req).c; db.records = (db.records || []).filter((r) => r.church_id !== c); return json(200, null); }
   if (p.startsWith("/rest/v1/rpc/")) return json(200, []);
-  if (p === "/functions/v1/device-pair") { const b = JSON.parse(req.postData() || "{}"); if (b.action === "pair") { const [status, body] = pairDevice(String(b.code).toUpperCase()); return json(status, body); } return json(200, { ok: true }); }
+  if (p === "/functions/v1/device-pair") { const b = JSON.parse(req.postData() || "{}"); if (b.action === "pair") { pairCalls++; await new Promise((r) => setTimeout(r, 250)); const [status, body] = pairDevice(String(b.code).toUpperCase()); return json(status, body); } return json(200, { ok: true }); }
   if (p === "/functions/v1/payments-setup") {
     const b = body(req), church = (db.churches || []).find((c) => c.id === b.churchId);
     if (b.action === "options") return json(200, { stripeConnect: false, providers: ["stripe", "paypal", "square"] });
@@ -138,6 +139,7 @@ async function supabase(route) {
     return json(200, page, { "content-range": `${off}-${off + page.length - 1}/*` });
   }
   if (m === "POST") {
+    if (refuseDevices && table === "records" && [].concat(JSON.parse(req.postData() || "[]")).some((r) => r.kind === "devices")) return json(403, { code: "42501", message: "new row violates row-level security policy" });
     const body = [].concat(JSON.parse(req.postData() || "[]")), cols = (u.searchParams.get("on_conflict") || (keys[table] || ["id"]).join(",")).split(",");
     for (const r of body) { const at = rows.findIndex((x) => cols.every((c) => String(x[c]) === String(r[c]))); if (at >= 0) rows[at] = { ...rows[at], ...r }; else rows.push(r); }
     return json(201, (req.headers().prefer || "").includes("return=representation") ? body : undefined);
@@ -240,7 +242,10 @@ await step("pairs a presentation screen as a device", async () => {
   await page.evaluate(() => { location.hash = "devices"; }); await page.click("[data-act=device-new]");
   await page.locator("#scrim input[name=type][value=display]").evaluate((el) => el.click());
   await page.click("#scrim form button.btn:not([type=button])"); await page.waitForSelector("#scrim .pair-code");
-  const code = (await page.textContent("#scrim .pair-code")).trim(); await page.waitForTimeout(1200); // saved to the database
+  const code = (await page.textContent("#scrim .pair-code")).trim();
+  // The code is only shown once the database has it, so it works the moment it's on screen.
+  if (!(db.records || []).some((r) => r.kind === "devices" && r.data.code === code)) throw new Error("the pairing code was shown before the device was saved to the database");
+  if (!(await page.$("#scrim .pair-qr")) || /practice code/.test(await page.textContent("#scrim"))) throw new Error("the live pairing sheet should offer the QR code, not call it practice");
   await page.click("#scrim [data-act=close-sheet]");
   const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   await ctx2.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
@@ -291,6 +296,78 @@ await step("pairs a room display", async () => {
   if (!/Room 12/.test(await tv.textContent(".room-hint"))) throw new Error("the room display doesn't name its room");
   await tv.screenshot({ path: join(shots, "live-7-room-display.png") });
   await ctx3.close();
+});
+await step("a pairing code isn't shown until the device is saved", async () => {
+  refuseDevices = true;
+  await page.evaluate(() => { location.hash = "devices"; }); await page.click("[data-act=device-new]");
+  await page.locator("#scrim input[name=type][value=display]").evaluate((el) => el.click());
+  await page.fill("#scrim input[name=name]", "Balcony screen");
+  await page.click("#scrim form button.btn:not([type=button])"); await page.waitForSelector("#scrim [role=alert]");
+  if (await page.$("#scrim .pair-code")) throw new Error("a code was shown for a device the database refused");
+  if (!/couldn't be saved yet/.test(await page.textContent("#scrim"))) throw new Error("the sheet doesn't say the device wasn't saved");
+  await shot("6b-device-not-saved");
+  refuseDevices = false;
+  await page.click("#scrim [data-act=device-code]"); await page.waitForSelector("#scrim .pair-code");
+  const code = (await page.textContent("#scrim .pair-code")).trim();
+  if (!(db.records || []).some((r) => r.kind === "devices" && r.data.code === code)) throw new Error("trying again didn't save the device");
+  await page.click("#scrim [data-act=close-sheet]");
+});
+const deviceContext = async (w = 1280, h = 720) => {
+  const c = await browser.newContext({ viewport: { width: w, height: h } });
+  await c.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await c.route(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", headers: { "access-control-allow-origin": "*" }, body: readFileSync(bundle) }));
+  await c.route((url) => url.host === supaHost, supabase);
+  return c;
+};
+const waitingCode = (name) => (db.records || []).find((r) => r.kind === "devices" && r.data.name === name && r.data.status !== "paired")?.data.code;
+await step("a wrong code says what to check, and a double tap pairs the device once", async () => {
+  const c = await deviceContext(), tv = await c.newPage(); tv.on("pageerror", (e) => errors.push(`pairing device: ${e.message}`));
+  await tv.goto(base + "#pair"); await tv.waitForSelector("form[data-form=pair]");
+  if (/practice/.test(await tv.textContent("form[data-form=pair]"))) throw new Error("the live pairing screen talks about practice codes");
+  await tv.fill("input[name=code]", "ZZZZZZ"); await tv.click("form[data-form=pair] button.btn"); await tv.waitForSelector("form[data-form=pair] .pair-help");
+  if (!/demo, in training or in a preview/.test(await tv.textContent(".pair-help"))) throw new Error("a failed code doesn't explain practice codes");
+  await tv.screenshot({ path: join(shots, "live-6c-pair-failed.png") });
+  const code = waitingCode("Balcony screen"); if (!code) throw new Error("no code waiting for the balcony screen");
+  pairCalls = 0;
+  await tv.fill("input[name=code]", code);
+  await tv.evaluate(() => { const f = document.querySelector("form[data-form=pair]"); f.requestSubmit(); f.requestSubmit(); f.requestSubmit(); });
+  await tv.waitForSelector(".display .slide", { timeout: 15000 });
+  if (pairCalls !== 1) throw new Error(`three quick taps sent ${pairCalls} pairing requests`);
+  await c.close();
+});
+await step("a browser left in training pairs with a real code and becomes the device", async () => {
+  // The church adds another screen. The browser it's set up on is in training, with a person's sign-in left over too.
+  await page.evaluate(() => { location.hash = "devices"; }); await page.click("[data-act=device-new]");
+  await page.locator("#scrim input[name=type][value=display]").evaluate((el) => el.click());
+  await page.fill("#scrim input[name=name]", "Fellowship hall screen");
+  await page.click("#scrim form button.btn:not([type=button])"); await page.waitForSelector("#scrim .pair-code");
+  const code = (await page.textContent("#scrim .pair-code")).trim(); await page.click("#scrim [data-act=close-sheet]");
+  const person = await page.evaluate(() => Object.entries(localStorage).filter(([k]) => k.startsWith("sb-")));
+  const c = await deviceContext(), tv = await c.newPage(); tv.on("pageerror", (e) => errors.push(`training device: ${e.message}`));
+  await tv.goto(base + "?training#pair"); await tv.waitForSelector("form[data-form=pair]");
+  await tv.evaluate((entries) => entries.forEach(([k, v]) => localStorage.setItem(k, v)), person);
+  if (!/A code from your church's real account works here too/.test(await tv.textContent("form[data-form=pair]"))) throw new Error("in training, the pairing screen doesn't say a real code works");
+  await tv.fill("input[name=code]", code); await tv.click("form[data-form=pair] button.btn");
+  await tv.waitForSelector(".display .slide", { timeout: 20000 });
+  if ((await tv.evaluate(() => location.hash)) !== "#display-follow") throw new Error(`the device went to ${await tv.evaluate(() => location.hash)}`);
+  const left = await tv.evaluate(() => ({ sandbox: localStorage.getItem("our-faithful-sandbox"), signin: !!localStorage.getItem("our-faithful-device-signin"), who: JSON.parse(Object.entries(localStorage).find(([k]) => /^sb-.*auth-token$/.test(k))?.[1] || "{}").user?.email || "" }));
+  if (left.sandbox || !left.signin) throw new Error(`pairing didn't leave training and keep the device's sign-in: ${JSON.stringify(left)}`);
+  if (!/@devices\./.test(left.who)) throw new Error(`the browser is signed in as ${left.who || "nobody"}, not as the device`);
+  const dev = (db.records || []).find((r) => r.kind === "devices" && r.data.name === "Fellowship hall screen");
+  if (dev?.data.status !== "paired") throw new Error("the database doesn't show the screen as paired");
+  await tv.screenshot({ path: join(shots, "live-6d-paired-from-training.png") });
+  await c.close();
+});
+await step("in training, a device's code is marked as practice", async () => {
+  const c = await deviceContext(390, 844), p = await c.newPage(); p.on("pageerror", (e) => errors.push(`training admin: ${e.message}`));
+  await p.goto(base + "?training&debug#devices"); await p.waitForSelector("[data-act=device-new]", { timeout: 15000 });
+  await p.click("[data-act=device-new]"); await p.locator("#scrim input[name=type][value=display]").evaluate((el) => el.click());
+  await p.click("#scrim form button.btn:not([type=button])"); await p.waitForSelector("#scrim .pair-code");
+  const text = await p.textContent("#scrim");
+  if (!/practice code/.test(text) || !/leave training, sign in to your church/.test(text) || await p.$("#scrim .pair-qr")) throw new Error("in training, the pairing sheet doesn't say the code is practice-only");
+  if (!(await p.$("#scrim [data-act=sandbox-exit]"))) throw new Error("the practice sheet doesn't offer to leave training");
+  await p.screenshot({ path: join(shots, "live-6e-practice-code.png") });
+  await c.close();
 });
 const freshPage = async () => {
   const c = await browser.newContext({ viewport: { width: 390, height: 844 } });
