@@ -28,7 +28,7 @@ The app is a folder of plain files (`church-platform/dist/`), so any static host
 
 At this point the app runs on its own site, still in browser-only mode. Install it on a phone to check: in Chrome choose **Install app**; on iPhone, Safari's **Share, Add to Home Screen**.
 
-> Using your own domain (`app.yourchurch.org`)? Add it under **Settings, Pages, Custom domain** and point a CNAME record at `gunterfrazier.github.io`. Use that as your app address from here on.
+> **Our Faithful Church App now has its own domain, `https://ourfaithfulchurch.com/`, hosted on Cloudflare.** See [Your own domain on Cloudflare](#your-own-domain-on-cloudflare) below; that address is the app address from here on. The GitHub Pages address keeps working and forwards there.
 
 ## 2. Create the database
 
@@ -47,8 +47,8 @@ The sign-in screen asks whether someone is new or already has an account. A new 
 
 1. **Authentication, Sign In / Providers, Email**: keep Email on, **Confirm email** on and **Allow new users to sign up** on. The app asks for passwords of at least 8 characters, so leave Supabase's minimum at 8 or lower. If **Secure password change** is on, the app asks for one more emailed code when someone changes a password long after signing in.
 2. **Authentication, URL Configuration**:
-   - **Site URL**: your app address, for example `https://gunterfrazier.github.io/Apps/`.
-   - **Redirect URLs**: add the same address with `**` on the end, for example `https://gunterfrazier.github.io/Apps/**`.
+   - **Site URL**: your app address, `https://ourfaithfulchurch.com/`.
+   - **Redirect URLs**: add the same address with `**` on the end, `https://ourfaithfulchurch.com/**`. Keep `https://gunterfrazier.github.io/Apps/**` listed too while the old address is still in use.
    Without these, the link in the email goes to `localhost` and doesn't open. With them, signing in by link works right away.
 3. **Connect an email sender** under **Authentication, Emails, SMTP Settings**. Supabase's built-in email only delivers to the people on your Supabase team, a few an hour, so the congregation can't sign in until this is done. Free projects created since June 2026 also can't change the email wording until it's done. Any SMTP service works:
    - With your church's own web domain: Resend, Postmark, Brevo or SendGrid (each has a free tier). Add the DNS records they give you so mail isn't marked as spam.
@@ -210,12 +210,42 @@ For signage, make a playlist under **Admin, Digital signage** first, then add a 
 - [ ] Unplug a paired screen for a minute and plug it back in: it comes back on its own screen without a code.
 - [ ] A paired presentation screen on another computer shows the booth's slides as you move through them, and goes back to its logo or playlist when you close the presenter.
 
+## Your own domain on Cloudflare
+
+The app's one address is `https://ourfaithfulchurch.com/`. Cloudflare Pages builds it from this repository, the way it hosts Veritas Logos. Only the website moves: the database, sign-in and server functions stay on Supabase.
+
+Sign-ins, the home-screen install, notification permission and paired screens belong to the address they were made at, so everyone starts fresh at the new address. Do this move before churches join.
+
+1. **Add the domain to Cloudflare.** In the Cloudflare dashboard, add `ourfaithfulchurch.com` as a domain on the Free plan. Cloudflare shows two nameservers (names ending in `.ns.cloudflare.com`). A root domain like this one has to use Cloudflare's nameservers to work with Pages.
+2. **Point the domain at Cloudflare.** At GoDaddy: **Domain Portfolio**, choose the domain, **DNS**, **Nameservers**, **Change Nameservers**, **I'll use my own nameservers**. Enter the two from Cloudflare, **Save**, **Continue**. Cloudflare emails you when the domain is active, usually within an hour and sometimes up to two days. The domain stays registered at GoDaddy.
+3. **Create the Pages project.** Under **Workers & Pages**, create a **Pages** project connected to Git, and pick this repository (`gunterfrazier/Apps`):
+   - Production branch: `main`
+   - Framework preset: none
+   - Build command: `cd church-platform && node build.mjs`
+   - Build output directory: `church-platform/dist`
+   - Root directory: leave empty. The build also reads the Bible text in `veritas-logos/`.
+   Deploy, then open the `pages.dev` address it gives you. You should see the app's sign-in screen.
+4. **Attach the domain.** In the project, **Custom domains**, **Set up a domain**: `ourfaithfulchurch.com`. Do it again for `www.ourfaithfulchurch.com`. The app sends anyone who opens the `www` name to the main address.
+5. **Tell Supabase the new address.**
+   - **Authentication, URL Configuration**: set **Site URL** to `https://ourfaithfulchurch.com/` and add `https://ourfaithfulchurch.com/**` to **Redirect URLs**. Until this is done, the link in a sign-in email opens the old address.
+   - **Edge Functions, Secrets**: set `APP_URL` to `https://ourfaithfulchurch.com/`. Notifications, the podcast feed and text-to-give use it for their links.
+6. **Check it.** Open `https://ourfaithfulchurch.com/`, sign in, and install it to your home screen. Then open the old address: it forwards to the new one.
+
+How the forwarding works: `public/config.js` names the new address (`home`) and the old host (`movedFrom`). The old site checks that the new one is really serving the app before it sends anyone there, so nothing changes for people until steps 1 to 4 are finished. To keep using the old address, add `?stay` to it.
+
+Good to know:
+
+- **Try changes before merging.** Cloudflare builds every branch and pull request at its own preview address (shown on the pull request and in the project's **Deployments**). A preview uses the real database, so test with care. To sign in there with an emailed link, add `https://*.YOUR-PROJECT.pages.dev/**` to Supabase's Redirect URLs; typing the code from the email works without that.
+- **Fewer builds.** Each push builds this project and Veritas Logos. Under the project's **Settings, Builds**, set build watch paths to `church-platform/*` and `veritas-logos/public/data/bible/*` so it only builds when the app changes.
+- **If a build fails** on the Node version, add the environment variable `NODE_VERSION` = `22` under **Settings, Variables and Secrets**.
+- **Sign-in email from your own domain.** Step 3.3 can now use a sender at `ourfaithfulchurch.com` (Resend, Postmark, Brevo or SendGrid) instead of the Gmail account. Add the DNS records they give you in Cloudflare.
+
 ## Demo and training
 
 Share these links with churches you're inviting, or with new staff and volunteers:
 
-- Demo: `https://gunterfrazier.github.io/Apps/?demo`
-- Training: `https://gunterfrazier.github.io/Apps/?training`
+- Demo: `https://ourfaithfulchurch.com/?demo`
+- Training: `https://ourfaithfulchurch.com/?training`
 
 They need no account and nothing to set up. Each opens a sample church in the visitor's own browser, with them as its administrator, so they can try and change everything. Nothing they do reaches your database, and no money moves. Signed-in staff can also choose **Me, Practice, Training, Practice with a copy of** their church, to rehearse changes on their own church's setup.
 
@@ -224,6 +254,7 @@ They need no account and nothing to set up. Each opens a sample church in the vi
 ## Troubleshooting
 
 - **"Some changes weren't saved. Your role may not allow them."** A security rule refused a change. Check the person's role and location access under **Admin, People**. The browser console names the record and the rule's message.
+- **The old address doesn't forward to the new one.** It forwards only when `https://ourfaithfulchurch.com/config.js` opens and shows the app's settings. If it doesn't open, finish steps 1 to 4 of [Your own domain on Cloudflare](#your-own-domain-on-cloudflare).
 - **Sign-in codes don't arrive.** Check spam, then **Authentication, Logs**. Connect your own SMTP sender (step 3.4).
 - **Checkout says the church isn't set up for online payments.** Connect a processor under **Admin, Giving, Online payments**. If connecting fails, the message says what the processor didn't accept.
 - **A payment went through but doesn't show in the app.** Check **Edge Functions, pay-webhook, Logs** in Supabase, and in the processor's dashboard check that the webhook pointing at `pay-webhook` is enabled. Reconnecting the church's keys sets the webhook up again.

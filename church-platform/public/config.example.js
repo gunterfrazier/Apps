@@ -6,4 +6,8 @@ window.OUR_FAITHFUL_CONFIG = {
   supabasePublishableKey: "sb_publishable_...",
   vapidPublicKey: "YOUR-VAPID-PUBLIC-KEY",
   appUrl: "https://YOUR-SITE/",
+  // Optional, for a site with its own domain. home is the one address people should end up at: www.YOUR-DOMAIN forwards
+  // to it. movedFrom lists hosts the app used to live at; they forward once the new address is serving the app.
+  // home: "https://YOUR-DOMAIN/",
+  // movedFrom: ["OLD-HOST.example"],
 };

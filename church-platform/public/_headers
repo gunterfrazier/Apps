@@ -1,0 +1,5 @@
+# Cloudflare Pages reads this file; other hosts ignore it.
+# The app's old address reads config.js from here to learn the new address is live before it forwards people.
+/config.js
+  Access-Control-Allow-Origin: *
+  Cache-Control: no-cache
