@@ -137,7 +137,7 @@ function tabs(active) {
 function seg(items, current) {
   const list = items.filter((x) => x[2] !== false);
   if (list.length < 2) return "";
-  return html`<nav class="seg" aria-label="Sections">${list.map(([hash, label]) => html`<a href="#${hash}" ${attr(hash === current, 'aria-current="page"')}>${label}</a>`)}</nav>`;
+  return html`<nav class="seg ${list.length > 4 ? "seg-many" : ""}" aria-label="Sections">${list.map(([hash, label]) => html`<a href="#${hash}" ${attr(hash === current, 'aria-current="page"')}>${label}</a>`)}</nav>`;
 }
 
 /** Location filter chip, shown when the person can see more than one location. */
