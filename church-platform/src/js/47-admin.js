@@ -193,6 +193,8 @@ Screens.admin = (section) => {
           return html`<a class="row" href="#admin-approvals"><span class="lead-ic">${icon("check")}</span><span class="body"><span class="t">Approvals</span><span class="s">Who hears about requests; pre-approved volunteers</span></span>${n ? html`<span class="tag warn">${n} waiting</span>` : icon("chev")}</a>`; })() : "",
         row("manage.roles", "admin-roles", "key", "Roles and permissions", `${plural(c.roles.length, "role")}; choose what each can do`),
         S.canAny(["manage.people", "manage.roles"]) ? html`<a class="row" href="#admin-people"><span class="lead-ic">${icon("people")}</span><span class="body"><span class="t">People</span><span class="s">${plural(S.members().length, "member")}; roles and location access</span></span>${icon("chev")}</a>` : "",
+        row("manage.locations", "admin-map", "pin", "Campus map", "Draw a layout so visitors can find their way"),
+        row("manage.church", "admin-welcome", "give", "Welcome for new visitors", "The first-visit question, visitor card and welcome message"),
         row("manage.locations", "admin-locations", "pin", "Campuses and locations", `${plural(c.locations.length, "location")}, rooms, service times and livestreams`),
         row("manage.page", "admin-banner", "star", "Home banner", "Background, logo, graphics and text art at the top of Home"),
         row("manage.page", "admin-page", "image", "Landing page", `${plural(c.landing.blocks.length, "block")}${c.landing.showOnHome ? ", shown on Home" : ""}`),

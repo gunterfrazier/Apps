@@ -918,6 +918,44 @@ await step("attendance, dates, campaigns, email and the activity log", async () 
   await page.evaluate(() => { const S = __app.S, c = S.church(); c.ownerId = S.me().id; const m = S.membership(c.id, S.me().id); m.roleId = m._was; delete m._was; S.save(); });
   await goTo("home");
 });
+await step("campus map, first-time visitors and the welcome message", async () => {
+  if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
+  await page.evaluate(() => { const S = __app.S; S.setCurrent("riverside"); const c = S.church(); c.ownerId = S.me().id; const l = c.locations[0]; l.map = null; delete c.welcome; S.save(); });
+  // Drawing the map: add places, name one, resize it, drag it.
+  await goTo("admin-map"); await page.waitForSelector("svg.campus-map.editing");
+  await page.click('[data-act=map-add][data-type=worship]'); await page.waitForSelector("form.map-edit"); await page.fill("form.map-edit input[name=name]", "Sanctuary");
+  await page.click('[data-act=map-size][data-d="w+"]'); await page.fill("form.map-edit input[name=note]", "Services meet here."); await page.click("form.map-edit button.btn:not(.ghost):not(.danger)");
+  await page.click('[data-act=map-add][data-type=restroom]'); await page.click("form.map-edit button.btn:not(.ghost):not(.danger)");
+  const before = await page.evaluate(() => { const it = __app.S.church().locations[0].map.items[1]; return { id: it.id, x: it.x, y: it.y }; });
+  await page.evaluate(() => window.scrollTo(0, 0)); await page.locator("svg.campus-map").scrollIntoViewIfNeeded(); await page.evaluate(() => window.scrollBy(0, -120));
+  const box = await page.locator(`[data-place="${before.id}"] rect`).boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 + 10, box.y + box.height / 2 + 120, { steps: 6 }); await page.mouse.up();
+  const after = await page.evaluate((id) => { const it = __app.S.church().locations[0].map.items.find((i) => i.id === id); return { x: it.x, y: it.y }; }, before.id);
+  if (after.y <= before.y) throw new Error(`dragging didn't move the place (${before.y} -> ${after.y})`);
+  await page.click('svg.campus-map rect:first-child', { position: { x: 4, y: 4 } }).catch(() => {}); await shot("89-map-builder");
+  const san = await page.evaluate(() => __app.S.church().locations[0].map.items[0]); if (san.name !== "Sanctuary" || san.w !== 11) throw new Error("the place wasn't saved as edited");
+  // A visitor finds a place.
+  await goTo(`map-${await page.evaluate(() => __app.S.church().locations[0].id)}`); await page.waitForSelector("svg.campus-map:not(.editing)"); await expectText("Find a place");
+  await page.fill("[data-input=map-find]", "rest"); await page.waitForFunction(() => document.querySelectorAll("#map-list .row").length === 1);
+  await page.fill("[data-input=map-find]", ""); await page.locator("#map-list .row", { hasText: "Sanctuary" }).click(); await expectText("Services meet here."); await page.waitForSelector(".campus-map .place.on"); await shot("90-map");
+  await goTo("home"); await expectText("Campus map");
+  // Settings for the welcome: a bad link is refused, a good one saves.
+  await goTo("admin-welcome"); await page.fill("form[data-form=welcome-save] textarea[name=links]", "Bad one | javascript:alert(1)"); await page.click("form[data-form=welcome-save] button.btn:not(.ghost)"); await page.waitForSelector("form[data-form=welcome-save] .err");
+  await page.fill("form[data-form=welcome-save] input[name=title]", "Hello from {church}"); await page.fill("form[data-form=welcome-save] textarea[name=links]", "Plan your visit | #visit\nOur website | https://example.org");
+  await page.click("[data-act=welcome-preview]"); await page.waitForSelector("#scrim"); await page.waitForFunction(() => document.querySelector("#scrim")?.textContent.includes("Hello from Riverside Community Church")); await page.click("#scrim [data-act=close-sheet]"); await sheetGone();
+  await page.click("form[data-form=welcome-save] button.btn:not(.ghost)"); await shot("91-welcome-settings");
+  // Someone joins: asked if it's their first visit, fills in the card, lands on Plan your visit with the welcome.
+  await page.evaluate(() => { const S = __app.S, c = S.church(); c.ownerId = "someone-else"; S.state.memberships = S.state.memberships.filter((m) => !(m.churchId === c.id && m.userId === S.me().id)); S.state.cards = S.state.cards.filter((x) => !x.firstVisit); sessionStorage.setItem("our-faithful-presence-asked", JSON.stringify(["x"])); S.me().prefs && (S.me().prefs.askPresence = false); S.save(); });
+  await goTo("church-riverside"); await page.evaluate(() => __app.render()); await page.click("[data-act=join-church]");
+  await page.waitForSelector("#scrim [data-act=visit-first]", { timeout: 5000 }); await shot("92-first-visit-question"); await page.click("#scrim [data-act=visit-first]");
+  await page.waitForSelector("form[data-form=visitor-card]"); await page.fill("form[data-form=visitor-card] input[name=phone]", "(770) 555-0100"); await page.fill("form[data-form=visitor-card] input[name=adults]", "Sam"); await page.fill("form[data-form=visitor-card] textarea[name=children]", "Ella, 7\nNoah, 4");
+  await shot("93-visitor-card"); await page.click("form[data-form=visitor-card] button.btn:not(.ghost)");
+  await page.waitForFunction(() => location.hash === "#visit"); await page.waitForFunction(() => { const t = document.querySelector("#scrim")?.textContent || ""; return t.includes("Hello from Riverside Community Church") && t.includes("Our website"); }); await shot("94-welcome-message");
+  await page.click("#scrim [data-act=close-sheet]"); await sheetGone(); await expectText("Plan your visit"); await shot("95-plan-your-visit");
+  const card = await page.evaluate(() => { const S = __app.S, c = S.list("cards").find((x) => x.firstVisit); return c && { reason: c.reason, kids: c.children.length, fu: S.list("followups").some((f) => f.cardId === c.id || (f.personId === S.me().id && f.status !== "closed")) }; });
+  if (!card || card.reason !== "First-time visitor" || card.kids !== 2 || !card.fu) throw new Error(`visitor card wrong: ${JSON.stringify(card)}`);
+  await page.evaluate(() => { const S = __app.S; S.church().ownerId = S.me().id; S.save(); }); await goTo("home");
+});
 await step("dashboard and detailed reports", async () => {
   if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
   const asRole = (r) => page.evaluate((r) => { const S = __app.S, c = S.state.churches.riverside; if (r === "primary") c.ownerId = S.me().id; else { if (c.ownerId === S.me().id) c.ownerId = "u-dana"; S.membership(c.id).roleId = r; } S.save(); __app.render(); }, r);
