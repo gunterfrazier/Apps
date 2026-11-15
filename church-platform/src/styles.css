@@ -788,6 +788,20 @@ body.kiosk-mode #app { padding-bottom: 0; }
 .map-size span { min-width: 52px; color: var(--ink-2); }
 .map-size b { min-width: 22px; text-align: center; }
 .map-floors { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.map-wrap { position: relative; }
+.map-wrap .map-frame { overflow: auto; max-height: 78vh; -webkit-overflow-scrolling: touch; }
+.map-frame[data-zoom] .campus-map { min-width: 100%; }
+.map-frame[data-zoom="1.75"] .campus-map { width: 175%; } .map-frame[data-zoom="2.5"] .campus-map { width: 250%; } .map-frame[data-zoom="3.25"] .campus-map { width: 325%; }
+.map-zoom { position: absolute; top: 18px; right: 8px; display: flex; flex-direction: column; gap: 6px; }
+.map-zoom .btn { min-width: 38px; min-height: 38px; padding: 0; justify-content: center; background: var(--surface); box-shadow: var(--sh-1); font-size: 1.2rem; }
+.campus-map .place.dim { opacity: .25; }
+.campus-map .map-route { stroke: var(--brand); }
+.map-legend { flex-wrap: nowrap; }
+.map-legend .chip { display: inline-flex; align-items: center; }
+.map-photo { width: 100%; max-height: 220px; object-fit: cover; border-radius: 12px; display: block; margin-bottom: 10px; }
+.map-steps { margin: 10px 0 0; padding-left: 22px; } .map-steps li { margin: 6px 0; line-height: 1.4; }
+.map-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.map-embed { height: 72vh; min-height: 420px; }
 .campaign-bar { position: relative; height: 12px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
 .campaign-bar i { position: absolute; inset: 0 auto 0 0; background: var(--s1); border-radius: 999px; }
 .campaign-bar i.pledged { background: color-mix(in srgb, var(--s1) 30%, transparent); }

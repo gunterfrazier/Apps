@@ -42,6 +42,7 @@ const CHURCH_SCOPED = ["home", "give", "checkin", "parents", "serve", "live", "e
 function churchForRoute(head, tail) {
   if (!tail) return null;
   if (CHURCH_SCOPED.includes(head) && S.state.churches[tail.split("~")[0]]) return tail.split("~")[0];
+  if (head === "map") return Object.values(S.state.churches).find((c) => c.locations?.some((l) => l.id === tail.split("~")[0]))?.id || null;
   if (head === "register") { const [k, ...r] = tail.split("-"); return S.get(k === "event" ? "events" : "gatherings", r.join("-"))?.churchId || null; }
   const kind = { event: "events", gathering: "gatherings", sermon: "sermons", outline: "docs", plan: "plans" }[head];
   return kind ? S.get(kind, tail)?.churchId || null : null;

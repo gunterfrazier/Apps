@@ -12,6 +12,8 @@ function qrTargetGroups() {
     ["Check in and out", [[`checkin-${c.id}`, "Kids check-in"], [`parents-${c.id}`, "Parent portal (check-in and pickup)"], [`serve-${c.id}`, "Volunteer check-in"]]],
     ["Events", events.flatMap((e) => [[`event-${e.id}`, e.title], ...(e.signup ? [[`register-event-${e.id}`, `${e.title}: sign up`]] : [])])],
     ["Classes and groups", gs.flatMap((g) => [[`gathering-${g.id}`, g.name], ...(g.registration !== "none" ? [[`register-gathering-${g.id}`, `${g.name}: register`]] : [])])],
+    // "You are here" signs: scanning one opens the campus map with directions starting from that spot.
+    ["Campus map", mapLocations().flatMap((l) => [[`map-${l.id}`, `Campus map${S.visibleLocations().length > 1 ? `: ${l.name}` : ""}`], ...mapItems(l.map).filter((i) => i.name && !i.staff).map((i) => [`map-${l.id}~${i.id}~here`, `You are here: ${i.name}`])])],
   ].filter(([, list]) => list.length);
 }
 let qrState = { target: "", label: "", custom: "" };
