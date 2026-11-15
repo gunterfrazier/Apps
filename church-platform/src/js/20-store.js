@@ -21,7 +21,7 @@ const S = {
       Object.values(saved.churches).forEach((c) => {
         c.positions ||= JSON.parse(JSON.stringify(DEFAULT_POSITIONS));
         // Give built-in roles the permissions added in later versions.
-        c.roles.forEach((r) => PERMS.forEach(([, k]) => { if (r.perms[k] === undefined && (r.id === "admin" || NEW_PERM_DEFAULTS[k]?.includes(r.id))) r.perms[k] = true; }));
+        c.roles.forEach((r) => PERMS.forEach(([, k]) => { if (r.perms[k] === undefined && !PRIMARY_GRANTS.includes(k) && (r.id === "admin" || NEW_PERM_DEFAULTS[k]?.includes(r.id))) r.perms[k] = true; }));
       });
       saved.services.forEach((p) => { if (!p.assignments) p.assignments = seed.services.find((x) => x.id === p.id)?.assignments || []; });
       return;
@@ -52,12 +52,16 @@ const S = {
   userName(id) { return this.user(id)?.name || "Someone"; },
 
   // ----- churches and membership -----
-  church(id) { return this.state.churches[id || this.state.current] || null; },
-  churches() { return Object.values(this.state.churches); },
+  /** A deactivated church account (see 78-deactivate.js). A training church goes quiet with the church it belongs to. */
+  deactivated(c) { return !!c && (c.deactivation?.status === "deactivated" || (!!c.training?.of && this.state.churches[c.training.of]?.deactivation?.status === "deactivated")); },
+  /** Deactivated means gone for everyone but the primary account holder, who can bring it back. */
+  hidden(c) { return this.deactivated(c) && !(c.deactivation?.status === "deactivated" && c.ownerId === this.state.me.id); },
+  church(id) { const c = this.state.churches[id || this.state.current] || null; return c && this.hidden(c) ? null : c; },
+  churches() { return Object.values(this.state.churches).filter((c) => !this.hidden(c)); },
   membership(cid = this.state.current, userId = this.state.me.id) { return this.state.memberships.find((m) => m.churchId === cid && m.userId === userId) || null; },
   /** People at a church. Signed-in screens and kiosks have memberships too, but they aren't people. */
   members(cid = this.state.current) { return this.state.memberships.filter((m) => m.churchId === cid && !String(m.roleId || "").startsWith("device:")); },
-  myChurches() { return this.state.memberships.filter((m) => m.userId === this.state.me.id).map((m) => this.state.churches[m.churchId]).filter(Boolean); },
+  myChurches() { return this.state.memberships.filter((m) => m.userId === this.state.me.id).map((m) => this.church(m.churchId)).filter(Boolean); },
   isMember(cid) { return !!this.membership(cid); },
   isPrimary(cid, userId = this.state.me.id) { return this.church(cid)?.ownerId === userId; },
   role(cid = this.state.current, userId = this.state.me.id) {

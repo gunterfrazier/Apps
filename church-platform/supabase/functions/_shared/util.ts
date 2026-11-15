@@ -59,3 +59,28 @@ export async function patchRecord(db: SupabaseClient, kind: string, id: string, 
 export async function notify(db: SupabaseClient, church: string, userId: string, n: { kind: string; title: string; body: string; link: string }, id = `n-${uid()}`) {
   await db.from("records").upsert({ kind: "notifications", id, church_id: church, owner: userId, data: { churchId: church, userId, at: new Date().toISOString(), read: false, ...n } }, { onConflict: "kind,id", ignoreDuplicates: true });
 }
+
+// ---------- Email ----------
+// Server functions send email through one of two senders, set as function secrets:
+//   RESEND_API_KEY   an email API (resend.com), or
+//   SMTP_HOST, SMTP_USER, SMTP_PASS   a mailbox such as Gmail (smtp.gmail.com with an app password). SMTP_PORT is 465
+//                    unless you set it; functions can't reach ports 25 and 587.
+// EMAIL_FROM is the sender shown, like "Our Faithful Church App <hello@example.org>"; it defaults to SMTP_USER.
+export const emailReady = () => !!env("RESEND_API_KEY") || (!!env("SMTP_HOST") && !!env("SMTP_USER") && !!env("SMTP_PASS"));
+/** Sends one email. False when no sender is set up or the send failed (the reason is in the function's log). */
+export async function sendEmail(to: string, subject: string, text: string, html?: string): Promise<boolean> {
+  const from = env("EMAIL_FROM") || env("SMTP_USER");
+  try {
+    if (env("RESEND_API_KEY")) {
+      const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, text, html }) });
+      if (!r.ok) console.error("email not sent", r.status, await r.text());
+      return r.ok;
+    }
+    if (!emailReady()) return false;
+    const { default: nodemailer } = await import("npm:nodemailer@6.9.16");
+    const port = Number(env("SMTP_PORT", "465"));
+    const mailer = nodemailer.createTransport({ host: env("SMTP_HOST"), port, secure: port === 465, auth: { user: env("SMTP_USER"), pass: env("SMTP_PASS") } });
+    await mailer.sendMail({ from, to, subject, text, html });
+    return true;
+  } catch (e) { console.error("email not sent", (e as Error).message); return false; }
+}

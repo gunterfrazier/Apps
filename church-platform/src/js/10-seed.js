@@ -20,7 +20,7 @@ const DEFAULT_FUNDS = [
 
 /** The built-in roles, from most to least access. The primary account holder sits above all of them. */
 function defaultRoles() {
-  const all = Object.fromEntries(PERMS.map(([, k]) => [k, true]));
+  const all = Object.fromEntries(PERMS.map(([, k]) => [k, !PRIMARY_GRANTS.includes(k)]));
   const pick = (...keys) => Object.fromEntries(["use.prayer", "use.directory", "use.chat", "use.checkin", ...keys].map((k) => [k, true]));
   return [
     { id: "admin", name: "Administrator", rank: 90, perms: all, builtin: true },

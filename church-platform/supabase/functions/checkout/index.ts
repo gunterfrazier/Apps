@@ -11,6 +11,7 @@ handle(async (req) => {
   const db = admin();
   const { data: church } = await db.from("churches").select("id, name, data").eq("id", b.churchId).single();
   if (!church) return fail("Church not found", 404);
+  if (church.data?.deactivation?.status === "deactivated") return fail("This church's account is deactivated, so it can't take payments.", 409);
   const via = await processorFor(db, church);
   if (!via) return fail("This church isn't set up for online payments yet");
 

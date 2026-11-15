@@ -43,6 +43,7 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - Teams with positions (Worship: worship leader, vocals, keys and so on). People ask to join a team, or a scheduler adds them. A request waits for a scheduler to approve it (one at a time, or **Approve all**), unless the church pre-approved that person or everyone, under **Admin, Approvals**.
 - **Admin, Approvals**: requests (room bookings, joining a volunteer team, joining a class or group whose leader approves) notify everyone who can approve them; each kind can be turned off, and the person asking can untick it for one request. The page also lists what's waiting and sets who's pre-approved to serve: nobody (every request is reviewed), everyone, or chosen people. The security rules hold the same line: your own request stays a request until someone approves it.
 - **Nobody approves their own request.** If the person asking can approve that kind of request, it's approved on the spot: a room is booked, they're on the team, they're registered for the class or group (its teachers and leaders count too). A request already waiting is approved the same way the moment its owner is given the privilege, and they get a notification saying so.
+- **Deactivating a church account.** The primary account holder can deactivate the church (Admin, Deactivate church account); an administrator the primary has given that privilege can ask, and the primary approves or declines. The app spells out what it means first and makes the person type the church's name: the church is hidden from everyone else and removed from the list of churches, giving stops, and screens are signed out. The primary can reactivate it for a year. After that everything in it is permanently deleted. Reminders go to the primary by email and in the app with 180, 90, 30, 14, 7, 3 and 1 days left. On a live site the server owns all of it: the rules hide the church, a browser can't change the deactivation record, and an hourly job sends reminders and removes the data (SETUP.md step 13).
 - Schedulers ask people to fill positions for each service plan. The schedule shows who's confirmed, waiting or can't serve. **Fill open spots** asks the team members who are free, skipping anyone away that day or already serving, and spreading the asks so the same people aren't asked every week. Schedulers can remind people who haven't answered, mark someone confirmed, or message them.
 - Volunteers see requests on Home and under **Me, Serving**, accept or decline with a note, and add the dates they're away.
 - Notifications under the bell: asks, answers and reminders. Once push is set up they also go to people's phones.
@@ -131,6 +132,7 @@ node build.mjs          # writes dist/: index.html (one self-contained file), ic
 node test/smoke.mjs     # clicks through every feature at phone size (needs Playwright)
 node test/live.mjs      # the published setup: a sub-path and Supabase sign-in, sync, devices and payments (Supabase simulated)
 deno run -A test/payments.ts   # the payment functions with Stripe, PayPal and Square stand-ins
+node test/lifecycle.mjs        # the church-lifecycle function: emails, stopping recurring gifts, clearing files (stand-ins)
 ```
 
 Edit the files in `src/`, not `dist/`. `src/vendor/qrcode.js` (MIT) and `public/vendor/jsQR.js` (Apache-2.0) are the QR libraries.
@@ -176,7 +178,8 @@ public/bible/xref/    Cross-references from OpenBible.info (CC BY), one file per
 public/               Manifest, service worker (offline and push), icons, QR reader, config.example.js
 supabase/schema.sql   Database tables and security rules
 supabase/upgrade-4.sql  For a database made before signage and devices: run once
-supabase/upgrade-5.sql to upgrade-8.sql  Payments, training churches, room displays, approvals: run each once on an older database
+supabase/upgrade-5.sql to upgrade-9.sql  Payments, training churches, room displays, approvals, deactivating a church: run each once on an older database
+supabase/cron-lifecycle.sql    The hourly job for deactivated churches: reminders, and removal after a year
 supabase/functions/   Server functions: payments, push, reminders, webhooks, AI, podcast, text-to-give, device pairing
 supabase/cron.sql     Schedules for webhooks and reminders
 SETUP.md              Step-by-step guide to going live
