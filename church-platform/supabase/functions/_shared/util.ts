@@ -66,10 +66,23 @@ export async function notify(db: SupabaseClient, church: string, userId: string,
 //   SMTP_HOST, SMTP_USER, SMTP_PASS   a mailbox such as Gmail (smtp.gmail.com with an app password). SMTP_PORT is 465
 //                    unless you set it; functions can't reach ports 25 and 587.
 // EMAIL_FROM is the sender shown, like "Our Faithful Church App <hello@example.org>"; it defaults to SMTP_USER.
+// Email a person sends from the app comes from their own name at EMAIL_PERSONAL_DOMAIN (or EMAIL_FROM's domain), like
+// "Gunter Frazier <gunterfrazier@mail.ourfaithfulchurch.com>", with replies to their real address. The domain must be
+// verified in Resend. Keep EMAIL_RESERVED and the name rule in step with src/js/84-email.js.
+const EMAIL_RESERVED = ["admin", "administrator", "abuse", "postmaster", "hostmaster", "webmaster", "noreply", "support", "security", "billing", "help", "hello", "info", "office", "pastor", "staff", "root", "mailer", "team", "church"];
+export function personalFrom(name: string): string | undefined {
+  const domain = env("EMAIL_PERSONAL_DOMAIN") || (env("EMAIL_FROM").match(/@([A-Za-z0-9.-]+)>?\s*$/) || [])[1];
+  if (!domain) return undefined;
+  let local = String(name || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 40) || "member";
+  if (EMAIL_RESERVED.includes(local)) local += ".member";
+  const shown = String(name || "A member").replace(/["<>\r\n]/g, "").slice(0, 60).trim() || "A member";
+  return `"${shown}" <${local}@${domain}>`;
+}
 export const emailReady = () => !!env("RESEND_API_KEY") || (!!env("SMTP_HOST") && !!env("SMTP_USER") && !!env("SMTP_PASS"));
 /** Sends one email. False when no sender is set up or the send failed (the reason is in the function's log). */
-export async function sendEmail(to: string, subject: string, text: string, html?: string, replyTo?: string): Promise<boolean> {
-  const from = env("EMAIL_FROM") || env("SMTP_USER");
+export async function sendEmail(to: string, subject: string, text: string, html?: string, replyTo?: string, fromOverride?: string): Promise<boolean> {
+  // A personal address only works through Resend; a mailbox (SMTP) can only send as itself.
+  const from = (env("RESEND_API_KEY") && fromOverride) || env("EMAIL_FROM") || env("SMTP_USER");
   try {
     if (env("RESEND_API_KEY")) {
       const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, text, html, ...(replyTo ? { reply_to: replyTo } : {}) }) });

@@ -94,7 +94,7 @@ Forms.profile = (d, f) => {
 };
 Actions["leave-church"] = () => openSheet(`Leave ${S.church().name}?`, html`<p>You'll be removed from the directory, your groups' chats and member features. Your notes and giving history stay on this device.</p>
   <div class="btns"><button class="btn danger" data-act="leave-yes">Leave</button><button class="btn ghost" data-act="close-sheet">Stay</button></div>`);
-Actions["leave-yes"] = () => { const n = S.church().name; S.leave(S.state.current); closeSheet(true); toast(`You left ${n}`); go(S.church() ? "home" : "churches"); };
+Actions["leave-yes"] = () => { const n = S.church().name; emit("member.left", { name: S.me().name, userId: S.me().id }, S.state.current); S.leave(S.state.current); closeSheet(true); toast(`You left ${n}`); go(S.church() ? "home" : "churches"); };
 Actions["install"] = async () => { if (!installPrompt) return; installPrompt.prompt(); try { await installPrompt.userChoice; } catch {} installPrompt = null; render(); };
 Actions["demo-role"] = () => {
   const c = S.church(), cur = S.membership().roleId;

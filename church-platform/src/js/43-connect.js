@@ -1,5 +1,5 @@
 // ---------- Connect: prayer wall, classes and Sunday school, small groups, directory ----------
-const connectSeg = () => [["connect", "Prayer", S.on("prayer")], ["classes", "Classes", S.on("classes")], ["groups", "Groups", S.on("groups")], ["directory", "Directory", S.on("directory") && S.can("use.directory")], ["forms", "Forms", S.list("forms").some((f) => f.listed && formOpen(f))]];
+let connectSeg = () => [["connect", "Prayer", S.on("prayer")], ["classes", "Classes", S.on("classes")], ["groups", "Groups", S.on("groups")], ["directory", "Directory", S.on("directory") && S.can("use.directory")], ["forms", "Forms", S.list("forms").some((f) => f.listed && formOpen(f))]];
 let prayerFilter = "open";
 
 function needMember(what) {
@@ -55,7 +55,7 @@ Forms["prayer-new"] = (d, f) => {
 };
 Actions["prayer-answer"] = (el) => openSheet("Mark as answered", html`<form data-form="prayer-answer" novalidate><input type="hidden" name="id" value="${el.dataset.id}">
   <label class="field"><span>Share how God answered (optional)</span><textarea name="answer" maxlength="500"></textarea></label><button class="btn block">Mark answered</button></form>`);
-Forms["prayer-answer"] = (d) => { S.update("prayers", d.id, { answered: true, answer: d.answer || "" }); closeSheet(); toast("Marked answered"); render(); };
+Forms["prayer-answer"] = (d) => { const p = S.update("prayers", d.id, { answered: true, answer: d.answer || "" }); if (p && !p.private) emit("prayer.answered", { name: p.anonymous ? null : p.name, text: p.text, answer: d.answer || "" }); closeSheet(); toast("Marked answered"); render(); };
 Actions["prayer-delete"] = (el) => openSheet("Remove this request?", html`<p>It will no longer show on the prayer wall.</p><div class="btns"><button class="btn danger" data-act="prayer-delete-yes" data-id="${el.dataset.id}">Remove</button><button class="btn ghost" data-act="close-sheet">Keep it</button></div>`);
 Actions["prayer-delete-yes"] = (el) => { S.remove("prayers", el.dataset.id); closeSheet(); toast("Request removed"); render(); };
 

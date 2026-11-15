@@ -199,7 +199,7 @@ Forms["pledge-save"] = (d, f) => {
   if (!c || !(amount > 0)) return formError(f, "Enter the total you plan to give.");
   const mine = S.list("pledges").find((p) => p.campaignId === c.id && p.userId === S.me().id);
   if (mine) Object.assign(mine, { amount, at: new Date().toISOString() }); else S.add("pledges", { campaignId: c.id, userId: S.me().id, name: S.me().name, amount, at: new Date().toISOString() });
-  S.save(); logActivity(`Pledged to ${c.name}`, "giving"); closeSheet(); toast("Pledge saved. Thank you."); campaignRefresh(); render();
+  S.save(); emit("pledge.made", { name: S.me().name, campaign: c.name, amount }); logActivity(`Pledged to ${c.name}`, "giving"); closeSheet(); toast("Pledge saved. Thank you."); campaignRefresh(); render();
 };
 Actions["pledge-remove"] = (el) => { S.remove("pledges", el.dataset.id); S.save(); closeSheet(); toast("Pledge removed"); campaignRefresh(); render(); };
 AdminScreens.campaigns = () => {
@@ -250,16 +250,19 @@ function emailAudiences() {
   if (S.can("view.reports")) { const l = ids(members.map((m) => m.userId).filter((u) => { const s = seen(u); return s && s < cut; })); if (l.length) out.push(["away", "Not seen in 4 weeks", l]); }
   return out;
 }
-AdminScreens.email = () => {
-  const stop = guard("send.email"); if (stop) return stop;
-  const aud = emailAudiences(), sent = S.list("activity").filter((a) => a.area === "email").sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
-  return { title: "Email people", back: "admin", body: html`<p class="muted" style="margin-top:14px">Send an email to a group. Each person gets their own copy, replies come to you, and nobody sees anyone else's address.</p>
-    ${Backend.on ? "" : html`<p class="room-msg warn" role="note">${icon("info")}<span>This is ${practicePlace()}, so nothing is really sent. On your church's own site the email goes out through its email service.</span></p>`}
-    <form data-form="email-send" class="panel" novalidate>
+/** The group email form, on Admin, Email people and on Connect, Email. */
+const emailGroupForm = (aud = emailAudiences()) => html`<form data-form="email-send" class="panel" novalidate>
       <label class="field"><span>To</span><select name="to" data-change="email-to">${aud.map(([k, l, ids]) => html`<option value="${k}">${l} (${ids.length})</option>`)}</select></label>
       <label class="field"><span>Subject</span><input type="text" name="subject" maxlength="120" required></label>
       <label class="field"><span>Message</span><textarea name="body" rows="8" maxlength="10000" required></textarea></label>
-      <button class="btn block">Send email</button></form>
+      ${emailFromNote()}
+      <button class="btn block">Send email</button></form>`;
+AdminScreens.email = () => {
+  const stop = guard("send.email"); if (stop) return stop;
+  const aud = emailAudiences(), sent = S.list("activity").filter((a) => a.area === "email").sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
+  return { title: "Email people", back: "admin", body: html`<p class="muted" style="margin-top:14px">Send an email to a group. Each person gets their own copy, replies come to you, and nobody sees anyone else's address. You can also do this from Connect, Email.</p>
+    ${Backend.on ? "" : html`<p class="room-msg warn" role="note">${icon("info")}<span>This is ${practicePlace()}, so nothing is really sent. On your church's own site the email goes out through its email service.</span></p>`}
+    ${emailGroupForm(aud)}
     ${sent.length ? html`<section class="sec"><div class="sec-head"><h2>Sent</h2></div><div class="rows">${sent.map((a) => html`<div class="row"><span class="body"><span class="t">${a.what}</span><span class="s">${a.name}, ${fmt(a.at, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span></span></div>`)}</div></section>` : ""}` };
 };
 Forms["email-send"] = async (d, f) => {
@@ -273,6 +276,7 @@ Forms["email-send"] = async (d, f) => {
     let n = aud[2].length;
     if (Backend.on) { const r = await Backend.call("send-email", { churchId: S.state.current, userIds: aud[2], subject, body, audience: aud[1] }); n = r.sent; await Backend.pull().catch(() => {}); }
     else logActivity(`Emailed ${plural(n, "person", "people")} (${aud[1]}): ${subject}`, "email");
+    emit("email.sent", { audience: aud[1], subject, count: n, name: S.me().name });
     toast(Backend.on ? `Sent to ${plural(n, "person", "people")}` : `Practice: this would go to ${plural(n, "person", "people")}`); f.reset(); render();
   } catch (e) { btn.disabled = false; btn.textContent = "Send email"; formError(f, e.message || "The email couldn't be sent. Try again."); }
 };
