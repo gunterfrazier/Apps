@@ -10,7 +10,7 @@ let visitAsk = null;   // the church someone just joined, until the question has
 function visitPrompt() {
   const c = S.church(); if (!visitAsk || !c || visitAsk !== c.id || $("#scrim")) return;
   visitAsk = null;
-  if (!welcomeOf(c).ask || !S.isMember() || S.isPrimary()) return;
+  if (!welcomeOf(c).ask || c.training || !S.isMember() || S.isPrimary()) return;   // never in a training church
   openSheet(`Welcome to ${c.name}`, html`<p style="margin-top:0;font-size:1.1rem">Is this your first time visiting us?</p>
     <div class="btns stack"><button class="btn block" data-act="visit-first">Yes, I'm new here</button><button class="btn ghost block" data-act="visit-not-first">No, I've been before</button></div>`);
 }

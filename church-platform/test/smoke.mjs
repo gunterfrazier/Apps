@@ -66,6 +66,7 @@ await step("welcome", async () => {
 });
 await step("join as basic member", async () => {
   await goTo("church-riverside"); await page.click("[data-act=join-church]");
+  await page.waitForSelector("#scrim [data-act=visit-not-first]", { timeout: 5000 }); await page.click("#scrim [data-act=visit-not-first]"); await sheetGone();   // asked once, on joining
   await page.waitForSelector(".home-top"); await shot("02-home");
   await goTo("me"); await expectText("Member");
   if (await page.$('a[href="#admin"]')) throw new Error("a new member should not see Admin");
