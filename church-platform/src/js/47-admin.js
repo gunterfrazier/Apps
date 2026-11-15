@@ -198,6 +198,7 @@ Screens.admin = (section) => {
         row("manage.page", "admin-page", "image", "Landing page", `${plural(c.landing.blocks.length, "block")}${c.landing.showOnHome ? ", shown on Home" : ""}`),
         row("manage.church", "admin-training", "book", "Training church", isTrainingChurch(c) ? "Invite your team, or start fresh" : trainingChurchOf(c) ? `${trainingChurchOf(c).name}: your team's shared practice church` : "A practice copy your whole team shares"),
         row("manage.integrations", "admin-integrations", "bolt", "Webhooks and embeds", `${plural(c.integrations.webhooks.length, "webhook")}, ${plural(c.integrations.embeds.length, "embedded page")}`),
+        canAskDeactivate(c) ? html`<a class="row" href="#admin-deactivate"><span class="lead-ic">${icon("lock")}</span><span class="body"><span class="t">Deactivate church account</span><span class="s">${deactStatus(c) === "requested" ? (S.isPrimary() ? "A request is waiting for your decision" : "Waiting for the primary account holder") : "Hide the church from everyone; its data is deleted after a year"}</span></span>${deactStatus(c) === "requested" ? html`<span class="tag warn">${S.isPrimary() ? "Review" : "Waiting"}</span>` : icon("chev")}</a>` : "",
       ])}
       ${sec("Sunday", [
         row("checkin.station", "admin-checkin", "kid", "Check-in roster", "Kids in each room, allergy alerts, pickup and volunteers on duty"),
@@ -357,7 +358,7 @@ Screens.role = (id) => {
       ${!editable ? html`<div class="demo-note">${icon("lock")}<div>${r.id === "admin" ? "Only the primary account holder can limit administrators." : "You can only change roles below your own."}</div></div>` : ""}
       <label class="field"><span>Role name</span><input type="text" name="name" value="${r.name}" maxlength="40" ${attr(!editable, "disabled")}></label>
       <label class="field"><span>Level</span><input type="number" name="rank" value="${r.rank}" min="1" max="${S.isPrimary() ? 99 : myRank() - 1}" ${attr(!editable || r.builtin, "disabled")}><small>Higher levels can manage lower ones. Administrator is 90; Member is 10.</small></label>
-      ${groups.map((gname) => html`<h3 style="margin-top:18px">${gname}</h3><div class="panel">${PERMS.filter((p) => p[0] === gname).map(([, k, label]) => html`<label class="check"><input type="checkbox" name="p" value="${k}" ${attr(r.perms[k], "checked")} ${attr(!editable || (!S.isPrimary() && !S.can(k)), "disabled")}><span>${label}</span></label>`)}</div>`)}
+      ${groups.map((gname) => html`<h3 style="margin-top:18px">${gname}</h3><div class="panel">${PERMS.filter((p) => p[0] === gname).map(([, k, label]) => html`<label class="check"><input type="checkbox" name="p" value="${k}" ${attr(r.perms[k], "checked")} ${attr(!editable || (!S.isPrimary() && (!S.can(k) || PRIMARY_GRANTS.includes(k))), "disabled")}><span>${label}${PRIMARY_GRANTS.includes(k) && !S.isPrimary() ? html` <small class="faint">Only the primary account holder can give this.</small>` : ""}</span></label>`)}</div>`)}
       ${editable ? html`<div class="btns"><button class="btn">Save role</button>${!r.builtin ? html`<button type="button" class="btn danger" data-act="role-delete" data-id="${r.id}">Delete role</button>` : ""}</div>` : ""}
     </form>`,
   };
@@ -368,7 +369,7 @@ Forms["role-save"] = (d, f, fd) => {
   if (!d.name) return formError(f, "Give the role a name.");
   const chosen = new Set(fd.getAll("p"));
   // People can't hand out permissions they don't have themselves.
-  const perms = Object.fromEntries(PERMS.map(([, k]) => [k, S.isPrimary() || S.can(k) ? chosen.has(k) : !!r.perms[k]]));
+  const perms = Object.fromEntries(PERMS.map(([, k]) => [k, S.isPrimary() || (S.can(k) && !PRIMARY_GRANTS.includes(k)) ? chosen.has(k) : !!r.perms[k]]));
   Object.assign(r, { name: d.name, perms, rank: r.builtin || !d.rank ? r.rank : clamp(+d.rank, 1, S.isPrimary() ? 99 : myRank() - 1) });
   S.save(); toast("Role saved"); go("admin-roles");
 };
@@ -383,6 +384,7 @@ Forms["role-new"] = (d, f) => {
   if (!d.name) return formError(f, "Give the role a name.");
   const c = S.church(), from = c.roles.find((r) => r.id === d.from) || c.roles[c.roles.length - 1];
   const r = { id: slugify(d.name) + "-" + uid().slice(-3), name: d.name, rank: Math.min(from.rank, S.isPrimary() ? 89 : myRank() - 1), perms: { ...from.perms } };
+  if (!S.isPrimary()) PRIMARY_GRANTS.forEach((k) => delete r.perms[k]);   // only the primary account holder gives those
   c.roles.push(r); S.save(); closeSheet(); go(`role-${r.id}`);
 };
 Actions["role-delete"] = (el) => {

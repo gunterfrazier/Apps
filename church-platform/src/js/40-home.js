@@ -45,12 +45,13 @@ function churchCard(c) {
 }
 Screens.churches = () => {
   const mine = S.myChurches();
-  const all = S.churches().filter((c) => !c.training || S.isMember(c.id)).sort((a, b) => a.name.localeCompare(b.name));
+  // A deactivated church is in nobody's list of churches; its primary account holder finds it under "Your churches".
+  const all = S.churches().filter((c) => !S.deactivated(c) && (!c.training || S.isMember(c.id))).sort((a, b) => a.name.localeCompare(b.name));
   return {
-    title: "Find your church", back: S.church() ? "home" : null,
+    title: "Find your church", back: S.church() && deactStatus() !== "deactivated" ? "home" : null,
     body: html`
       ${mine.length ? html`<section class="sec"><h2 class="sec-head">Your churches</h2><div class="rows">${mine.map((c) => html`
-        <button class="row" data-act="switch-church" data-id="${c.id}">${churchMark(c)}<span class="body"><span class="t">${c.name}</span><span class="s">${S.role(c.id).name}</span></span>${c.id === S.state.current ? html`<span class="tag brand">Open</span>` : icon("chev")}</button>`)}</div></section>` : ""}
+        <button class="row" data-act="switch-church" data-id="${c.id}">${churchMark(c)}<span class="body"><span class="t">${c.name}</span><span class="s">${S.deactivated(c) ? `Deleted for good on ${longDay(deactOf(c).purgeAt)} unless you reactivate it` : S.role(c.id).name}</span></span>${S.deactivated(c) ? html`<span class="tag warn">Deactivated</span>` : c.id === S.state.current ? html`<span class="tag brand">Open</span>` : icon("chev")}</button>`)}</div></section>` : ""}
       <section class="sec">
         <label class="field search-field"><span class="sr">Search by name, city or church ID</span>${icon("search")}<input type="search" placeholder="Search by name, city or church ID" data-input="filter-rows" data-target="#church-list" data-empty="#church-none"></label>
         <div class="card-list" id="church-list">${all.map(churchCard)}</div>
@@ -197,6 +198,7 @@ Screens.home = () => {
     body: html`
       ${!S.isMember() ? html`<div class="panel join-card"><p style="margin-top:0"><b>You're looking around ${c.name}.</b> Join to post prayer requests, register for classes, chat with your groups and check in your kids.</p><button class="btn block" data-act="join-church" data-id="${c.id}">Join ${c.name}</button></div>` : ""}
       ${(() => { const asks = pendingAsks(); return asks.length ? html`<a class="alert ask" href="#serving">${icon("hand")}<div><b>Can you serve?</b><span>${asks[0][1].position}, ${planLabel(asks[0][0])}${asks.length > 1 ? ` and ${plural(asks.length - 1, "more request")}` : ""}</span></div></a>` : ""; })()}
+      ${deactAlerts()}
       ${urgent.map((n) => html`<a class="alert" href="#alerts">${icon("bell")}<div><b>${n.title}</b><span>${n.body}</span></div></a>`)}
       ${quickActions()}
       ${c.landing?.showOnHome && c.landing.blocks.length ? html`<div class="landing">${landingBlocks(c, { home: true })}</div>` : ""}

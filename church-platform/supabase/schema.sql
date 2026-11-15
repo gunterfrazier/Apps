@@ -1,4 +1,4 @@
--- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 8.
+-- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 9.
 -- Run this once in the Supabase SQL editor on a new project (see SETUP.md).
 --
 -- How it fits the app: the app keeps one list per kind of thing (sermons, events, prayers, gifts...). Each item is a
@@ -89,6 +89,14 @@ create index checkouts_provider_ref on checkouts (provider, provider_ref);
 create table payment_keys (church_id text not null references churches on delete cascade, provider text not null, secret_id uuid not null,
   updated_at timestamptz not null default now(), primary key (church_id, provider));
 
+-- What's left behind once a church's data is gone: enough to email its primary account holder and clear its uploaded files.
+create table purged_churches (id text primary key, name text not null, owner_id uuid, deactivated_at timestamptz,
+  purged_at timestamptz not null default now(), emailed boolean not null default false, files_removed boolean not null default false);
+-- One-time passes that let the hourly schedule call the church-lifecycle server function.
+create table cron_calls (token uuid primary key, at timestamptz not null default now());
+-- Which emails about a deactivation have gone out, so each is sent once.
+create table lifecycle_emails (church_id text not null, key text not null, note text not null default '', at timestamptz not null default now(), primary key (church_id, key));
+
 create or replace function touch() returns trigger language plpgsql set search_path = public as $$ begin new.updated_at = now(); new.updated_by = auth.uid(); return new; end $$;
 create trigger records_touch before update on records for each row execute function touch();
 
@@ -96,23 +104,29 @@ create trigger records_touch before update on records for each row execute funct
 create or replace function uid_text() returns text language sql stable set search_path = public as $$ select auth.uid()::text $$;
 create or replace function is_primary(c text) returns boolean language sql stable security definer set search_path = public as
   $$ select exists (select 1 from churches where id = c and owner_id = auth.uid()) $$;
+-- Is the church's account open? False once it's deactivated (see "Deactivating a church account" below). A training church goes quiet with the church it belongs to.
+create or replace function church_live(c text) returns boolean language sql stable security definer set search_path = public as $$
+  select not exists (select 1 from churches ch where ch.id = c and (ch.data->'deactivation'->>'status' = 'deactivated'
+    or exists (select 1 from churches p where p.id = ch.data->'training'->>'of' and p.data->'deactivation'->>'status' = 'deactivated'))) $$;
+
+-- The permission helpers: nobody but the primary account holder is a member of, or can do anything at, a deactivated church.
 create or replace function is_member(c text) returns boolean language sql stable security definer set search_path = public as
-  $$ select is_primary(c) or exists (select 1 from memberships where church_id = c and user_id = auth.uid()) $$;
+  $$ select is_primary(c) or (church_live(c) and exists (select 1 from memberships where church_id = c and user_id = auth.uid())) $$;
 create or replace function my_rank(c text) returns int language sql stable security definer set search_path = public as
-  $$ select case when is_primary(c) then 100 else coalesce((select r.rank from memberships m join roles r on r.church_id = m.church_id and r.key = m.role_key where m.church_id = c and m.user_id = auth.uid()), 0) end $$;
+  $$ select case when is_primary(c) then 100 when not church_live(c) then 0 else coalesce((select r.rank from memberships m join roles r on r.church_id = m.church_id and r.key = m.role_key where m.church_id = c and m.user_id = auth.uid()), 0) end $$;
 -- Signed-in church devices (kiosks, screens, the booth) have a membership with role_key 'device:<type>' instead of a role.
 -- A room display also reads bookings and presentations in rooms ('rooms.view', a permission only devices have).
 create or replace function device_perms(t text) returns text[] language sql immutable set search_path = public as $$
   select case t when 'kiosk' then array['checkin.station', 'use.checkin'] when 'display' then array['present'] when 'room' then array['present', 'rooms.view']
     when 'stage' then array['present'] when 'overlay' then array['present'] when 'booth' then array['present'] else array[]::text[] end $$;
 create or replace function can(c text, perm text) returns boolean language sql stable security definer set search_path = public as
-  $$ select is_primary(c) or exists (select 1 from memberships m join roles r on r.church_id = m.church_id and r.key = m.role_key
+  $$ select is_primary(c) or (church_live(c) and (exists (select 1 from memberships m join roles r on r.church_id = m.church_id and r.key = m.role_key
        where m.church_id = c and m.user_id = auth.uid() and coalesce((r.perms->>perm)::boolean, false))
-     or exists (select 1 from memberships m where m.church_id = c and m.user_id = auth.uid() and m.role_key like 'device:%' and perm = any(device_perms(substr(m.role_key, 8)))) $$;
+     or exists (select 1 from memberships m where m.church_id = c and m.user_id = auth.uid() and m.role_key like 'device:%' and perm = any(device_perms(substr(m.role_key, 8)))))) $$;
 -- Church-wide items (no location) and public locations are visible to all; private locations need access.
 create or replace function sees_location(c text, loc text) returns boolean language sql stable security definer set search_path = public as
-  $$ select loc is null or is_primary(c) or exists (select 1 from locations l where l.id = loc and l.visibility = 'public')
-       or exists (select 1 from memberships m where m.church_id = c and m.user_id = auth.uid() and (m.locations = '"all"'::jsonb or m.locations ? loc)) $$;
+  $$ select is_primary(c) or (church_live(c) and (loc is null or exists (select 1 from locations l where l.id = loc and l.visibility = 'public')
+       or exists (select 1 from memberships m where m.church_id = c and m.user_id = auth.uid() and (m.locations = '"all"'::jsonb or m.locations ? loc)))) $$;
 create or replace function leads(gathering text) returns boolean language sql stable security definer set search_path = public as
   $$ select exists (select 1 from records g where g.kind = 'gatherings' and g.id = gathering and g.data->'leaders' ? auth.uid()::text) $$;
 -- Chats: leaders-<church>, g-<group> (members and leaders), p-<class> (parents and teachers), or a direct message channel.
@@ -213,19 +227,20 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
 
 -- Sign-up counts everyone can see, without seeing who signed up.
 create or replace function child_counts(churches text[]) returns table (kind text, parent text, n bigint) language sql stable security definer set search_path = public as $$
-  select 'events', data->>'_parent', sum(coalesce((data->>'count')::int, 1))::bigint from records where kind = 'event_regs' and church_id = any(churches) group by 2
+  select 'events', data->>'_parent', sum(coalesce((data->>'count')::int, 1))::bigint from records where kind = 'event_regs' and church_id = any(churches) and (is_primary(church_id) or church_live(church_id)) group by 2
   union all
-  select 'gatherings', data->>'_parent', count(*) from records where kind = 'gathering_regs' and church_id = any(churches) and data->>'status' = 'in' group by 2 $$;
+  select 'gatherings', data->>'_parent', count(*) from records where kind = 'gathering_regs' and church_id = any(churches) and data->>'status' = 'in' and (is_primary(church_id) or church_live(church_id)) group by 2 $$;
 
 -- ---------- Row-level security ----------
 do $$ declare t text; begin
-  foreach t in array array['profiles', 'contacts', 'families', 'profile_private', 'churches', 'roles', 'locations', 'memberships', 'records', 'push_subscriptions', 'payments', 'ai_usage', 'checkouts', 'payment_keys'] loop
+  foreach t in array array['profiles', 'contacts', 'families', 'profile_private', 'churches', 'roles', 'locations', 'memberships', 'records', 'push_subscriptions', 'payments', 'ai_usage', 'checkouts', 'payment_keys', 'purged_churches', 'cron_calls', 'lifecycle_emails'] loop
     execute format('alter table %I enable row level security', t);
   end loop;
 end $$;
 
 create policy "own profile" on profiles for all using (id = auth.uid()) with check (id = auth.uid());
-create policy "fellow members see names" on profiles for select using (shares_church(id, array['use.prayer'], true) or exists (select 1 from memberships a join memberships b on a.church_id = b.church_id where a.user_id = profiles.id and b.user_id = auth.uid()));
+create policy "fellow members see names" on profiles for select using (shares_church(id, array['use.prayer'], true)
+  or exists (select 1 from memberships a join memberships b on a.church_id = b.church_id where a.user_id = profiles.id and b.user_id = auth.uid() and (is_primary(a.church_id) or church_live(a.church_id))));
 create policy "own contact" on contacts for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "directory and staff see contacts" on contacts for select using (shares_church(user_id, array['manage.people', 'checkin.station', 'manage.followup', 'schedule.teams'], true));
 create policy "own family" on families for all using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -233,15 +248,24 @@ create policy "staff see families" on families for select using (shares_church(u
 create policy "own private data" on profile_private for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "own push subscriptions" on push_subscriptions for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
--- Church accounts: anyone can find one; you create it as its primary account holder.
-create policy "find churches" on churches for select using (true);
+-- Church accounts: anyone can find one that's active; you create it as its primary account holder.
+create policy "find churches" on churches for select using (owner_id = auth.uid() or church_live(id));
 create policy "register church" on churches for insert with check (owner_id = auth.uid());
 create policy "edit church" on churches for update using (is_member(id));
 create policy "delete church" on churches for delete using (is_primary(id));
 -- Each part of a church's settings needs the permission for that part. Payment processor status is set by the server only.
+-- churches.data.deactivation says where the account stands. Browsers send the whole of a church's settings when they
+-- save, and a phone with an old copy must never undo a deactivation (or cause one), so the guard keeps the server's
+-- value whatever a browser sends. It only changes through church_deactivation() below.
 create or replace function guard_church() returns trigger language plpgsql security definer set search_path = public as $$
-declare k text; need text;
+declare k text; need text; lifecycle boolean := coalesce(current_setting('our_faithful.lifecycle', true), '') = '1';
 begin
+  -- The deactivation record: kept as it is, even from server functions that save a church's settings whole.
+  -- (To correct one by hand in the SQL editor, first run: select set_config('our_faithful.lifecycle', '1', false);)
+  if not lifecycle then
+    new.data := new.data - 'deactivation';
+    if tg_op = 'UPDATE' and old.data ? 'deactivation' then new.data := new.data || jsonb_build_object('deactivation', old.data->'deactivation'); end if;
+  end if;
   if auth.uid() is null then return new; end if;   -- server functions
   -- Payment status belongs to the server: whatever a browser sends, keep what the server last set.
   new.data := new.data - 'stripe' - 'payments';
@@ -254,7 +278,7 @@ begin
   if new.owner_id is distinct from old.owner_id and old.owner_id <> auth.uid() then raise exception 'Only the primary account holder can hand over the account'; end if;
   if (new.name, new.handle) is distinct from (old.name, old.handle) and not can(old.id, 'manage.church') then raise exception 'Your role cannot change the church name or ID'; end if;
   for k in select key from jsonb_each(new.data) union select key from jsonb_each(old.data) loop
-    if new.data->k is distinct from old.data->k then
+    if new.data->k is distinct from old.data->k and k <> 'deactivation' then   -- deactivation: only church_deactivation() gets here, and it checks who's asking
       need := case
         when k in ('landing', 'banner') then 'manage.page'
         when k in ('funds', 'textGive', 'taxId', 'givingLink') then 'view.giving'
@@ -274,13 +298,25 @@ create trigger churches_guard before insert or update on churches for each row e
 create policy "read roles" on roles for select using (is_member(church_id));
 create policy "manage roles" on roles for all using (can(church_id, 'manage.roles') and rank < my_rank(church_id)) with check (can(church_id, 'manage.roles') and rank < my_rank(church_id));
 
+-- Only the primary account holder can let a role ask to deactivate the account.
+create or replace function guard_roles() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then return new; end if;
+  if coalesce((new.perms->>'church.deactivate')::boolean, false) and not is_primary(new.church_id)
+     and (tg_op = 'INSERT' or not coalesce((old.perms->>'church.deactivate')::boolean, false)) then
+    raise exception 'Only the primary account holder can let a role ask to deactivate the church account';
+  end if;
+  return new;
+end $$;
+create trigger roles_guard before insert or update on roles for each row execute function guard_roles();
+
 create policy "read locations" on locations for select using (sees_location(church_id, id));
 create policy "manage locations" on locations for all using (can(church_id, 'manage.locations')) with check (can(church_id, 'manage.locations'));
 
 -- Memberships: join yourself with the church's default role; give roles only below your own.
-create policy "see memberships" on memberships for select using (user_id = auth.uid() or is_member(church_id));
+create policy "see memberships" on memberships for select using (is_primary(church_id) or (church_live(church_id) and (user_id = auth.uid() or is_member(church_id))));
 create policy "join" on memberships for insert with check (user_id = auth.uid() and (is_primary(church_id)
-  or (role_key = (select coalesce(data->'defaults'->>'roleId', 'member') from churches where id = church_id)
+  or (church_live(church_id) and role_key = (select coalesce(data->'defaults'->>'roleId', 'member') from churches where id = church_id)
       and locations = (select coalesce(data->'defaults'->'locations', '[]'::jsonb) from churches where id = church_id))));
 create policy "change membership" on memberships for update using (user_id = auth.uid() or can(church_id, 'manage.people') or can(church_id, 'manage.roles'));
 create policy "leave or remove" on memberships for delete using (user_id = auth.uid() or can(church_id, 'manage.people'));
@@ -317,10 +353,12 @@ begin
 end $$;
 create trigger records_guard before update on records for each row execute function guard_records();
 
-create policy "read records" on records for select using (rec_read(kind, church_id, location_id, owner, data));
-create policy "add records" on records for insert with check (rec_write(kind, church_id, owner, data, 'insert'));
-create policy "change records" on records for update using (rec_write(kind, church_id, owner, data, 'update')) with check (rec_write(kind, church_id, owner, data, 'update'));
-create policy "remove records" on records for delete using (rec_write(kind, church_id, owner, data, 'delete'));
+-- Records: even your own (a gift, a sign-up) are out of reach while the church is deactivated.
+create policy "read records" on records for select using ((is_primary(church_id) or church_live(church_id)) and rec_read(kind, church_id, location_id, owner, data));
+create policy "add records" on records for insert with check ((is_primary(church_id) or church_live(church_id)) and rec_write(kind, church_id, owner, data, 'insert'));
+create policy "change records" on records for update using ((is_primary(church_id) or church_live(church_id)) and rec_write(kind, church_id, owner, data, 'update'))
+  with check ((is_primary(church_id) or church_live(church_id)) and rec_write(kind, church_id, owner, data, 'update'));
+create policy "remove records" on records for delete using ((is_primary(church_id) or church_live(church_id)) and rec_write(kind, church_id, owner, data, 'delete'));
 
 -- ---------- Files ----------
 -- Public bucket for logos, banners, sermon audio and video. Files go under the church's ID; staff upload.
@@ -363,6 +401,126 @@ begin
   delete from payments where church_id = c;
 end $$;
 
+-- ---------- Deactivating a church account ----------
+-- The primary account holder can deactivate the account; someone whose role includes church.deactivate can ask, and
+-- the primary decides. A deactivated church is hidden from everyone but its primary (church_live above), who can
+-- reactivate it for one year. After that its data is removed for good.
+-- A line in someone's notifications, written by the server.
+create or replace function lifecycle_note(c text, person uuid, nid text, title text, body text, link text) returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  insert into records (kind, id, church_id, owner, data) values ('notifications', nid, c, person::text,
+    jsonb_build_object('churchId', c, 'userId', person, 'at', now(), 'read', false, 'kind', 'account', 'title', title, 'body', body, 'link', link))
+  on conflict (kind, id) do nothing;
+  return found;
+end $$;
+
+-- Asking, deciding, deactivating and reactivating. Returns the church's deactivation record as it now stands.
+--   request     someone whose role includes church.deactivate asks; the primary account holder decides
+--   withdraw    the person who asked (or the primary) takes the request back
+--   decline     the primary says no
+--   deactivate  the primary deactivates (this also approves a waiting request). Data is kept for one year.
+--   reactivate  the primary brings the account back, any time in that year
+create or replace function church_deactivation(c text, action text, note text default '') returns jsonb language plpgsql security definer set search_path = public as $$
+declare ch churches%rowtype; d jsonb; st text; me uuid := auth.uid(); who text; due timestamptz;
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  select * into ch from churches where id = c for update;
+  if not found then raise exception 'Church not found'; end if;
+  if ch.data ? 'training' then raise exception 'A training church is deleted under Admin, Training church, not deactivated'; end if;
+  d := coalesce(ch.data->'deactivation', '{}'::jsonb); st := coalesce(d->>'status', 'active');
+  select coalesce(nullif(name, ''), 'Someone') into who from profiles where id = me;
+  who := coalesce(who, 'Someone');
+  if action = 'request' then
+    if ch.owner_id = me then raise exception 'You are the primary account holder: deactivate the account yourself'; end if;
+    if st = 'deactivated' or not can(c, 'church.deactivate') then raise exception 'Your role cannot ask to deactivate the church account'; end if;
+    if st = 'requested' then raise exception 'Someone has already asked. The primary account holder decides.'; end if;
+    d := jsonb_build_object('status', 'requested', 'requestedBy', me, 'requestedByName', who, 'requestedAt', now(), 'reason', left(coalesce(note, ''), 500));
+    perform lifecycle_note(c, ch.owner_id, 'n-deact-ask-' || c || '-' || floor(extract(epoch from now()))::bigint,
+      who || ' asked to deactivate ' || ch.name, 'Nothing changes unless you approve it. Review the request under Admin.', '#admin-deactivate');
+  elsif action = 'withdraw' then
+    if st <> 'requested' or (d->>'requestedBy' <> me::text and ch.owner_id <> me) then raise exception 'There is no request of yours to take back'; end if;
+    d := jsonb_build_object('status', 'active', 'withdrawnAt', now());
+  elsif action = 'decline' then
+    if ch.owner_id <> me then raise exception 'Only the primary account holder can decide this'; end if;
+    if st <> 'requested' then raise exception 'There is no request waiting'; end if;
+    perform lifecycle_note(c, (d->>'requestedBy')::uuid, 'n-deact-no-' || c || '-' || floor(extract(epoch from now()))::bigint,
+      ch.name || ' stays active', 'The primary account holder declined the request to deactivate the church account.', '#admin');
+    d := jsonb_build_object('status', 'active', 'declinedAt', now());
+  elsif action = 'deactivate' then
+    if ch.owner_id <> me then raise exception 'Only the primary account holder can deactivate the church account'; end if;
+    if st = 'deactivated' then return d; end if;
+    due := now() + interval '1 year';
+    d := jsonb_strip_nulls(jsonb_build_object('status', 'deactivated', 'by', me, 'at', now(), 'purgeAt', due,
+      'requestedBy', case when st = 'requested' then d->'requestedBy' end, 'requestedByName', case when st = 'requested' then d->'requestedByName' end,
+      'reason', nullif(left(coalesce(nullif(note, ''), d->>'reason', ''), 500), '')));
+    perform lifecycle_note(c, me, 'n-deact-done-' || c || '-' || floor(extract(epoch from now()))::bigint,
+      ch.name || ' is deactivated', 'Only you can see it now. Reactivate it any time before ' || to_char(due, 'FMMonth FMDD, YYYY') || '. After that, everything in it is permanently deleted.', '#reactivate-' || c);
+  elsif action = 'reactivate' then
+    if ch.owner_id <> me then raise exception 'Only the primary account holder can reactivate the church account'; end if;
+    if st <> 'deactivated' then return d; end if;
+    if (d->>'purgeAt')::timestamptz <= now() then raise exception 'The year to reactivate this account has passed'; end if;
+    d := jsonb_build_object('status', 'active', 'reactivatedAt', now(), 'wasDeactivatedAt', d->'at');
+  else raise exception 'Unknown action';
+  end if;
+  perform set_config('our_faithful.lifecycle', '1', true);
+  update churches set data = jsonb_set(data, '{deactivation}', d) where id = c;
+  perform set_config('our_faithful.lifecycle', '', true);
+  return d;
+end $$;
+
+-- ---------- Reminders and the end of the year ----------
+create or replace function purge_church_rows(c text, tell boolean) returns void language plpgsql security definer set search_path = public as $$
+declare ch churches%rowtype;
+begin
+  select * into ch from churches where id = c;
+  if not found then return; end if;
+  insert into purged_churches (id, name, owner_id, deactivated_at, emailed) values (ch.id, ch.name, ch.owner_id, (ch.data->'deactivation'->>'at')::timestamptz, not tell) on conflict (id) do nothing;
+  -- Its screens and kiosks have sign-ins of their own.
+  delete from auth.users where id in (select (data->>'deviceUser')::uuid from records where church_id = c and kind = 'devices' and data->>'deviceUser' ~ '^[0-9a-fA-F-]{36}$');
+  delete from payments where church_id = c;
+  delete from churches where id = c;   -- its roles, locations, memberships, records, checkouts and payment keys go with it
+end $$;
+-- Removes a church for good, and only one that has been deactivated for a full year.
+create or replace function purge_church(c text) returns boolean language plpgsql security definer set search_path = public as $$
+declare ch churches%rowtype; kid text;
+begin
+  select * into ch from churches where id = c for update;
+  if not found then return false; end if;
+  if ch.data->'deactivation'->>'status' is distinct from 'deactivated'
+     or (ch.data->'deactivation'->>'at')::timestamptz > now() - interval '1 year'
+     or (ch.data->'deactivation'->>'purgeAt')::timestamptz > now() then return false; end if;
+  for kid in select id from churches where data->'training'->>'of' = c loop perform purge_church_rows(kid, false); end loop;
+  perform purge_church_rows(c, true);
+  return true;
+end $$;
+-- Run every hour (cron.sql). Adds the in-app reminders, removes churches whose year is up, and (given the address of
+-- the church-lifecycle server function) has it send the emails and clear uploaded files.
+-- Reminders go to the primary account holder with 180, 90, 30, 14, 7, 3 and 1 days left.
+create or replace function church_lifecycle_tick(fn_url text default null) returns jsonb language plpgsql security definer set search_path = public as $$
+declare r record; days int; m int; reminded int := 0; purged int := 0; t uuid;
+begin
+  for r in select id, name, owner_id, data->'deactivation' as d from churches where data->'deactivation'->>'status' = 'deactivated' loop
+    if (r.d->>'purgeAt')::timestamptz <= now() then
+      if purge_church(r.id) then purged := purged + 1; end if;
+      continue;
+    end if;
+    days := ceil(extract(epoch from ((r.d->>'purgeAt')::timestamptz - now())) / 86400.0);
+    select min(x) into m from unnest(array[180, 90, 30, 14, 7, 3, 1]) x where x >= days;
+    if m is not null and lifecycle_note(r.id, r.owner_id, 'n-deact-' || r.id || '-' || floor(extract(epoch from (r.d->>'at')::timestamptz))::bigint || '-' || m,
+        r.name || ' will be deleted in ' || days || case when days = 1 then ' day' else ' days' end,
+        'The church account is deactivated. Everything in it is permanently deleted on ' || to_char((r.d->>'purgeAt')::timestamptz, 'FMMonth FMDD, YYYY') || '. Reactivate it to keep it.',
+        '#reactivate-' || r.id) then reminded := reminded + 1; end if;
+  end loop;
+  if fn_url is not null and (exists (select 1 from churches where data->'deactivation'->>'status' in ('requested', 'deactivated'))
+      or exists (select 1 from purged_churches where not emailed or not files_removed)) then
+    delete from cron_calls where at < now() - interval '1 day';
+    t := gen_random_uuid();
+    insert into cron_calls (token) values (t);
+    perform net.http_post(url := fn_url, headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-token', t::text), body := '{}'::jsonb);
+  end if;
+  return jsonb_build_object('reminded', reminded, 'purged', purged);
+end $$;
+
 -- ---------- Live updates ----------
 alter publication supabase_realtime add table records;
 
@@ -374,9 +532,13 @@ grant select on all tables in schema public to anon;
 grant select, insert, update, delete on all tables in schema public to authenticated, service_role;
 grant usage, select on all sequences in schema public to authenticated, service_role;
 grant execute on all functions in schema public to anon, authenticated, service_role;   -- the permission helpers run inside the rules
-revoke execute on function guard_church(), guard_membership(), guard_records(), touch() from public, anon, authenticated;   -- triggers only
+revoke execute on function guard_church(), guard_membership(), guard_records(), guard_roles(), touch() from public, anon, authenticated;   -- triggers only
 -- Payment keys: server functions only.
-revoke all on checkouts, payment_keys from anon, authenticated;
+revoke all on checkouts, payment_keys, purged_churches, cron_calls, lifecycle_emails from anon, authenticated;
 revoke execute on function payment_key_set(text, text, text), payment_key_get(text, text), payment_key_forget() from public, anon, authenticated;
 revoke execute on function reset_training_church(text) from public, anon;
 grant execute on function reset_training_church(text) to authenticated;
+-- Deactivating: people use church_deactivation(); the clean-up belongs to the server's schedule.
+revoke execute on function lifecycle_note(text, uuid, text, text, text, text), purge_church_rows(text, boolean), purge_church(text), church_lifecycle_tick(text) from public, anon, authenticated;
+revoke execute on function church_deactivation(text, text, text) from public, anon;
+grant execute on function church_deactivation(text, text, text) to authenticated;

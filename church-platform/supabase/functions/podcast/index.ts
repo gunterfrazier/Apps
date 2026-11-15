@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
   const id = new URL(req.url).searchParams.get("church") || "";
   const db = admin();
   const { data: c } = await db.from("churches").select("id, name, data").eq("id", id).maybeSingle();
-  if (!c) return new Response("No such church", { status: 404 });
+  if (!c || c.data?.deactivation?.status === "deactivated") return new Response("No such church", { status: 404 });
   const { data: rows } = await db.from("records").select("id, location_id, data").eq("kind", "sermons").eq("church_id", id);
   const { data: privateLocs } = await db.from("locations").select("id").eq("church_id", id).eq("visibility", "private");
   const hidden = new Set((privateLocs || []).map((l) => l.id));

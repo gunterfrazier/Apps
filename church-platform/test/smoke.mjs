@@ -46,7 +46,9 @@ page.on("console", (m) => { if (m.type() === "error" && !/fonts\.g|Failed to loa
 await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
 
 let current = "";
-const step = async (name, fn) => { current = name; try { await fn(); } catch (e) { const lines = e.message.split("\n"), waiting = lines.find((l) => /waiting for/.test(l)); errors.push(`${name}: ${lines[0]}${waiting ? ` (${waiting.replace(/\x1b\[[0-9;]*m/g, "").trim()})` : ""}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); } };
+// ONLY="part of a step's name" runs just the sign-up steps and the steps that match (for working on one step).
+const ONLY = process.env.ONLY || "";
+const step = async (name, fn) => { if (ONLY && !["welcome", "join as basic member"].includes(name) && !name.includes(ONLY)) return; current = name; try { await fn(); } catch (e) { const lines = e.message.split("\n"), waiting = lines.find((l) => /waiting for/.test(l)); errors.push(`${name}: ${lines[0]}${waiting ? ` (${waiting.replace(/\x1b\[[0-9;]*m/g, "").trim()})` : ""}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); } };
 const shot = (name) => page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
 const goTo = async (hash) => { await page.evaluate((h) => { location.hash = h; }, hash); await page.waitForTimeout(90); };
 const text = () => page.textContent("#app");
@@ -846,6 +848,88 @@ await step("approvals: requests notify everyone who can approve; volunteers can 
   if (!(await page.evaluate(([u, t]) => __app.S.list("teamMembers").some((m) => m.team === t && m.userId === u && !m.status), [me, team2]))) throw new Error("the pre-approved person isn't on the team");
   await asRole("primary"); await goTo("admin-approvals"); await page.check('input[name=pre][value=none]'); await page.click("form[data-form=approvals-save] button.btn"); await page.waitForTimeout(150);
   await page.evaluate((b) => { const S = __app.S, c = S.church(); c.ownerId = b.owner; S.membership(c.id).roleId = b.role; S.save(); __app.render(); }, before);
+});
+await step("deactivating a church account", async () => {
+  if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
+  const asRole = (r) => page.evaluate((r) => { const S = __app.S, c = S.state.churches.riverside; if (r === "primary") c.ownerId = S.me().id; else { if (c.ownerId === S.me().id) c.ownerId = "u-dana"; S.membership(c.id).roleId = r; } S.save(); __app.render(); }, r);
+  const church = () => page.evaluate(() => { const S = __app.S, c = S.state.churches.riverside; return c ? { status: c.deactivation?.status || "active", d: c.deactivation || {}, seen: !!S.church("riverside"), listed: S.churches().some((x) => x.id === "riverside") } : null; });
+  const before = await page.evaluate(() => { __app.S.setCurrent("riverside"); return JSON.stringify(__app.S.state); });
+  const me = await page.evaluate(() => __app.S.me().id), name = "Riverside Community Church";
+  const confirm = async (button) => {   // the verification sheet: the name typed out and the box ticked
+    await page.click("[data-act=deact-start]"); await page.waitForSelector("#scrim form[data-form=deact-confirm]");
+    const warn = await page.textContent("#scrim [role=alert]");
+    if (!/will no longer be visible to all other users, and it will be removed from the list of available churches/.test(warn)) throw new Error("the warning doesn't say the church is hidden and removed from the list");
+    await sheetSubmit(); await page.waitForSelector("#scrim .err");
+    if ((await church()).status === "deactivated") throw new Error("deactivated without typing the name");
+    await page.fill("#scrim input[name=confirmName]", "riverside community church "); await sheetSubmit(); await page.waitForTimeout(120);
+    if (!/Tick the box/.test(await page.textContent("#scrim"))) throw new Error("it didn't ask for the box to be ticked");
+    await page.check("#scrim input[name=understand]");
+    if (!(await page.textContent("#scrim button.btn.danger")).includes(button)) throw new Error(`the button should say "${button}"`);
+    await sheetSubmit(); await sheetGone();
+  };
+  // Nobody has the privilege to start with, and an administrator can't give it out.
+  await asRole("admin");
+  if (await page.evaluate(() => __app.S.can("church.deactivate"))) throw new Error("administrators shouldn't have the privilege by default");
+  await goTo("admin"); if ((await text()).includes("Deactivate church account")) throw new Error("an admin without the privilege sees the option");
+  await goTo("admin-deactivate"); await expectText("Only the primary account holder");
+  await goTo("role-staff"); if (!(await page.isDisabled('input[name=p][value="church.deactivate"]'))) throw new Error("an admin can hand out the deactivate privilege");
+  // The primary account holder gives it to administrators.
+  await asRole("primary"); await goTo("role-admin"); await page.check('input[name=p][value="church.deactivate"]'); await page.click("form[data-form=role-save] button.btn"); await page.waitForTimeout(120);
+  // An administrator asks. Nothing changes; the primary account holder is told.
+  await asRole("admin"); await goTo("admin"); await expectText("Deactivate church account"); await goTo("admin-deactivate");
+  await expectText("will no longer be visible to all other users"); await expectText("removed from the list of available churches"); await expectText("has to approve it"); await shot("70-deactivate-admin");
+  await confirm("Send the request");
+  await expectText("Waiting for"); await expectText("Take back the request");
+  let c = await church();
+  if (c.status !== "requested" || c.d.requestedBy !== me || !c.listed) throw new Error(`an admin's request should wait for the primary: ${JSON.stringify(c)}`);
+  if (!(await page.evaluate(() => __app.S.state.notifications.some((n) => n.userId === "u-dana" && /asked to deactivate Riverside/.test(n.title))))) throw new Error("the primary account holder wasn't told about the request");
+  // The primary sees it on Home and in Admin, and declines. The admin hears back.
+  await asRole("primary"); await goTo("home"); await expectText("asked to deactivate Riverside Community Church"); await goTo("admin"); await expectText("A request is waiting for your decision");
+  await goTo("admin-deactivate"); await expectText("Nothing changes unless you approve it"); await shot("71-deactivate-request"); await page.click("[data-act=deact-decline]"); await page.waitForTimeout(150);
+  if ((await church()).status !== "active") throw new Error("declining didn't clear the request");
+  if (!(await page.evaluate((u) => __app.S.state.notifications.some((n) => n.userId === u && /stays active/.test(n.title)), me))) throw new Error("the admin wasn't told the request was declined");
+  // Asked again; this time the primary approves, after the same verification.
+  await asRole("admin"); await goTo("admin-deactivate"); await confirm("Send the request");
+  await asRole("primary"); await goTo("admin-deactivate"); await page.click("[data-act=deact-start]"); await page.waitForSelector("#scrim form"); await shot("72-deactivate-verify"); await page.click("#scrim [data-act=close-sheet]"); await sheetGone();
+  await confirm("Deactivate Riverside Community Church");
+  await page.waitForFunction(() => /is deactivated/.test(document.querySelector("#app").textContent)); await shot("73-deactivated");
+  c = await church();
+  const days = Math.round((new Date(c.d.purgeAt) - Date.now()) / 86400e3);
+  if (c.status !== "deactivated" || days < 364 || days > 366) throw new Error(`deactivating should keep the data for a year: ${JSON.stringify(c)}`);
+  await expectText("Reactivate Riverside Community Church"); await expectText("days left");
+  // The primary can't wander back into it, and it's gone from the list of churches.
+  await goTo("home"); await expectText("is deactivated"); await goTo("admin"); await expectText("is deactivated");
+  await goTo("churches"); await expectText("Deactivated");
+  if (await page.$('#church-list a[href="#church-riverside"]')) throw new Error("a deactivated church is still in the list of churches");
+  // Everyone else: the church is gone, and they land on the list of churches.
+  await asRole("member"); await goTo("home"); await page.waitForTimeout(120);
+  c = await church();
+  if (c.seen || c.listed) throw new Error("a member can still see the deactivated church");
+  if ((await text()).includes("Riverside Community Church")) throw new Error("the deactivated church still shows for a member");
+  await expectText("Find your church"); await expectText("Cornerstone Bible Fellowship");
+  // Reminders at the set marks, once each, with the way back.
+  await asRole("primary");
+  await page.evaluate(() => { __app.S.state.churches.riverside.deactivation.purgeAt = new Date(Date.now() + 28.5 * 86400e3).toISOString(); __app.render(); __app.render(); });
+  const reminders = () => page.evaluate(() => __app.S.state.notifications.filter((n) => /^n-deact-riverside-/.test(n.id)).map((n) => `${n.title} -> ${n.link}`));
+  let rem = await reminders();
+  if (rem.length !== 1 || !/will be deleted in 29 days -> #reactivate-riverside/.test(rem[0])) throw new Error(`expected one reminder at the 30-day mark: ${JSON.stringify(rem)}`);
+  await page.evaluate(() => { __app.S.state.churches.riverside.deactivation.purgeAt = new Date(Date.now() + 6.5 * 86400e3).toISOString(); __app.render(); });
+  if ((rem = await reminders()).length !== 2) throw new Error(`expected a second reminder at the 7-day mark: ${JSON.stringify(rem)}`);
+  // From another church, Home keeps saying so, and leads back.
+  await page.evaluate(() => { const S = __app.S; if (!S.membership("cornerstone")) S.state.memberships.push({ churchId: "cornerstone", userId: S.me().id, roleId: "member", locations: [], listed: true, joined: new Date().toISOString() }); S.setCurrent("cornerstone"); location.hash = "home"; __app.render(); });
+  await page.waitForSelector('a.alert[href="#reactivate-riverside"]'); await expectText("Riverside Community Church is deactivated"); await shot("74-deactivated-alert");
+  await page.click('a.alert[href="#reactivate-riverside"]'); await page.waitForFunction(() => /7 days left/.test(document.querySelector("#app").textContent));
+  // Reactivating brings it back for everyone.
+  await page.click("[data-act=deact-reactivate]"); await page.waitForSelector("#scrim [data-act=deact-reactivate-yes]"); await page.click("#scrim [data-act=deact-reactivate-yes]"); await sheetGone();
+  c = await church();
+  if (c.status !== "active" || !c.listed) throw new Error(`reactivating didn't bring the church back: ${JSON.stringify(c)}`);
+  await asRole("member"); await goTo("home"); if (!(await church()).seen) throw new Error("a member can't see the reactivated church");
+  // A year on with no reactivation: the church and everything in it are removed.
+  await asRole("primary"); await goTo("admin-deactivate"); await confirm("Deactivate Riverside Community Church");
+  const gone = await page.evaluate(() => { const S = __app.S; S.state.churches.riverside.deactivation.purgeAt = new Date(Date.now() - 1000).toISOString(); __app.render();
+    return { church: !!S.state.churches.riverside, records: __app.RECORD_KINDS.reduce((n, k) => n + (S.state[k] || []).filter((r) => r.churchId === "riverside").length, 0), members: S.state.memberships.filter((m) => m.churchId === "riverside").length, others: Object.keys(S.state.churches).length }; });
+  if (gone.church || gone.records || gone.members || !gone.others) throw new Error(`after a year the church's data should be gone: ${JSON.stringify(gone)}`);
+  await page.evaluate((s) => { __app.S.state = JSON.parse(s); __app.S.save(); location.hash = "home"; __app.render(); }, before);
 });
 await step("basic role is limited", async () => {
   await goTo("home"); await page.click("[data-act=open-switcher]"); await page.click('#scrim [data-id="riverside"]'); await page.waitForSelector(".home-top");

@@ -177,7 +177,10 @@ const PERMS = [
   ["Managing", "manage.locations", "Campuses, locations and rooms"],
   ["Managing", "manage.roles", "Roles and who has them"],
   ["Managing", "manage.church", "Church account, features and defaults"],
+  ["Managing", "church.deactivate", "Ask to deactivate the church account (the primary account holder approves)"],
 ];
+/** Privileges nobody gets by default, not even administrators, and that only the primary account holder can give a role. */
+const PRIMARY_GRANTS = ["church.deactivate"];
 const PERM_LABEL = Object.fromEntries(PERMS.map(([, k, l]) => [k, l]));
 /** Permissions added after a church was created, and which built-in roles get them by default. */
 const NEW_PERM_DEFAULTS = {

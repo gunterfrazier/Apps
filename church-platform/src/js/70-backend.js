@@ -106,6 +106,9 @@ const Backend = {
     const [profiles, families, contacts] = people.length ? await Promise.all([this.all(() => sb.from("profiles").select("*").in("id", people)), this.all(() => sb.from("families").select("*").in("user_id", people)), this.all(() => sb.from("contacts").select("*").in("user_id", people))]) : [[], [], []];
     const contact = Object.fromEntries(contacts.map((x) => [x.user_id, x]));
 
+    // The church this browser had open may have been deactivated since: it isn't sent to anyone but its primary account holder.
+    const was = S.state.churches[S.state.current];
+    if (was && !churches.some((c) => c.id === was.id) && !thisDevice()) setTimeout(() => toast(`${was.name} is no longer available in the app.`), 400);
     const st = blankState(), p = priv?.data || {};
     st.me = { id: uid, name: prof?.name || "", email: contact[uid]?.email || this.user.email || "", phone: contact[uid]?.phone || "", household: fam?.family || [], pickups: fam?.pickups || [] };
     if (p.training && !p.training.base) st.training = p.training;   // your training checklists, on every device

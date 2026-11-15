@@ -84,6 +84,7 @@ const filterRows = (rows, params) => {
 };
 const calls = new Set();
 let supaCalls = 0;   // every request the app makes to Supabase
+const rpcCalls = [], lifecycleCalls = [], hiddenChurches = new Set();   // deactivating a church: what was asked of the server, and churches the rules now hide
 let pairCalls = 0, refuseDevices = false;   // pairing requests seen; and a switch that makes the database refuse device records
 async function supabase(route) {
   supaCalls++;
@@ -110,6 +111,19 @@ async function supabase(route) {
   if (p === "/auth/v1/user") return json(200, caller(req) || user);
   if (p === "/auth/v1/logout") return route.fulfill({ status: 204, headers: cors });
   if (p === "/rest/v1/rpc/reset_training_church") { const c = body(req).c; db.records = (db.records || []).filter((r) => r.church_id !== c); return json(200, null); }
+  if (p === "/rest/v1/rpc/church_deactivation") {
+    // The server's side of deactivating, as schema.sql does it for the primary account holder.
+    const b = body(req), c = (db.churches || []).find((x) => x.id === b.c), who = caller(req) || user, now = new Date().toISOString();
+    rpcCalls.push(b);
+    if (!c) return json(400, { message: "Church not found" });
+    if (c.owner_id !== who.id) return json(400, { message: "Only the primary account holder can deactivate the church account" });
+    const d = b.action === "deactivate" ? { status: "deactivated", by: who.id, at: now, purgeAt: new Date(Date.now() + 365 * 86400e3).toISOString(), ...(b.note ? { reason: b.note } : {}) }
+      : b.action === "reactivate" ? { status: "active", reactivatedAt: now } : null;
+    if (!d) return json(400, { message: "Unknown action" });
+    c.data = { ...c.data, deactivation: d };
+    return json(200, d);
+  }
+  if (p === "/functions/v1/church-lifecycle") { lifecycleCalls.push(body(req)); return json(200, { email: "sent", emailReady: true }); }
   if (p.startsWith("/rest/v1/rpc/")) return json(200, []);
   if (p === "/functions/v1/device-pair") { const b = JSON.parse(req.postData() || "{}"); if (b.action === "pair") { pairCalls++; await new Promise((r) => setTimeout(r, 250)); const [status, body] = pairDevice(String(b.code).toUpperCase()); return json(status, body); } return json(200, { ok: true }); }
   if (p === "/functions/v1/payments-setup") {
@@ -133,7 +147,9 @@ async function supabase(route) {
   if (!p.startsWith("/rest/v1/")) return json(404, { message: "not simulated" });
   const table = p.slice(9), rows = (db[table] ||= []), params = [...u.searchParams];
   if (m === "GET") {
-    const out = filterRows(rows, params), off = +(u.searchParams.get("offset") || 0), lim = u.searchParams.get("limit");
+    // The security rules hide a deactivated church, and membership of it, from everyone but its primary account holder.
+    const seen = table === "churches" ? rows.filter((r) => !hiddenChurches.has(r.id)) : table === "memberships" || table === "records" || table === "roles" ? rows.filter((r) => !hiddenChurches.has(r.church_id)) : rows;
+    const out = filterRows(seen, params), off = +(u.searchParams.get("offset") || 0), lim = u.searchParams.get("limit");
     const page = lim ? out.slice(off, off + +lim) : out.slice(off);
     if ((req.headers().accept || "").includes("vnd.pgrst.object")) return page.length === 1 ? json(200, page[0]) : json(406, { code: "PGRST116", details: `The result contains ${page.length} rows`, message: "JSON object requested, multiple (or no) rows returned" });
     return json(200, page, { "content-range": `${off}-${off + page.length - 1}/*` });
@@ -141,7 +157,10 @@ async function supabase(route) {
   if (m === "POST") {
     if (refuseDevices && table === "records" && [].concat(JSON.parse(req.postData() || "[]")).some((r) => r.kind === "devices")) return json(403, { code: "42501", message: "new row violates row-level security policy" });
     const body = [].concat(JSON.parse(req.postData() || "[]")), cols = (u.searchParams.get("on_conflict") || (keys[table] || ["id"]).join(",")).split(",");
-    for (const r of body) { const at = rows.findIndex((x) => cols.every((c) => String(x[c]) === String(r[c]))); if (at >= 0) rows[at] = { ...rows[at], ...r }; else rows.push(r); }
+    for (const r of body) { const at = rows.findIndex((x) => cols.every((c) => String(x[c]) === String(r[c])));
+      // Like the database's guard: a browser's copy of the settings never changes the deactivation record.
+      if (table === "churches" && r.data) { const kept = at >= 0 ? rows[at].data?.deactivation : undefined; r.data = { ...r.data }; delete r.data.deactivation; if (kept) r.data.deactivation = kept; }
+      if (at >= 0) rows[at] = { ...rows[at], ...r }; else rows.push(r); }
     return json(201, (req.headers().prefer || "").includes("return=representation") ? body : undefined);
   }
   if (m === "PATCH") { const body = JSON.parse(req.postData() || "{}"); filterRows(rows, params).forEach((r) => Object.assign(r, body)); return json(204); }
@@ -550,6 +569,49 @@ await step("training ticks off exercises as they're done", async () => {
   await p.evaluate(() => { location.hash = "training"; }); await p.waitForSelector(".train-row.done >> text=Share a prayer request");
   await p.screenshot({ path: join(shots, "live-15-training-progress.png") });
   await p.context().close();
+});
+await step("the primary account holder deactivates and reactivates the church through the server", async () => {
+  const church = () => (db.churches || []).find((c) => c.name === "Test Fellowship"), id = church().id;
+  await page.goto(base + "#admin-deactivate"); await page.waitForSelector("[data-act=deact-start]", { timeout: 15000 });
+  await page.click("[data-act=deact-start]"); await page.waitForSelector("#scrim form[data-form=deact-confirm]");
+  await page.fill("#scrim input[name=confirmName]", "Test Fellowship"); await page.fill("#scrim textarea[name=reason]", "Merging congregations"); await page.check("#scrim input[name=understand]");
+  await page.click("#scrim button.btn.danger");
+  await page.waitForFunction(() => /Test Fellowship is deactivated/.test(document.querySelector("#app").textContent), null, { timeout: 15000 });
+  const asked = rpcCalls.at(-1);
+  if (asked?.action !== "deactivate" || asked.c !== id || asked.note !== "Merging congregations") throw new Error(`the server wasn't asked to deactivate: ${JSON.stringify(asked)}`);
+  if (church().data.deactivation?.status !== "deactivated") throw new Error("the database doesn't show the church as deactivated");
+  if (lifecycleCalls.at(-1)?.churchId !== id) throw new Error("the email wasn't asked for straight away");
+  if (!/emailed you the details/.test(await page.textContent("#toast"))) throw new Error("it didn't say the details were emailed");
+  await shot("16-deactivated");
+  // The app's own copy of the settings, saved later, can't undo it; and after a reload it's still deactivated.
+  await page.waitForTimeout(900);
+  if (church().data.deactivation?.status !== "deactivated") throw new Error("a later save from the browser changed the deactivation");
+  await page.evaluate(() => { location.hash = "home"; }); await page.reload();
+  await page.waitForFunction(() => /Test Fellowship is deactivated/.test(document.querySelector("#app")?.textContent || ""), null, { timeout: 15000 });
+  if (!/days left/.test(await appText())) throw new Error("the deactivated screen doesn't show the time left");
+  // The reminder link leads to the same place, and reactivating goes through the server too.
+  await page.evaluate((h) => { location.hash = h; }, `reactivate-${id}`); await page.waitForSelector("[data-act=deact-reactivate]", { timeout: 15000 });
+  await page.click("[data-act=deact-reactivate]"); await page.click("#scrim [data-act=deact-reactivate-yes]");
+  await page.waitForFunction(() => location.hash === "#home" && !/is deactivated/.test(document.querySelector("#app").textContent), null, { timeout: 15000 });
+  if (rpcCalls.at(-1)?.action !== "reactivate" || church().data.deactivation?.status !== "active") throw new Error("the church wasn't reactivated on the server");
+});
+await step("someone whose church was deactivated is told, and lands on the list of churches", async () => {
+  const id = (db.churches || []).find((c) => c.name === "Test Fellowship").id;
+  const kept = () => `${(db.churches || []).filter((c) => c.id === id).length} church, ${(db.records || []).filter((r) => r.church_id === id).length} records, ${(db.memberships || []).filter((r) => r.church_id === id).length} memberships, ${(db.roles || []).filter((r) => r.church_id === id).length} roles`;
+  const before = kept();
+  hiddenChurches.add(id);   // what the rules do for everyone but the primary account holder
+  try {
+    await page.evaluate(() => { location.hash = "home"; }); await page.reload();
+    await page.waitForFunction(() => /Find your church/.test(document.querySelector("#app")?.textContent || ""), null, { timeout: 15000 });
+    await page.waitForFunction(() => /Test Fellowship is no longer available in the app/.test(document.querySelector("#toast")?.textContent || ""), null, { timeout: 8000 });
+    if (/Test Fellowship/.test(await page.textContent("#church-list"))) throw new Error("the deactivated church is still in the list");
+    await shot("17-church-gone");
+    // Losing sight of the church must not make this browser delete anything of it from the database.
+    await page.waitForTimeout(1200);
+    if (kept() !== before) throw new Error(`the browser changed the hidden church's data: ${before} -> ${kept()}`);
+  } finally { hiddenChurches.delete(id); }
+  await page.reload(); await page.waitForSelector("#app .view, #app .welcome", { timeout: 15000 }); await page.waitForTimeout(600);
+  await page.evaluate(() => { location.hash = "churches"; }); await page.click('[data-act=switch-church]'); await page.waitForSelector("[data-act=open-switcher]", { timeout: 15000 });
 });
 await step("signs out", async () => {
   await page.evaluate(() => window.__signOutForTest?.() || null);

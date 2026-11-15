@@ -198,7 +198,37 @@ For signage, make a playlist under **Admin, Digital signage** first, then add a 
 
 **Rooms and room displays** need `supabase/upgrade-7.sql` (new projects get it from `schema.sql`) and the latest `device-pair`. Under **Screens and devices, Rooms**, give each room its number and where it is, then **Add a display** to the rooms with a TV or projector. Choose what it shows when no one is presenting: a signage playlist, or whatever the main screens show. A teacher whose class meets in the room, or someone with an approved booking, can present to it from their phone from 15 minutes before their time until it ends: they scan the QR code on the screen, or use **Present** on their class page or on the Rooms screen. Administrators, pastors, ministry staff and media coordinators also get **Present on any room's display, at any time**; turn it on for other roles under **Roles and permissions**. A room display can read bookings and presentations in rooms, and only the person presenting can start or change their own presentation.
 
-## 13. Check that everything works
+## 13. Deactivating a church account
+
+A church's primary account holder can deactivate its account under **Admin, Deactivate church account**. An administrator can ask to, if the primary has ticked **Ask to deactivate the church account** for their role under **Roles and permissions** (nobody has it to start with, and only the primary can give it). The primary then approves or declines.
+
+Before it happens the app shows what it means and makes the person type the church's name and tick a box. Once deactivated:
+
+- The church is hidden from everyone but the primary account holder, and it's out of the list of churches. Its public page, links and embedded pages stop, online giving stops (recurring gifts are stopped with the processor), and its screens and kiosks are signed out.
+- The primary can reactivate it for **one year**. Everything comes back as it was; recurring gifts are set up again by the givers, and screens are paired again.
+- After a year, everything in the account is permanently deleted from the server: its records, members, roles, locations, payment records, device sign-ins and uploaded files. People's own sign-ins stay, since they may belong to other churches.
+- The primary is reminded by email and in the app with 180, 90, 30, 14, 7, 3 and 1 days left, each time with a way to reactivate.
+
+To set it up:
+
+1. **Database.** A database from before version 9 needs `supabase/upgrade-9.sql` (run it after `upgrade-8.sql`; new projects get it from `schema.sql`).
+2. **Server function.**
+   ```bash
+   supabase functions deploy church-lifecycle
+   supabase functions deploy checkout
+   ```
+3. **Hourly job.** Open `supabase/cron-lifecycle.sql`, replace `YOUR-PROJECT` with `iigterjskwnqmnoysbha`, and run it in the SQL editor. This is what sends reminders and deletes data when the year is up. It needs no password of its own.
+4. **Email.** Reminders in the app work without this. For the emails, give the functions a sender. Either the mailbox you already use for sign-in emails:
+   ```bash
+   supabase secrets set SMTP_HOST=smtp.gmail.com SMTP_USER=you@gmail.com SMTP_PASS=your-app-password
+   supabase secrets set EMAIL_FROM="Our Faithful Church App <you@gmail.com>"
+   ```
+   or an email service: `supabase secrets set RESEND_API_KEY=... EMAIL_FROM="Our Faithful Church App <hello@ourfaithfulchurch.com>"`. You can also add these under **Edge Functions, Secrets** in the dashboard. Emails go to the address the primary account holder signs in with.
+5. **Links in the emails** use the `APP_URL` secret (`https://ourfaithfulchurch.com/`).
+
+The deactivation record itself can't be changed by a browser, or by another server function saving the church's settings: only `church_deactivation()` changes it. To correct one by hand in the SQL editor, first run `select set_config('our_faithful.lifecycle', '1', false);`.
+
+## 14. Check that everything works
 
 - [ ] Two people on different phones join the same church and see each other's prayer requests and chat messages.
 - [ ] A member can't open **Admin**, and a teacher sees only their own classes in the lesson builder.
@@ -255,6 +285,7 @@ They need no account and nothing to set up. Each opens a sample church in the vi
 
 - **"Some changes weren't saved. Your role may not allow them."** A security rule refused a change. Check the person's role and location access under **Admin, People**. The browser console names the record and the rule's message.
 - **The old address doesn't forward to the new one.** It forwards only when `https://ourfaithfulchurch.com/config.js` opens and shows the app's settings. If it doesn't open, finish steps 1 to 4 of [Your own domain on Cloudflare](#your-own-domain-on-cloudflare).
+- **No reminder emails about a deactivated church.** Check step 13: the hourly job (`select * from cron.job_run_details order by start_time desc limit 5;`), the `church-lifecycle` function's log, and that an email sender is set. The in-app reminders don't depend on email.
 - **Sign-in codes don't arrive.** Check spam, then **Authentication, Logs**. Connect your own SMTP sender (step 3.4).
 - **Checkout says the church isn't set up for online payments.** Connect a processor under **Admin, Giving, Online payments**. If connecting fails, the message says what the processor didn't accept.
 - **A payment went through but doesn't show in the app.** Check **Edge Functions, pay-webhook, Logs** in Supabase, and in the processor's dashboard check that the webhook pointing at `pay-webhook` is enabled. Reconnecting the church's keys sets the webhook up again.

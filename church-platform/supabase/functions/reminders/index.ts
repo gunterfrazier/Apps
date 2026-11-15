@@ -6,14 +6,18 @@ handle(async (req) => {
   if (!fromCron(req)) return fail("Not allowed", 401);
   const db = admin(), now = Date.now(), soon = (t: number) => t > now && t - now < 30 * 3600e3;
   let made = 0;
+  // A deactivated church sends no reminders.
+  const { data: off } = await db.from("churches").select("id").eq("data->deactivation->>status", "deactivated");
+  const closed = new Set((off || []).map((x) => x.id));
   const { data: asg } = await db.from("records").select("id, church_id, owner, data").eq("kind", "assignments").eq("data->>status", "accepted");
   for (const a of asg || []) {
-    const p = a.data._stub; if (!p?.date || !a.owner) continue;
+    const p = a.data._stub; if (!p?.date || !a.owner || closed.has(a.church_id)) continue;
     const t = new Date(`${p.date}T${p.time || "09:00"}`).getTime();
     if (soon(t)) { await notify(db, a.church_id, a.owner, { kind: "serve", title: "You're serving tomorrow", body: `${a.data.position} on the ${a.data.team} team, ${p.title} at ${p.time}`, link: "#serving" }, `rem-serve-${a.id}`); made++; }
   }
   const { data: events } = await db.from("records").select("id, church_id, data").eq("kind", "events").gte("data->>start", new Date(now).toISOString()).lte("data->>start", new Date(now + 30 * 3600e3).toISOString());
   for (const e of events || []) {
+    if (closed.has(e.church_id)) continue;
     const { data: regs } = await db.from("records").select("id, owner").eq("kind", "event_regs").eq("data->>_parent", e.id);
     for (const r of regs || []) if (r.owner) { await notify(db, e.church_id, r.owner, { kind: "event", title: `Coming up: ${e.data.title}`, body: `${e.data.location || ""}`, link: `#event-${e.id}` }, `rem-event-${r.id}`); made++; }
   }

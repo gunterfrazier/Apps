@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.device-pair]
 verify_jwt = false
+
+[functions.church-lifecycle]
+verify_jwt = false
