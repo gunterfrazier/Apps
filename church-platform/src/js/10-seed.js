@@ -444,7 +444,7 @@ function buildSeed() {
     { id: uid(), channelId: "leaders-riverside", by: "u-marcus", text: "Sunday's sermon slides are ready in the builder. Mark, the service plan is set for 9:00.", at: daysAgo(0, 6) },
   ];
 
-  return {
+  return seedExtras({
     v: 2,
     me: { id: "me-" + uid(), name: "", email: "", phone: "", household: [], pickups: [] },
     users, memberships, current: null, campus: {},
@@ -453,5 +453,5 @@ function buildSeed() {
     channels: [], messages, chatSeen: {}, deliveries: [], teamMembers, blockouts, notifications: [],
     cards, checkins: [], serving: [], recurring: [], attendance, followups, forms: formsSeed, formResponses, bookings, devices: [], signage: signageSeed(), roomSessions: [], presence: [], milestones: [], campaigns: [], pledges: [], activity: [], customReports: [], reportRuns: [],
     notes: {}, verseNotes: {}, highlights: {}, progress: {}, saved: [], seen: [],
-  };
+  }, { now, lastSunday, daysAgo });
 }

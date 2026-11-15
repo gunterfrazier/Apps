@@ -24,7 +24,8 @@ function thisDevice() {
 }
 /** Where a device is allowed to go, first one being its home screen. */
 function deviceRoutes(d) {
-  return { kiosk: ["kiosk"], signage: [`signage-${d.settings?.playlistId || ""}`], display: ["display-follow"], room: ["display-room"], stage: ["stage-follow"], overlay: ["overlay-follow"],
+  const km = d.settings?.kioskMode;
+  return { kiosk: km === "wayfind" ? ["wayfind"] : km === "both" ? ["kiosk", "wayfind"] : ["kiosk"], signage: [`signage-${d.settings?.playlistId || ""}`], display: ["display-follow"], room: ["display-room"], stage: ["stage-follow"], overlay: ["overlay-follow"],
     booth: ["booth", "present"] }[d.type] || ["home"];
 }
 // In the preview, devices are other tabs in the same browser. This keeps the admin's tab and the device's tab in step.
@@ -67,7 +68,7 @@ function deviceSummary(d) {
   if (d.type === "room") { const pl = S.get("signage", s.playlistId)?.name;
     return `${s.room || "No room chosen"}. When no one is presenting, ${s.idle === "mirror" ? "it shows what the main screens show" : pl ? `it plays ${pl}` : "it shows the church's logo"}`; }
   if (["display", "stage", "overlay"].includes(d.type)) return `Follows the booth${s.idlePlaylistId && S.get("signage", s.idlePlaylistId) ? `, ${S.get("signage", s.idlePlaylistId).name} between services` : ""}`;
-  if (d.type === "kiosk") return `${LABEL_SIZES[s.labelSize || "4x2"][0].split(" (")[0]} tags${s.exitPin ? ", exit code set" : ""}`;
+  if (d.type === "kiosk") return s.kioskMode === "wayfind" ? `Campus map: find your way${s.mapSpot ? ` from ${mapSpotName(s.mapSpot)}` : ""}` : `${LABEL_SIZES[s.labelSize || "4x2"][0].split(" (")[0]} tags${s.kioskMode === "both" ? ", and the campus map" : ""}${s.exitPin ? ", exit code set" : ""}`;
   return "";
 }
 function deviceForm(d = { type: "signage", settings: {} }) {
@@ -88,6 +89,7 @@ function deviceForm(d = { type: "signage", settings: {} }) {
     <div class="dev-opt" data-for="signage" ${attr(d.type !== "signage", "hidden")}><label class="field"><span>Playlist</span><select name="playlistId"><option value="">Choose a playlist</option>${lists.map((p) => html`<option value="${p.id}" ${attr(p.id === s.playlistId, "selected")}>${p.name}</option>`)}</select>${!lists.length ? html`<small><a href="#signs">Make a playlist first</a></small>` : ""}</label></div>
     <div class="dev-opt" data-for="display stage overlay" ${attr(!["display", "stage", "overlay"].includes(d.type), "hidden")}><label class="field"><span>Between services, show</span><select name="idlePlaylistId"><option value="">The church's logo</option>${lists.map((p) => html`<option value="${p.id}" ${attr(p.id === s.idlePlaylistId, "selected")}>${p.name} (signage)</option>`)}</select><small>Switches to the booth's slides as soon as it starts presenting${d.locationId ? "" : " at this location"}.</small></label></div>
     <div class="dev-opt" data-for="kiosk" ${attr(d.type !== "kiosk", "hidden")}><label class="field"><span>Label size</span><select name="labelSize">${Object.entries(LABEL_SIZES).map(([k, [l]]) => html`<option value="${k}" ${attr(k === (s.labelSize || "4x2"), "selected")}>${l}</option>`)}</select></label></div>
+    ${deviceMapFields(d)}
     <label class="field"><span>Exit code (optional)</span><input type="text" name="exitPin" inputmode="numeric" maxlength="6" value="${s.exitPin || ""}" autocomplete="off" placeholder="4 to 6 digits"><small>Needed to take the device out of its job on the device itself.</small></label>
     <div class="btns"><button class="btn">${d.id ? "Save" : "Add and get a pairing code"}</button>${d.id ? html`<button type="button" class="btn danger" data-act="device-remove" data-id="${d.id}">Remove device</button>` : ""}</div></form>`;
 }
@@ -112,6 +114,7 @@ Forms["device-save"] = (d, f) => {
   if (d.type === "room" && !d.roomKey) return formError(f, "Choose the room it's in.");
   let settings = { playlistId: d.playlistId || null, idlePlaylistId: d.idlePlaylistId || null, labelSize: d.labelSize || "4x2", exitPin: d.exitPin || "" }, locationId = d.locationId || null;
   if (d.type === "room") { const i = d.roomKey.indexOf("~"); locationId = d.roomKey.slice(0, i); settings = { room: d.roomKey.slice(i + 1), idle: d.idle === "mirror" ? "mirror" : "signage", playlistId: d.roomPlaylistId || null, hint: !!d.hint, exitPin: d.exitPin || "" }; }
+  Object.assign(settings, deviceMapSettings(d));
   if (d.id) { const dev = S.get("devices", d.id); Object.assign(dev, { name: d.name, locationId, settings }); S.save(); devicePing(dev, { name: dev.name, locationId: dev.locationId, settings }); closeSheet(); toast("Saved"); render(); return; }
   const dev = S.add("devices", { name: d.name, type: d.type, locationId, settings, status: "waiting", code: pairCode(), codeExpires: new Date(Date.now() + 30 * 60e3).toISOString(), deviceUser: null, lastSeen: null, at: new Date().toISOString() });
   closeSheet(true); render(); pairSheet(dev);
