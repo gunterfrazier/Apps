@@ -422,6 +422,32 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   const compareInfo = useMemo(() => (prefs.compare ? translationInfo(prefs.compare) : null), [prefs.compare]);
   const inRange = (v: number) => route?.verse && v >= route.verse && v <= (route.verseEnd ?? route.verse);
 
+  // The reading options close when you make a choice, tap anywhere outside them, press Escape, or tap × or Aa.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const closeMenu = (refocus: boolean) => {
+    setMenuOpen(false);
+    if (refocus) menuRef.current?.querySelector<HTMLButtonElement>(".menu-btn")?.focus();
+  };
+  useEffect(() => {
+    if (!menuOpen) return;
+    const outside = (e: Event) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setMenuOpen(false);
+      // A tap on the text that closes the options shouldn't also open that verse.
+      if ((e.target as Element | null)?.closest?.(".scripture")) {
+        const eat = (c: Event) => { c.stopPropagation(); c.preventDefault(); };
+        document.addEventListener("click", eat, { capture: true, once: true });
+        setTimeout(() => document.removeEventListener("click", eat, true), 600);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeMenu(true); };
+    document.addEventListener("pointerdown", outside, true);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("pointerdown", outside, true); document.removeEventListener("keydown", onKey); };
+  }, [menuOpen]);
+  useEffect(() => { setMenuOpen(false); }, [book, chapter]);
+
   return (
     <div className={`reader-wrap ${wide && sheet ? "with-dock" : ""}`}>
     <div className="page reader">
@@ -429,25 +455,31 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
         <button type="button" className="pick-btn" onClick={() => setPicker(true)}>{bookName(book)} {chapter} <span aria-hidden="true">▾</span></button>
         <div className="toolbar-right">
           <TranslationSelect short id="reader-translation" value={translation} onChange={(t) => { setPref("translation", t); if (route?.translation) navigate(readHash({ book, chapter, verse: route.verse, verseEnd: route.verseEnd })); }} />
-          <details className="menu">
-            <summary aria-label="Reading options">Aa</summary>
-            <div className="menu-body">
-              <label className="label" htmlFor="compare-select">Compare with</label>
-              <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => setPref("compare", t)} />
-              <label className="label" htmlFor="text-size">Text size</label>
-              <input id="text-size" type="range" min="15" max="28" value={prefs.textSize} onChange={(e) => setPref("textSize", Number(e.target.value))} />
-              {isOnline(translation)
-                ? <p className="fine read-aloud-off">Read aloud isn't offered for licensed translations like the {translation}, whose terms don't allow turning the text into speech. Choose a built-in translation, such as the BSB, to listen.</p>
-                : canReadAloud()
-                ? <button type="button" className="btn small" onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); toggleSpeak(); }}>{speech.state !== "idle" ? "Stop reading" : "Read chapter aloud"}</button>
-                : <p className="fine read-aloud-off">{NO_SPEECH}</p>}
-              {!isOnline(translation) && canReadAloud() && builtIn && BUILT_IN && speech.state === "idle" && (
-                <p className="fine read-aloud-off">{saved === false
-                  ? `${BUILT_IN.name}, the voice built into Veritas Logos, reads here. The first time, it downloads ${mb(BUILT_IN.downloadBytes)}, which this browser keeps.`
-                  : `${BUILT_IN.name}, the voice built into Veritas Logos, reads here.`}</p>
-              )}
-            </div>
-          </details>
+          <div className="menu" ref={menuRef}>
+            <button type="button" className="menu-btn" aria-label="Reading options" aria-expanded={menuOpen} aria-controls="reading-options" onClick={() => setMenuOpen(!menuOpen)}>Aa</button>
+            {menuOpen && (
+              <div className="menu-body" id="reading-options" role="dialog" aria-label="Reading options">
+                <div className="menu-head">
+                  <span>Reading options</span>
+                  <button type="button" className="icon-btn" aria-label="Close reading options" onClick={() => closeMenu(true)}>×</button>
+                </div>
+                <label className="label" htmlFor="compare-select">Compare with</label>
+                <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => { setPref("compare", t); closeMenu(true); }} />
+                <label className="label" htmlFor="text-size">Text size</label>
+                <input id="text-size" type="range" min="15" max="28" value={prefs.textSize} onChange={(e) => setPref("textSize", Number(e.target.value))} />
+                {isOnline(translation)
+                  ? <p className="fine read-aloud-off">Read aloud isn't offered for licensed translations like the {translation}, whose terms don't allow turning the text into speech. Choose a built-in translation, such as the BSB, to listen.</p>
+                  : canReadAloud()
+                  ? <button type="button" className="btn small" onClick={() => { closeMenu(false); toggleSpeak(); }}>{speech.state !== "idle" ? "Stop reading" : "Read chapter aloud"}</button>
+                  : <p className="fine read-aloud-off">{NO_SPEECH}</p>}
+                {!isOnline(translation) && canReadAloud() && builtIn && BUILT_IN && speech.state === "idle" && (
+                  <p className="fine read-aloud-off">{saved === false
+                    ? `${BUILT_IN.name}, the voice built into Veritas Logos, reads here. The first time, it downloads ${mb(BUILT_IN.downloadBytes)}, which this browser keeps.`
+                    : `${BUILT_IN.name}, the voice built into Veritas Logos, reads here.`}</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         {speech.state !== "idle" && (
           <div className="read-aloud-bar" role="status">
