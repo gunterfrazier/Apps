@@ -249,7 +249,8 @@ const Backend = {
   chans: {},
   broadcast(msg, topic = `present:${S.state.current}`) {
     if (!this.ready) return;
-    (this.chans[topic] ||= this.client.channel(topic).subscribe()).send({ type: "broadcast", event: "slide", payload: msg });
+    // The sender listens too: a display may ask for a file to be sent again (see 80-media.js).
+    (this.chans[topic] ||= this.client.channel(topic).on("broadcast", { event: "slide" }, ({ payload }) => this.heard?.(payload)).subscribe()).send({ type: "broadcast", event: "slide", payload: msg });
   },
   onBroadcast(cb, topic = `present:${S.state.current}`) {
     if (!this.ready) return;

@@ -114,7 +114,7 @@ let presChannel = null;
 try { presChannel = "BroadcastChannel" in window ? new BroadcastChannel("our-faithful-present") : null; } catch { presChannel = null; }
 const presLoc = (key) => { const [k, ...r] = key.split("-"); return S.get(k === "doc" ? "docs" : "services", r.join("-"))?.locationId || null; };
 function presBroadcast() {
-  const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, live: pres.live, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "" };
+  const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, live: pres.live, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "", media: pres.media ? { ...pres.media } : null };
   // Presenting in a room: only that room's display hears it, on the room's own channel.
   if (pres.room) { Object.assign(msg, { room: pres.room.token, loc: pres.room.loc, msg: "", captions: "" }); try { presChannel?.postMessage(msg); } catch {} if (Backend.on) Backend.broadcast(msg, roomTopic(pres.room.token)); return; }
   try { presChannel?.postMessage(msg); } catch {}
@@ -153,7 +153,7 @@ Screens.present = (tail) => {
     page: html`<div class="present ${pres.mode}">
       <header class="present-bar"><a class="icon-btn" href="#${thisDevice() ? "booth" : inRoom ? `roompresent-${roomKey(pres.room.loc, pres.room.room)}` : data.back}" aria-label="Back">${icon("back")}</a><b class="present-title">${data.title}</b>
         <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a>${inRoom ? "" : html`<a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a>`}</nav></header>
-      ${inRoom ? roomStrip() : ""}
+      ${inRoom ? roomStrip() : ""}${mediaStrip()}
       ${pres.mode === "scroll" ? html`<div class="scroll-slides">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<h2 class="sec-head" style="color:#fff;margin-top:22px">${s.section}</h2>`) : ""}<div class="stage" aria-label="Slide ${i + 1}">${slideHtml(s)}</div>${s.notes ? html`<p class="scroll-notes">${icon("lock")} ${s.notes}</p>` : ""}`)}</div>`
       : html`<div class="present-main">
         ${stageMode ? stageMonitor(data, pres) : html`<div class="stage" id="stage" aria-live="polite" aria-label="Slide ${pres.index + 1} of ${slides.length}">${slideHtml(shown)}</div>`}
@@ -163,6 +163,7 @@ Screens.present = (tail) => {
           <button class="btn" data-act="pres-go" data-d="1" aria-label="Next slide" ${attr(!next, "disabled")}>${icon("next")}Next</button>
           <button class="btn ghost" data-act="pres-black" aria-pressed="${pres.black}" aria-label="Black screen" title="Black screen (B)">${icon("black")}<span class="lbl">Black</span></button>
           <button class="btn ghost" data-act="pres-logo" aria-pressed="${pres.logo}" aria-label="Logo screen" title="Logo screen (L)">${icon("church")}<span class="lbl">Logo</span></button>
+          <button class="btn ghost" data-act="pres-media" aria-pressed="${!!pres.media}" aria-label="Show a video, website or file" title="Show a video, website or file">${icon("play")}<span class="lbl">Media</span></button>
           <button class="btn ghost" data-act="pres-full" aria-label="Full screen" title="Full screen (F)">${icon("expand")}<span class="lbl">Full screen</span></button>
           ${!IN_PREVIEW && presChannel && !inRoom ? html`<button class="btn ghost" data-act="pres-window" data-key="${tail}" aria-label="Open display window">${icon("screen")}<span class="lbl">Display window</span></button>
             <button class="btn ghost" data-act="pres-open" data-route="stage-${tail}" data-name="our-faithful-stage" aria-label="Open stage display">${icon("music")}<span class="lbl">Stage window</span></button>` : ""}
@@ -252,11 +253,13 @@ Screens.display = (tail) => {
   const draw = (state = { index: 0 }) => {
     const data = slidesFor(kind, id);
     const s = !data ? null : state.black ? { kind: "black" } : state.logo ? { kind: "logo" } : timedSlide(liveAt(data.slides, state).cur, state.segAt);
-    applyBrand();
+    applyBrand(); last = state;
+    if (mediaDraw($("#app"), state)) return;
     $("#app").innerHTML = flat(html`<div class="display"><div class="stage">${slideHtml(s)}</div></div>`);
   };
+  let last = { index: 0 };
   document.body.classList.add("presenting");
   draw();
   if (Backend.on) Backend.onBroadcast((m) => presChannel?.onmessage?.({ data: m }));
-  if (presChannel) presChannel.onmessage = (e) => { if (e.data?.key === tail && !e.data.room && location.hash === `#display-${tail}`) { S.load(); if (e.data.church) S.state.current = e.data.church; draw(e.data); } };
+  if (presChannel) presChannel.onmessage = (e) => { if (!e.data?.room && mediaIntercept(e.data, () => draw(last))) return; if (e.data?.key === tail && !e.data.room && location.hash === `#display-${tail}`) { S.load(); if (e.data.church) S.state.current = e.data.church; draw(e.data); } };
 };

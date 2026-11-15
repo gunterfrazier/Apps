@@ -849,6 +849,34 @@ await step("approvals: requests notify everyone who can approve; volunteers can 
   await asRole("primary"); await goTo("admin-approvals"); await page.check('input[name=pre][value=none]'); await page.click("form[data-form=approvals-save] button.btn"); await page.waitForTimeout(150);
   await page.evaluate((b) => { const S = __app.S, c = S.church(); c.ownerId = b.owner; S.membership(c.id).roleId = b.role; S.save(); __app.render(); }, before);
 });
+await step("a video, website or file on the display", async () => {
+  if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
+  const key = await page.evaluate(() => { const S = __app.S; S.setCurrent("riverside"); S.state.churches.riverside.ownerId = S.me().id; S.save(); const p = S.list("services").sort((a, b) => b.date.localeCompare(a.date))[0]; return `service-${p.id}`; });
+  const d = await ctx.newPage(); await d.setViewportSize({ width: 1280, height: 720 }); await d.goto(base + `#display-${key}`); await d.waitForSelector(".display");
+  await goTo(`present-${key}`); await page.waitForSelector("[data-act=pres-media]");
+  // A video link: YouTube plays in its own player.
+  await page.click("[data-act=pres-media]"); await page.fill('#scrim form:nth-of-type(1) input[name=url]', "https://youtu.be/dQw4w9WgXcQ"); await page.click("#scrim form:nth-of-type(1) button");
+  await d.waitForSelector('iframe.media-fill[src^="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"]'); await expectText("On the display:");
+  // The slides can move underneath without restarting what's playing.
+  const frame = await d.$eval("iframe.media-fill", (f) => f.dataset.mediaId); await page.keyboard.press("ArrowRight"); await page.waitForTimeout(300);
+  if ((await d.$eval("iframe.media-fill", (f) => f.dataset.mediaId)) !== frame) throw new Error("moving a slide restarted the video");
+  // A website.
+  await page.click("[data-act=pres-media]"); await page.fill('#scrim form:nth-of-type(2) input[name=url]', "example.org/welcome"); await page.click("#scrim form:nth-of-type(2) button");
+  await d.waitForSelector('iframe.media-fill[sandbox][src="https://example.org/welcome"]');
+  await page.click("[data-act=pres-media]"); await page.fill('#scrim form:nth-of-type(2) input[name=url]', "not a site"); await page.click("#scrim form:nth-of-type(2) button"); await page.waitForSelector("#scrim .err"); await page.click("#scrim [data-act=close-sheet]"); await sheetGone();
+  // A picture from this device reaches the display.
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  await page.click("[data-act=pres-media]"); await page.setInputFiles("#scrim input[type=file]", { name: "welcome.png", mimeType: "image/png", buffer: png });
+  await d.waitForSelector('img.media-fill[src^="data:image/jpeg"]'); await expectText("welcome.png");
+  await d.screenshot({ path: join(shots, "78-display-media.png") }); await shot("79-presenter-media");
+  // A display opened afterwards asks for the file and gets it.
+  const late = await ctx.newPage(); await late.goto(base + `#display-${key}`); await late.waitForSelector(".display");
+  await page.keyboard.press("ArrowLeft"); await late.waitForSelector('img.media-fill[src^="data:image/jpeg"]', { timeout: 8000 }); await late.close();
+  // Back to the slides.
+  await page.click("[data-act=pres-media-off]"); await d.waitForSelector(".display .slide");
+  if (await d.$(".media-fill")) throw new Error("the media stayed on the display");
+  await d.close(); await goTo("home");
+});
 await step("dashboard and detailed reports", async () => {
   if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
   const asRole = (r) => page.evaluate((r) => { const S = __app.S, c = S.state.churches.riverside; if (r === "primary") c.ownerId = S.me().id; else { if (c.ownerId === S.me().id) c.ownerId = "u-dana"; S.membership(c.id).roleId = r; } S.save(); __app.render(); }, r);
