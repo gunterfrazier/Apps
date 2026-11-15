@@ -9,6 +9,7 @@ const SIGN_TYPES = {
   announcements: ["Announcements", "bell", "Current announcements, one per slide"],
   events: ["Upcoming events", "calendar", "The next events, with a QR code to sign up"],
   classes: ["Today's classes and rooms", "door", "What meets today and where, for finding your way"],
+  map: ["Campus map: you are here", "pin", "The campus map with this screen's spot marked, and a QR code to find your way on a phone"],
   sermon: ["Latest sermon", "play", "The newest message, with a QR code to watch or listen"],
   verse: ["Bible verse", "book", "A passage from the BSB, shown large"],
   give: ["Giving", "give", "A QR code to give, and the text-to-give number"],
@@ -37,6 +38,7 @@ function signageSlides(pl, now = new Date()) {
         break;
       }
       case "sermon": { const sm = sermonsSorted()[0]; if (sm) out.push({ ...base, sermon: sm }); break; }
+      case "map": signMapSlide(s, pl, base, out); break;
       case "verse": if (s.ref) out.push({ ...base, ref: s.ref, text: verseCache[s.ref] || "" }); break;
       case "give": if (S.on("giving")) out.push({ ...base, title: s.title || "Give", body: s.body || "Thank you for your generosity. Giving online takes about a minute.", textGive: c.textGive }); break;
       case "qr": if (s.target) out.push({ ...base, title: s.title, body: s.body, target: s.target }); break;
@@ -69,6 +71,7 @@ function signSlideHtml(s, pl) {
         <ul class="sg-list rooms">${s.classes.map((g) => html`<li><b>${fmtTime(g.time)}</b><span>${g.name}${g.ages ? html`<small>${g.ages}</small>` : ""}</span><em>${g.room}</em></li>`)}</ul></div>`;
       case "sermon": { const sm = s.sermon; return html`<div class="sg-pad sg-split"><div><div class="sg-kicker">${sm.series || "Latest message"}</div><div class="sg-title">${sm.title}</div><div class="sg-sub">${sm.passage}<br>${sm.speaker}</div></div>
         <div class="sg-qrwrap">${qr(`sermon-${sm.id}`)}<span>Scan to watch or listen</span></div></div>`; }
+      case "map": return signMapHtml(s, pl);
       case "verse": return html`<div class="sg-pad sg-verse"><div class="sg-scripture">${s.text ? s.text.replace(/(^|\s)\d+\s/g, " ").trim() : s.ref}</div><div class="sg-ref">${s.ref} BSB</div></div>`;
       case "give": return html`<div class="sg-pad sg-split"><div><div class="sg-kicker">Generosity</div><div class="sg-title">${s.title}</div>${s.body ? html`<div class="sg-body">${s.body}</div>` : ""}
         ${s.textGive?.number ? html`<div class="sg-sub">Text <b>${s.textGive.keyword || "GIVE"} 50</b> to ${s.textGive.number}</div>` : ""}</div><div class="sg-qrwrap">${qr(`give-${c.id}`)}<span>Scan to give</span></div></div>`;
@@ -192,6 +195,7 @@ function signSlideEditor(plId, i, s) {
     give: html`${t("title", "Title", s.title, "Give")}${area("body", "Words", s.body, "Thank you for your generosity.")}`,
     qr: html`${t("title", "Title", s.title, "New here? Tell us hello")}${area("body", "Words", s.body)}<label class="field"><span>Link to</span><select name="target">${qrTargetGroups().map(([g, items]) => html`<optgroup label="${g}">${items.map(([k, l]) => html`<option value="${k}" ${attr(k === s.target, "selected")}>${l}</option>`)}</optgroup>`)}</select></label>`,
     text: html`${t("title", "Title", s.title, "", 60)}${area("body", "Words", s.body)}`,
+    map: signMapFields(s, S.get("signage", plId)),
     image: html`${imageField("image", "Picture", s.image, "Landscape 1920 × 1080 or portrait 1080 × 1920 fits best.", 1920)}${t("caption", "Caption (optional)", s.caption)}
       <fieldset class="field" style="border:0;padding:0"><legend class="flabel">Fit</legend><div class="radios"><label><input type="radio" name="fit" value="cover" ${attr(s.fit !== "contain", "checked")}><span>Fill the screen</span></label><label><input type="radio" name="fit" value="contain" ${attr(s.fit === "contain", "checked")}><span>Show all of it</span></label></div></fieldset>`,
   }[s.type] || html`<p class="faint">${SIGN_TYPES[s.type][2]}. It fills itself in from the app.</p>`;
@@ -206,7 +210,7 @@ Forms["sign-slide-save"] = (d, f) => {
   if (d.type === "image" && !d.image) return formError(f, "Choose a picture.");
   if (d.type === "text" && !d.title && !d.body) return formError(f, "Write a title or some words.");
   if (d.until && d.from && d.until < d.from) return formError(f, "The last day has to be after the first.");
-  const pl = S.get("signage", d.pl), keep = ["title", "body", "count", "style", "ref", "target", "image", "caption", "fit"];
+  const pl = S.get("signage", d.pl), keep = ["title", "body", "count", "style", "ref", "target", "image", "caption", "fit", "loc", "spot", "qr"];
   const s = { id: d.id, type: d.type, seconds: d.seconds, from: d.from, until: d.until, ...Object.fromEntries(keep.filter((k) => d[k] !== undefined).map((k) => [k, k === "ref" ? refLabel(parseRef(d.ref)) : d[k]])) };
   if (+d.i < 0) pl.slides.push(s); else pl.slides[+d.i] = s;
   S.save(); closeSheet(); render();

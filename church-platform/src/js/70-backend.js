@@ -81,6 +81,19 @@ const Backend = {
     })().finally(() => { this.resuming = null; });
   },
 
+  /** For someone signed out who opens a campus map link: that church and its public locations, nothing else.
+   *  (Anyone may read a live church's name and its public locations; see the policies on churches and locations.) */
+  async pullPublic(locId) {
+    const sb = this.client; if (!sb || !locId) return false;
+    const { data: loc } = await sb.from("locations").select("*").eq("id", locId).maybeSingle();
+    if (!loc) return false;
+    const [{ data: c }, { data: locs }] = await Promise.all([sb.from("churches").select("*").eq("id", loc.church_id).maybeSingle(), sb.from("locations").select("*").eq("church_id", loc.church_id)]);
+    if (!c) return false;
+    S.state.churches[c.id] = { ...c.data, id: c.id, name: c.name, handle: c.handle, ownerId: c.owner_id, roles: [],
+      locations: (locs || []).map((l) => ({ ...l.data, id: l.id, visibility: l.visibility })).sort((a, b) => (a.order || 0) - (b.order || 0)) };
+    S.state.current = c.id;
+    return true;
+  },
   // ----- Reading -----
   async all(q) { const out = []; for (let from = 0; ; from += 1000) { const { data, error } = await q().range(from, from + 999); if (error) throw error; out.push(...data); if (data.length < 1000) return out; } },
   loaded: new Set(),

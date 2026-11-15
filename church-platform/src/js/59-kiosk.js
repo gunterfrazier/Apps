@@ -135,7 +135,7 @@ Screens.kiosk = () => {
   return {
     kiosk: true,
     page: html`<div class="kiosk">
-      <header class="kiosk-head">${churchMark(c, 46)}<div class="kh-t"><b>${c.name}</b><span>${serviceName(svc)}</span></div><button class="icon-btn" data-act="${dev ? "device-exit" : "kiosk-exit"}" aria-label="Exit the kiosk">${icon("lock")}</button></header>
+      <header class="kiosk-head">${churchMark(c, 46)}<div class="kh-t"><b>${c.name}</b><span>${serviceName(svc)}</span></div>${dev?.settings?.kioskMode === "both" && mapLocations().length ? html`<a class="btn ghost sm" href="#wayfind">${icon("pin")}Find your way</a>` : ""}<button class="icon-btn" data-act="${dev ? "device-exit" : "kiosk-exit"}" aria-label="Exit the kiosk">${icon("lock")}</button></header>
       <main class="kiosk-main">${main}</main></div>`,
     after() {
       kiosk.touched = Date.now();

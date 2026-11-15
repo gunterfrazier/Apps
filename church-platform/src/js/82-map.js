@@ -24,7 +24,7 @@ const mapItems = (m) => (m?.items || []).filter((i) => !i.staff || mapStaff());
 const mapOf = (l) => l?.map && (l.map.items?.length || l.map.links?.length) ? l.map : null;
 const mapLocations = () => S.visibleLocations().filter(mapOf);
 const mapFloors = (m) => m?.floors?.length ? m.floors : ["Main floor"];
-let mapPick = null, mapFloor = 0, mapEditLoc = "", mapFind = "", mapType = "", mapRoute = null, mapHere = null, mapZoom = 1, mapView = null, mapTail = null, mapShown = null;
+let mapAnimate = false, mapPick = null, mapFloor = 0, mapEditLoc = "", mapFind = "", mapType = "", mapRoute = null, mapHere = null, mapZoom = 1, mapView = null, mapTail = null, mapShown = null;
 function mapLabel(it) {
   const words = placeName(it).split(/\s+/), per = Math.max(4, Math.floor(it.w * MAP_CELL / 7.2)), lines = [];
   words.forEach((w) => { const last = lines[lines.length - 1]; if (last != null && (last + " " + w).length <= per) lines[lines.length - 1] = `${last} ${w}`; else lines.push(w); });
@@ -34,8 +34,9 @@ const cellOf = (it) => (it.y + Math.floor((it.h - 1) / 2)) * MAP_W + it.x + Math
 const cellXY = (c) => [((c % MAP_W) + 0.5) * MAP_CELL, (Math.floor(c / MAP_W) + 0.5) * MAP_CELL];
 
 /** The drawing. In the builder each place can be dragged; in the viewer each is a button. */
-function mapSvg(m, floor, { edit = false, picked = null, route = null, here = null, type = "" } = {}) {
-  const items = (edit ? m.items : mapItems(m)).filter((it) => (it.floor || 0) === floor), W = MAP_W * MAP_CELL, H = MAP_H * MAP_CELL;
+function mapSvg(m, floor, { edit = false, picked = null, route = null, here = null, type = "", animate = false, guest = false } = {}) {
+  // guest: a screen anyone can see (signage, a kiosk), so staff-only places stay off it whoever set it up.
+  const items = (edit ? m.items : mapItems(m).filter((i) => !guest || !i.staff)).filter((it) => (it.floor || 0) === floor), W = MAP_W * MAP_CELL, H = MAP_H * MAP_CELL;
   const bg = (edit || m.showBackdrop) && m.backdrops?.[floor], see = bg && !edit ? 0.82 : 1;
   const legs = (route?.legs || []).filter((g) => g.floor === floor);
   const hereIt = here && !route ? items.find((i) => i.id === here) : null;
@@ -51,12 +52,15 @@ function mapSvg(m, floor, { edit = false, picked = null, route = null, here = nu
         <text x="${cx}" y="${cy + pad - (lines.length - 1) * 6.5}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="600" fill="#1d2430">${lines.map((t, i) => html`<tspan x="${cx}" dy="${i ? 13 : 0}">${t}</tspan>`)}</text></g>`; })}
     ${legs.map((g) => { const pts = mapSimplify(g.cells).map((c) => cellXY(c).join(",")).join(" "), [sx, sy] = cellXY(g.cells[0]), [ex, ey] = cellXY(g.cells[g.cells.length - 1]);
       return html`<g class="map-route-g" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"></polyline>
-        <polyline class="map-route" points="${pts}" fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></polyline>
-        <circle cx="${sx}" cy="${sy}" r="8" fill="#1f8a4c" stroke="#fff" stroke-width="3"></circle><circle cx="${ex}" cy="${ey}" r="9" fill="#c0392b" stroke="#fff" stroke-width="3"></circle></g>`; })}
+        <polyline class="map-route ${animate ? "anim" : ""}" points="${pts}" ${attr(animate, 'pathLength="1"')} fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        <circle cx="${sx}" cy="${sy}" r="8" fill="#1f8a4c" stroke="#fff" stroke-width="3"></circle><circle class="map-end ${animate ? "anim" : ""}" cx="${ex}" cy="${ey}" r="9" fill="#c0392b" stroke="#fff" stroke-width="3"></circle>
+        ${animate ? html`<circle class="map-walker" r="7" fill="#fff" stroke="#12324a" stroke-width="3"><animateMotion dur="${MAP_WALK_SECONDS}s" fill="freeze" path="M${pts.split(" ").join(" L")}"></animateMotion></circle>` : ""}</g>`; })}
     ${hereIt ? (() => { const [x, y] = cellXY(cellOf(hereIt)); return html`<g class="map-here" aria-hidden="true"><circle cx="${x}" cy="${y}" r="16" fill="#1f8a4c" opacity=".2"></circle><circle cx="${x}" cy="${y}" r="8" fill="#1f8a4c" stroke="#fff" stroke-width="3"></circle>
       <rect x="${x - 38}" y="${y - 34}" width="76" height="18" rx="9" fill="#1f8a4c"></rect><text x="${x}" y="${y - 25}" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="700" fill="#fff">You are here</text></g>`; })() : ""}
   </svg>`;
 }
+/** How long the walking animation takes on a route, in seconds. */
+const MAP_WALK_SECONDS = 2.8;
 const floorTabs = (m, act, marked = []) => mapFloors(m).length > 1 ? html`<div class="chips" role="group" aria-label="Floor" style="margin:10px 0;flex-wrap:wrap">${mapFloors(m).map((f, i) => html`<button class="chip" data-act="${act}" data-floor="${i}" aria-pressed="${i === mapFloor}">${f}${marked.includes(i) ? " •" : ""}</button>`)}</div>` : "";
 
 // ----- Directions: the cheapest walk across the grid. Hallways, paths and entrances are cheap, rooms cost more,
@@ -152,15 +156,33 @@ function mapMatches(l, q) {
 const mapCurrent = () => { const locs = mapLocations(), id = splitRoute().tail.split("~")[0]; return locs.find((x) => x.id === id) || locs[0]; };
 const mapViews = (l) => [...(mapItems(l.map).length ? [{ id: "built-in", title: "Our map" }] : []), ...(l.map.links || []).map((k) => ({ id: k.id, title: k.title }))];
 
+// Visitors who scan a map QR code may not have an account: the map of a public location opens for them too.
 Screens.map = (tail = "") => {
+  const locId0 = tail.split("~")[0];
+  if (Backend.on && !Backend.user && !S.church()?.locations?.some((x) => x.id === locId0)) {
+    if (mapPublicTry !== locId0) { mapPublicTry = locId0; Backend.pullPublic(locId0).then((ok) => { if (!ok) mapPublicFail = locId0; render(); }).catch(() => { mapPublicFail = locId0; render(); }); }
+    return { page: html`<div class="loading" role="status">${mapPublicFail === locId0 ? html`<div style="text-align:center;max-width:320px"><p>This map isn't public. Sign in to see it.</p><a class="btn" href="#signin">Sign in</a></div>` : html`<span class="ai-dot"></span>Opening the campus map...`}</div>` };
+  }
+  const v = mapScreen(tail);
+  if (!v.body || S.isMember()) return v;
+  // Someone who isn't a member here (a guest who scanned a sign) gets the map on its own, without the app around it.
+  const c = S.church();
+  return { page: html`<div class="public-page map-public" style="--brand:${c.color};--on-brand:${onColor(c.color)}"><header class="home-top"><div class="wrap"><div class="home-bar"><span class="switcher">${churchMark(c, 36)}<span><strong>${c.name}</strong><small>Campus map</small></span></span>
+      <a class="btn sm" href="#page-${c.id}">About us</a></div></div></header><main class="view">${v.body}</main></div>`, after: v.after };
+};
+let mapPublicTry = "", mapPublicFail = "";
+function mapScreen(tail = "") {
   if (!S.church()) return { redirect: "churches" };
   const locs = mapLocations();
   if (!locs.length) return { title: "Campus map", back: "home", body: html`<div class="panel" style="margin-top:16px"><p style="margin:0">${S.church().name} hasn't drawn a campus map yet.</p>${S.can("manage.locations") ? html`<p style="margin-bottom:0"><a class="btn" href="#admin-map">Draw the map</a></p>` : ""}</div>` };
-  const [locId, placeId, here] = tail.split("~"), l = locs.find((x) => x.id === locId) || locs[0], m = l.map;
+  const [locId, placeId, here, fromId, sfFlag] = tail.split("~"), l = locs.find((x) => x.id === locId) || locs[0], m = l.map;
   if (mapShown !== l.id) { mapShown = l.id; mapPick = null; mapRoute = null; mapType = ""; mapFind = ""; mapFloor = 0; mapZoom = 1; mapView = null; }
   // A link or "You are here" code is followed once, so tapping around afterwards isn't undone by the address.
   if (tail !== mapTail) { mapTail = tail; const it0 = mapItems(m).find((i) => i.id === placeId);
-    if (it0) { mapPick = it0.id; mapFloor = it0.floor || 0; mapView = "built-in"; mapRoute = null; if (here === "here") { mapHere = { loc: l.id, id: it0.id }; toast(`You're at ${placeName(it0)}. Pick where you're going.`); } } }
+    if (it0) { mapPick = it0.id; mapFloor = it0.floor || 0; mapView = "built-in"; mapRoute = null; if (here === "here") { mapHere = { loc: l.id, id: it0.id }; toast(`You're at ${placeName(it0)}. Pick where you're going.`); }
+      // Directions from a kiosk: #map-LOCATION~TO~from~FROM, with ~sf for a step-free route.
+      const f0 = here === "from" && mapItems(m).find((i) => i.id === fromId);
+      if (f0) { mapHere = { loc: l.id, id: f0.id }; mapRoute = { from: f0.id, to: it0.id, stepFree: sfFlag === "sf" }; const r0 = mapRouteFind(m, f0.id, it0.id, mapRoute.stepFree); if (r0?.legs) mapFloor = r0.legs[0].floor; mapAnimate = true; } } }
   const views = mapViews(l);
   if (!views.some((v) => v.id === mapView)) mapView = views.some((v) => v.id === m.primary) ? m.primary : views[0].id;
   const ext = mapView !== "built-in" && (m.links || []).find((k) => k.id === mapView);
@@ -183,7 +205,7 @@ Screens.map = (tail = "") => {
     <p class="muted" style="margin:14px 0 0">${l.name}${l.address ? html`. <a href="${mapLink(l.address)}" target="_blank" rel="noopener">Directions</a>` : ""}. Tap a place to see what it is and how to get there.</p>
     ${types.length > 2 ? html`<div class="chips map-legend" role="group" aria-label="Show on the map" style="margin-top:10px">${["", ...types].map((t) => html`<button class="chip" data-act="map-type" data-type="${t}" aria-pressed="${t === mapType}">${t ? html`<i class="map-dot" style="background:${PLACE_TYPES[t][1]}"></i>${PLACE_TYPES[t][0]}` : "Everything"}</button>`)}</div>` : ""}
     ${floorTabs(m, "map-floor", routeFloors.length > 1 ? routeFloors : [])}
-    <div class="map-wrap"><div class="map-frame" data-zoom="${mapZoom}">${mapSvg(m, mapFloor, { picked: mapPick, route: route?.legs ? route : null, here: hereId, type: mapType })}</div>
+    <div class="map-wrap"><div class="map-frame" data-zoom="${mapZoom}">${mapSvg(m, mapFloor, { picked: mapPick, route: route?.legs ? route : null, here: hereId, type: mapType, animate: mapAnimate })}</div>
       <div class="map-zoom" role="group" aria-label="Zoom"><button class="btn ghost sm" data-act="map-zoom" data-d="1" aria-label="Zoom in">${icon("plus")}</button>${mapZoom > 1 ? html`<button class="btn ghost sm" data-act="map-zoom" data-d="-1" aria-label="Zoom out">−</button><button class="btn ghost sm" data-act="map-zoom" data-d="0" aria-label="Fit the whole map">${icon("expand")}</button>` : ""}</div></div>
     ${mapRoute ? html`<section class="panel map-detail map-route-panel" aria-live="polite">
         <h2 style="margin:0 0 6px">Directions to ${placeName(items.find((i) => i.id === mapRoute.to))}</h2>
@@ -206,19 +228,19 @@ Screens.map = (tail = "") => {
       <label class="field"><span class="sr">Search places</span><input type="search" placeholder="Search: restrooms, nursery, coffee, youth group..." value="${mapFind}" data-input="map-find" autocomplete="off"></label>
       <div class="rows" id="map-list">${mapList(l, list)}</div></section>
     ${edit}`,
-    after() { mapWire(l, false); const f = $(".map-frame"), g = mapPick && f?.querySelector(`[data-place="${mapPick}"]`); if (g && mapZoom > 1) g.scrollIntoView?.({ block: "center", inline: "center" }); } };
-};
+    after() { mapAnimate = false; mapWire(l, false); const f = $(".map-frame"), g = mapPick && f?.querySelector(`[data-place="${mapPick}"]`); if (g && mapZoom > 1) g.scrollIntoView?.({ block: "center", inline: "center" }); } };
+}
 const mapList = (l, list) => list.length ? list.slice(0, 60).map(({ i, why }) => html`<button class="row" data-act="map-pick" data-id="${i.id}"><span class="lead-ic"><i class="map-dot" style="background:${placeKind(i)[1]}"></i></span><span class="body"><span class="t">${placeName(i)}</span><span class="s">${why || html`${placeKind(i)[0]}${mapFloors(l.map).length > 1 ? `, ${mapFloors(l.map)[i.floor || 0]}` : ""}`}</span></span>${icon("chev")}</button>`) : html`<p class="muted" style="margin:0">No place matches that. Try another word, or ask at the welcome desk.</p>`;
 Inputs["map-find"] = (el) => { mapFind = el.value; const l = mapCurrent(); if (!l) return; const box = $("#map-list"); if (box) box.innerHTML = flat(mapList(l, mapMatches(l, mapFind))); };
-Actions["map-floor"] = (el) => { mapFloor = +el.dataset.floor; if (!el.dataset.keep) mapPick = null; render(); };
+Actions["map-floor"] = (el) => { mapFloor = +el.dataset.floor; if (!el.dataset.keep) mapPick = null; else mapAnimate = true; render(); };
 Actions["map-pick"] = (el) => { const l = mapLocations().find((x) => x.map.items.some((i) => i.id === el.dataset.id)); if (!l) return; mapPick = el.dataset.id; mapRoute = null; mapView = "built-in"; mapFloor = l.map.items.find((i) => i.id === mapPick).floor || 0; render(); $(".map-wrap")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
 Actions["map-type"] = (el) => { mapType = el.dataset.type; const l = mapCurrent(); if (mapType && l && !mapItems(l.map).some((i) => i.type === mapType && (i.floor || 0) === mapFloor)) { const f = mapItems(l.map).find((i) => i.type === mapType); if (f) mapFloor = f.floor || 0; } render(); };
 Actions["map-view"] = (el) => { mapView = el.dataset.id; render(); };
 Actions["map-zoom"] = (el) => { const d = +el.dataset.d; mapZoom = d ? clamp(mapZoom + d * 0.75, 1, 3.25) : 1; render(); };
 Actions["map-route"] = (el) => { const l = mapCurrent(); if (!l) return; const stepFree = !!mapRoute?.stepFree; mapRoute = { to: el.dataset.id, from: mapDefaultFrom(l, el.dataset.id, stepFree), stepFree }; mapPick = el.dataset.id;
-  const r = mapRouteFind(l.map, mapRoute.from, mapRoute.to, stepFree); if (r?.legs) mapFloor = r.legs[0].floor; render(); $(".map-wrap")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
-Inputs["map-from"] = (el) => { if (!mapRoute) return; mapRoute.from = el.value; const l = mapCurrent(), r = l && mapRouteFind(l.map, mapRoute.from, mapRoute.to, mapRoute.stepFree); if (r?.legs) mapFloor = r.legs[0].floor; render(); };
-Inputs["map-stepfree"] = (el) => { if (!mapRoute) return; mapRoute.stepFree = el.checked; const l = mapCurrent(); if (l) { const from = l.map.items.find((i) => i.id === mapRoute.from); if (el.checked && from?.steps && from.type === "entrance") mapRoute.from = mapDefaultFrom(l, mapRoute.to, true); } render(); };
+  const r = mapRouteFind(l.map, mapRoute.from, mapRoute.to, stepFree); if (r?.legs) mapFloor = r.legs[0].floor; mapAnimate = true; render(); $(".map-wrap")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
+Inputs["map-from"] = (el) => { if (!mapRoute) return; mapRoute.from = el.value; const l = mapCurrent(), r = l && mapRouteFind(l.map, mapRoute.from, mapRoute.to, mapRoute.stepFree); if (r?.legs) mapFloor = r.legs[0].floor; mapAnimate = true; render(); };
+Inputs["map-stepfree"] = (el) => { if (!mapRoute) return; mapRoute.stepFree = el.checked; const l = mapCurrent(); if (l) { const from = l.map.items.find((i) => i.id === mapRoute.from); if (el.checked && from?.steps && from.type === "entrance") mapRoute.from = mapDefaultFrom(l, mapRoute.to, true); } mapAnimate = true; render(); };
 Actions["map-route-end"] = () => { mapRoute = null; render(); };
 Actions["map-here"] = (el) => { const l = mapCurrent(); if (!l) return; mapHere = { loc: l.id, id: el.dataset.id }; toast("Got it. Directions will start here."); render(); };
 
@@ -298,6 +320,7 @@ AdminScreens.map = () => {
         ${unplaced.length ? html`<p style="margin:14px 0 6px"><b>Rooms not on the map yet</b></p><div class="chips" style="flex-wrap:wrap">${unplaced.map((r) => html`<button class="chip" data-act="map-add" data-type="room" data-name="${r}">${icon("plus")}${r}</button>`)}</div>` : ""}
         <p class="faint" style="margin-bottom:0">Tap a place on the map to rename it, add a photo or a button, resize it or remove it. Print a "You are here" sign for any place, and directions start from wherever someone scans it.</p></div>`}
     <div class="btns" style="margin-top:12px">${mapOf(l) ? html`<a class="btn ghost" href="#map-${l.id}">See it as a visitor</a>` : ""}${m.items.length ? html`<button class="btn ghost" data-act="qr-for" data-target="map-${l.id}" data-label="Campus map: ${l.name}">${icon("qr")}QR code for the map</button>` : ""}</div>
+    ${mapScreensSection(l)}
     <section class="sec"><div class="sec-head"><h2>Maps from other services</h2></div>
       <p class="muted">Want a 3D map, a map on Google's streets, or a 360° tour? Build it on another service and show it here, next to your own map or instead of it.</p>
       <div class="rows">${links.length ? links.map((k) => html`<button class="row" data-act="map-service" data-id="${k.id}"><span class="lead-ic">${icon("globe")}</span><span class="body"><span class="t">${k.title}</span><span class="s">${(MAP_SERVICES[k.provider] || MAP_SERVICES.other).name}${m.primary === k.id ? ", opens first" : ""}</span></span>${icon("edit")}</button>`) : empty("None yet.")}</div>

@@ -57,7 +57,8 @@ function render() {
   if (Backend.failed) { app.innerHTML = flat(html`<div class="loading" role="alert"><div style="text-align:center;max-width:320px"><p>Can't reach ${PLATFORM.name} right now. Check your connection and try again.</p><button class="btn" data-act="reload">Try again</button></div></div>`); return; }
   // Back from an email sign-in link: Supabase finishes it as it starts.
   if (/^#(access_token|error)=/.test(location.hash) && !Backend.ready) { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Signing you in...</div>`); return; }
-  const signedOutOk = head === "page" || head === "pair";
+  // A campus map opens for anyone with its link (a visitor scanning a sign); Screens.map loads a public location itself.
+  const signedOutOk = head === "page" || head === "pair" || head === "map";
   // A church device that lost its session signs itself back in. Until then it says so, rather than asking for a code.
   if (Backend.on && !Backend.user && head !== "pair" && DeviceSignin.get()) {
     const name = DeviceSignin.get().name || "This screen";
@@ -77,7 +78,7 @@ function render() {
     if (needsAccountSetup()) { if (head !== "setup") { if (head !== "home") pendingRoute = pendingRoute || route; head = "setup"; tail = ""; } }
     else if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
     else if (!me.name && head !== "welcome" && !signedOutOk && !thisDevice()) { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
-    else if (!S.church() && !OPEN_ROUTES.includes(head)) { head = "churches"; tail = ""; }
+    else if (!S.church() && !OPEN_ROUTES.includes(head) && !(head === "map" && Backend.on && !Backend.user)) { head = "churches"; tail = ""; }
     // A deactivated church shows its primary account holder one screen: what's happening, and the way back.
     else if (S.church() && deactStatus() === "deactivated" && !DEACT_OPEN.includes(head)) { head = "deactivated"; tail = ""; }
   }
