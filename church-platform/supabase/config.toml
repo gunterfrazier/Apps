@@ -45,6 +45,9 @@ verify_jwt = false
 [functions.sms]
 verify_jwt = false
 
+[functions.send-email]
+verify_jwt = false
+
 [functions.device-pair]
 verify_jwt = false
 

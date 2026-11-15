@@ -220,7 +220,10 @@ Screens.admin = (section) => {
       ${sec("Reports", [
         html`<a class="row" href="#dashboard"><span class="lead-ic">${icon("layers")}</span><span class="body"><span class="t">Dashboard</span><span class="s">The church at a glance: numbers, what needs attention, attendance, giving and what's coming up</span></span>${icon("chev")}</a>`,
         S.can("view.reports") || S.can("view.giving") ? html`<a class="row" href="#reports"><span class="lead-ic">${icon("calendar")}</span><span class="body"><span class="t">Reports</span><span class="s">${S.can("view.reports") ? "Attendance, new people" : ""}${S.can("view.reports") && S.can("view.giving") ? " and giving" : S.can("view.giving") ? "Giving" : ""}, with charts and CSV downloads</span></span>${icon("chev")}</a>` : "",
-        row("view.giving", "admin-giving", "give", "Gifts and funds", "Recent gifts, statements and funds")])}`,
+        row("view.giving", "admin-giving", "give", "Gifts and funds", "Recent gifts, statements and funds"),
+        row("view.giving", "admin-campaigns", "star", "Pledge campaigns", "A goal for a fund, with pledges and progress"),
+        row("send.email", "admin-email", "chat", "Email people", "Write to everyone, a role, a group, a team or people not seen lately"),
+        row("manage.church", "admin-activity", "list", "Activity log", "Who did what, newest first")])}`,
   };
 };
 

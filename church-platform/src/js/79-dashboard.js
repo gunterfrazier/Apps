@@ -172,6 +172,12 @@ const DASH = {
       ${all.length ? hBars(all.map((g) => [g.name, gCount(g)]).sort((a, b) => b[1] - a[1]).slice(0, 5), (n) => n.toLocaleString()) : ""}<a class="dash-more" href="#reports-groups">Groups report</a>`;
   }],
 };
+DASH.dates = ["Birthdays and milestones", () => canSeeDates(), () => {
+  const list = datesComing(14);
+  return list.length ? html`<div class="rows">${list.slice(0, 8).map((x) => html`<a class="row" href="#dates-${x.m.userId}"><span class="body"><span class="t">${x.m.name || nameOf(x.m.userId)}</span><span class="s">${dateLine(x)}</span></span><span class="tag ${x.inDays === 0 ? "brand" : ""}">${x.inDays === 0 ? "Today" : fmt(x.next, { month: "short", day: "numeric" })}</span></a>`)}</div>`
+    : html`<p class="muted" style="margin:0">Nothing in the next two weeks. People add their dates under Me, My dates.</p>`;
+}];
+DASH.campaigns = ["Pledge campaigns", () => S.can("view.giving") && campaignsOpen().length > 0, () => html`<div style="display:grid;gap:10px">${campaignsOpen().map((c) => campaignCard(c, { manage: true }))}</div><a class="dash-more" href="#admin-campaigns">Campaigns</a>`];
 /** This person's dashboard: the widgets they may see, in their order, with the ones they've hidden marked. */
 function dashLayout() {
   const p = prefs().dash || {}, order = (p.order || []).filter((k) => DASH[k]), hide = p.hide || [];
@@ -182,7 +188,7 @@ Screens.dashboard = () => {
   const shown = dashLayout().filter((w) => w.on);
   return { title: "Dashboard", back: "admin",
     body: html`<div class="report-filters"><span class="muted">${S.church().name}</span>${campusChip()}<button class="btn ghost sm" data-act="dash-edit">${icon("edit")}Customize</button></div>
-      ${shown.map((w) => html`<section class="sec dash-widget" data-widget="${w.k}">${w.k === "numbers" ? "" : html`<div class="sec-head"><h2>${w.title}</h2></div>`}${["numbers", "attendance", "giving"].includes(w.k) ? DASH[w.k][2]() : html`<div class="panel">${DASH[w.k][2]()}</div>`}</section>`)}
+      ${shown.map((w) => html`<section class="sec dash-widget" data-widget="${w.k}">${w.k === "numbers" ? "" : html`<div class="sec-head"><h2>${w.title}</h2></div>`}${["numbers", "attendance", "giving", "campaigns"].includes(w.k) ? DASH[w.k][2]() : html`<div class="panel">${DASH[w.k][2]()}</div>`}</section>`)}
       ${shown.length ? "" : html`<div class="panel" style="margin-top:16px"><p style="margin:0">Every widget is hidden. Choose Customize to bring some back.</p></div>`}
       ${canReports() ? html`<p style="text-align:center;margin-top:18px"><a class="btn ghost" href="#reports">All reports</a></p>` : ""}` };
 };

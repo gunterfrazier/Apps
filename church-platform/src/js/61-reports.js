@@ -27,6 +27,9 @@ function serviceAttendance() {
     const r = rows.get(x.serviceKey) || { serviceKey: x.serviceKey, date: x.serviceKey.slice(0, 10), locationId: x.locationId, adults: 0, kids: null, online: 0, fromCheckins: 0 };
     r.fromCheckins = (r.fromCheckins || 0) + 1; rows.set(x.serviceKey, r);
   });
+  // A service nobody counted still has the people who marked themselves (or were scanned) as here.
+  const marked = {}; S.list("presence").filter((p) => inView(p.locationId)).forEach((p) => { marked[p.serviceKey] = (marked[p.serviceKey] || 0) + 1; });
+  Object.entries(marked).forEach(([k, n]) => { const r = rows.get(k) || { serviceKey: k, date: k.slice(0, 10), locationId: k.split("@")[1] || null, adults: 0, kids: null, online: 0 }; if (!r.adults) r.adults = n; rows.set(k, r); });
   return [...rows.values()].map((r) => ({ ...r, kids: r.kids ?? r.fromCheckins ?? 0 })).filter((r) => r.date <= isoDay(new Date()));
 }
 

@@ -228,6 +228,13 @@ To set it up:
 
 The deactivation record itself can't be changed by a browser, or by another server function saving the church's settings: only `church_deactivation()` changes it. To correct one by hand in the SQL editor, first run `select set_config('our_faithful.lifecycle', '1', false);`.
 
+
+## 14. Attendance, dates, campaigns, the activity log and group email
+
+1. **Database.** A database from before version 10 needs `supabase/upgrade-10.sql` (run it after `upgrade-9.sql`; new projects get it from `schema.sql`). Until then the app works as before and these features stay empty.
+2. **Group email.** Deploy the `send-email` function. It uses the same email secrets as step 13 (`RESEND_API_KEY` and `EMAIL_FROM`, or the `SMTP_*` ones). With Resend, `EMAIL_FROM` must be an address on a domain you've verified there. Who may send is the **Email groups of people** permission under Admin, Roles (pastors and staff by default). Each church can send 5 group emails an hour, to at most 500 people each.
+3. **Media on a display.** Nothing to set up. A file from a phone goes straight to the display (up to about 6 MB); people who may upload content have it stored instead, so longer videos work. Some websites refuse to be shown inside another page; nothing can change that from here.
+
 ## 14. Check that everything works
 
 - [ ] Two people on different phones join the same church and see each other's prayer requests and chat messages.

@@ -214,7 +214,7 @@ const Backend = {
       const { error } = await this.client.from(table).upsert(list.map((r) => r.value), { onConflict: conflict[table] });
       if (!error) { list.forEach((r) => this.snap.set(r.key, r.json)); continue; }
       // One row the role can't write fails the batch, so save the rest one at a time.
-      for (const r of list) { const { error: e } = await this.client.from(table).upsert(r.value, { onConflict: conflict[table] }); if (e) { failed++; console.warn(table, r.key, e.message); } else this.snap.set(r.key, r.json); }
+      for (const r of list) { const { error: e } = await this.client.from(table).upsert(r.value, { onConflict: conflict[table] }); if (e) { if (!QUIET_KINDS.includes(r.value.kind)) failed++; console.warn(table, r.key, e.message); } else this.snap.set(r.key, r.json); }
     }
     for (const key of dels) {
       const [table, k] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
@@ -285,7 +285,9 @@ const Backend = {
 
 /** Collections kept in the records table, one row per item. */
 const RECORD_KINDS = ["sermons", "events", "news", "prayers", "gatherings", "plans", "gifts", "recurring", "docs", "songs", "library", "services", "layouts", "savedBlocks", "channels", "messages", "cards",
-  "checkins", "serving", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "deliveries", "devices", "signage", "roomSessions"];
+  "checkins", "serving", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "deliveries", "devices", "signage", "roomSessions", "presence", "milestones", "campaigns", "pledges", "activity"];
+/** Kinds a database that hasn't had upgrade-10.sql yet turns away. That's no reason to tell people their changes weren't saved. */
+const QUIET_KINDS = ["presence", "milestones", "campaigns", "pledges", "activity"];
 /** Lists inside a record that belong to one person each, stored as their own rows so security can follow the person. */
 const SPLIT = {
   events: { field: "registrations", kind: "event_regs", owner: (r) => r.by },
@@ -295,7 +297,7 @@ const SPLIT = {
 /** Who a record belongs to, for "your own" security rules. */
 function ownerOf(kind, r) {
   return { prayers: r.by, gifts: r.by, recurring: r.by, docs: r.authorId, cards: r.by, checkins: r.by, serving: r.by, teamMembers: r.userId, blockouts: r.userId, notifications: r.userId,
-    formResponses: r.by, bookings: r.by, messages: r.by, followups: r.assignedTo, devices: r.deviceUser, roomSessions: r.by }[kind] || null;
+    formResponses: r.by, bookings: r.by, messages: r.by, followups: r.assignedTo, devices: r.deviceUser, roomSessions: r.by, presence: r.userId, milestones: r.userId, pledges: r.userId, activity: r.by }[kind] || null;
 }
 /** A fresh state with no sample churches, for signed-in use. */
 function blankState() {

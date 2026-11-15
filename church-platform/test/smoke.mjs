@@ -877,6 +877,47 @@ await step("a video, website or file on the display", async () => {
   if (await d.$(".media-fill")) throw new Error("the media stayed on the display");
   await d.close(); await goTo("home");
 });
+await step("attendance, dates, campaigns, email and the activity log", async () => {
+  if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
+  // A service that started five minutes ago, and this person as the primary account holder.
+  const other = await page.evaluate(() => { const S = __app.S; S.setCurrent("riverside"); const c = S.church(); c.ownerId = S.me().id; sessionStorage.removeItem("our-faithful-presence-asked");
+    const t = new Date(Date.now() - 5 * 60e3), l = c.locations[0]; l.services = [{ day: t.getDay(), time: `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`, label: "Test gathering" }, ...l.services.filter((x) => x.label !== "Test gathering")];
+    S.state.presence = []; S.save(); return S.members().map((m) => S.user(m.userId)).find((u) => u && u.id !== S.me().id); });
+  // Opening the app during the service asks whether you're here.
+  await goTo("me"); await goTo("home"); await page.waitForSelector("#scrim [data-act=presence-yes]", { timeout: 4000 }); await shot("80-presence-prompt");
+  await page.click("#scrim [data-act=presence-yes]"); await sheetGone();
+  if ((await page.evaluate(() => __app.S.list("presence").filter((p) => p.userId === __app.S.me().id && p.via === "self").length)) !== 1) throw new Error("the person wasn't marked as here");
+  await goTo("me"); await goTo("home"); await page.waitForTimeout(1100); if (await page.$("#scrim")) throw new Error("asked again after answering");
+  // Your own card, and a greeter scanning someone else's.
+  await goTo("here"); await page.waitForSelector(".my-card svg"); await expectText("You're marked as here"); await shot("81-my-attendance");
+  await goTo(`here-${other.id}`); await expectText("is marked as here."); await page.evaluate(() => __app.render()); await page.waitForTimeout(90); await expectText("was already marked");
+  // Ticking people off a list, and the report.
+  await goTo("rollcall"); await expectText("2 of "); await page.locator(".roll-list input:not(:checked)").first().click(); await expectText("3 of "); await shot("82-rollcall");
+  await page.evaluate((id) => { const S = __app.S; S.add("presence", { userId: id, name: "x", serviceKey: "2026-01-04T10:00@riverside-main", date: "2026-01-04", locationId: "riverside-main", via: "list", at: "2026-01-04T10:00:00Z" });
+    const p = S.list("presence").find((x) => x.userId === id && x.date > "2026-02"); if (p) S.remove("presence", p.id); }, other.id);
+  await goTo("reports-attendance"); await page.waitForSelector('[data-act=report-csv][data-id=away]'); await expectText("Not seen in 4 weeks"); await expectText(other.name); await shot("83-attendance-report");
+  // Dates: your own, and the dashboard shows what's coming.
+  await goTo("dates"); const soon = await page.evaluate(() => { const d = new Date(Date.now() + 3 * 864e5); return `1985-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+  await page.fill("form[data-form=date-add] input[name=date]", soon); await page.click("form[data-form=date-add] button"); await expectText("Birthday"); await shot("84-my-dates");
+  await goTo("dashboard"); await expectText("Birthdays and milestones");
+  // A pledge campaign: made by staff, pledged to from Give, shown on the dashboard.
+  await goTo("admin-campaigns"); await page.click("[data-act=campaign-edit]"); await page.fill("#scrim input[name=name]", "New roof"); await page.fill("#scrim input[name=goal]", "20000"); await page.click("#scrim form button.btn"); await sheetGone(); await expectText("New roof");
+  await goTo("give"); await page.click(".campaign [data-act=pledge]"); await page.fill("#scrim input[name=amount]", "1200"); await page.click("#scrim form button.btn"); await sheetGone(); await expectText("Your pledge: $1,200"); await shot("85-give-campaign");
+  await goTo("admin-campaigns"); await expectText("pledged by 1 person"); await page.waitForSelector('[data-act=report-csv][data-id=pledges]'); await shot("86-admin-campaigns");
+  await goTo("dashboard"); await expectText("Pledge campaigns");
+  // Email to a group (practice here: nothing is sent, but it's logged).
+  await goTo("admin-email"); await expectText("Everyone ("); await page.fill("form[data-form=email-send] input[name=subject]", "Workday Saturday"); await page.fill("form[data-form=email-send] textarea", "Bring gloves."); await shot("87-email");
+  await page.click("form[data-form=email-send] button"); await expectText("Workday Saturday");
+  if (!(await page.evaluate(() => __app.emailAudiences().some(([k]) => k === "away")))) throw new Error("no 'not seen in 4 weeks' audience");
+  // The activity log has what just happened.
+  await goTo("admin-activity"); await page.waitForSelector('[data-act=report-csv][data-id=activity]'); await expectText("Started the campaign New roof"); await expectText("Pledged to New roof"); await expectText("Emailed"); await shot("88-activity");
+  // A member without the permissions sees none of the staff screens.
+  await page.evaluate(() => { const S = __app.S, c = S.church(); c.ownerId = "someone-else"; const m = S.membership(c.id, S.me().id); m._was = m.roleId; m.roleId = c.roles.find((r) => r.rank <= 10 || r.id === "member").id; S.save(); });
+  await goTo("home");
+  for (const [h, mark] of [["admin-activity", "newest first"], ["admin-email", "Each person gets their own copy"], ["admin-campaigns", "Set a goal for a fund"], ["rollcall", "marked as here."]]) { await goTo(h); await page.waitForTimeout(120); if ((await text()).includes(mark)) throw new Error(`a member reached #${h}`); }
+  await page.evaluate(() => { const S = __app.S, c = S.church(); c.ownerId = S.me().id; const m = S.membership(c.id, S.me().id); m.roleId = m._was; delete m._was; S.save(); });
+  await goTo("home");
+});
 await step("dashboard and detailed reports", async () => {
   if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
   const asRole = (r) => page.evaluate((r) => { const S = __app.S, c = S.state.churches.riverside; if (r === "primary") c.ownerId = S.me().id; else { if (c.ownerId === S.me().id) c.ownerId = "u-dana"; S.membership(c.id).roleId = r; } S.save(); __app.render(); }, r);
