@@ -849,6 +849,43 @@ await step("approvals: requests notify everyone who can approve; volunteers can 
   await asRole("primary"); await goTo("admin-approvals"); await page.check('input[name=pre][value=none]'); await page.click("form[data-form=approvals-save] button.btn"); await page.waitForTimeout(150);
   await page.evaluate((b) => { const S = __app.S, c = S.church(); c.ownerId = b.owner; S.membership(c.id).roleId = b.role; S.save(); __app.render(); }, before);
 });
+await step("dashboard and detailed reports", async () => {
+  if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
+  const asRole = (r) => page.evaluate((r) => { const S = __app.S, c = S.state.churches.riverside; if (r === "primary") c.ownerId = S.me().id; else { if (c.ownerId === S.me().id) c.ownerId = "u-dana"; S.membership(c.id).roleId = r; } S.save(); __app.render(); }, r);
+  const before = await page.evaluate(() => { __app.S.setCurrent("riverside"); return JSON.stringify(__app.S.state); });
+  const widgets = () => page.evaluate(() => [...document.querySelectorAll(".dash-widget")].map((w) => w.dataset.widget));
+  await asRole("primary"); await goTo("admin"); await page.click('a.row[href="#dashboard"]'); await page.waitForSelector(".dash-widget");
+  let w = await widgets();
+  for (const k of ["numbers", "attention", "attendance", "giving", "newcomers", "events", "serving", "groups"]) if (!w.includes(k)) throw new Error(`the dashboard is missing ${k}: ${w}`);
+  for (const t of ["Members", "Average attendance", "Given this month", "Needs attention", "People each week", "Given each month", "Coming up"]) await expectText(t);
+  if (await page.evaluate(() => [...document.querySelectorAll(".dash-widget .stat-tile b")].some((b) => /NaN|undefined/.test(b.textContent)))) throw new Error("a dashboard number didn't work out");
+  await shot("75-dashboard");
+  // Each person arranges their own: hide one widget, move another to the top.
+  await page.click("[data-act=dash-edit]"); await page.waitForSelector("#scrim .dash-edit"); await shot("76-dashboard-customize");
+  await page.uncheck('#scrim input[data-id="giving"]');
+  for (let i = 0; i < 8; i++) { const up = await page.$('#scrim [data-act=dash-move][data-id="events"][data-dir="-1"]:not([disabled])'); if (!up) break; await up.click(); await page.waitForTimeout(60); }
+  await page.click("#scrim [data-act=dash-done]"); await sheetGone();
+  w = await widgets();
+  if (w[0] !== "events" || w.includes("giving")) throw new Error(`customizing didn't stick: ${w}`);
+  await page.reload(); await page.waitForSelector(".dash-widget");
+  if ((await widgets())[0] !== "events") throw new Error("the dashboard layout wasn't remembered");
+  // The report pages: each has numbers, a table and a download.
+  for (const [tab, heading, table] of [["people", "Everyone", "people"], ["groups", "All classes and groups", "groups"], ["serving", "Times scheduled", "serving"], ["events", "All events", "events"], ["giving", "By giver", "givers"]]) {
+    await goTo(`reports-${tab}`); await page.waitForSelector(`[data-act=report-csv][data-id="${table}"]`).catch(() => { throw new Error(`the ${tab} report didn't open, or has no download`); });
+    if (!(await page.$$eval(".mini-table tbody tr", (r) => r.length))) throw new Error(`the ${tab} report has no rows`);
+    if (/NaN|undefined/.test(await page.textContent("#main"))) throw new Error(`the ${tab} report shows a broken value`);
+    if (tab === "people" || tab === "giving") await shot(`77-report-${tab}`);
+  }
+  await goTo("reports"); await expectText("Overview"); await page.click('.report-tabs a[href="#reports-people"]'); await page.waitForSelector('[data-act=report-csv][data-id="people"]');
+  // Someone who can't see giving gets no giving widget and no giving report; a member gets no dashboard.
+  await page.evaluate(() => { const r = __app.S.church().roles.find((x) => x.id === "staff"); r.perms["view.giving"] = false; r.perms["view.reports"] = true; });
+  await asRole("staff"); await goTo("dashboard"); await page.waitForSelector(".dash-widget");
+  if ((await widgets()).includes("giving") || (await text()).includes("Given this month")) throw new Error("someone without the giving permission sees giving on the dashboard");
+  await goTo("reports-giving"); await page.waitForTimeout(150); if (await page.$('[data-act=report-csv][data-id="givers"]')) throw new Error("someone without the giving permission opened the giving report");
+  await asRole("member"); await goTo("dashboard"); await page.waitForTimeout(150);
+  if (await page.$(".dash-widget")) throw new Error("a member can open the dashboard");
+  await page.evaluate((s) => { __app.S.state = JSON.parse(s); __app.S.save(); location.hash = "home"; __app.render(); }, before);
+});
 await step("deactivating a church account", async () => {
   if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
   const asRole = (r) => page.evaluate((r) => { const S = __app.S, c = S.state.churches.riverside; if (r === "primary") c.ownerId = S.me().id; else { if (c.ownerId === S.me().id) c.ownerId = "u-dana"; S.membership(c.id).roleId = r; } S.save(); __app.render(); }, r);

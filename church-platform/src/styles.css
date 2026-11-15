@@ -761,6 +761,14 @@ body.kiosk-mode #app { padding-bottom: 0; }
 .room-msg.ok { background: var(--ok-soft); color: var(--ok); }
 .room-msg.warn { background: var(--warn-soft); color: var(--ink); }
 .room-msg.warn > svg.i { color: var(--warn); }
+.report-tabs { overflow-x: auto; scrollbar-width: none; }
+.report-tabs a { flex: 1 0 auto; padding: 9px 12px; white-space: nowrap; }
+.table-wrap { overflow-x: auto; }
+.table-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.dash-more { display: inline-block; margin-top: 10px; font-weight: 600; }
+.dash-edit { display: grid; gap: 4px; margin-bottom: 14px; }
+.dash-edit-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.dash-edit-row > span { display: flex; gap: 6px; }
 .deact { margin-top: 18px; display: grid; gap: 12px; }
 .deact h1 { font-size: 1.5rem; margin: 0; }
 .deact p { margin: 0; }
