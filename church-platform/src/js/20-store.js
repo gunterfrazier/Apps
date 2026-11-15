@@ -15,7 +15,7 @@ const S = {
       this.state = saved;
       // Added after the first v2 release: named layouts and saved builder items.
       const seed = buildSeed();
-      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "devices", "signage", "roomSessions", "presence", "milestones", "campaigns", "pledges", "activity"]) if (!saved[k]) saved[k] = seed[k];
+      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "devices", "signage", "roomSessions", "presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns"]) if (!saved[k]) saved[k] = seed[k];
       saved.me.pickups ||= []; saved.verseNotes ||= {}; saved.highlights ||= {};
       Object.values(seed.users).forEach((u) => { const mine = saved.users[u.id]; if (!mine) { if (u.guestOf) saved.users[u.id] = u; } else if (!mine.family) Object.assign(mine, { family: u.family, pickups: u.pickups }); });
       Object.values(saved.churches).forEach((c) => {
@@ -150,15 +150,46 @@ const myNotifications = () => S.state.notifications.filter((n) => n.userId === S
 // ---------- Webhooks ----------
 // Each event an admin subscribes to is signed (HMAC-SHA256 over "timestamp.body") and logged.
 // Delivery happens from a server so the signing secret stays private; see README.
+// [event, what it means, group]. The groups are how the webhook form lists them.
 const WEBHOOK_EVENTS = [
-  ["member.joined", "Someone joins the church"], ["card.created", "A connect card is sent"], ["prayer.created", "A prayer request is shared"],
-  ["event.registered", "Someone signs up for an event"], ["gathering.registered", "Someone registers for a class or group"],
-  ["gift.created", "A gift is made"], ["checkin.created", "A child is checked in"], ["checkin.completed", "A child is checked out"],
-  ["volunteer.scheduled", "Someone is asked to serve"], ["volunteer.responded", "A volunteer accepts or declines"],
-  ["volunteer.requested", "Someone asks to join a volunteer team"], ["volunteer.joined", "Someone joins a volunteer team"],
-  ["followup.created", "Someone new needs follow-up"], ["attendance.recorded", "Attendance is recorded for a service"],
-  ["form.submitted", "Someone fills in a form"], ["room.booked", "A room is booked or requested"],
+  ["news.created", "An announcement is posted", "News and events"], ["news.updated", "An announcement is changed", "News and events"], ["news.deleted", "An announcement is removed", "News and events"],
+  ["event.created", "An event is added", "News and events"], ["event.updated", "An event is changed", "News and events"], ["event.deleted", "An event is removed", "News and events"],
+  ["sermon.created", "A sermon is added", "News and events"], ["sermon.updated", "A sermon is changed", "News and events"],
+  ["gathering.created", "A class or group is added", "News and events"], ["gathering.updated", "A class or group is changed", "News and events"], ["gathering.deleted", "A class or group is removed", "News and events"],
+  ["member.joined", "Someone joins the church", "People"], ["member.left", "Someone leaves the church", "People"], ["card.created", "A connect card is sent", "People"],
+  ["followup.created", "Someone new needs follow-up", "People"], ["form.submitted", "Someone fills in a form", "People"], ["email.sent", "A group email is sent", "People"],
+  ["prayer.created", "A prayer request is shared", "Prayer"], ["prayer.answered", "A prayer is marked answered", "Prayer"],
+  ["event.registered", "Someone signs up for an event", "Sign-ups and check-in"], ["gathering.registered", "Someone registers for a class or group", "Sign-ups and check-in"],
+  ["checkin.created", "A child is checked in", "Sign-ups and check-in"], ["checkin.completed", "A child is checked out", "Sign-ups and check-in"], ["attendance.recorded", "Attendance is recorded for a service", "Sign-ups and check-in"],
+  ["room.booked", "A room is booked or requested", "Sign-ups and check-in"],
+  ["gift.created", "A gift is made", "Giving"], ["pledge.made", "Someone pledges to a campaign", "Giving"],
+  ["volunteer.scheduled", "Someone is asked to serve", "Volunteers"], ["volunteer.responded", "A volunteer accepts or declines", "Volunteers"],
+  ["volunteer.requested", "Someone asks to join a volunteer team", "Volunteers"], ["volunteer.joined", "Someone joins a volunteer team", "Volunteers"],
 ];
+/** News, events, sermons and classes: the events a website or social media account usually wants. */
+const CONTENT_EVENTS = ["news.created", "news.updated", "event.created", "event.updated", "event.deleted", "sermon.created", "gathering.created"];
+/** A one-line, readable description of an event, for chat apps (Slack, Discord, Teams) and social posts. */
+function webhookSummary(event, d) {
+  const when = d.start ? ` ${fmtShort(d.start)} at ${fmtTime(d.start)}` : "", where = d.location ? `, ${d.location}` : "";
+  const [kind, act] = event.split("."), title = d.title || d.name || "";
+  const what = { news: "announcement", event: "event", sermon: "sermon", gathering: d.type === "class" ? "class" : "group" }[kind];
+  if (what && ["created", "updated", "deleted"].includes(act)) {
+    const head = act === "created" ? `New ${what}: ${title}` : act === "updated" ? `Updated ${what}: ${title}` : `Removed ${what}: ${title}`;
+    return [head + (kind === "event" && act !== "deleted" ? `,${when}${where}` : ""), act !== "deleted" ? String(d.body || d.description || "").slice(0, 500) : ""].filter(Boolean).join("\n");
+  }
+  const label = WEBHOOK_EVENTS.find((e) => e[0] === event)?.[1] || event;
+  return `${label}${d.name ? `: ${d.name}` : title ? `: ${title}` : ""}`;
+}
+/** The shareable fields of a news item, event, sermon or class for a webhook: no people lists, uploads or private notes. */
+function webhookItem(rec, extra = {}) {
+  const out = {};
+  for (const [k, v] of Object.entries(rec || {})) {
+    if (/secret|token|private|notes?$|members|registr|churchId/i.test(k)) continue;
+    if (["string", "number", "boolean"].includes(typeof v) && !(typeof v === "string" && (v.startsWith("data:") || v.length > 4000))) out[k] = v;
+  }
+  if (rec?.schedule) out.schedule = rec.schedule;
+  return { ...out, ...extra };
+}
 async function hmacHex(secret, text) {
   try {
     const enc = new TextEncoder();
@@ -167,15 +198,31 @@ async function hmacHex(secret, text) {
     return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
   } catch { return "unsigned"; }
 }
+/** A webhook can be limited to some locations. Events with no location (church-wide) always go. */
+const hookPlaceOk = (h, d) => !h.locations?.length || !d?.locationId || h.locations.includes(d.locationId);
+/** The body a webhook receives: the standard JSON, or a message in the shape Slack, Discord, Teams or Google Chat expects.
+ *  Keep in step with supabase/functions/webhooks/index.ts. */
+function hookBody(h, p) {
+  const text = p.data?.summary || p.event, link = p.data?.link, line = link ? `${text}\n${link}` : text;
+  switch (h.format) {
+    case "slack": return { text: link ? `${text}\n<${link}|Open in the app>` : text };
+    case "discord": return { content: line.slice(0, 2000), allowed_mentions: { parse: [] } };
+    case "googlechat": return { text: line };
+    case "teams": return { type: "message", attachments: [{ contentType: "application/vnd.microsoft.card.adaptive", content: { $schema: "http://adaptivecards.io/schemas/adaptive-card.json", type: "AdaptiveCard", version: "1.4",
+      body: [{ type: "TextBlock", text: p.church?.name || "", weight: "Bolder", size: "Small", isSubtle: true }, { type: "TextBlock", text, wrap: true }], ...(link ? { actions: [{ type: "Action.OpenUrl", title: "Open in the app", url: link }] } : {}) } }] };
+    default: return p;
+  }
+}
 async function emit(event, data, churchId) {
   const c = S.church(churchId);
+  data = { ...data }; try { data.summary ||= webhookSummary(event, data); } catch { /* a summary is a nicety */ }
   try { if (c && c.id === S.state.current) logEvent(event, data); } catch { /* the log is never in the way */ }
   if (c?.training) return;   // a training church sends nothing to outside systems
   // With Supabase, the server signs and sends: the app only queues the event (see supabase/functions/webhooks).
   if (typeof Backend !== "undefined" && Backend.on) { if (c) { S.state.deliveries.unshift({ id: uid(), churchId: c.id, event, data, at: new Date().toISOString(), status: "queued", outbox: true }); S.save(); } return; }
-  const hooks = (c?.integrations?.webhooks || []).filter((h) => h.active && h.events.includes(event));
+  const hooks = (c?.integrations?.webhooks || []).filter((h) => h.active && h.events.includes(event) && hookPlaceOk(h, data));
   for (const h of hooks) {
-    const body = JSON.stringify({ id: uid(), event, church: { id: c.id, handle: c.handle }, at: new Date().toISOString(), data });
+    const body = JSON.stringify(hookBody(h, { id: uid(), event, church: { id: c.id, handle: c.handle, name: c.name }, at: new Date().toISOString(), data }));
     const ts = Math.floor(Date.now() / 1000);
     const sig = await hmacHex(h.secret, `${ts}.${body}`);
     S.state.deliveries.unshift({ id: uid(), churchId: c.id, webhookId: h.id, url: h.url, event, body, signature: `t=${ts},v1=${sig}`, at: new Date().toISOString(), status: "queued" });

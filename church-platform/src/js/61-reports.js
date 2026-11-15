@@ -78,7 +78,7 @@ Screens.reports = () => {
       <section class="sec"><div class="sec-head"><h2>New people</h2>${S.can("manage.followup") ? html`<a href="#followup">Follow-up</a>` : ""}</div>
         <div class="panel">${guests.length ? html`
           <p style="margin-top:0"><b>${plural(guests.length, "new person", "new people")}</b> in the last ${range}. ${by("connected")} connected, ${by("contacted")} contacted, ${by("new")} not reached yet.</p>
-          ${segBar([["Connected", by("connected")], ["Contacted", by("contacted")], ["Not reached yet", by("new")], ["Closed", by("closed")]])}
+          ${segBarT("New people", [["Connected", by("connected")], ["Contacted", by("contacted")], ["Not reached yet", by("new")], ["Closed", by("closed")]])}
           <table class="mini-table" style="margin-top:12px"><thead><tr><th>How they came</th><th class="num">People</th></tr></thead><tbody>${src.map(([l, n]) => html`<tr><td>${l}</td><td class="num">${n}</td></tr>`)}</tbody></table>`
           : html`<p style="margin:0" class="muted">No new people in the last ${range}.</p>`}</div></section>`;
   }
@@ -97,7 +97,7 @@ Screens.reports = () => {
           ${statTile("Givers", givers.toLocaleString(), `${recurring} give regularly`)}
           ${statTile("Average gift", money(gifts.length ? Math.round(total / gifts.length) : 0), plural(gifts.length, "gift"))}</div>
         ${stackedColumns("give", { title: unit === "week" ? "Given each week" : "Given each month", labels: keys.map((k) => bucketLabel(k, unit)), series: [["Given", per]], money: true, csv: `giving-${isoDay(new Date())}.csv` })}
-        ${funds.length ? html`<h3 class="sec-head" style="margin-top:18px">By fund</h3>${hBars(funds, money)}` : ""}</section>`;
+        ${funds.length ? html`<h3 class="sec-head" style="margin-top:18px">By fund</h3>${hBarsT("By fund", funds, money)}` : ""}</section>`;
   }
 
   return {

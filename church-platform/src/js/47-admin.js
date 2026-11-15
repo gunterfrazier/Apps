@@ -262,13 +262,17 @@ Forms["admin-save"] = (d, f, fd) => {
   const data = a.save(d, rec);
   const saved = rec ? S.update(kind, rec.id, data) : S.add(kind, data);
   a.after?.(saved, d, rec);
+  const ev = HOOK_KINDS[kind]; if (ev) emit(`${ev[0]}.${rec ? "updated" : "created"}`, webhookItem(saved, { link: appLink(ev[1] ? `${ev[1]}${saved.id}` : "alerts") }));
   closeSheet(); toast(rec ? "Saved" : "Added"); render();
 };
 Actions["admin-delete"] = (el) => {
   const a = ADMIN[el.dataset.kind];
   openSheet(`Delete this ${a.one}?`, html`<p>This can't be undone.</p><div class="btns"><button class="btn danger" data-act="admin-delete-yes" data-kind="${el.dataset.kind}" data-id="${el.dataset.id}">Delete</button><button class="btn ghost" data-act="close-sheet">Keep it</button></div>`);
 };
-Actions["admin-delete-yes"] = (el) => { S.remove(el.dataset.kind, el.dataset.id); closeSheet(); toast("Deleted"); render(); };
+// Content that webhooks announce, and where each opens in the app.
+const HOOK_KINDS = { news: ["news", ""], events: ["event", "event-"], sermons: ["sermon", "sermon-"], gatherings: ["gathering", "gathering-"] };
+Actions["admin-delete-yes"] = (el) => { const kind = el.dataset.kind, rec = S.get(kind, el.dataset.id), ev = HOOK_KINDS[kind];
+  S.remove(kind, el.dataset.id); if (ev && rec && ev[0] !== "sermon") emit(`${ev[0]}.deleted`, { id: rec.id, title: rec.title || rec.name, type: rec.type, locationId: rec.locationId || null }); closeSheet(); toast("Deleted"); render(); };
 
 // ---------- Sections with their own layouts (AdminScreens is declared in 30-ui.js) ----------
 

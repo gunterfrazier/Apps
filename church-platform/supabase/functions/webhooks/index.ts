@@ -1,7 +1,24 @@
-// Runs every minute (pg_cron). Sends the events the app queued to each church's webhooks, signed with HMAC-SHA256:
+// Runs every minute (pg_cron). Sends the events the app queued to each church's webhooks, signed with HMAC-SHA256
+// (Slack, Discord, Teams and Google Chat webhooks get a readable message instead of the JSON):
 //   X-Our-Faithful-Signature: t=<unix seconds>,v1=<hex of HMAC(secret, "<t>.<body>")>
 // Failures retry with growing gaps, up to 6 tries. Each attempt is logged for the church's admins.
 import { admin, fail, fromCron, handle, hmacHex, json, uid } from "../_shared/util.ts";
+
+// A webhook can be limited to some locations; church-wide events (no location) always go.
+const placeOk = (h: any, d: any) => !h.locations?.length || !d?.locationId || h.locations.includes(d.locationId);
+// Chat apps get a readable message in their own shape; everything else gets the standard JSON. Keep in step with hookBody
+// in src/js/20-store.js.
+function shape(h: any, p: any) {
+  const text = p.data?.summary || p.event, link = p.data?.link, line = link ? `${text}\n${link}` : text;
+  switch (h.format) {
+    case "slack": return { text: link ? `${text}\n<${link}|Open in the app>` : text };
+    case "discord": return { content: String(line).slice(0, 2000), allowed_mentions: { parse: [] } };
+    case "googlechat": return { text: line };
+    case "teams": return { type: "message", attachments: [{ contentType: "application/vnd.microsoft.card.adaptive", content: { $schema: "http://adaptivecards.io/schemas/adaptive-card.json", type: "AdaptiveCard", version: "1.4",
+      body: [{ type: "TextBlock", text: p.church?.name || "", weight: "Bolder", size: "Small", isSubtle: true }, { type: "TextBlock", text, wrap: true }], ...(link ? { actions: [{ type: "Action.OpenUrl", title: "Open in the app", url: link }] } : {}) } }] };
+    default: return p;
+  }
+}
 
 handle(async (req) => {
   if (!fromCron(req)) return fail("Not allowed", 401);
@@ -11,12 +28,12 @@ handle(async (req) => {
   for (const q of queue || []) {
     if (q.data.nextAt && new Date(q.data.nextAt) > now) continue;
     const { data: integ } = await db.from("records").select("data").eq("kind", "integrations").eq("id", q.church_id).maybeSingle();
-    const { data: church } = await db.from("churches").select("id, handle, data").eq("id", q.church_id).single();
+    const { data: church } = await db.from("churches").select("id, handle, name, data").eq("id", q.church_id).single();
     // A training church sends nothing to outside systems, and neither does a deactivated one.
-    const hooks = church?.data?.training || church?.data?.deactivation?.status === "deactivated" ? [] : (integ?.data?.webhooks || []).filter((h: any) => h.active && h.events.includes(q.data.event));
+    const hooks = church?.data?.training || church?.data?.deactivation?.status === "deactivated" ? [] : (integ?.data?.webhooks || []).filter((h: any) => h.active && h.events.includes(q.data.event) && placeOk(h, q.data.data));
     let failed = 0;
     for (const h of hooks) {
-      const body = JSON.stringify({ id: q.id, event: q.data.event, church: { id: church!.id, handle: church!.handle }, at: q.data.at, data: q.data.data });
+      const body = JSON.stringify(shape(h, { id: q.id, event: q.data.event, church: { id: church!.id, handle: church!.handle, name: (church as any).name || church!.handle }, at: q.data.at, data: q.data.data }));
       const t = Math.floor(Date.now() / 1000), sig = `t=${t},v1=${await hmacHex(h.secret, `${t}.${body}`)}`;
       let status = "delivered";
       try {

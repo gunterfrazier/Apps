@@ -37,7 +37,7 @@ const REPORT_PAGES = {
       <div class="stat-tiles">${statTile("Members", members.length.toLocaleString(), "With an account here")}${statTile("Joined", joined.length.toLocaleString(), `Last ${REPORT_RANGES[reportRange][0]}`)}
         ${statTile("In a class or group", pct(grouped, members.length), plural(grouped, "person", "people"))}${statTile("On a serving team", pct(serving, members.length), plural(serving, "person", "people"))}</div>
       ${stackedColumns("ppl", { title: unit === "week" ? "People who joined each week" : "People who joined each month", labels: keys.map((k) => bucketLabel(k, unit)), series: [["Joined", keys.map((k) => joined.filter((m) => bucketOf(m.joined.slice(0, 10), unit) === k).length)]], csv: `joined-${isoDay(new Date())}.csv` })}
-      <h3 class="sec-head" style="margin-top:18px">By role</h3>${hBars(byRole, (n) => n.toLocaleString())}
+      <h3 class="sec-head" style="margin-top:18px">By role</h3>${hBarsT("By role", byRole, (n) => n.toLocaleString())}
       <h3 class="sec-head" style="margin-top:18px">Everyone</h3><div class="panel">${reportTable("people", "people", ["Name", "Role", "Joined", "Classes and groups", "Serving teams"], rows, { numeric: [3] })}</div></section>`;
   },
   groups() {
@@ -47,7 +47,7 @@ const REPORT_PAGES = {
     return html`<section class="sec"><div class="sec-head"><h2>Classes and groups</h2></div>
       <div class="stat-tiles">${statTile("Groups", all.filter((g) => g.type !== "class").length.toLocaleString(), "Open now")}${statTile("Classes", all.filter((g) => g.type === "class").length.toLocaleString(), "Open now")}
         ${statTile("Members in one", pct(inAny, members.length), plural(inAny, "person", "people"))}${statTile("Not in any", (members.length - inAny).toLocaleString(), "Members to invite")}</div>
-      ${rows.length ? html`<h3 class="sec-head" style="margin-top:18px">People in each</h3>${hBars(rows.slice(0, 12).map((r) => [r[0], r[3]]), (n) => n.toLocaleString())}` : ""}
+      ${rows.length ? html`<h3 class="sec-head" style="margin-top:18px">People in each</h3>${hBarsT("People in each", rows.slice(0, 12).map((r) => [r[0], r[3]]), (n) => n.toLocaleString())}` : ""}
       <h3 class="sec-head" style="margin-top:18px">All classes and groups</h3><div class="panel">${reportTable("groups", "classes-and-groups", ["Name", "Kind", "Led by", "People", "Waiting", "Room for"], rows, { numeric: [3, 4, 5], empty: "No classes or groups yet." })}</div></section>`;
   },
   serving() {
@@ -62,7 +62,7 @@ const REPORT_PAGES = {
     return html`<section class="sec"><div class="sec-head"><h2>Serving</h2>${S.can("schedule.teams") ? html`<a href="#teams">Teams and schedule</a>` : ""}</div>
       <div class="stat-tiles">${statTile("Volunteers", people.size.toLocaleString(), plural(teams.length, "team"))}${statTile("Services planned", coming.length.toLocaleString(), "Coming up")}
         ${statTile("Open spots", open.toLocaleString(), "In coming services")}${statTile("People who served", rows.length.toLocaleString(), `Last ${REPORT_RANGES[reportRange][0]}`)}</div>
-      ${sizes.length ? html`<h3 class="sec-head" style="margin-top:18px">Team sizes</h3>${hBars(sizes, (n) => n.toLocaleString())}` : ""}
+      ${sizes.length ? html`<h3 class="sec-head" style="margin-top:18px">Team sizes</h3>${hBarsT("Team sizes", sizes, (n) => n.toLocaleString())}` : ""}
       <h3 class="sec-head" style="margin-top:18px">Times scheduled</h3><div class="panel">${reportTable("serving", "serving", ["Name", "Times scheduled", "Teams"], rows, { numeric: [1], empty: "Nobody was scheduled in this range." })}</div></section>`;
   },
   events() {
@@ -74,7 +74,7 @@ const REPORT_PAGES = {
     return html`<section class="sec"><div class="sec-head"><h2>Events</h2><a href="#events">Calendar</a></div>
       <div class="stat-tiles">${statTile("Events held", past.length.toLocaleString(), `Last ${REPORT_RANGES[reportRange][0]}`)}${statTile("Coming up", coming.length.toLocaleString(), "On the calendar")}
         ${statTile("Sign-ups", total.toLocaleString(), plural(signups.length, "event with sign-up", "events with sign-up"))}</div>
-      ${signups.length ? html`<h3 class="sec-head" style="margin-top:18px">Sign-ups by event</h3>${hBars(signups.map((e) => [e.title, registeredCount(e)]).sort((a, b) => b[1] - a[1]).slice(0, 12), (n) => n.toLocaleString())}` : ""}
+      ${signups.length ? html`<h3 class="sec-head" style="margin-top:18px">Sign-ups by event</h3>${hBarsT("Sign-ups by event", signups.map((e) => [e.title, registeredCount(e)]).sort((a, b) => b[1] - a[1]).slice(0, 12), (n) => n.toLocaleString())}` : ""}
       <h3 class="sec-head" style="margin-top:18px">All events</h3><div class="panel">${reportTable("events", "events", ["Event", "Date", "Kind", "Signed up", "Room for", "When"], rows, { numeric: [3, 4], empty: "No events in this range." })}</div></section>`;
   },
   giving() {
@@ -93,9 +93,9 @@ const REPORT_PAGES = {
     return html`<section class="sec"><div class="sec-head"><h2>Giving in detail</h2><a href="#admin-giving">All gifts</a></div>
       <div class="stat-tiles">${statTile("Given", money(Math.round(total)), `Last ${REPORT_RANGES[reportRange][0]}`)}${statTile("Givers", now.size.toLocaleString(), plural(gifts.length, "gift"))}
         ${statTile("New givers", fresh.length.toLocaleString(), "First gift in this range")}${statTile("Stopped giving", lapsed.length.toLocaleString(), "Gave in the stretch before, not in this one")}</div>
-      ${gifts.length ? html`<h3 class="sec-head" style="margin-top:18px">Regular and one-time</h3><div class="panel">${segBar([["Regular giving", Math.round(regular)], ["One-time gifts", Math.round(total - regular)]])}</div>` : ""}
-      ${funds.length ? html`<h3 class="sec-head" style="margin-top:18px">By fund</h3>${hBars(funds, money)}` : ""}
-      ${gifts.length ? html`<h3 class="sec-head" style="margin-top:18px">By how it was given</h3>${hBars(by((g) => label(g.method)), money)}` : ""}
+      ${gifts.length ? html`<h3 class="sec-head" style="margin-top:18px">Regular and one-time</h3><div class="panel">${segBarT("Regular and one-time", [["Regular giving", Math.round(regular)], ["One-time gifts", Math.round(total - regular)]])}</div>` : ""}
+      ${funds.length ? html`<h3 class="sec-head" style="margin-top:18px">By fund</h3>${hBarsT("By fund", funds, money)}` : ""}
+      ${gifts.length ? html`<h3 class="sec-head" style="margin-top:18px">By how it was given</h3>${hBarsT("By how it was given", by((g) => label(g.method)), money)}` : ""}
       <h3 class="sec-head" style="margin-top:18px">By giver</h3><div class="panel">${reportTable("givers", "giving-by-giver", ["Name", "Gifts", "Total", "Last gift"], givers, { numeric: [1, 2], empty: "No gifts in this range." })}</div>
       ${lapsed.length ? html`<h3 class="sec-head" style="margin-top:18px">Stopped giving</h3><div class="panel">${reportTable("lapsed", "stopped-giving", ["Name", "Last gift"], lapsed.map((k) => { const l = prior.filter((g) => giverKey(g) === k).sort((a, b) => b.at.localeCompare(a.at))[0]; return [l.name || nameOf(l.by) || "Anonymous", l.at.slice(0, 10)]; }))}</div>` : ""}</section>`;
   },

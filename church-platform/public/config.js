@@ -8,4 +8,6 @@ window.OUR_FAITHFUL_CONFIG = {
   // the app (SETUP.md, "Your own domain on Cloudflare").
   home: "https://ourfaithfulchurch.com/",
   movedFrom: ["gunterfrazier.github.io"],
+  // Email sent from the app comes from the sender's name at this domain, verified in Resend (SETUP.md).
+  emailDomain: "mail.ourfaithfulchurch.com",
 };
