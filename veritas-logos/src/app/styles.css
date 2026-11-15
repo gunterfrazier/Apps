@@ -645,3 +645,10 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .restore-choice { border: 1px solid var(--line); border-radius: var(--radius); padding: .5rem .8rem; background: var(--surface); box-shadow: var(--shadow); }
 .sync-state.is-failed { color: var(--warn); }
 .privacy-note { margin-top: 1.6rem; }
+
+/* Going to a verse: the picker's verse step, and a brief glow on the verse when it arrives at the top */
+.whole-chapter { width: 100%; margin: .6rem 0 .2rem; min-height: 46px; }
+.verse-grid { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
+.verse.target.arrive { animation: verse-arrive 1.8s ease-out; }
+@keyframes verse-arrive { from { background: color-mix(in srgb, var(--accent) 30%, transparent); } to { background: var(--accent-soft); } }
+@media (prefers-reduced-motion: reduce) { .verse.target.arrive { animation: none; } }

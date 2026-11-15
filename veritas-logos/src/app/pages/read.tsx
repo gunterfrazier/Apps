@@ -3,7 +3,7 @@ import { chapterCount, getChapter, getVerseIn, isOnline, onlineNotice, OnlineTex
 import { getCrossRefs, decodeMorph, getVerseWords, normalizeStrongs, type WordTuple } from "../../core/lexicon";
 import { newId } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
-import { BOOKS, bookName } from "../../core/references";
+import { BOOKS, bookName, parseReference } from "../../core/references";
 import { copyText } from "../files";
 import { BUILT_IN, builtInSaved, canReadAloud, mb, NO_SPEECH, readAloud, usesBuiltIn, type SpeechStatus } from "../speech";
 import { readHash, type ReadRoute } from "../routes";
@@ -18,26 +18,50 @@ import { creedsCiting } from "../../core/scholar";
 const vKey = (b: number, c: number, v: number) => `${b}:${c}:${v}`;
 const COLORS: HighlightColor[] = ["amber", "green", "blue", "rose"];
 
-// ---------- Book and chapter picker ----------
-function Picker({ book, chapter, onPick, onClose }: { book: number; chapter: number; onPick: (b: number, c: number) => void; onClose: () => void }) {
+// ---------- Book, chapter and verse picker ----------
+// Book, then chapter, then either the whole chapter or one verse in it. Typing a reference ("John 3:16", "Ps 23")
+// in the filter goes straight there.
+function Picker({ book, chapter, verse, onPick, onClose }: { book: number; chapter: number; verse?: number; onPick: (b: number, c: number, v?: number) => void; onClose: () => void }) {
   const [b, setB] = useState<number | null>(null);
+  const [c, setC] = useState<number | null>(null);
   const [filter, setFilter] = useState("");
   const { data: count } = useAsync(() => (b ? chapterCount(b) : Promise.resolve(0)), [b]);
+  const { data: verses } = useAsync(() => (b && c ? verseCount(b, c) : Promise.resolve(0)), [b, c]);
   const list = BOOKS.filter((x) => x.name.toLowerCase().includes(filter.toLowerCase()));
+  // Only once a chapter number follows the book's name, so "1 John" still just filters the books.
+  const typed = /[a-z]\.?\s*\d/i.test(filter) ? parseReference(filter)?.[0] : undefined;
+  const title = b && c ? `${bookName(b)} ${c}` : b ? bookName(b) : "Choose a book";
   return (
-    <Sheet title={b ? bookName(b) : "Choose a book"} onClose={onClose}>
-      {b ? (
+    <Sheet title={title} onClose={onClose}>
+      {b && c ? (
+        <>
+          <button type="button" className="link-btn" onClick={() => setC(null)}>Chapters of {bookName(b)}</button>
+          <button type="button" className="btn primary whole-chapter" onClick={() => onPick(b, c)}>Read all of {bookName(b)} {c}</button>
+          <h4>Or go to a verse</h4>
+          <div className="num-grid verse-grid">
+            {Array.from({ length: verses ?? 0 }, (_, i) => i + 1).map((v) => (
+              <button type="button" key={v} className={b === book && c === chapter && v === verse ? "on" : ""} aria-label={`Verse ${v}`} onClick={() => onPick(b, c, v)}>{v}</button>
+            ))}
+          </div>
+        </>
+      ) : b ? (
         <>
           <button type="button" className="link-btn" onClick={() => setB(null)}>All books</button>
           <div className="num-grid">
-            {Array.from({ length: count ?? 0 }, (_, i) => i + 1).map((c) => (
-              <button type="button" key={c} className={b === book && c === chapter ? "on" : ""} onClick={() => onPick(b, c)}>{c}</button>
+            {Array.from({ length: count ?? 0 }, (_, i) => i + 1).map((n) => (
+              <button type="button" key={n} className={b === book && n === chapter ? "on" : ""} aria-label={`Chapter ${n}`} onClick={() => setC(n)}>{n}</button>
             ))}
           </div>
         </>
       ) : (
         <>
-          <input id="book-filter" className="input" placeholder="Filter books" aria-label="Filter books" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <input id="book-filter" className="input" placeholder="Filter books, or type John 3:16" aria-label="Filter books, or type a reference" value={filter} onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && typed) onPick(typed.book, typed.chapter, typed.verseStart || undefined); }} />
+          {typed && (
+            <button type="button" className="btn primary whole-chapter" onClick={() => onPick(typed.book, typed.chapter, typed.verseStart || undefined)}>
+              Go to {bookName(typed.book)} {typed.chapter}{typed.verseStart ? `:${typed.verseStart}` : ""}
+            </button>
+          )}
           <h4>Old Testament</h4>
           <div className="book-grid">{list.filter((x) => x.number <= 39).map((x) => <button type="button" key={x.number} className={x.number === book ? "on" : ""} onClick={() => setB(x.number)}>{x.name}</button>)}</div>
           <h4>New Testament</h4>
@@ -46,6 +70,42 @@ function Picker({ book, chapter, onPick, onClose }: { book: number; chapter: num
       )}
     </Sheet>
   );
+}
+
+/**
+ * Runs once the picker has closed. Closing it steps back past the history entry it added, and the browser then puts
+ * the page back where it was, so anything that scrolls has to wait for that.
+ */
+function afterSheetCloses(fn: () => void) {
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener("popstate", run);
+    requestAnimationFrame(() => requestAnimationFrame(fn));
+  };
+  window.addEventListener("popstate", run);
+  setTimeout(run, 400);
+}
+
+/**
+ * Scrolls so a verse sits at the top of the screen, just under the reader's toolbar. Near the end of a short chapter
+ * the page isn't tall enough for that, so room is added below the text first.
+ */
+function bringToTop(v: number) {
+  const el = document.getElementById(`v${v}`);
+  if (!el) return false;
+  const reader = el.closest<HTMLElement>(".reader");
+  const bar = reader?.querySelector<HTMLElement>(".toolbar");
+  const under = bar ? (parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight : 0;
+  const y = Math.max(0, el.getBoundingClientRect().top + window.scrollY - under - 6);
+  for (let i = 0; reader && i < 3; i++) {
+    const room = document.documentElement.scrollHeight - window.innerHeight;
+    if (y <= room) break;
+    reader.style.minHeight = `${reader.offsetHeight + Math.ceil(y - room)}px`;
+  }
+  window.scrollTo({ top: y });
+  return true;
 }
 
 // ---------- Word list for one verse ----------
@@ -273,23 +333,64 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   }, [route?.translation]);
   useEffect(() => { update((d) => (d.lastRead.book === book && d.lastRead.chapter === chapter ? d : { ...d, lastRead: { book, chapter } })); }, [book, chapter]);
   useEffect(() => {
-    if (route?.verse) {
-      setSheet(wide ? { verse: route.verse, end: route.verseEnd } : null);
-      const el = document.getElementById(`v${route.verse}`);
-      el?.scrollIntoView({ block: "center" });
-    }
+    if (route?.verse) setSheet(wide ? { verse: route.verse, end: route.verseEnd } : null);
   }, [route?.verse, book, chapter]);
   useEffect(() => () => stopSpeak.current?.(), []);
 
-  const { data: verses, loading, error } = useAsync(() => getChapter(translation, book, chapter), [translation, book, chapter]);
+  // Each text remembers which chapter it is, since the last chapter stays on screen while the next one loads.
+  const chapterKey = `${translation}:${book}:${chapter}`;
+  const { data: loaded, loading, error } = useAsync(() => getChapter(translation, book, chapter).then((v) => ({ key: chapterKey, v })), [translation, book, chapter]);
   const { data: compare } = useAsync(() => (prefs.compare ? getChapter(prefs.compare, book, chapter) : Promise.resolve(null)), [prefs.compare, book, chapter]);
+  const verses = loaded?.v;
   const { data: chapters } = useAsync(() => chapterCount(book), [book]);
 
+  // A link or the picker can name a verse: the whole chapter loads, and that verse is marked and brought to the top.
+  // For a moment after that, anything that changes the text's layout (the comparison text arriving, the study panel
+  // opening beside it on a wide screen, the font loading) brings it back up, unless you've started scrolling.
+  const [arrived, setArrived] = useState<number | null>(null);
+  const target = useRef({ key: "", done: true, moved: false });
   useEffect(() => {
-    if (route?.verse && verses) document.getElementById(`v${route.verse}`)?.scrollIntoView({ block: "center" });
-  }, [verses]);
+    const v = route?.verse;
+    const key = v ? `${book}:${chapter}:${v}` : "";
+    if (key !== target.current.key) {
+      target.current = { key, done: !v, moved: false };
+      document.querySelector<HTMLElement>(".page.reader")?.style.removeProperty("min-height");
+    }
+    if (!v || target.current.done || loaded?.key !== chapterKey) return;
+    target.current.done = true;
+    const mine = target.current;
+    let ro: ResizeObserver | null = null;
+    requestAnimationFrame(() => {
+      if (target.current !== mine || !bringToTop(v)) return;
+      setArrived(v);
+      const text = document.querySelector(".reader .scripture");
+      if (!text || typeof ResizeObserver === "undefined") return;
+      ro = new ResizeObserver(() => { if (target.current === mine && !mine.moved) bringToTop(v); });
+      ro.observe(text);
+      setTimeout(() => ro?.disconnect(), 2500);
+    });
+  }, [route?.verse, chapterKey, loaded]);
+  useEffect(() => {
+    const stop = () => { target.current.moved = true; };
+    const opts = { passive: true } as const;
+    for (const ev of ["wheel", "touchmove", "keydown"]) window.addEventListener(ev, stop, opts);
+    return () => { for (const ev of ["wheel", "touchmove", "keydown"]) window.removeEventListener(ev, stop); };
+  }, []);
+  useEffect(() => {
+    if (arrived === null) return;
+    const t = setTimeout(() => setArrived(null), 1800);
+    return () => clearTimeout(t);
+  }, [arrived]);
 
-  const go = (b: number, c: number) => { stopSpeak.current?.(); navigate(readHash({ book: b, chapter: c })); };
+  const go = (b: number, c: number, v?: number) => {
+    stopSpeak.current?.();
+    const hash = readHash({ book: b, chapter: c, verse: v });
+    // Choosing the verse you're already on (after scrolling away from it) brings it back up.
+    if (v && b === book && c === chapter && v === route?.verse && !route.verseEnd) { afterSheetCloses(() => { if (bringToTop(v)) setArrived(v); }); return; }
+    navigate(hash);
+    // A whole chapter, or the next or previous one, starts at the top.
+    if (!v) window.scrollTo(0, 0);
+  };
   const prev = () => {
     if (chapter > 1) go(book, chapter - 1);
     else if (book > 1) chapterCount(book - 1).then((n) => go(book - 1, n));
@@ -378,7 +479,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
             const hl = highlights[vKey(book, chapter, v.verse)];
             const hasNote = Boolean(notes[vKey(book, chapter, v.verse)]);
             return (
-              <div key={v.verse} id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${inRange(v.verse) ? "target" : ""} ${wide && sheet && v.verse >= sheet.verse && v.verse <= (sheet.end ?? sheet.verse) ? "picked" : ""}`} role="button" tabIndex={0}
+              <div key={v.verse} id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${inRange(v.verse) ? "target" : ""} ${arrived === v.verse ? "arrive" : ""} ${wide && sheet && v.verse >= sheet.verse && v.verse <= (sheet.end ?? sheet.verse) ? "picked" : ""}`} role="button" tabIndex={0}
                 onClick={() => setSheet({ verse: v.verse })} onKeyDown={(e) => { if (e.key === "Enter") setSheet({ verse: v.verse }); }}>
                 <sup>{v.verse}</sup>
                 {v.text ? <span>{v.text}</span> : <em className="missing">This verse isn't in the {translation} text. Some manuscripts include it, so many Bibles keep it as a footnote, and some number their verses differently.</em>}
@@ -400,7 +501,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
         <button type="button" className="btn" onClick={next} disabled={book === 66 && chapter === (chapters ?? 22)}>Next chapter</button>
       </div>
 
-      {picker && <Picker book={book} chapter={chapter} onClose={() => setPicker(false)} onPick={(b, c) => { setPicker(false); go(b, c); }} />}
+      {picker && <Picker book={book} chapter={chapter} verse={route?.verse} onClose={() => setPicker(false)} onPick={(b, c, v) => { setPicker(false); go(b, c, v); }} />}
       {sheet && !wide && <VerseSheet book={book} chapter={chapter} verse={sheet.verse} initialEnd={sheet.end} onClose={() => setSheet(null)} />}
     </div>
     {sheet && wide && <VerseSheet docked book={book} chapter={chapter} verse={sheet.verse} initialEnd={sheet.end} onClose={() => setSheet(null)} />}
