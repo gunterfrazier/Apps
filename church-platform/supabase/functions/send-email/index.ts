@@ -2,12 +2,12 @@
 //   { churchId, userIds, subject, body, audience }  ->  { sent, failed }
 // Each person gets their own copy at the address they sign in with, so nobody sees anyone else's address. Replies go
 // to the sender. Only members of the church are emailed, whatever list the app sends. A line goes in the activity log.
-import { admin, caller, can, emailReady, env, fail, handle, json, sendEmail, uid } from "../_shared/util.ts";
+import { admin, caller, can, emailReady, fail, handle, json, sendEmail, uid } from "../_shared/util.ts";
 
 const MAX = 500, HOURLY = 5;
 const esc = (s: string) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 
-Deno.serve(handle(async (req) => {
+handle(async (req) => {
   const { user, client } = await caller(req);
   if (!user) return fail("Sign in first.", 401);
   const { churchId, userIds, subject, body, audience } = await req.json();
@@ -40,8 +40,8 @@ Deno.serve(handle(async (req) => {
     await new Promise((r) => setTimeout(r, 120));   // stay under the email service's per-second limit
   }
   const at = new Date().toISOString(), rid = `a-${uid()}`;
-  await db.from("records").insert({ id: rid, church_id: churchId, kind: "activity", owner_id: user.id,
+  await db.from("records").insert({ id: rid, church_id: churchId, kind: "activity", owner: user.id,
     data: { id: rid, churchId, by: user.id, name: from, area: "email", at, what: `Emailed ${sent} ${sent === 1 ? "person" : "people"} (${String(audience || "a list").slice(0, 60)}): ${title}` } });
   if (!sent) return fail("The email couldn't be sent. Check the email service's settings.", 502);
   return json({ sent, failed });
-}));
+});
