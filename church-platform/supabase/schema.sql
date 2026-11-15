@@ -183,6 +183,8 @@ create or replace function rec_read(k text, c text, loc text, own text, d jsonb)
     when k = 'campaigns' then is_member(c)
     when k = 'pledges' then can(c, 'view.giving')
     when k = 'activity' then can(c, 'manage.church')
+    -- Custom reports and the copies they make: people who read reports. One with giving in it needs the giving permission too.
+    when k in ('customReports', 'reportRuns') then (can(c, 'view.reports') or can(c, 'view.giving')) and (not coalesce((d->>'giving')::boolean, false) or can(c, 'view.giving'))
     when k = 'signage' then is_member(c)
     else false end $$;
 -- Who can add, change or remove each kind of record. op is 'insert', 'update' or 'delete'.
@@ -236,6 +238,7 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
     when k = 'pledges' then (own = auth.uid()::text and is_member(c)) or can(c, 'view.giving')
     -- The activity log is only ever added to, in your own name. (The primary account holder can clear it.)
     when k = 'activity' then op = 'insert' and own = auth.uid()::text and d->>'by' = own and is_member(c)
+    when k in ('customReports', 'reportRuns') then (can(c, 'view.reports') or can(c, 'view.giving')) and (not coalesce((d->>'giving')::boolean, false) or can(c, 'view.giving'))
     when k = 'signage' then can(c, 'manage.devices')
     else false end $$;
 

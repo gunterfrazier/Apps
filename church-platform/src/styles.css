@@ -1127,3 +1127,27 @@ button.sp-chip:hover { background: color-mix(in srgb, var(--pt, var(--ink)) 9%, 
 .bp-book[hidden] { display: none; }
 .hl-chips .chip { color: var(--ink); }
 body:has(.bible-actions) #app { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 230px); }
+
+/* ---------- Report documents, printing and custom reports ---------- */
+.rd-bar { display: flex; justify-content: flex-end; margin-top: 10px; }
+.rd-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.report-doc { background: var(--surface); border-radius: var(--r-l); box-shadow: var(--sh-1); padding: 20px 18px; margin: 14px 0 24px; }
+.rd-top { display: flex; gap: 14px; align-items: flex-start; border-bottom: 1.5px solid var(--line); padding-bottom: 12px; margin-bottom: 6px; }
+.rd-top img { width: 56px; height: 56px; object-fit: contain; }
+.rd-top h1 { font-size: 1.45rem; margin: 2px 0; }
+.rd-church { margin: 0; color: var(--ink-2); font-weight: 600; } .rd-meta { margin: 0; color: var(--ink-3); font-size: .88rem; } .rd-note { margin: 8px 0 0; }
+.rd-page { font-size: 1.1rem; margin: 22px 0 4px; } .rd-h { font-size: .98rem; margin: 14px 0 6px; } .rd-sec { margin-top: 10px; }
+.rd-sec .stat-tile { box-shadow: none; border: 1px solid var(--line); }
+.report-doc .viz { box-shadow: none; border: 1px solid var(--line); }
+.rd-foot { margin-top: 24px; color: var(--ink-3); font-size: .8rem; border-top: 1px solid var(--line); padding-top: 8px; }
+.rb-page { border-top: 1px solid var(--line); padding: 8px 0; } .rb-page-head { display: flex; justify-content: space-between; align-items: center; }
+.print-only { display: none; }
+#print-report { display: none; }
+@media print {
+  body.print-report > :not(#print-report) { display: none !important; }
+  body.print-report #print-report { display: block; }
+  #print-report .report-doc { box-shadow: none; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #print-report .viz-table, #print-report .viz-tip { display: none; }
+  #print-report .print-only { display: block; margin-top: 8px; }
+  #print-report .rd-sec { break-inside: avoid; } #print-report tr { break-inside: avoid; } #print-report h2, #print-report h3 { break-after: avoid; }
+}
