@@ -38,7 +38,8 @@ function trainingContent(tid, source, realId) {
     records = Object.fromEntries(kinds.map((k) => [k, (S.state[k] || []).filter((r) => r.churchId === realId)
       .map((r) => (TRAINING_EMPTY_FIELDS[k] ? { ...r, [TRAINING_EMPTY_FIELDS[k]]: [] } : r))]));
   } else {
-    const seed = buildSeed(); src = seed.churches.riverside; kinds = RECORD_KINDS;
+    // Not the sample screens and webhook log: a real training church pairs its own screens and sends nothing to webhooks.
+    const seed = buildSeed(); src = seed.churches.riverside; kinds = RECORD_KINDS.filter((k) => !["devices", "deliveries"].includes(k));
     records = Object.fromEntries(kinds.map((k) => [k, (seed[k] || []).filter((r) => r.churchId === src.id)]));
   }
   const map = new Map([[src.id, tid]]);
