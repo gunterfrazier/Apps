@@ -193,6 +193,8 @@ Screens.admin = (section) => {
           return html`<a class="row" href="#admin-approvals"><span class="lead-ic">${icon("check")}</span><span class="body"><span class="t">Approvals</span><span class="s">Who hears about requests; pre-approved volunteers</span></span>${n ? html`<span class="tag warn">${n} waiting</span>` : icon("chev")}</a>`; })() : "",
         row("manage.roles", "admin-roles", "key", "Roles and permissions", `${plural(c.roles.length, "role")}; choose what each can do`),
         S.canAny(["manage.people", "manage.roles"]) ? html`<a class="row" href="#admin-people"><span class="lead-ic">${icon("people")}</span><span class="body"><span class="t">People</span><span class="s">${plural(S.members().length, "member")}; roles and location access</span></span>${icon("chev")}</a>` : "",
+        row("manage.locations", "admin-map", "pin", "Campus map", "Draw a layout so visitors can find their way"),
+        row("manage.church", "admin-welcome", "give", "Welcome for new visitors", "The first-visit question, visitor card and welcome message"),
         row("manage.locations", "admin-locations", "pin", "Campuses and locations", `${plural(c.locations.length, "location")}, rooms, service times and livestreams`),
         row("manage.page", "admin-banner", "star", "Home banner", "Background, logo, graphics and text art at the top of Home"),
         row("manage.page", "admin-page", "image", "Landing page", `${plural(c.landing.blocks.length, "block")}${c.landing.showOnHome ? ", shown on Home" : ""}`),
@@ -218,8 +220,12 @@ Screens.admin = (section) => {
           (() => { const n = S.list("followups").filter((f) => f.status === "new").length; return n ? html`<span class="tag warn">${n}</span>` : null; })()),
       ])}
       ${sec("Reports", [
+        html`<a class="row" href="#dashboard"><span class="lead-ic">${icon("layers")}</span><span class="body"><span class="t">Dashboard</span><span class="s">The church at a glance: numbers, what needs attention, attendance, giving and what's coming up</span></span>${icon("chev")}</a>`,
         S.can("view.reports") || S.can("view.giving") ? html`<a class="row" href="#reports"><span class="lead-ic">${icon("calendar")}</span><span class="body"><span class="t">Reports</span><span class="s">${S.can("view.reports") ? "Attendance, new people" : ""}${S.can("view.reports") && S.can("view.giving") ? " and giving" : S.can("view.giving") ? "Giving" : ""}, with charts and CSV downloads</span></span>${icon("chev")}</a>` : "",
-        row("view.giving", "admin-giving", "give", "Gifts and funds", "Recent gifts, statements and funds")])}`,
+        row("view.giving", "admin-giving", "give", "Gifts and funds", "Recent gifts, statements and funds"),
+        row("view.giving", "admin-campaigns", "star", "Pledge campaigns", "A goal for a fund, with pledges and progress"),
+        row("send.email", "admin-email", "chat", "Email people", "Write to everyone, a role, a group, a team or people not seen lately"),
+        row("manage.church", "admin-activity", "list", "Activity log", "Who did what, newest first")])}`,
   };
 };
 

@@ -15,7 +15,7 @@ const S = {
       this.state = saved;
       // Added after the first v2 release: named layouts and saved builder items.
       const seed = buildSeed();
-      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "devices", "signage", "roomSessions"]) if (!saved[k]) saved[k] = seed[k];
+      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "devices", "signage", "roomSessions", "presence", "milestones", "campaigns", "pledges", "activity"]) if (!saved[k]) saved[k] = seed[k];
       saved.me.pickups ||= []; saved.verseNotes ||= {}; saved.highlights ||= {};
       Object.values(seed.users).forEach((u) => { const mine = saved.users[u.id]; if (!mine) { if (u.guestOf) saved.users[u.id] = u; } else if (!mine.family) Object.assign(mine, { family: u.family, pickups: u.pickups }); });
       Object.values(saved.churches).forEach((c) => {
@@ -169,6 +169,7 @@ async function hmacHex(secret, text) {
 }
 async function emit(event, data, churchId) {
   const c = S.church(churchId);
+  try { if (c && c.id === S.state.current) logEvent(event, data); } catch { /* the log is never in the way */ }
   if (c?.training) return;   // a training church sends nothing to outside systems
   // With Supabase, the server signs and sends: the app only queues the event (see supabase/functions/webhooks).
   if (typeof Backend !== "undefined" && Backend.on) { if (c) { S.state.deliveries.unshift({ id: uid(), churchId: c.id, event, data, at: new Date().toISOString(), status: "queued", outbox: true }); S.save(); } return; }

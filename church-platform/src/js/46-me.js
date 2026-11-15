@@ -3,7 +3,7 @@ let installPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; });
 
 const MINISTRY_PERMS = ["book.rooms", "build.sermons", "build.lessons", "build.studies", "services.plan", "present", "checkin.station", "qr.create", "lead.groups", "teach.classes", "schedule.teams", "manage.devices"];
-const ADMIN_PERMS = ["manage.followup", "view.reports", "manage.content", "manage.sermons", "manage.classes", "manage.prayer", "manage.people", "view.giving", "manage.page", "manage.integrations", "manage.locations", "manage.roles", "manage.church", "manage.devices", "church.deactivate"];
+const ADMIN_PERMS = ["manage.followup", "view.reports", "manage.content", "manage.sermons", "manage.classes", "manage.prayer", "manage.people", "view.giving", "manage.page", "manage.integrations", "manage.locations", "manage.roles", "manage.church", "manage.devices", "church.deactivate", "send.email"];
 const hasMinistryTools = () => S.isMember() && S.canAny(MINISTRY_PERMS);
 const hasAdminTools = () => S.isMember() && S.canAny(ADMIN_PERMS);
 const accessText = (m) => !m ? "" : m.locations === "all" ? "All locations" : (S.locations().filter((l) => l.visibility !== "private" || m.locations.includes(l.id)).map((l) => l.name).join(", ") || "Public locations");
@@ -29,6 +29,8 @@ Screens.me = () => {
           ${hasAdminTools() ? row("#admin", "shield", "Admin", "Manage the church account, people, content and reports") : ""}
           ${hasMinistryTools() ? row("#ministry", "layers", "Ministry tools", "Builders, service plans, presentations, check-in and QR codes") : ""}
           ${S.on("parents") && kids().length ? row("#parents", "kid", "Parent portal", "Your kids' classes, events and check-in") : ""}
+          ${S.isMember() ? row("#here", "check", "My attendance", "Your card, and marking yourself as here") : ""}
+          ${S.isMember() ? row("#dates", "calendar", "My dates", "Birthday, anniversary and milestones") : ""}
           ${S.isMember() ? (() => { const n = pendingAsks().length; return row("#serving", "hand", "Serving", n ? `${plural(n, "request")} waiting for your answer` : "Your teams, schedule and dates away"); })() : ""}
           ${row("#household", "people", "Household", me.household.length ? me.household.map((p) => p.name).join(", ") : "Add your family for classes and check-in")}
           ${S.on("checkin") ? row("#checkin", "kid", "Check in", "Kids and volunteers") : ""}

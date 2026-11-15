@@ -81,7 +81,7 @@ function render() {
     else if (S.church() && deactStatus() === "deactivated" && !DEACT_OPEN.includes(head)) { head = "deactivated"; tail = ""; }
   }
   // Someone who can approve a kind of request never waits on their own.
-  if (!Backend.on || Backend.ready) try { deactTick(); approveOwnRequests(); } catch (err) { console.error(err); }
+  if (!Backend.on || Backend.ready) try { deactTick(); datesTick(); approveOwnRequests(); } catch (err) { console.error(err); }
   applyBrand();
   let view;
   try { view = (Screens[head] || Screens.home)(tail); }

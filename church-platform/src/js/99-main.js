@@ -19,4 +19,4 @@ if (!FORWARDING) {
 }
 
 // For local testing only: open the app with ?debug to reach the store from the console.
-if (/[?&]debug\b/.test(location.search)) window.__app = { S, roomUses, bookingConflicts, meetingTimes, Backend, RECORD_KINDS, SPLIT, signPlay, render, pres, roomAccess, activeRoomSession, DeviceSignin, deactTick };
+if (/[?&]debug\b/.test(location.search)) window.__app = { S, roomUses, bookingConflicts, meetingTimes, Backend, RECORD_KINDS, SPLIT, signPlay, render, pres, roomAccess, activeRoomSession, DeviceSignin, deactTick, presencePrompt, serviceNow, welcomeOf, PLACE_TYPES, emailAudiences, datesComing };

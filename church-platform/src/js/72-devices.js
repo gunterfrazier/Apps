@@ -301,6 +301,7 @@ function followMatch(m) {
 function followListen(draw, onRoom) {
   const on = (m) => {
     if (!followMatch(m)) return;
+    if (mediaIntercept(m, draw)) return;
     if (m.ended) { if (!follow.msg || follow.msg.key === m.key) follow.msg = null; }
     else {
       // A new plan or sermon: get the latest copy of it before drawing.
@@ -322,6 +323,7 @@ function idleHtml(kind, playlistId = thisDevice()?.settings?.idlePlaylistId) {
 function drawFollow(kind) {
   const m = follow.msg, data = m && routeData(m.key), app = $("#app");
   applyBrand();
+  if (kind !== "stage" && kind !== "overlay" && mediaDraw(app, m)) return;   // a video, website or file in place of the slides
   if (!data) { app.innerHTML = flat(html`${idleHtml(kind)}${deviceExitBtn()}`); return; }
   const st = { ...m, index: clamp(m.index || 0, 0, data.slides.length - 1) };
   if (kind === "stage") app.innerHTML = flat(html`${stageMonitor(data, st, true)}${deviceExitBtn()}`);

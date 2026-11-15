@@ -137,6 +137,7 @@ function roomSwitch(ses) {
 }
 function roomMessage(m) {
   if (!m?.room) return;
+  if (mediaIntercept(m, drawRoom)) return;
   if (m.ended) { roomLive.ended.add(m.room); if (m.room === roomLive.token) roomLive.msg = null; drawRoom(); return; }
   // In the preview, a new presentation's record arrives with its first slide: read it in.
   if (m.room !== roomLive.token && !Backend.on) { S.load(); drawRoom(); }
@@ -163,6 +164,7 @@ function drawRoom() {
   applyBrand();
   const ses = activeRoomSession(d);
   if ((ses?.token || null) !== roomLive.token) roomSwitch(ses);
+  if (ses && mediaDraw(app, roomLive.msg)) return;
   let inner = "";
   if (ses) {
     const m = roomLive.msg, key = m?.key || ses.key, data = routeData(key || "");

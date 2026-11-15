@@ -66,6 +66,7 @@ await step("welcome", async () => {
 });
 await step("join as basic member", async () => {
   await goTo("church-riverside"); await page.click("[data-act=join-church]");
+  await page.waitForSelector("#scrim [data-act=visit-not-first]", { timeout: 5000 }); await page.click("#scrim [data-act=visit-not-first]"); await sheetGone();   // asked once, on joining
   await page.waitForSelector(".home-top"); await shot("02-home");
   await goTo("me"); await expectText("Member");
   if (await page.$('a[href="#admin"]')) throw new Error("a new member should not see Admin");
@@ -848,6 +849,150 @@ await step("approvals: requests notify everyone who can approve; volunteers can 
   if (!(await page.evaluate(([u, t]) => __app.S.list("teamMembers").some((m) => m.team === t && m.userId === u && !m.status), [me, team2]))) throw new Error("the pre-approved person isn't on the team");
   await asRole("primary"); await goTo("admin-approvals"); await page.check('input[name=pre][value=none]'); await page.click("form[data-form=approvals-save] button.btn"); await page.waitForTimeout(150);
   await page.evaluate((b) => { const S = __app.S, c = S.church(); c.ownerId = b.owner; S.membership(c.id).roleId = b.role; S.save(); __app.render(); }, before);
+});
+await step("a video, website or file on the display", async () => {
+  if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
+  const key = await page.evaluate(() => { const S = __app.S; S.setCurrent("riverside"); S.state.churches.riverside.ownerId = S.me().id; S.save(); const p = S.list("services").sort((a, b) => b.date.localeCompare(a.date))[0]; return `service-${p.id}`; });
+  const d = await ctx.newPage(); await d.setViewportSize({ width: 1280, height: 720 }); await d.goto(base + `#display-${key}`); await d.waitForSelector(".display");
+  await goTo(`present-${key}`); await page.waitForSelector("[data-act=pres-media]");
+  // A video link: YouTube plays in its own player.
+  await page.click("[data-act=pres-media]"); await page.fill('#scrim form:nth-of-type(1) input[name=url]', "https://youtu.be/dQw4w9WgXcQ"); await page.click("#scrim form:nth-of-type(1) button");
+  await d.waitForSelector('iframe.media-fill[src^="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"]'); await expectText("On the display:");
+  // The slides can move underneath without restarting what's playing.
+  const frame = await d.$eval("iframe.media-fill", (f) => f.dataset.mediaId); await page.keyboard.press("ArrowRight"); await page.waitForTimeout(300);
+  if ((await d.$eval("iframe.media-fill", (f) => f.dataset.mediaId)) !== frame) throw new Error("moving a slide restarted the video");
+  // A website.
+  await page.click("[data-act=pres-media]"); await page.fill('#scrim form:nth-of-type(2) input[name=url]', "example.org/welcome"); await page.click("#scrim form:nth-of-type(2) button");
+  await d.waitForSelector('iframe.media-fill[sandbox][src="https://example.org/welcome"]');
+  await page.click("[data-act=pres-media]"); await page.fill('#scrim form:nth-of-type(2) input[name=url]', "not a site"); await page.click("#scrim form:nth-of-type(2) button"); await page.waitForSelector("#scrim .err"); await page.click("#scrim [data-act=close-sheet]"); await sheetGone();
+  // A picture from this device reaches the display.
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  await page.click("[data-act=pres-media]"); await page.setInputFiles("#scrim input[type=file]", { name: "welcome.png", mimeType: "image/png", buffer: png });
+  await d.waitForSelector('img.media-fill[src^="data:image/jpeg"]'); await expectText("welcome.png");
+  await d.screenshot({ path: join(shots, "78-display-media.png") }); await shot("79-presenter-media");
+  // A display opened afterwards asks for the file and gets it.
+  const late = await ctx.newPage(); await late.goto(base + `#display-${key}`); await late.waitForSelector(".display");
+  await page.keyboard.press("ArrowLeft"); await late.waitForSelector('img.media-fill[src^="data:image/jpeg"]', { timeout: 8000 }); await late.close();
+  // Back to the slides.
+  await page.click("[data-act=pres-media-off]"); await d.waitForSelector(".display .slide");
+  if (await d.$(".media-fill")) throw new Error("the media stayed on the display");
+  await d.close(); await goTo("home");
+});
+await step("attendance, dates, campaigns, email and the activity log", async () => {
+  if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
+  // A service that started five minutes ago, and this person as the primary account holder.
+  const other = await page.evaluate(() => { const S = __app.S; S.setCurrent("riverside"); const c = S.church(); c.ownerId = S.me().id; sessionStorage.removeItem("our-faithful-presence-asked");
+    const t = new Date(Date.now() - 5 * 60e3), l = c.locations[0]; l.services = [{ day: t.getDay(), time: `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`, label: "Test gathering" }, ...l.services.filter((x) => x.label !== "Test gathering")];
+    S.state.presence = []; S.save(); return S.members().map((m) => S.user(m.userId)).find((u) => u && u.id !== S.me().id); });
+  // Opening the app during the service asks whether you're here.
+  await goTo("me"); await goTo("home"); await page.waitForSelector("#scrim [data-act=presence-yes]", { timeout: 4000 }); await shot("80-presence-prompt");
+  await page.click("#scrim [data-act=presence-yes]"); await sheetGone();
+  if ((await page.evaluate(() => __app.S.list("presence").filter((p) => p.userId === __app.S.me().id && p.via === "self").length)) !== 1) throw new Error("the person wasn't marked as here");
+  await goTo("me"); await goTo("home"); await page.waitForTimeout(1100); if (await page.$("#scrim")) throw new Error("asked again after answering");
+  // Your own card, and a greeter scanning someone else's.
+  await goTo("here"); await page.waitForSelector(".my-card svg"); await expectText("You're marked as here"); await shot("81-my-attendance");
+  await goTo(`here-${other.id}`); await expectText("is marked as here."); await page.evaluate(() => __app.render()); await page.waitForTimeout(90); await expectText("was already marked");
+  // Ticking people off a list, and the report.
+  await goTo("rollcall"); await expectText("2 of "); await page.locator(".roll-list input:not(:checked)").first().click(); await expectText("3 of "); await shot("82-rollcall");
+  await page.evaluate((id) => { const S = __app.S; S.add("presence", { userId: id, name: "x", serviceKey: "2026-01-04T10:00@riverside-main", date: "2026-01-04", locationId: "riverside-main", via: "list", at: "2026-01-04T10:00:00Z" });
+    const p = S.list("presence").find((x) => x.userId === id && x.date > "2026-02"); if (p) S.remove("presence", p.id); }, other.id);
+  await goTo("reports-attendance"); await page.waitForSelector('[data-act=report-csv][data-id=away]'); await expectText("Not seen in 4 weeks"); await expectText(other.name); await shot("83-attendance-report");
+  // Dates: your own, and the dashboard shows what's coming.
+  await goTo("dates"); const soon = await page.evaluate(() => { const d = new Date(Date.now() + 3 * 864e5); return `1985-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+  await page.fill("form[data-form=date-add] input[name=date]", soon); await page.click("form[data-form=date-add] button"); await expectText("Birthday"); await shot("84-my-dates");
+  await goTo("dashboard"); await expectText("Birthdays and milestones");
+  // A pledge campaign: made by staff, pledged to from Give, shown on the dashboard.
+  await goTo("admin-campaigns"); await page.click("[data-act=campaign-edit]"); await page.fill("#scrim input[name=name]", "New roof"); await page.fill("#scrim input[name=goal]", "20000"); await page.click("#scrim form button.btn"); await sheetGone(); await expectText("New roof");
+  await goTo("give"); await page.click(".campaign [data-act=pledge]"); await page.fill("#scrim input[name=amount]", "1200"); await page.click("#scrim form button.btn"); await sheetGone(); await expectText("Your pledge: $1,200"); await shot("85-give-campaign");
+  await goTo("admin-campaigns"); await expectText("pledged by 1 person"); await page.waitForSelector('[data-act=report-csv][data-id=pledges]'); await shot("86-admin-campaigns");
+  await goTo("dashboard"); await expectText("Pledge campaigns");
+  // Email to a group (practice here: nothing is sent, but it's logged).
+  await goTo("admin-email"); await expectText("Everyone ("); await page.fill("form[data-form=email-send] input[name=subject]", "Workday Saturday"); await page.fill("form[data-form=email-send] textarea", "Bring gloves."); await shot("87-email");
+  await page.click("form[data-form=email-send] button"); await expectText("Workday Saturday");
+  if (!(await page.evaluate(() => __app.emailAudiences().some(([k]) => k === "away")))) throw new Error("no 'not seen in 4 weeks' audience");
+  // The activity log has what just happened.
+  await goTo("admin-activity"); await page.waitForSelector('[data-act=report-csv][data-id=activity]'); await expectText("Started the campaign New roof"); await expectText("Pledged to New roof"); await expectText("Emailed"); await shot("88-activity");
+  // A member without the permissions sees none of the staff screens.
+  await page.evaluate(() => { const S = __app.S, c = S.church(); c.ownerId = "someone-else"; const m = S.membership(c.id, S.me().id); m._was = m.roleId; m.roleId = c.roles.find((r) => r.rank <= 10 || r.id === "member").id; S.save(); });
+  await goTo("home");
+  for (const [h, mark] of [["admin-activity", "newest first"], ["admin-email", "Each person gets their own copy"], ["admin-campaigns", "Set a goal for a fund"], ["rollcall", "marked as here."]]) { await goTo(h); await page.waitForTimeout(120); if ((await text()).includes(mark)) throw new Error(`a member reached #${h}`); }
+  await page.evaluate(() => { const S = __app.S, c = S.church(); c.ownerId = S.me().id; const m = S.membership(c.id, S.me().id); m.roleId = m._was; delete m._was; S.save(); });
+  await goTo("home");
+});
+await step("campus map, first-time visitors and the welcome message", async () => {
+  if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
+  await page.evaluate(() => { const S = __app.S; S.setCurrent("riverside"); const c = S.church(); c.ownerId = S.me().id; const l = c.locations[0]; l.map = null; delete c.welcome; S.save(); });
+  // Drawing the map: add places, name one, resize it, drag it.
+  await goTo("admin-map"); await page.waitForSelector("svg.campus-map.editing");
+  await page.click('[data-act=map-add][data-type=worship]'); await page.waitForSelector("form.map-edit"); await page.fill("form.map-edit input[name=name]", "Sanctuary");
+  await page.click('[data-act=map-size][data-d="w+"]'); await page.fill("form.map-edit input[name=note]", "Services meet here."); await page.click("form.map-edit button.btn:not(.ghost):not(.danger)");
+  await page.click('[data-act=map-add][data-type=restroom]'); await page.click("form.map-edit button.btn:not(.ghost):not(.danger)");
+  const before = await page.evaluate(() => { const it = __app.S.church().locations[0].map.items[1]; return { id: it.id, x: it.x, y: it.y }; });
+  await page.evaluate(() => window.scrollTo(0, 0)); await page.locator("svg.campus-map").scrollIntoViewIfNeeded(); await page.evaluate(() => window.scrollBy(0, -120));
+  const box = await page.locator(`[data-place="${before.id}"] rect`).boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 + 10, box.y + box.height / 2 + 120, { steps: 6 }); await page.mouse.up();
+  const after = await page.evaluate((id) => { const it = __app.S.church().locations[0].map.items.find((i) => i.id === id); return { x: it.x, y: it.y }; }, before.id);
+  if (after.y <= before.y) throw new Error(`dragging didn't move the place (${before.y} -> ${after.y})`);
+  await page.click('svg.campus-map rect:first-child', { position: { x: 4, y: 4 } }).catch(() => {}); await shot("89-map-builder");
+  const san = await page.evaluate(() => __app.S.church().locations[0].map.items[0]); if (san.name !== "Sanctuary" || san.w !== 11) throw new Error("the place wasn't saved as edited");
+  // A visitor finds a place.
+  await goTo(`map-${await page.evaluate(() => __app.S.church().locations[0].id)}`); await page.waitForSelector("svg.campus-map:not(.editing)"); await expectText("Find a place");
+  await page.fill("[data-input=map-find]", "rest"); await page.waitForFunction(() => document.querySelectorAll("#map-list .row").length === 1);
+  await page.fill("[data-input=map-find]", ""); await page.locator("#map-list .row", { hasText: "Sanctuary" }).click(); await expectText("Services meet here."); await page.waitForSelector(".campus-map .place.on"); await shot("90-map");
+  await goTo("home"); await expectText("Campus map");
+  // Settings for the welcome: a bad link is refused, a good one saves.
+  await goTo("admin-welcome"); await page.fill("form[data-form=welcome-save] textarea[name=links]", "Bad one | javascript:alert(1)"); await page.click("form[data-form=welcome-save] button.btn:not(.ghost)"); await page.waitForSelector("form[data-form=welcome-save] .err");
+  await page.fill("form[data-form=welcome-save] input[name=title]", "Hello from {church}"); await page.fill("form[data-form=welcome-save] textarea[name=links]", "Plan your visit | #visit\nOur website | https://example.org");
+  await page.click("[data-act=welcome-preview]"); await page.waitForSelector("#scrim"); await page.waitForFunction(() => document.querySelector("#scrim")?.textContent.includes("Hello from Riverside Community Church")); await page.click("#scrim [data-act=close-sheet]"); await sheetGone();
+  await page.click("form[data-form=welcome-save] button.btn:not(.ghost)"); await shot("91-welcome-settings");
+  // Someone joins: asked if it's their first visit, fills in the card, lands on Plan your visit with the welcome.
+  await page.evaluate(() => { const S = __app.S, c = S.church(); c.ownerId = "someone-else"; S.state.memberships = S.state.memberships.filter((m) => !(m.churchId === c.id && m.userId === S.me().id)); S.state.cards = S.state.cards.filter((x) => !x.firstVisit); sessionStorage.setItem("our-faithful-presence-asked", JSON.stringify(["x"])); S.me().prefs && (S.me().prefs.askPresence = false); S.save(); });
+  await goTo("church-riverside"); await page.evaluate(() => __app.render()); await page.click("[data-act=join-church]");
+  await page.waitForSelector("#scrim [data-act=visit-first]", { timeout: 5000 }); await shot("92-first-visit-question"); await page.click("#scrim [data-act=visit-first]");
+  await page.waitForSelector("form[data-form=visitor-card]"); await page.fill("form[data-form=visitor-card] input[name=phone]", "(770) 555-0100"); await page.fill("form[data-form=visitor-card] input[name=adults]", "Sam"); await page.fill("form[data-form=visitor-card] textarea[name=children]", "Ella, 7\nNoah, 4");
+  await shot("93-visitor-card"); await page.click("form[data-form=visitor-card] button.btn:not(.ghost)");
+  await page.waitForFunction(() => location.hash === "#visit"); await page.waitForFunction(() => { const t = document.querySelector("#scrim")?.textContent || ""; return t.includes("Hello from Riverside Community Church") && t.includes("Our website"); }); await shot("94-welcome-message");
+  await page.click("#scrim [data-act=close-sheet]"); await sheetGone(); await expectText("Plan your visit"); await shot("95-plan-your-visit");
+  const card = await page.evaluate(() => { const S = __app.S, c = S.list("cards").find((x) => x.firstVisit); return c && { reason: c.reason, kids: c.children.length, fu: S.list("followups").some((f) => f.cardId === c.id || (f.personId === S.me().id && f.status !== "closed")) }; });
+  if (!card || card.reason !== "First-time visitor" || card.kids !== 2 || !card.fu) throw new Error(`visitor card wrong: ${JSON.stringify(card)}`);
+  await page.evaluate(() => { const S = __app.S; S.church().ownerId = S.me().id; S.save(); }); await goTo("home");
+});
+await step("dashboard and detailed reports", async () => {
+  if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
+  const asRole = (r) => page.evaluate((r) => { const S = __app.S, c = S.state.churches.riverside; if (r === "primary") c.ownerId = S.me().id; else { if (c.ownerId === S.me().id) c.ownerId = "u-dana"; S.membership(c.id).roleId = r; } S.save(); __app.render(); }, r);
+  const before = await page.evaluate(() => { __app.S.setCurrent("riverside"); return JSON.stringify(__app.S.state); });
+  const widgets = () => page.evaluate(() => [...document.querySelectorAll(".dash-widget")].map((w) => w.dataset.widget));
+  await asRole("primary"); await goTo("admin"); await page.click('a.row[href="#dashboard"]'); await page.waitForSelector(".dash-widget");
+  let w = await widgets();
+  for (const k of ["numbers", "attention", "attendance", "giving", "newcomers", "events", "serving", "groups"]) if (!w.includes(k)) throw new Error(`the dashboard is missing ${k}: ${w}`);
+  for (const t of ["Members", "Average attendance", "Given this month", "Needs attention", "People each week", "Given each month", "Coming up"]) await expectText(t);
+  if (await page.evaluate(() => [...document.querySelectorAll(".dash-widget .stat-tile b")].some((b) => /NaN|undefined/.test(b.textContent)))) throw new Error("a dashboard number didn't work out");
+  await shot("75-dashboard");
+  // Each person arranges their own: hide one widget, move another to the top.
+  await page.click("[data-act=dash-edit]"); await page.waitForSelector("#scrim .dash-edit"); await shot("76-dashboard-customize");
+  await page.uncheck('#scrim input[data-id="giving"]');
+  for (let i = 0; i < 8; i++) { const up = await page.$('#scrim [data-act=dash-move][data-id="events"][data-dir="-1"]:not([disabled])'); if (!up) break; await up.click(); await page.waitForTimeout(60); }
+  await page.click("#scrim [data-act=dash-done]"); await sheetGone();
+  w = await widgets();
+  if (w[0] !== "events" || w.includes("giving")) throw new Error(`customizing didn't stick: ${w}`);
+  await page.reload(); await page.waitForSelector(".dash-widget");
+  if ((await widgets())[0] !== "events") throw new Error("the dashboard layout wasn't remembered");
+  // The report pages: each has numbers, a table and a download.
+  for (const [tab, heading, table] of [["people", "Everyone", "people"], ["groups", "All classes and groups", "groups"], ["serving", "Times scheduled", "serving"], ["events", "All events", "events"], ["giving", "By giver", "givers"]]) {
+    await goTo(`reports-${tab}`); await page.waitForSelector(`[data-act=report-csv][data-id="${table}"]`).catch(() => { throw new Error(`the ${tab} report didn't open, or has no download`); });
+    if (!(await page.$$eval(".mini-table tbody tr", (r) => r.length))) throw new Error(`the ${tab} report has no rows`);
+    if (/NaN|undefined/.test(await page.textContent("#main"))) throw new Error(`the ${tab} report shows a broken value`);
+    if (tab === "people" || tab === "giving") await shot(`77-report-${tab}`);
+  }
+  await goTo("reports"); await expectText("Overview"); await page.click('.report-tabs a[href="#reports-people"]'); await page.waitForSelector('[data-act=report-csv][data-id="people"]');
+  // Someone who can't see giving gets no giving widget and no giving report; a member gets no dashboard.
+  await page.evaluate(() => { const r = __app.S.church().roles.find((x) => x.id === "staff"); r.perms["view.giving"] = false; r.perms["view.reports"] = true; });
+  await asRole("staff"); await goTo("dashboard"); await page.waitForSelector(".dash-widget");
+  if ((await widgets()).includes("giving") || (await text()).includes("Given this month")) throw new Error("someone without the giving permission sees giving on the dashboard");
+  await goTo("reports-giving"); await page.waitForTimeout(150); if (await page.$('[data-act=report-csv][data-id="givers"]')) throw new Error("someone without the giving permission opened the giving report");
+  await asRole("member"); await goTo("dashboard"); await page.waitForTimeout(150);
+  if (await page.$(".dash-widget")) throw new Error("a member can open the dashboard");
+  await page.evaluate((s) => { __app.S.state = JSON.parse(s); __app.S.save(); location.hash = "home"; __app.render(); }, before);
 });
 await step("deactivating a church account", async () => {
   if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }

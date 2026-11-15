@@ -177,6 +177,7 @@ const PERMS = [
   ["Managing", "manage.locations", "Campuses, locations and rooms"],
   ["Managing", "manage.roles", "Roles and who has them"],
   ["Managing", "manage.church", "Church account, features and defaults"],
+  ["Managing", "send.email", "Email groups of people"],
   ["Managing", "church.deactivate", "Ask to deactivate the church account (the primary account holder approves)"],
 ];
 /** Privileges nobody gets by default, not even administrators, and that only the primary account holder can give a role. */
@@ -185,7 +186,7 @@ const PERM_LABEL = Object.fromEntries(PERMS.map(([, k, l]) => [k, l]));
 /** Permissions added after a church was created, and which built-in roles get them by default. */
 const NEW_PERM_DEFAULTS = {
   "book.rooms": ["pastor", "staff", "teacher", "leader"], "schedule.teams": ["pastor", "staff", "media"],
-  "manage.followup": ["pastor", "staff"], "view.reports": ["pastor", "staff"], "manage.devices": ["pastor", "staff", "media"],
+  "manage.followup": ["pastor", "staff"], "view.reports": ["pastor", "staff"], "send.email": ["pastor", "staff"], "manage.devices": ["pastor", "staff", "media"],
   "present.rooms": ["pastor", "staff", "media"],
 };
 /** What each kind of signed-in church device may do. Devices never get a person's role. */

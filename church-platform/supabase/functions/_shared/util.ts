@@ -68,11 +68,11 @@ export async function notify(db: SupabaseClient, church: string, userId: string,
 // EMAIL_FROM is the sender shown, like "Our Faithful Church App <hello@example.org>"; it defaults to SMTP_USER.
 export const emailReady = () => !!env("RESEND_API_KEY") || (!!env("SMTP_HOST") && !!env("SMTP_USER") && !!env("SMTP_PASS"));
 /** Sends one email. False when no sender is set up or the send failed (the reason is in the function's log). */
-export async function sendEmail(to: string, subject: string, text: string, html?: string): Promise<boolean> {
+export async function sendEmail(to: string, subject: string, text: string, html?: string, replyTo?: string): Promise<boolean> {
   const from = env("EMAIL_FROM") || env("SMTP_USER");
   try {
     if (env("RESEND_API_KEY")) {
-      const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, text, html }) });
+      const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [to], subject, text, html, ...(replyTo ? { reply_to: replyTo } : {}) }) });
       if (!r.ok) console.error("email not sent", r.status, await r.text());
       return r.ok;
     }
@@ -80,7 +80,7 @@ export async function sendEmail(to: string, subject: string, text: string, html?
     const { default: nodemailer } = await import("npm:nodemailer@6.9.16");
     const port = Number(env("SMTP_PORT", "465"));
     const mailer = nodemailer.createTransport({ host: env("SMTP_HOST"), port, secure: port === 465, auth: { user: env("SMTP_USER"), pass: env("SMTP_PASS") } });
-    await mailer.sendMail({ from, to, subject, text, html });
+    await mailer.sendMail({ from, to, subject, text, html, replyTo });
     return true;
   } catch (e) { console.error("email not sent", (e as Error).message); return false; }
 }

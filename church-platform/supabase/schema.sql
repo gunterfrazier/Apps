@@ -1,4 +1,4 @@
--- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 9.
+-- Our Faithful Church App: shared database for many churches (Supabase / Postgres). Version 10.
 -- Run this once in the Supabase SQL editor on a new project (see SETUP.md).
 --
 -- How it fits the app: the app keeps one list per kind of thing (sermons, events, prayers, gifts...). Each item is a
@@ -176,6 +176,13 @@ create or replace function rec_read(k text, c text, loc text, own text, d jsonb)
     when k = 'messages' then in_channel(c, d->>'channelId')
     when k in ('deliveries', 'integrations') then can(c, 'manage.integrations')
     when k = 'devices' then can(c, 'manage.devices')
+    -- Who was here: the person (as owner, above), and the people who take attendance or read reports.
+    when k = 'presence' then can(c, 'view.reports') or can(c, 'checkin.station')
+    -- Birthdays and milestones: the person, and the pastors and staff who care for people.
+    when k = 'milestones' then can(c, 'manage.people') or can(c, 'manage.followup')
+    when k = 'campaigns' then is_member(c)
+    when k = 'pledges' then can(c, 'view.giving')
+    when k = 'activity' then can(c, 'manage.church')
     when k = 'signage' then is_member(c)
     else false end $$;
 -- Who can add, change or remove each kind of record. op is 'insert', 'update' or 'delete'.
@@ -222,6 +229,13 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
     when k = 'integrations' then can(c, 'manage.integrations')
     -- Devices are paired and removed by the device-pair function; a paired device can only update when it was last seen.
     when k = 'devices' then can(c, 'manage.devices') or (op = 'update' and own = auth.uid()::text)
+    -- Marking yourself as here is always in your own name; greeters and report readers can mark anyone.
+    when k = 'presence' then (own = auth.uid()::text and d->>'userId' = own and d->>'via' = 'self' and is_member(c)) or can(c, 'view.reports') or can(c, 'checkin.station')
+    when k = 'milestones' then (own = auth.uid()::text and is_member(c)) or can(c, 'manage.people')
+    when k = 'campaigns' then can(c, 'view.giving')
+    when k = 'pledges' then (own = auth.uid()::text and is_member(c)) or can(c, 'view.giving')
+    -- The activity log is only ever added to, in your own name. (The primary account holder can clear it.)
+    when k = 'activity' then op = 'insert' and own = auth.uid()::text and d->>'by' = own and is_member(c)
     when k = 'signage' then can(c, 'manage.devices')
     else false end $$;
 
@@ -521,6 +535,18 @@ begin
   return jsonb_build_object('reminded', reminded, 'purged', purged);
 end $$;
 
+-- ---------- Pledge campaigns: the totals every member may see ----------
+-- Members see how a campaign is going without seeing anyone's gifts or pledges.
+create or replace function campaign_totals(c text) returns table (campaign text, given numeric, pledged numeric, pledges bigint)
+language sql stable security definer set search_path = public as $$
+  select k.id,
+    coalesce((select sum((g.data->>'amount')::numeric) from records g where g.church_id = c and g.kind = 'gifts' and g.data->>'fundId' = k.data->>'fundId'
+      and coalesce(g.data->>'status', '') <> 'refunded' and left(g.data->>'at', 10) >= k.data->>'start'
+      and (coalesce(k.data->>'end', '') = '' or left(g.data->>'at', 10) <= k.data->>'end')), 0),
+    coalesce((select sum((p.data->>'amount')::numeric) from records p where p.church_id = c and p.kind = 'pledges' and p.data->>'campaignId' = k.id), 0),
+    (select count(*) from records p where p.church_id = c and p.kind = 'pledges' and p.data->>'campaignId' = k.id)
+  from records k where k.church_id = c and k.kind = 'campaigns' and is_member(c) $$;
+
 -- ---------- Live updates ----------
 alter publication supabase_realtime add table records;
 
@@ -542,3 +568,5 @@ grant execute on function reset_training_church(text) to authenticated;
 revoke execute on function lifecycle_note(text, uuid, text, text, text, text), purge_church_rows(text, boolean), purge_church(text), church_lifecycle_tick(text) from public, anon, authenticated;
 revoke execute on function church_deactivation(text, text, text) from public, anon;
 grant execute on function church_deactivation(text, text, text) to authenticated;
+revoke execute on function campaign_totals(text) from public, anon;
+grant execute on function campaign_totals(text) to authenticated;
