@@ -17,6 +17,8 @@ import { CommandPalette, HistoryHub, rememberPlace } from "./pages/hubs";
 import { PassageWritersPage, WriterPage, WritersPage } from "./pages/writers";
 import { parseTimelineRoute } from "../core/timeline";
 import { LibraryPage } from "./pages/library";
+import { AccountPage } from "./pages/account";
+import { ACCOUNTS_ON, initAccounts, useAccount } from "./account";
 import { getGlossary } from "../core/glossary";
 import { getWritingsIndex } from "../core/writings";
 import { getChurchEvents, getCreedIndex } from "../core/scholar";
@@ -94,6 +96,7 @@ function pageFor(route: string): { node: ReactNode; tab: string } {
       return { node: <SymbolsPage key={tail} initial={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "explore" };
     }
     case "library": return { node: <LibraryPage />, tab: "library" };
+    case "account": return { node: <AccountPage />, tab: "library" };
     default: return { node: <ReadPage route={null} />, tab: "read" };
   }
 }
@@ -186,6 +189,7 @@ function App() {
             <span className="find-label">Go anywhere</span><kbd className="find-kbd">Ctrl K</kbd>
           </button>
           <a href="#library" className={`lib-link ${tab === "library" ? "on" : ""}`}>Library</a>
+          {ACCOUNTS_ON && <AccountButton on={route === "account"} />}
         </div>
       </header>
       <main key={pageKey(route)} className="route-fade"><Boundary route={route}>{node}</Boundary></main>
@@ -205,9 +209,21 @@ function App() {
   );
 }
 
+/** The header's way into the account: a person outline before signing in, the reader's initial after. */
+function AccountButton({ on }: { on: boolean }) {
+  const { status, user } = useAccount();
+  const initial = status === "signed-in" ? (user?.email || "?").trim().charAt(0).toUpperCase() : "";
+  return (
+    <a href="#account" className={`acct-btn${on ? " on" : ""}${initial ? " signed-in" : ""}`} aria-label={initial ? `Your account, ${user?.email}` : "Sign in"} title={initial ? user?.email : "Sign in"}>
+      {initial || <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6" /><path d="M5 20c.9-3.6 3.6-5.6 7-5.6s6.1 2 7 5.6" /></svg>}
+    </a>
+  );
+}
+
 initJobs();
 createRoot(document.getElementById("root")!).render(<App />);
 connectCloud();
+initAccounts();
 initOnlineBible();
 
 // Small lookups used everywhere load quietly once the app is idle, so later screens open at once.

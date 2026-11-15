@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getPassage, TRANSLATIONS, type TranslationId } from "../../core/bible";
 import { guideRequestPresets } from "../../core/ai";
 import type { LensId } from "../../core/content";
+import { ACCOUNTS_ON, IN_CLAUDE } from "../account";
 import { blankGuide, generateGuide, GUIDE_FORMATS, GuideInputError, guideToHtml, guideToMarkdown, guideToText, guideToWord, lensName, newId, ORIGIN_LABEL, resolveGuide, sanitizeGuide, type Guide, type GuideFormat, type GuideSection, type SectionItem } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
 import { aiDraft, detectAi, friendlyAiError, type AiMode } from "../ai-client";
@@ -43,7 +44,7 @@ export function GuidesPage() {
         <button type="button" className="link-btn" onClick={() => fileInput.current?.click()}>Import a guide</button>
         <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ""; }} />
       </div>
-      {guides.length === 0 && <Empty>Your guides will appear here. They save on this device, and you can back them up from Library.</Empty>}
+      {guides.length === 0 && <Empty>Your guides will appear here. {IN_CLAUDE ? "They're saved to your Claude account" : ACCOUNTS_ON ? "They're kept in this browser, and in your account when you're signed in" : "They save on this device"}, and you can back them up from Library.</Empty>}
       <div className="tool-list">
         {guides.map((g) => (
           <a key={g.id} className="tool-row" href={`#guide-${g.id}`}>

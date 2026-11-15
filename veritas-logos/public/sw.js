@@ -6,6 +6,8 @@ self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((keys)
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/v1/") || url.pathname.includes("/voice/")) return;
+  // Coming back from signing in, the address carries a one-time code: let it through untouched and uncached.
+  if (e.request.mode === "navigate" && url.search) return;
   const isData = url.pathname.includes("/data/");
   e.respondWith((async () => {
     const cache = await caches.open(VERSION);

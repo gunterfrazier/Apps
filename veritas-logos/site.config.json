@@ -1,4 +1,8 @@
 {
   "bibleTextsUrl": "https://iigterjskwnqmnoysbha.supabase.co/functions/v1/bible-texts/web",
-  "claudeUrl": ""
+  "claudeUrl": "",
+  "accounts": {
+    "url": "https://fxssrtexwwmqrxzlgnmy.supabase.co",
+    "key": "sb_publishable_CKVWX03R_QM3VYMXOMUJfg_G_kvU67Q"
+  }
 }

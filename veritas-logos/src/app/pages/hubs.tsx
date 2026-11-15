@@ -8,6 +8,7 @@ import { getWritingsIndex } from "../../core/writings";
 import { searchTopics } from "../../core/content";
 import { hashForReference } from "../routes";
 import { navigate, useData, update } from "../store";
+import { ACCOUNTS_ON } from "../account";
 import { SubNav } from "./people";
 
 const PLACES: [string, string, string][] = [
@@ -32,6 +33,7 @@ const PLACES: [string, string, string][] = [
   ["guides", "Study guides", "Build and export a guide"],
   ["ask", "Ask the assistant", "Questions, with research mode"],
   ["library", "Library", "Settings, backups and data sources"],
+  ...(ACCOUNTS_ON ? [["account", "Account", "Sign in and keep your work on every device"] as [string, string, string]] : []),
 ];
 
 interface Hit { hash: string; title: string; kind: string; sub?: string }

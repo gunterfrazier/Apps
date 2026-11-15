@@ -7,7 +7,8 @@ import { bookName } from "../../core/references";
 import { detectAi, resetAiDetection, type AiMode } from "../ai-client";
 import { IS_ARTIFACT, saveFile, copyText } from "../files";
 import { BUILT_IN, mb } from "../speech";
-import { mergeData, setPref, toast, update, useData, useSyncState, getData } from "../store";
+import { combineData, mergeData, setPref, toast, update, useData, useSyncState, useSyncTarget, getData, type SyncState, type SyncTarget, type UserData } from "../store";
+import { ACCOUNTS_ON, IN_CLAUDE, useAccount } from "../account";
 import { Empty, RefLink, TranslationSelect, LensSelect, useAsync } from "../ui";
 
 const keyToRef = (k: string) => {
@@ -21,25 +22,61 @@ const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, 
 const ONLINE_OFFERED = andList(OFFERED.filter((t) => t.group === "online").map((t) => t.id));
 const WAITING_NOTE = TRANSLATIONS.filter((t) => t.waiting).map((t) => ` The ${t.id} will be added once its publisher approves the key.`).join("");
 
+const SYNC_TEXT: Record<SyncTarget | "none", Record<SyncState, string>> = {
+  claude: {
+    saved: "Saved privately to your Claude account, so it follows you between devices.",
+    saving: "Saving to your Claude account…",
+    connecting: "Connecting to your Claude account…",
+    failed: "Couldn't reach your Claude account, so this is only in this browser for now. Back up anything you want to keep.",
+    local: "Stored only in this browser. Clearing browser data removes it, so back up anything you want to keep.",
+  },
+  account: {
+    saved: "Saved to your account, so it's the same on every device where you sign in.",
+    saving: "Saving to your account…",
+    connecting: "Connecting to your account…",
+    failed: "Couldn't reach your account just now. Your work is kept in this browser and saved when the connection is back.",
+    local: "Stored only in this browser. Clearing browser data removes it, so back up anything you want to keep.",
+  },
+  none: {
+    saved: "", saving: "", connecting: "", failed: "",
+    local: "Stored only in this browser. Clearing browser data removes it, so back up anything you want to keep.",
+  },
+};
+/** One line on where the reader's data is being kept right now. */
+export function SyncLine({ sync, target }: { sync: SyncState; target: SyncTarget | null }) {
+  const text = SYNC_TEXT[target ?? "none"][sync] || SYNC_TEXT.none.local;
+  return <p className={`sync-state${sync === "failed" ? " is-failed" : ""}`}>{text}</p>;
+}
+
 export function LibraryPage() {
   const { prefs, notes, highlights, bookmarks, figures, guides } = useData();
   const [tab, setTab] = useState<"notes" | "marks" | "settings" | "about">("notes");
   const file = useRef<HTMLInputElement | null>(null);
   const [ai, setAi] = useState<AiMode | null>(null);
   const sync = useSyncState();
+  const target = useSyncTarget();
+  const acct = useAccount();
+  const [incoming, setIncoming] = useState<{ data: UserData; name: string } | null>(null);
   useEffect(() => { detectAi().then(setAi); }, []);
   useAsync(ensureFigures, []);
   const notesList = Object.values(notes).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const hlList = Object.entries(highlights);
 
   const backup = () => saveFile("veritas-logos-backup.json", JSON.stringify({ ...getData(), prefs: { ...getData().prefs, apiKey: "" } }, null, 1), "application/json");
-  const restore = async (f: File) => {
-    try {
-      const raw = JSON.parse(await f.text());
-      const data = mergeData(raw);
-      update((d) => ({ ...data, prefs: { ...data.prefs, apiKey: d.prefs.apiKey, apiBase: d.prefs.apiBase } }));
-      toast("Backup restored");
-    } catch { toast("That file couldn't be read."); }
+  const readBackup = async (f: File) => {
+    try { setIncoming({ data: mergeData(JSON.parse(await f.text())), name: f.name }); } catch { toast("That file couldn't be read."); }
+  };
+  // Adding keeps everything here and brings in what the backup has, keeping the later version of anything in both.
+  // Replacing makes this copy exactly the backup, which is how to go back to an earlier state.
+  const restore = (how: "add" | "replace") => {
+    if (!incoming) return;
+    const data = incoming.data;
+    update((d) => {
+      const next = how === "add" ? combineData(d, data) : data;
+      return { ...next, prefs: { ...next.prefs, apiKey: d.prefs.apiKey, apiBase: d.prefs.apiBase } };
+    });
+    setIncoming(null);
+    toast(how === "add" ? "Backup added" : "Backup restored");
   };
 
   return (
@@ -51,7 +88,7 @@ export function LibraryPage() {
 
       {tab === "notes" && (notesList.length ? notesList.map((n) => (
         <article key={n.key} className="note-card"><h4><RefLink refText={n.ref} /></h4><p style={{ whiteSpace: "pre-wrap" }}>{n.text}</p><p className="fine">{new Date(n.updatedAt).toLocaleDateString()}</p></article>
-      )) : <Empty>Tap any verse in the reader and choose “My note” to start. Notes stay on this device.</Empty>)}
+      )) : <Empty>Tap any verse in the reader and choose “My note” to start. {IN_CLAUDE ? "Notes are saved to your Claude account." : ACCOUNTS_ON ? "Notes are kept in this browser, and in your account when you're signed in." : "Notes stay on this device."}</Empty>)}
 
       {tab === "marks" && (
         <>
@@ -97,12 +134,25 @@ export function LibraryPage() {
 
           <h3>Your data</h3>
           <p>{guides.length} guides, {notesList.length} notes, {hlList.length} highlights.</p>
-          <p className="sync-state">{sync === "saved" ? "Saved privately to your Claude account, so it follows you between devices." : sync === "saving" ? "Saving to your Claude account…" : sync === "connecting" ? "Connecting to your Claude account…" : sync === "failed" ? "Couldn't reach your Claude account, so this is only in this browser for now. Back up anything you want to keep." : "Stored only in this browser. Clearing browser data removes it, so back up anything you want to keep."}</p>
+          <SyncLine sync={sync} target={target} />
+          {ACCOUNTS_ON && acct.status === "signed-out" && <p><a href="#account">Sign in</a> to keep your guides, notes and settings the same on every device.</p>}
+          {ACCOUNTS_ON && acct.status === "signed-in" && <p className="fine">Signed in as {acct.user?.email}. <a href="#account">Account settings</a></p>}
           <div className="action-row">
             <button type="button" className="btn small primary" onClick={backup}>Back up</button>
             <button type="button" className="btn small" onClick={() => file.current?.click()}>Restore or import</button>
-            <input ref={file} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) restore(f); e.target.value = ""; }} />
+            <input ref={file} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) readBackup(f); e.target.value = ""; }} />
           </div>
+          {incoming && (
+            <div className="restore-choice" role="group" aria-label="Restore or import">
+              <p><strong>{incoming.name}</strong> has {incoming.data.guides.length} guides, {Object.keys(incoming.data.notes).length + incoming.data.notebook.length} notes and {Object.keys(incoming.data.highlights).length} highlights.</p>
+              <div className="action-row">
+                <button type="button" className="btn small primary" onClick={() => restore("add")}>Add to what's here</button>
+                <button type="button" className="btn small" onClick={() => restore("replace")}>Replace what's here</button>
+                <button type="button" className="btn small" onClick={() => setIncoming(null)}>Cancel</button>
+              </div>
+              <p className="fine">Adding keeps everything you have and brings in the backup, with the later version of anything in both. Replacing makes {target ? "your account" : "this browser"} match the backup exactly.</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -119,6 +169,7 @@ function About() {
     <>
       <h3>About Veritas Logos</h3>
       <p>A personal Bible study guide builder and reference tool. Everything it stores comes from a named source that you can check. It holds no hand-written commentary.</p>
+      {!IN_CLAUDE && <p className="fine"><a href="privacy.html">Privacy</a>: what the site keeps about you, and how to remove it.</p>}
       <h3>How to weigh what you read</h3>
       <dl className="facts">
         <dt>From cited sources</dt><dd>Looked up from the datasets below, chosen by rule.</dd>

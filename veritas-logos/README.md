@@ -70,7 +70,7 @@ The artifact declares the `mcp` capability for that connector's `get_chapter` to
 
 ## The website (Cloudflare Pages)
 
-The same app runs as a free public website on Cloudflare Pages, built straight from this repository on every push. Cloudflare's free plan allows 20,000 files of up to 25 MiB each with no bandwidth cap; the site is about 420 files and 180 MB. Everything works except the AI tools, which need a Claude account or a paid API key: notes, highlights and guides are kept in each visitor's browser, read-aloud uses the browser's voice or the built-in one, and the app works offline once opened.
+The same app runs as a free public website on Cloudflare Pages, built straight from this repository on every push. Cloudflare's free plan allows 20,000 files of up to 25 MiB each with no bandwidth cap; the site is about 420 files and 180 MB. Everything works except the AI tools, which need a Claude account or a paid API key: notes, highlights and guides are kept in each visitor's browser and, for readers who sign in, in their account, read-aloud uses the browser's voice or the built-in one, and the app works offline once opened.
 
 Set it up once, in the Cloudflare dashboard:
 
@@ -87,11 +87,34 @@ Cloudflare's dashboard also offers Workers (Create application > Import a reposi
 - `bibleTextsUrl`: the Bible function's `/web` address, where the website's reader gets the ESV, NIV, NLT and NKJV. That address answers only pages from the website, https://veritaslogos.com (and www.veritaslogos.com) or https://apps-c5t.pages.dev and its preview addresses (such as https://7dd4474a.apps-c5t.pages.dev). If the site moves to another address, add the Supabase secret `BIBLE_WEB_ORIGINS` with the site's address, such as `https://my-name.pages.dev`; several can be listed, separated by commas.
 - `claudeUrl`: leave empty, or set it to the Claude version's link once that's shared, and the website points people there for the AI tools.
 
+- `accounts`: the account service's address and its publishable key. Both are public by design, since row-level security keeps each reader's data to themselves, and the build refuses a secret key. Leave `accounts` out and the site has no sign-in.
+
+### Accounts on the website
+
+Readers can sign in to keep their guides, notes, highlights, bookmarks and settings the same on every device. They choose how: a code sent by email, a Google account, or an email and password. Reading needs no account. Work done before signing in goes up to the account the first time; after that the account is the record. Signing out can also remove the data from that browser (the default, for shared devices), and deleting the account removes everything at once. Attached files and API keys stay in the browser. The page published to Claude doesn't use any of this: there, the owner's Claude account keeps the data.
+
+How it's built:
+
+- Sign-in and storage are a free Supabase project, "Veritas Logos" (`fxssrtexwwmqrxzlgnmy`, US East). Each reader's data is one row per document in `user_docs`: a `profile` row for settings and notes, and a `guide-<id>` row per guide. `supabase/migrations/` creates it, with row-level security so readers reach only their own rows, limits of 2 MB per row and 25 MB or 2,000 rows per reader, and `delete_my_account()`. Supabase's security check flags that function because signed-in readers can run it; that's intended, as it deletes only the caller's own account.
+- `src/account/` is the sign-in code, built into its own `account.js` so only the website loads it. `src/app/account.ts` connects it to the app, and `src/app/pages/account.tsx` is the Account page (`#account`, or the round button in the header).
+- `public/privacy.html` is the privacy page that Google's sign-in setup asks for.
+
+Set it up once, in the dashboards (none of these steps cost anything):
+
+1. **Email that can reach anyone.** Supabase's built-in email only goes to members of the Supabase organization. Make a free Resend account, add the domain `veritaslogos.com` and add the DNS records it lists (at Cloudflare once the domain's nameservers point there, or at GoDaddy until then), and create an API key with sending access. In Supabase, open Authentication > Emails > SMTP Settings, turn on custom SMTP, and enter: sender email `noreply@veritaslogos.com`, sender name `Veritas Logos`, host `smtp.resend.com`, port `465`, username `resend`, password your Resend API key. Resend's free plan sends 100 emails a day.
+2. **Codes in the emails.** In Authentication > Emails > Templates, make the "Confirm signup", "Magic link" and "Reset password" emails show the code: put `{{ .Token }}` in each body, for example `<h2>Your Veritas Logos code</h2><p>Enter this code to continue: <strong>{{ .Token }}</strong></p><p>It expires in an hour. If you didn't ask for it, you can ignore this email.</p>`.
+3. **Addresses.** In Authentication > URL Configuration, set the Site URL to `https://veritaslogos.com` and add these redirect URLs: `https://veritaslogos.com/**`, `https://www.veritaslogos.com/**`, `https://apps-c5t.pages.dev/**` and `https://*.apps-c5t.pages.dev/**`.
+4. **Passwords.** In Authentication > Sign In / Providers > Email, keep "Confirm email" on and set the minimum password length to 8.
+5. **Google.** In Google Cloud Console, set up the OAuth consent screen (app name Veritas Logos, home page `https://veritaslogos.com`, privacy policy `https://veritaslogos.com/privacy.html`, scopes email, profile and openid only) and publish it to production. Create an OAuth client ID of type Web application, with authorized JavaScript origins `https://veritaslogos.com` and `https://apps-c5t.pages.dev`, and the authorized redirect URI `https://fxssrtexwwmqrxzlgnmy.supabase.co/auth/v1/callback`. Paste its client ID and secret into Supabase under Authentication > Sign In / Providers > Google and turn it on. The Google button appears on the site by itself once Google is on.
+6. **The privacy address.** The privacy page gives `privacy@veritaslogos.com` for questions. Cloudflare's free Email Routing can forward it to your own inbox once the domain is on Cloudflare.
+
+Supabase's free plan pauses a project after about a week with very little use and emails a warning first; opening the project in the dashboard, or ordinary use of the site, keeps it running.
+
 `public/_headers` sets Cloudflare's caching. The offline cache (`public/sw.js`) is renamed after each build's contents, so visitors get new data after a deploy.
 
 ## Other ways to host it
 
-The app can also run on any other static host or server. A public release that charged money would also need user accounts and billing, and you should recheck the data licenses and the Bible APIs' non-commercial terms.
+The app can also run on any other static host or server. A public release that charged money would also need billing, and you should recheck the data licenses and the Bible APIs' non-commercial terms.
 
 
 1. **Static site only (cheapest).** Upload `dist/` to any static host. Everything works except AI and saved API guides. It's about 100 MB, because the build packs the data files.
@@ -112,6 +135,7 @@ To use a different AI provider, change `server/ai.ts`. The prompts and tools in 
 ```
 src/core/      Shared logic: Bible, lexicon, insights, guide generator, exports, AI prompts, family graph
 src/app/       The phone app (React)
+src/account/   Website sign-in (built into account.js, loaded only on the website)
 src/embed/     The small page other sites frame
 server/        API server and AI runner
 scripts/       Data build, checks and site build
@@ -150,6 +174,7 @@ Any passage, term, writer, event or creed is one tap from the others:
 
 - A web page can't run while the phone has suspended it. AI work in a minimized app may pause and carries on when the app is opened again.
 - Read aloud uses the browser's own speech engine in Chrome, Safari, Edge and Firefox. Android's in-app viewer, which the Claude app uses there, has none, so a voice built into the app reads instead: Norman, a Piper voice run by ONNX Runtime in a worker, with eSpeak NG for pronunciation. The first time, it downloads about 54 MB, which the browser keeps. Each time the app opens it takes a few seconds to get ready, and it runs on one thread, because a page in Claude can't use shared memory. Like any page, it stops when the phone locks or the app is minimized. Settings can choose it everywhere. It mispronounces some names, as eSpeak's rules guess them.
+- Accounts sync when a page opens or comes back into view, and save a moment after each change. If the same guide is edited on two devices at once, the last save wins. Sign-in emails are capped by Resend's free plan at 100 a day, and Google's sign-in screen may name the account service's address (fxssrtexwwmqrxzlgnmy.supabase.co) rather than veritaslogos.com, since a custom address for it is a paid Supabase feature.
 - The packed data needs a browser from 2023 or later (Safari 16.4, Chrome 80, Firefox 113). An older browser shows a message asking for an update.
 
 - There is no sourced data yet for idioms, customs, or the first audience, so those rely on AI drafts. Public-domain works could be added as cited sources.

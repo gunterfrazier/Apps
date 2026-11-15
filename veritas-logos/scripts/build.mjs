@@ -102,10 +102,17 @@ const packVoice = () => {
   return { id: manifest.id, name: manifest.name, sha256: manifest.sha256, engineVersion, manifest: `voice/${VOICE}.json`, downloadBytes };
 };
 const voice = packVoice();
-// The website's settings (site.config.json): where the reader fetches the licensed Bibles, and the Claude version to
-// point to for AI. The page published to Claude doesn't use them (see dist-artifact below).
+// The website's settings (site.config.json): where the reader fetches the licensed Bibles, the Claude version to point
+// to for AI, and the account service for signing in (its address and publishable key, which are meant to be public;
+// row-level security keeps each reader's data to themselves). The page published to Claude doesn't use them (see
+// dist-artifact below).
 const site = fs.existsSync("site.config.json") ? JSON.parse(fs.readFileSync("site.config.json", "utf8")) : {};
-const siteConfig = `<script>window.VERITAS_CONFIG = ${JSON.stringify({ bibleTextsUrl: site.bibleTextsUrl || undefined, claudeUrl: site.claudeUrl || undefined })};</script>`;
+const accounts = site.accounts?.url && site.accounts?.key ? { url: site.accounts.url, key: site.accounts.key } : undefined;
+// Only the publishable key may go into the page. A secret key (sb_secret_…, or an old JWT key whose role isn't anon)
+// would let anyone past row-level security.
+const secretKey = (k) => k.startsWith("sb_secret_") || (k.split(".").length === 3 && (() => { try { return JSON.parse(Buffer.from(k.split(".")[1], "base64url").toString()).role !== "anon"; } catch { return true; } })());
+if (accounts && secretKey(accounts.key)) throw new Error("site.config.json: accounts.key must be the publishable key, never a secret one");
+const siteConfig = `<script>window.VERITAS_CONFIG = ${JSON.stringify({ bibleTextsUrl: site.bibleTextsUrl || undefined, claudeUrl: site.claudeUrl || undefined, accounts })};</script>`;
 fs.writeFileSync("dist/index.html", shell("Veritas Logos", "app", siteConfig));
 fs.writeFileSync("dist/embed.html", shell("Veritas Logos", "embed"));
 
@@ -128,7 +135,8 @@ const cssEntry = 'import "../app/styles.css";\n';
 fs.mkdirSync("src/.gen", { recursive: true });
 fs.writeFileSync("src/.gen/app-entry.ts", 'import "../app/styles.css";\nimport "../app/main";\n');
 fs.writeFileSync("src/.gen/embed-entry.ts", `${cssEntry}import "../embed/embed-styles.css";\nimport "../embed/embed";\n`);
-options.entryPoints = { app: "src/.gen/app-entry.ts", embed: "src/.gen/embed-entry.ts", "voice-worker": "src/voice/worker.ts" };
+// account.js is the sign-in code for the website (src/account). The app loads it only where accounts are on.
+options.entryPoints = { app: "src/.gen/app-entry.ts", embed: "src/.gen/embed-entry.ts", "voice-worker": "src/voice/worker.ts", account: "src/account/account.ts" };
 
 if (watch) {
   const ctx = await esbuild.context(options);
