@@ -20,6 +20,8 @@ const S = {
       Object.values(seed.users).forEach((u) => { const mine = saved.users[u.id]; if (!mine) { if (u.guestOf) saved.users[u.id] = u; } else if (!mine.family) Object.assign(mine, { family: u.family, pickups: u.pickups }); });
       Object.values(saved.churches).forEach((c) => {
         c.positions ||= JSON.parse(JSON.stringify(DEFAULT_POSITIONS));
+        // The first sample landing page sent "Plan your visit" back to the church's own page.
+        (c.landing?.blocks || []).forEach((b) => (b.links || []).forEach((l) => { if (l.url === `#church-${c.id}` && /visit/i.test(l.label)) l.url = "#visit"; }));
         // Give built-in roles the permissions added in later versions.
         c.roles.forEach((r) => PERMS.forEach(([, k]) => { if (r.perms[k] === undefined && !PRIMARY_GRANTS.includes(k) && (r.id === "admin" || NEW_PERM_DEFAULTS[k]?.includes(r.id))) r.perms[k] = true; }));
       });
