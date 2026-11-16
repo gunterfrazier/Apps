@@ -53,9 +53,17 @@ The sign-in screen asks whether someone is new or already has an account. A new 
 3. **Connect an email sender** under **Authentication, Emails, SMTP Settings**. Supabase's built-in email only delivers to the people on your Supabase team, a few an hour, so the congregation can't sign in until this is done. Free projects created since June 2026 also can't change the email wording until it's done. Any SMTP service works:
    - With your church's own web domain: Resend, Postmark, Brevo or SendGrid (each has a free tier). Add the DNS records they give you so mail isn't marked as spam.
    - Without a domain: a Gmail account for the church, with 2-step verification on and an app password. Host `smtp.gmail.com`, port `465`, the Gmail address as user and sender, the app password as password. Gmail allows about 500 emails a day.
-4. **Put the code in the emails** (once step 3 is done), under **Authentication, Emails, Templates**. Supabase sends **Confirm signup** the first time someone signs in and **Magic Link** every time after; edit both:
-   - Subject: `Your Our Faithful Church App code: {{ .Token }}`
-   - Message body: all of `church-platform/supabase/templates/confirm-signup.html` (Confirm signup) or `magic-link.html` (Magic Link).
+4. **Use the app's own email designs** (once step 3 is done), under **Authentication, Emails, Templates**. Each template has a file in `church-platform/supabase/templates`, in the same design as every other email the app sends. For each one, paste the subject from the top of the file, and the whole file as the message body:
+   | Template in Supabase | File | Sent when |
+   |---|---|---|
+   | Confirm signup | `confirm-signup.html` | Someone signs in for the first time |
+   | Magic Link | `magic-link.html` | Someone asks for a sign-in code (and Forgot your password?) |
+   | Reset Password | `reset-password.html` | A password reset is asked for |
+   | Change Email Address | `change-email.html` | Someone changes the email they sign in with |
+   | Invite user | `invite.html` | You invite someone from the Supabase dashboard |
+   | Reauthentication | `reauthentication.html` | Someone changes their password with Secure password change on |
+
+   The first two matter most; the others make sure nothing still looks like Supabase. To change the wording or the design, edit `supabase/templates/build.mjs` or `supabase/functions/_shared/email.ts`, run `node supabase/templates/build.mjs`, and paste them again.
 
 To check it: in the app, enter your email. The email that arrives should have the link, and after step 4 the code too. A link or code from an older email stops working once a newer one is sent.
 

@@ -1,8 +1,15 @@
-<!-- Supabase: Authentication, Email Templates, "Confirm signup". This is the email someone gets the first time.
-     Subject: Your Our Faithful Church App code: {{ .Token }} -->
-<h2>Welcome to Our Faithful Church App</h2>
-<p>Enter this code in the app to finish creating your account:</p>
-<p style="font-size:30px;font-weight:bold;letter-spacing:6px;margin:16px 0">{{ .Token }}</p>
-<p>The code works once and expires soon.</p>
-<p>On this phone or computer, you can <a href="{{ .ConfirmationURL }}">tap here to sign in</a> instead.</p>
-<p style="color:#666">If you didn't ask for this, you can ignore this email.</p>
+<!-- Supabase: Authentication, Emails, Templates, "Confirm signup".
+     Subject: Your Our Faithful Church App code: {{ .Token }}
+     Made by build.mjs: change it there, not here. -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><title>Welcome! Here's your code</title></head>
+<body style="margin:0;padding:0;background:#eef0f4">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#eef0f4">Enter this code in the app to finish creating your account.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef0f4"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1d2430">
+<tr><td style="background:#4250d6;border-radius:16px 16px 0 0;padding:16px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="padding-right:12px"><img src="https://ourfaithfulchurch.com/icons/icon-192.png" width="36" height="36" alt="" style="display:block;border-radius:9px"></td><td style="color:#ffffff;font:700 17px/1.3 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif">Our Faithful Church App</td></tr></table></td></tr>
+<tr><td style="padding:28px 28px 8px;font-size:16px;line-height:1.55"><h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;color:#1d2430">Welcome! Here's your code</h1><p style="margin:0 0 14px">Enter this code in the app to finish creating your account.</p><div style="margin:6px 0 18px;padding:16px;background:#f3f4f8;border-radius:12px;text-align:center;font:800 32px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:8px;color:#1d2430">{{ .Token }}</div></td></tr>
+<tr><td style="padding:4px 28px 26px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#4250d6;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:13px 22px;border-radius:10px">Or finish on this device</a></td></tr>
+<tr><td style="padding:16px 28px 22px;border-top:1px solid #e6e8ec;font-size:13px;line-height:1.5;color:#6b7280">The code works once and expires soon. It was asked for with {{ .Email }}. If you didn't ask for this, you can ignore this email. Nothing changes until the code is used.</td></tr>
+</table>
+<p style="margin:14px 0 0;font:12px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#8a909a">Our Faithful Church App · <a href="https://ourfaithfulchurch.com/" style="color:#8a909a">ourfaithfulchurch.com</a></p>
+</td></tr></table></body></html>
