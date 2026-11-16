@@ -147,7 +147,7 @@ function buildSeed() {
       funds: [...DEFAULT_FUNDS, { id: "benevolence", name: "Benevolence", description: "Help for neighbors in need" }],
       landing: { showOnHome: true, blocks: [
         { id: "b1", type: "text", title: "New here?", text: "Come as you are. Services last about 75 minutes, there's coffee in the lobby, and kids have their own rooms with background-checked teachers." },
-        { id: "b2", type: "links", title: "", links: [{ label: "Plan your visit", url: "#church-riverside" }, { label: "Watch live", url: "#live" }, { label: "Our website", url: "https://riverside.example" }] },
+        { id: "b2", type: "links", title: "", links: [{ label: "Plan your visit", url: "#visit" }, { label: "Watch live", url: "#live" }, { label: "Our website", url: "https://riverside.example" }] },
         { id: "b3", type: "sermon" },
         { id: "b4", type: "contact" },
       ] },

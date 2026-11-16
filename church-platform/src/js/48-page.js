@@ -15,15 +15,25 @@ const BLOCK_TYPES = {
   give: { label: "Giving", icon: "give", fields: [["title", "Heading"], ["text", "Text", "textarea"]] },
 };
 
+/**
+ * Where a landing page button really goes. A button to the church's own page would just reload the page it's on, so it
+ * opens Plan your visit instead; and #visit opens this church's Plan your visit even when someone views another church.
+ */
+function landingHref(c, url) {
+  const u = String(url || "");
+  if (u === `#church-${c.id}` || u === "#visit" || u === `#visit-${c.id}`) return S.isMember(c.id) && c.id === S.state.current ? "#visit" : `#visit-${c.id}`;
+  return u;
+}
 function landingBlocks(c, { home = false } = {}) {
   const viewingOther = c.id !== S.state.current;
+  const linkBtn = (href, label, cls, ic) => ext(landingHref(c, href), label, cls, ic);
   return c.landing.blocks.map((b) => {
     switch (b.type) {
       case "hero": return html`<section class="hero" ${b.image ? raw(`style="background-image:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.55)),url('${esc(b.image)}')"`) : ""}>
-        ${b.title ? html`<h2>${b.title}</h2>` : ""}${b.text ? html`<p>${b.text}</p>` : ""}${b.buttonLabel && b.buttonUrl ? ext(b.buttonUrl, b.buttonLabel, "btn") : ""}</section>`;
+        ${b.title ? html`<h2>${b.title}</h2>` : ""}${b.text ? html`<p>${b.text}</p>` : ""}${b.buttonLabel && b.buttonUrl ? linkBtn(b.buttonUrl, b.buttonLabel, "btn") : ""}</section>`;
       case "text": return html`<section class="block">${b.title ? html`<h2>${b.title}</h2>` : ""}<p class="pre">${b.text}</p></section>`;
-      case "image": { const img = b.image ? html`<img src="${b.image}" alt="${b.caption || ""}">` : ""; return img ? html`<figure class="block img-block">${b.url ? html`<a href="${b.url}" ${attr(!b.url.startsWith("#"), 'target="_blank" rel="noopener"')}>${img}</a>` : img}${b.caption ? html`<figcaption class="faint">${b.caption}</figcaption>` : ""}</figure>` : ""; }
-      case "links": return html`<section class="block">${b.title ? html`<h2>${b.title}</h2>` : ""}<div class="btns stack">${(b.links || []).map((l, i) => ext(l.url, l.label, i === 0 ? "btn block" : "btn ghost block"))}</div></section>`;
+      case "image": { const img = b.image ? html`<img src="${b.image}" alt="${b.caption || ""}">` : ""; return img ? html`<figure class="block img-block">${b.url ? html`<a href="${landingHref(c, b.url)}" ${attr(!b.url.startsWith("#"), 'target="_blank" rel="noopener"')}>${img}</a>` : img}${b.caption ? html`<figcaption class="faint">${b.caption}</figcaption>` : ""}</figure>` : ""; }
+      case "links": return html`<section class="block">${b.title ? html`<h2>${b.title}</h2>` : ""}<div class="btns stack">${(b.links || []).map((l, i) => linkBtn(l.url, l.label, i === 0 ? "btn block" : "btn ghost block"))}</div></section>`;
       case "video": return html`<section class="block">${b.title ? html`<h2>${b.title}</h2>` : ""}${embedView(b.url, b.title, { video: true })}</section>`;
       case "embed": return html`<section class="block">${b.title ? html`<h2>${b.title}</h2>` : ""}${embedView(b.url, b.title, { height: +b.height || 420 })}</section>`;
       case "events": { if (viewingOther || !S.on("events")) return ""; const list = upcomingEvents().slice(0, +b.count || 3); return list.length ? html`<section class="block"><h2>${b.title || "Coming up"}</h2><div class="rows">${list.map(eventRow)}</div></section>` : ""; }
