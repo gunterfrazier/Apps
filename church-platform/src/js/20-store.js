@@ -25,6 +25,8 @@ const S = {
         // Give built-in roles the permissions added in later versions.
         c.roles.forEach((r) => PERMS.forEach(([, k]) => { if (r.perms[k] === undefined && !PRIMARY_GRANTS.includes(k) && (r.id === "admin" || NEW_PERM_DEFAULTS[k]?.includes(r.id))) r.perms[k] = true; }));
       });
+      // Sample sheet music, added after the first demo.
+      const bless = saved.songs?.find((x) => x.id === "riverside-song-assurance"); if (bless && !bless.charts) bless.charts = sampleCharts();
       saved.services.forEach((p) => { if (!p.assignments) p.assignments = seed.services.find((x) => x.id === p.id)?.assignments || []; });
       return;
     }

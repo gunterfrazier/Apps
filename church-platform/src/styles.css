@@ -1305,3 +1305,38 @@ body:has(.bible-actions) #app { padding-bottom: calc(var(--tab-h) + env(safe-are
 .getting-started .row.done:hover, .getting-started .row.done:focus-visible { opacity: .85; }
 .getting-started .row.done .lead-ic { background: var(--ok-soft); color: var(--ok); }
 .getting-started .row.done .s { color: var(--ok); }
+
+/* Stage display: sheet music for one instrument (94-sheet-music.js) */
+.stage-mon.with-music { gap: 8px; }
+.sm-music { position: relative; flex: 1 1 auto; min-height: 0; display: flex; gap: 8px; justify-content: center; align-items: stretch; }
+.sm-music img { flex: 0 1 auto; min-width: 0; max-width: 100%; height: 100%; object-fit: contain; background: #fff; border-radius: 4px; }
+.sm-music.two img { max-width: calc(50% - 4px); }
+.sm-turn { position: absolute; top: 0; bottom: 0; width: 34%; background: none; border: 0; cursor: pointer; z-index: 1; }
+.sm-turn.prev { left: 0; } .sm-turn.next { right: 0; }
+.sm-turn:disabled { cursor: default; }
+.sm-turn:focus-visible { outline: 3px solid #ffd43b; outline-offset: -3px; }
+.sm-pg { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); background: rgba(0,0,0,.72); color: #fff; font: 600 clamp(.75rem, 1.4cqw, 1rem) var(--display); padding: 3px 10px; border-radius: 999px; white-space: nowrap; pointer-events: none; }
+.stage-mon.and-words .sm-now { flex: 0 0 auto; font-size: clamp(1rem, 2.6cqw, 2rem); max-height: 22vh; overflow: hidden; justify-content: flex-start; }
+.stage-mon.and-words .sm-next { font-size: clamp(.85rem, 1.8cqw, 1.3rem); padding-top: 6px; }
+.stage-mon.and-words .sm-next { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sm-next.short { flex: 0 0 auto; }
+.sm-nochart { margin: 0; color: #a9b1c7; font: 600 clamp(.85rem, 1.8cqw, 1.3rem) var(--display); text-align: center; }
+.sm-view-btn { align-self: center; flex: none; display: inline-flex; gap: 6px; align-items: center; background: rgba(255,255,255,.1); color: #c9d0e0; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; padding: 6px 12px; font: 600 .85rem var(--display); cursor: pointer; opacity: .55; }
+.sm-view-btn:hover, .sm-view-btn:focus-visible { opacity: 1; }
+.sm-view-btn svg.i { width: 16px; height: 16px; }
+.stage-mon:not(.full) .sm-view-btn { display: none; }
+
+/* Song editor: Sheet music */
+.sm-charts { display: grid; gap: 8px; margin-bottom: 10px; }
+.sm-chart { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--card); }
+.sm-chart-top { display: flex; gap: 12px; align-items: center; }
+.sm-chart-top .body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sm-thumbs { display: flex; }
+.sm-thumbs img { width: 34px; height: 44px; object-fit: cover; object-position: top; border: 1px solid var(--line); border-radius: 3px; background: #fff; margin-right: -12px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.sm-thumbs img:last-child { margin-right: 0; }
+.sm-starts { margin-top: 8px; } .sm-starts summary { cursor: pointer; font-weight: 600; color: var(--brand-ink); }
+.sm-start-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; }
+.sm-start-grid label { display: flex; flex-direction: column; gap: 2px; font-size: .9rem; }
+.sm-add { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
+.sm-add .field { flex: 1 1 180px; }
+.sm-file { position: relative; cursor: pointer; }

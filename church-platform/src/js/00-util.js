@@ -332,6 +332,7 @@ const ICONS = {
   trash: '<path d="M4.5 7h15M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   inbox: '<path d="M3.5 13.5 6 5h12l2.5 8.5V19h-17Z"/><path d="M3.5 13.5H9a3 3 0 0 0 6 0h5.5"/>',
   download: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>',
+  upload: '<path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',
   church: '<path d="M12 2.5v4M10 4.5h4M12 6.5 6 11v9.5h12V11Z"/><path d="M10 20.5v-4a2 2 0 0 1 4 0v4M3.5 20.5h17"/>',
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/>',

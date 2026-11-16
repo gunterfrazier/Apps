@@ -395,11 +395,11 @@ create policy "change records" on records for update using ((is_primary(church_i
 create policy "remove records" on records for delete using ((is_primary(church_id) or church_live(church_id)) and rec_write(kind, church_id, owner, data, 'delete'));
 
 -- ---------- Files ----------
--- Public bucket for logos, banners, sermon audio and video. Files go under the church's ID; staff upload.
+-- Public bucket for logos, banners, sermon audio and video, and songs' sheet music. Files go under the church's ID; staff upload.
 insert into storage.buckets (id, name, public) values ('media', 'media', true) on conflict (id) do nothing;
-create policy "staff upload media" on storage.objects for insert with check (bucket_id = 'media' and (can((storage.foldername(name))[1], 'manage.sermons') or can((storage.foldername(name))[1], 'manage.page') or can((storage.foldername(name))[1], 'manage.content')));
-create policy "staff change media" on storage.objects for update using (bucket_id = 'media' and (can((storage.foldername(name))[1], 'manage.sermons') or can((storage.foldername(name))[1], 'manage.page')));
-create policy "staff remove media" on storage.objects for delete using (bucket_id = 'media' and (can((storage.foldername(name))[1], 'manage.sermons') or can((storage.foldername(name))[1], 'manage.page')));
+create policy "staff upload media" on storage.objects for insert with check (bucket_id = 'media' and (can((storage.foldername(name))[1], 'manage.sermons') or can((storage.foldername(name))[1], 'manage.page') or can((storage.foldername(name))[1], 'manage.content') or can((storage.foldername(name))[1], 'services.plan')));
+create policy "staff change media" on storage.objects for update using (bucket_id = 'media' and (can((storage.foldername(name))[1], 'manage.sermons') or can((storage.foldername(name))[1], 'manage.page') or can((storage.foldername(name))[1], 'services.plan')));
+create policy "staff remove media" on storage.objects for delete using (bucket_id = 'media' and (can((storage.foldername(name))[1], 'manage.sermons') or can((storage.foldername(name))[1], 'manage.page') or can((storage.foldername(name))[1], 'services.plan')));
 
 -- ---------- Payment processor keys ----------
 -- Server functions save and read each church's keys through these; the keys themselves live encrypted in Vault.
