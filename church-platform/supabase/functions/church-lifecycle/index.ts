@@ -8,12 +8,12 @@
 //   days left; the account is active again; the data has been deleted.
 // It also stops the church's recurring gifts when the account is deactivated, and deletes its uploaded files at the end.
 import { admin, caller, emailReady, env, fail, fromCron, handle, json, sendEmail } from "../_shared/util.ts";
+import { emailHtml, emailText } from "../_shared/email.ts";
 import { keysFor, PROCESSORS } from "../_shared/payments.ts";
 
 const MARKS = [180, 90, 30, 14, 7, 3, 1], DAY = 86400e3;
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 const appUrl = () => { const u = env("APP_URL"); return u ? (u.endsWith("/") ? u : `${u}/`) : ""; };
-const esc = (s: string) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 const APP = "Our Faithful Church App";
 
 type Db = ReturnType<typeof admin>;
@@ -21,10 +21,12 @@ type Church = { id: string; name: string; owner_id: string | null; data: any };
 type Mail = { subject: string; lines: string[]; button?: [string, string] };
 type Sent = "sent" | "already" | "off" | "failed";
 
-const asText = (m: Mail) => [...m.lines, ...(m.button ? [`${m.button[0]}: ${m.button[1]}`] : [`To act on this, open ${APP} and sign in with this email address.`]), `${APP}`].join("\n\n");
-const asHtml = (m: Mail) => `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;font-size:16px;line-height:1.5;color:#1c1c1c;max-width:560px">${m.lines.map((l) => `<p>${esc(l)}</p>`).join("")}${
-  m.button ? `<p><a href="${esc(m.button[1])}" style="display:inline-block;background:#1f3a5f;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">${esc(m.button[0])}</a></p>`
-    : `<p>To act on this, open ${APP} and sign in with this email address.</p>`}<p style="color:#666;font-size:14px">${APP}</p></div>`;
+// In the app's own design (_shared/email.ts): the subject as the heading, and the button when there is one.
+const NO_LINK = `To act on this, open ${APP} and sign in with this email address.`;
+const asEmail = (m: Mail) => ({ heading: m.subject, paragraphs: m.button ? m.lines : [...m.lines, NO_LINK], button: m.button, preheader: m.lines[0],
+  footer: `You're getting this because you're the primary account holder for this church in ${APP}.` });
+const asText = (m: Mail) => emailText(asEmail(m));
+const asHtml = (m: Mail) => emailHtml(asEmail(m));
 
 /** Notes that something was done for a church, once. False when it was already noted. */
 async function once(db: Db, churchId: string, key: string, note = ""): Promise<boolean> {

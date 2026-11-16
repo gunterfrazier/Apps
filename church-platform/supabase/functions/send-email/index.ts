@@ -6,9 +6,9 @@
 // from the sender's name at the app's mail domain (personalFrom) and replies go to the sender's own address.
 // A member can only write to members listed in the directory, a few at a time. A line goes in the activity log.
 import { admin, caller, can, emailReady, fail, handle, json, personalFrom, sendEmail, uid } from "../_shared/util.ts";
+import { emailHtml } from "../_shared/email.ts";
 
 const MAX = 500, HOURLY = 5, MEMBER_MAX = 5, MEMBER_HOURLY = 10;
-const esc = (s: string) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 
 handle(async (req) => {
   const { user, client } = await caller(req);
@@ -47,7 +47,8 @@ handle(async (req) => {
   const name = me?.name || (member ? "A member" : "A leader");
   const foot = member ? `Sent by ${name}, a member of ${church.name}, through Our Faithful Church App. Reply to write back to ${name}.`
     : `Sent to you by ${name} at ${church.name} through Our Faithful Church App.`;
-  const html = `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;font-size:16px;line-height:1.5;color:#1c1c1c;max-width:560px">${text.split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("")}<p style="color:#666;font-size:14px">${esc(foot)}</p></div>`;
+  // The church's own name and color at the top: it's a message from the church, not from the app.
+  const html = emailHtml({ heading: title, paragraphs: [text], footer: foot, preheader: text.slice(0, 120), church: { name: church.name, color: church.data?.color, logo: church.data?.logo } });
   const from = personalFrom(name);
   let sent = 0, failed = 0;
   for (const id of ids) {
