@@ -1,4 +1,4 @@
-// ---------- Admin: the church account, roles, people, locations, content, Sunday tools and reports ----------
+// ---------- Admin: content, people, communication, Sundays, devices, giving, reports, visitors and church setup ----------
 // Each section checks the viewer's permissions. List-and-edit sections share the ADMIN pattern below.
 
 const toLocalInput = (iso) => { if (!iso) return ""; const d = new Date(iso); return `${isoDay(d)}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
@@ -180,7 +180,17 @@ Screens.admin = (section) => {
   const c = S.church();
   const count = (k) => S.visible(k, { ignoreCampus: true }).length;
   const openCards = S.list("cards").filter((x) => !x.handled).length;
-  const row = (perm, hash, ic, t, s, tag) => S.can(perm) ? html`<a class="row" href="#${hash}"><span class="lead-ic">${icon(ic)}</span><span class="body"><span class="t">${t}</span><span class="s">${s}</span></span>${tag || icon("chev")}</a>` : "";
+  const newPeople = S.list("followups").filter((f) => f.status === "new").length;
+  const roomAsks = S.list("bookings").filter((b) => b.status === "requested").length;
+  const devs = S.list("devices"), unpaired = devs.filter((x) => x.status !== "paired").length;
+  const readers = (c.cardReaders || []).length;
+  // One row. ok: a permission, a list of them (any one will do) or true/false. words: extra search terms.
+  const item = (ok, hash, ic, t, s, tag, words = "") => {
+    if (!(ok === true || (typeof ok === "string" && S.can(ok)) || (Array.isArray(ok) && S.canAny(ok)))) return "";
+    return html`<a class="row" href="#${hash}" data-search="${t} ${s || ""} ${words}"><span class="lead-ic">${icon(ic)}</span><span class="body"><span class="t">${t}</span>${s ? html`<span class="s">${s}</span>` : ""}</span>${tag || icon("chev")}</a>`;
+  };
+  const warn = (n) => n ? html`<span class="tag warn">${n}</span>` : null;
+  const sec = (title, note, rows, pinned) => { const r = rows.filter((x) => x !== ""); return r.length ? html`<section class="sec" data-sec="${pinned ? "pinned" : ""}"><div class="sec-head"><h2>${title}</h2>${note ? html`<span class="faint">${note}</span>` : ""}</div><div class="rows">${r}</div></section>` : ""; };
   const steps = [
     ["Add your locations and service times", c.locations.some((l) => l.services?.length && l.address), "admin-locations"],
     ["Set up roles and features", c.roles.length > 8 || Object.values(c.modules).some((v) => !v), "admin-roles"],
@@ -189,61 +199,97 @@ Screens.admin = (section) => {
     ["Post a first announcement", count("news") > 0, "admin-news"],
     ["Add your classes and groups", count("gatherings") > 0, "admin-gatherings"],
   ];
-  const sec = (title, rows) => { const r = rows.filter((x) => x !== ""); return r.length ? html`<section class="sec"><h2 class="sec-head">${title}</h2><div class="rows">${r}</div></section>` : ""; };
+  const done = steps.filter((x) => x[1]).length;
+  const w = S.canAny(["manage.church", "manage.locations", "schedule.teams", "manage.classes"]) ? waitingRequests() : { rooms: [], volunteers: [], groups: [] };
+  const approvals = w.rooms.length + w.volunteers.length + w.groups.length;
+  const deact = canAskDeactivate(c) && deactStatus(c) === "requested";
   return {
     title: "Admin", back: "me",
     body: html`
       <div class="panel" style="margin-top:16px;display:flex;gap:14px;align-items:center">${churchMark(c, 48)}<div style="min-width:0"><b>${c.name}</b><br><span class="faint">Church ID: ${c.handle}. Primary: ${S.userName(c.ownerId)}${S.isPrimary() ? " (you)" : ""}. You: ${S.role().name}.</span></div></div>
-      ${S.isPrimary() && steps.some((s) => !s[1]) ? html`<section class="sec"><h2 class="sec-head">Getting started</h2><div class="rows">${steps.map(([t, done, hash]) => html`<a class="row" href="#${hash}"><span class="lead-ic" style="${done ? "background:var(--ok-soft);color:var(--ok)" : ""}">${icon(done ? "check" : "plus")}</span><span class="body"><span class="t" style="${done ? "text-decoration:line-through;color:var(--ink-3)" : ""}">${t}</span></span>${icon("chev")}</a>`)}</div></section>` : ""}
-      ${sec("Church account", [
-        row("manage.church", "admin-account", "church", "Account details", "Name, church ID, contact, logo, website and social links"),
-        row("manage.church", "admin-features", "gear", "Features and defaults", "Turn features on or off; choose what new members get"),
-        S.canAny(["manage.church", "manage.locations", "schedule.teams", "manage.classes"]) ? (() => { const w = waitingRequests(), n = w.rooms.length + w.volunteers.length + w.groups.length;
-          return html`<a class="row" href="#admin-approvals"><span class="lead-ic">${icon("check")}</span><span class="body"><span class="t">Approvals</span><span class="s">Who hears about requests; pre-approved volunteers</span></span>${n ? html`<span class="tag warn">${n} waiting</span>` : icon("chev")}</a>`; })() : "",
-        row("manage.roles", "admin-roles", "key", "Roles and permissions", `${plural(c.roles.length, "role")}; choose what each can do`),
-        S.canAny(["manage.people", "manage.roles"]) ? html`<a class="row" href="#admin-people"><span class="lead-ic">${icon("people")}</span><span class="body"><span class="t">People</span><span class="s">${plural(S.members().length, "member")}; roles and location access</span></span>${icon("chev")}</a>` : "",
-        row("manage.locations", "admin-map", "pin", "Campus map", "Draw a layout so visitors can find their way"),
-        S.canAny(["take.payments", "manage.content", "view.reports", "view.giving"]) ? html`<a class="row" href="#tickets"><span class="lead-ic">${icon("give")}</span><span class="body"><span class="t">Event tickets and payments</span><span class="s">Who's paid, who owes, and taking cash and checks</span></span>${icon("chev")}</a>` : "",
-        row("manage.church", "admin-welcome", "give", "Welcome for new visitors", "The first-visit question, visitor card and welcome message"),
-        row("manage.church", "admin-visitpage", "star", "Plan your visit page", "What first-time guests see: campus, people to meet, kids, map, beliefs"),
-        row("manage.locations", "admin-locations", "pin", "Campuses and locations", `${plural(c.locations.length, "location")}, rooms, service times and livestreams`),
-        row("manage.page", "admin-banner", "star", "Home banner", "Background, logo, graphics and text art at the top of Home"),
-        row("manage.page", "admin-page", "image", "Landing page", `${plural(c.landing.blocks.length, "block")}${c.landing.showOnHome ? ", shown on Home" : ""}`),
-        row("manage.church", "admin-training", "book", "Training church", isTrainingChurch(c) ? "Invite your team, or start fresh" : trainingChurchOf(c) ? `${trainingChurchOf(c).name}: your team's shared practice church` : "A practice copy your whole team shares"),
-        row("manage.integrations", "admin-integrations", "bolt", "Webhooks and embeds", `${plural(c.integrations.webhooks.length, "webhook")}, ${plural(c.integrations.embeds.length, "embedded page")}`),
-        canAskDeactivate(c) ? html`<a class="row" href="#admin-deactivate"><span class="lead-ic">${icon("lock")}</span><span class="body"><span class="t">Deactivate church account</span><span class="s">${deactStatus(c) === "requested" ? (S.isPrimary() ? "A request is waiting for your decision" : "Waiting for the primary account holder") : "Hide the church from everyone; its data is deleted after a year"}</span></span>${deactStatus(c) === "requested" ? html`<span class="tag warn">${S.isPrimary() ? "Review" : "Waiting"}</span>` : icon("chev")}</a>` : "",
+      <label class="field search-field" style="margin-top:14px"><span class="sr">Find a setting or tool</span>${icon("search")}<input type="search" placeholder="Find a setting or tool" data-input="admin-find" data-target="#admin-hub" data-empty="#admin-none"></label>
+      <div id="admin-hub">
+      ${sec("Needs attention", "", [
+        approvals ? item(true, "admin-approvals", "check", "Approvals", "Rooms, volunteers and group requests waiting", warn(approvals)) : "",
+        openCards ? item("manage.prayer", "admin-cards", "inbox", "Connect cards", `${openCards} waiting for follow-up`, warn(openCards)) : "",
+        newPeople ? item("manage.followup", "followup", "people", "Follow-up", `${plural(newPeople, "new person", "new people")} not reached yet`, warn(newPeople)) : "",
+        roomAsks ? item("manage.locations", "rooms", "door", "Room requests", `${plural(roomAsks, "request")} waiting for approval`, warn(roomAsks)) : "",
+        unpaired ? item("manage.devices", "devices", "lock", "Devices waiting to pair", `${plural(unpaired, "device")} not signed in yet`, warn(unpaired)) : "",
+        deact ? item(true, "admin-deactivate", "lock", "Deactivation request", S.isPrimary() ? "A request is waiting for your decision" : "Waiting for the primary account holder", html`<span class="tag warn">${S.isPrimary() ? "Review" : "Waiting"}</span>`) : "",
+      ], true)}
+      ${S.isPrimary() && done < steps.length ? html`<section class="sec getting-started" data-sec="pinned"><div class="sec-head"><h2>Getting started</h2><span class="faint">${done} of ${steps.length} done</span></div><div class="rows">${steps.map(([t, ok, hash]) => html`<a class="row ${ok ? "done" : ""}" href="#${hash}" data-search="${t}"><span class="lead-ic">${icon(ok ? "check" : "plus")}</span><span class="body"><span class="t">${t}</span>${ok ? html`<span class="s">Done</span>` : ""}</span>${icon("chev")}</a>`)}</div></section>` : ""}
+
+      ${sec("Content", "", [
+        ...["news", "events", "sermons", "plans", "gatherings"].map((k) => { const a = ADMIN[k]; return item(a.perm, `admin-${k}`, a.icon, a.title, plural(count(k), a.one, a.many || a.one + "s")); }),
+        item("manage.content", "forms", "note", "Forms", `${plural(S.list("forms").length, "form")}: sign-ups, permission slips and applications`, null, "registration survey"),
       ])}
-      ${sec("Sunday", [
-        row("checkin.station", "admin-checkin", "kid", "Check-in roster", "Kids in each room, allergy alerts, pickup and volunteers on duty"),
-        row("checkin.station", "kiosk", "screen", "Check-in kiosk", "A self check-in station that prints name tags"),
-        row("manage.devices", "devices", "lock", "Screens and devices", (() => { const d = S.list("devices"), w = d.filter((x) => x.status !== "paired").length; return d.length ? `${plural(d.length - w, "device")} signed in${w ? `, ${w} waiting to pair` : ""}` : "Sign in kiosks, presentation screens, stage displays and booth computers"; })()),
-        row("manage.devices", "signs", "image", "Digital signage", plural(S.list("signage").length, "playlist")),
-        row("manage.devices", "admin-printing", "printer", "Printing", "A printer for receipts, tickets, name tags and reports"),
-        row("manage.devices", "admin-readers", "card", "Card readers", (() => { const n = (c.cardReaders || []).length; return n ? `${plural(n, "card reader")} for kiosks` : "Tap or insert cards at a payment kiosk"; })()),
-        row("manage.devices", "paykiosk", "card", "Payment kiosk", "Try it here, or set up a kiosk under Screens and devices"),
-        S.canAny(["checkin.events", "manage.content"]) ? html`<a class="row" href="#gate"><span class="lead-ic">${icon("scan")}</span><span class="body"><span class="t">Event check-in</span><span class="s">Scan tickets at the door to check people in and out</span></span>${icon("chev")}</a>` : "",
-        row("schedule.teams", "teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when"),
-        row("manage.locations", "rooms", "door", "Rooms", (() => { const n = S.list("bookings").filter((b) => b.status === "requested").length; return n ? `${plural(n, "request")} waiting for approval` : "Book rooms and see what's in use"; })(),
-          (() => { const n = S.list("bookings").filter((b) => b.status === "requested").length; return n ? html`<span class="tag warn">${n}</span>` : null; })()),
-        row("manage.prayer", "admin-cards", "inbox", "Connect cards", openCards ? `${openCards} waiting for follow-up` : "None waiting", openCards ? html`<span class="tag warn">${openCards}</span>` : null),
-        row("manage.prayer", "admin-prayer", "pray", "Prayer requests", `${S.list("prayers").filter((p) => p.private).length} private, ${S.list("prayers").filter((p) => p.hidden).length} hidden`),
+      ${sec("People and care", "", [
+        item(["manage.people", "manage.roles"], "admin-people", "people", "People", `${plural(S.members().length, "member")}; roles and location access`, null, "members directory"),
+        item("manage.followup", "followup", "hand", "Follow-up", newPeople ? `${plural(newPeople, "new person", "new people")} not reached yet` : "Everyone's been reached", warn(newPeople), "visitors guests"),
+        item("manage.prayer", "admin-cards", "inbox", "Connect cards", openCards ? `${openCards} waiting for follow-up` : "None waiting", warn(openCards)),
+        item("manage.prayer", "admin-prayer", "pray", "Prayer requests", `${S.list("prayers").filter((p) => p.private).length} private, ${S.list("prayers").filter((p) => p.hidden).length} hidden`),
       ])}
-      ${sec("Content", [...Object.entries(ADMIN).map(([k, a]) => row(a.perm, `admin-${k}`, a.icon, a.title, plural(count(k), a.one, a.many || a.one + "s"))),
-        row("manage.content", "forms", "note", "Forms", `${plural(S.list("forms").length, "form")}: sign-ups, permission slips and applications`)])}
-      ${sec("People", [
-        row("manage.followup", "followup", "people", "Follow-up", (() => { const n = S.list("followups").filter((f) => f.status === "new").length; return n ? `${plural(n, "new person", "new people")} not reached yet` : "Everyone's been reached"; })(),
-          (() => { const n = S.list("followups").filter((f) => f.status === "new").length; return n ? html`<span class="tag warn">${n}</span>` : null; })()),
+      ${sec("Communication", "", [
+        item("send.email", "admin-email", "chat", "Email people", "Write to everyone, a role, a group, a team or people not seen lately"),
+        textingOn(c) ? item("send.texts", "admin-texts", "phone", "Text people", "A text to a group, a team or everyone signed up for an event", null, "sms") : "",
+        item("manage.church", "admin-texting", "phone", "Texting and message settings", textingOn(c) ? `On, from ${c.texting.number}. Choose how receipts and reminders go out` : c.texting?.linked ? "Twilio linked, texting off" : "Off. Link the church's Twilio account to turn it on", null, "twilio sms reminders receipts routing"),
       ])}
-      ${sec("Reports", [
-        html`<a class="row" href="#dashboard"><span class="lead-ic">${icon("layers")}</span><span class="body"><span class="t">Dashboard</span><span class="s">The church at a glance: numbers, what needs attention, attendance, giving and what's coming up</span></span>${icon("chev")}</a>`,
-        S.can("view.reports") || S.can("view.giving") ? html`<a class="row" href="#reports"><span class="lead-ic">${icon("calendar")}</span><span class="body"><span class="t">Reports</span><span class="s">${S.can("view.reports") ? "Attendance, new people" : ""}${S.can("view.reports") && S.can("view.giving") ? " and giving" : S.can("view.giving") ? "Giving" : ""}, with charts and CSV downloads</span></span>${icon("chev")}</a>` : "",
-        row("view.giving", "admin-giving", "give", "Gifts and funds", "Recent gifts, statements and funds"),
-        row("view.giving", "admin-campaigns", "star", "Pledge campaigns", "A goal for a fund, with pledges and progress"),
-        row("send.email", "admin-email", "chat", "Email people", "Write to everyone, a role, a group, a team or people not seen lately"),
-        textingOn(c) ? row("send.texts", "admin-texts", "chat", "Text people", "A text to a group, a team or everyone signed up for an event") : "",
-        row("manage.church", "admin-texting", "phone", "Texting", textingOn(c) ? `On, from ${c.texting.number}` : c.texting?.linked ? "Twilio linked, texting off" : "Off. Link the church's Twilio account to turn it on"),
-        row("manage.church", "admin-activity", "list", "Activity log", "Who did what, newest first")])}`,
+      ${sec("Sundays and check-in", "", [
+        item("checkin.station", "admin-checkin", "kid", "Check-in roster", "Kids in each room, allergy alerts, pickup and volunteers on duty", null, "children nursery"),
+        item(["checkin.events", "manage.content"], "gate", "scan", "Event check-in", "Scan tickets at the door to check people in and out", null, "gate tickets door"),
+        item("schedule.teams", "teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when", null, "serve"),
+        item("manage.locations", "rooms", "door", "Rooms", roomAsks ? `${plural(roomAsks, "request")} waiting for approval` : "Book rooms and see what's in use", warn(roomAsks), "booking calendar"),
+      ])}
+      ${sec("Kiosks, screens and printers", "", [
+        item("manage.devices", "devices", "lock", "Screens and devices", devs.length ? `${plural(devs.length - unpaired, "device")} signed in${unpaired ? `, ${unpaired} waiting to pair` : ""}` : "Pair kiosks, presentation screens, stage displays and booth computers", warn(unpaired), "pair tablet"),
+        item("checkin.station", "kiosk", "screen", "Check-in kiosk", "A self check-in station that prints name tags", null, "kids"),
+        item("manage.devices", "paykiosk", "card", "Payment kiosk", "Tickets and gifts by card, phone or cash. Try it here", null, "pay"),
+        item("manage.devices", "admin-readers", "card", "Card readers", readers ? `${plural(readers, "card reader")} for payment kiosks` : "Tap or insert cards at a payment kiosk", null, "stripe square terminal"),
+        item("manage.devices", "admin-printing", "printer", "Printers", "Which printer prints receipts, tickets, name tags and reports", null, "printing qz tray labels badges"),
+        item("manage.devices", "signs", "image", "Digital signage", plural(S.list("signage").length, "playlist"), null, "lobby tv"),
+      ])}
+      ${sec("Giving and payments", "", [
+        item("view.giving", "admin-giving", "give", "Gifts and funds", "Online payments, funds, recent gifts and year-end statements", null, "giving stripe paypal square processor donations"),
+        item("view.giving", "admin-campaigns", "star", "Pledge campaigns", "A goal for a fund, with pledges and progress"),
+        item(["take.payments", "manage.content", "view.reports", "view.giving"], "tickets", "ticket", "Event tickets and payments", "Who's paid, who owes, and taking cash and checks"),
+      ])}
+      ${sec("Reports", "", [
+        item(true, "dashboard", "layers", "Dashboard", "The church at a glance: numbers, what needs attention, attendance, giving and what's coming up"),
+        S.can("view.reports") || S.can("view.giving") ? item(true, "reports", "list", "Reports", `${S.can("view.reports") ? "Attendance, new people" : ""}${S.can("view.reports") && S.can("view.giving") ? " and giving" : S.can("view.giving") ? "Giving" : ""}, custom reports, charts and downloads`, null, "csv export") : "",
+        item("manage.church", "admin-activity", "list", "Activity log", "Who did what, newest first", null, "audit history"),
+      ])}
+      ${sec("Visitors and your front door", "", [
+        item("manage.church", "admin-visitpage", "star", "Plan your visit page", "What first-time guests see: campus, people to meet, kids, map, beliefs"),
+        item("manage.church", "admin-welcome", "give", "Welcome for new visitors", "The first-visit question, visitor card and welcome message"),
+        item("manage.page", "admin-banner", "star", "Home banner", "Background, logo, graphics and text art at the top of Home"),
+        item("manage.page", "admin-page", "image", "Landing page", `${plural(c.landing.blocks.length, "block")}${c.landing.showOnHome ? ", shown on Home" : ""}`),
+        item("manage.locations", "admin-map", "pin", "Campus map", "Draw a layout so visitors can find their way", null, "wayfinding"),
+      ])}
+      ${sec("Church setup", "", [
+        item("manage.church", "admin-account", "church", "Account details", "Name, church ID, contact, logo, website and social links"),
+        item("manage.church", "admin-features", "gear", "Features and defaults", "Turn features on or off; choose what new members get", null, "modules"),
+        item("manage.locations", "admin-locations", "pin", "Campuses and locations", `${plural(c.locations.length, "location")}, rooms, service times and livestreams`),
+        item("manage.roles", "admin-roles", "key", "Roles and permissions", `${plural(c.roles.length, "role")}; choose what each can do`),
+        item(["manage.church", "manage.locations", "schedule.teams", "manage.classes"], "admin-approvals", "check", "Approvals", "Who hears about requests; pre-approved volunteers", warn(approvals)),
+        item("manage.church", "admin-training", "book", "Training church", isTrainingChurch(c) ? "Invite your team, or start fresh" : trainingChurchOf(c) ? `${trainingChurchOf(c).name}: your team's shared practice church` : "A practice copy your whole team shares", null, "practice"),
+        item("manage.integrations", "admin-integrations", "bolt", "Webhooks and embeds", `${plural(c.integrations.webhooks.length, "webhook")}, ${plural(c.integrations.embeds.length, "embedded page")}`, null, "integrations zapier api"),
+        canAskDeactivate(c) && !deact ? item(true, "admin-deactivate", "lock", "Deactivate church account", "Hide the church from everyone; its data is deleted after a year") : "",
+      ])}
+      </div>
+      <p class="faint" id="admin-none" hidden style="margin-top:14px">Nothing matches. Try another word.</p>`,
   };
+};
+/** Admin search: hides rows that don't match, and sections left with none. Needs attention and Getting started hide while searching. */
+Inputs["admin-find"] = (el) => {
+  const q = el.value.trim().toLowerCase(), hub = $(el.dataset.target);
+  let shown = 0;
+  $$("[data-sec]", hub).forEach((sec) => {
+    if (sec.dataset.sec === "pinned") { sec.hidden = !!q; return; }
+    let n = 0;
+    $$("[data-search]", sec).forEach((r) => { const hit = !q || r.dataset.search.toLowerCase().includes(q); r.hidden = !hit; if (hit) n++; });
+    sec.hidden = !n; shown += n;
+  });
+  $(el.dataset.empty).hidden = !q || shown > 0;
 };
 
 function adminList(kind) {

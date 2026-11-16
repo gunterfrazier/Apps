@@ -25,22 +25,28 @@ Screens.me = () => {
 
       <section class="sec"><div class="sec-head"><h2>${c.name}</h2>${role ? html`<span class="tag ${role.rank >= 90 ? "brand" : ""}">${role.name}</span>` : html`<span class="tag">Looking around</span>`}</div>
         ${m && S.locations().length > 1 ? html`<p class="faint" style="margin-top:-4px">Locations: ${accessText(m)}</p>` : ""}
-        <div class="rows">
-          ${hasAdminTools() ? row("#admin", "shield", "Admin", "Manage the church account, people, content and reports") : ""}
-          ${hasMinistryTools() ? row("#ministry", "layers", "Ministry tools", "Builders, service plans, presentations, check-in and QR codes") : ""}
+        ${hasAdminTools() || hasMinistryTools() ? html`<div class="rows">
+          ${hasAdminTools() ? row("#admin", "shield", "Admin", "Content, people, Sundays, devices, giving and reports") : ""}
+          ${hasMinistryTools() ? row("#ministry", "layers", "Ministry tools", "Builders, service plans, presenting, teams and check-in") : ""}
+        </div>` : ""}</section>
+
+      <section class="sec"><h2 class="sec-head">My church life</h2><div class="rows">
+          ${S.isMember() ? (() => { const n = pendingAsks().length; return row("#serving", "hand", "Serving", n ? `${plural(n, "request")} waiting for your answer` : "Your teams, schedule and dates away"); })() : ""}
+          ${S.on("events") && S.isMember() && S.visible("events").some((e) => myRegistration(e) && (e.end || e.start) >= new Date().toISOString()) ? row("#mytickets", "ticket", "My tickets", "Show them at the door, save or print them") : ""}
+          ${S.on("checkin") ? row("#checkin", "kid", "Check in", "Kids and volunteers") : ""}
           ${S.on("parents") && kids().length ? row("#parents", "kid", "Parent portal", "Your kids' classes, events and check-in") : ""}
           ${S.isMember() ? row("#here", "check", "My attendance", "Your card, and marking yourself as here") : ""}
-          ${S.isMember() ? row("#dates", "calendar", "My dates", "Birthday, anniversary and milestones") : ""}
-          ${S.isMember() ? (() => { const n = pendingAsks().length; return row("#serving", "hand", "Serving", n ? `${plural(n, "request")} waiting for your answer` : "Your teams, schedule and dates away"); })() : ""}
-          ${row("#household", "people", "Household", me.household.length ? me.household.map((p) => p.name).join(", ") : "Add your family for classes and check-in")}
-          ${S.on("checkin") ? row("#checkin", "kid", "Check in", "Kids and volunteers") : ""}
           ${S.on("giving") ? row("#history", "give", "Giving history", "Gifts and year-end statements") : ""}
-          ${S.on("events") && S.isMember() && S.visible("events").some((e) => myRegistration(e) && (e.end || e.start) >= new Date().toISOString()) ? row("#mytickets", "ticket", "My tickets", "Show them at the door, save or print them") : ""}
+          ${S.on("sermons") ? row("#notes", "note", "Sermon notes") : ""}
           ${S.on("chat") && S.can("use.chat") ? row("#chat", "chat", "Messages") : ""}
+        </div></section>
+
+      <section class="sec"><h2 class="sec-head">My account</h2><div class="rows">
+          ${row("#household", "people", "Household", me.household.length ? me.household.map((p) => p.name).join(", ") : "Add your family for classes and check-in")}
+          ${S.isMember() ? row("#dates", "calendar", "My dates", "Birthday, anniversary and milestones") : ""}
           ${row("#settings", "gear", "Settings", "Language, text size, read aloud and notifications")}
           ${row("#scan", "scan", "Scan a QR code")}
           ${hasAdminTools() ? html`<button class="row" data-act="printers-setup"><span class="lead-ic">${icon("printer")}</span><span class="body"><span class="t">Printers on this computer</span><span class="s">Where receipts, tickets, name tags and reports print</span></span>${icon("chev")}</button>` : ""}
-          ${S.on("sermons") ? row("#notes", "note", "Sermon notes") : ""}
         </div></section>
 
       ${mine.length ? html`<section class="sec"><h2 class="sec-head">Your classes and groups</h2><div class="rows">${mine.map(gatheringRow)}</div></section>` : ""}
@@ -133,23 +139,31 @@ Screens.ministry = () => {
     S.can("build.studies") && row("#docs-study", "book", "Bible study guide builder", "Questions and passages for your group"),
   ].filter(Boolean);
   const layoutRows = Object.entries(LAYOUT_KINDS).filter(([k]) => canLayouts(k)).map(([k, l]) => row(`#layouts-${k}`, "layers", l.label, plural(S.list("layouts").filter((x) => x.kind === k).length, "saved layout")));
-  const sunday = [
+  const worship = [
     S.can("services.plan") && row("#services", "list", "Service plans", "Order of service, saved segments and who leads what"),
     S.can("services.plan") && row("#songs", "music", "Songs and lyrics", "Your song library, with CCLI details"),
+    S.can("present") && row("#services", "screen", "Present", "Slides, the stage display, countdowns, livestream overlay and captions"),
+  ].filter(Boolean);
+  const people = [
     S.can("schedule.teams") && row("#teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when"),
     (S.can("book.rooms") || S.can("manage.locations")) && row("#rooms", "door", "Rooms", "See what's free and request a room"),
-    S.can("present") && row("#services", "screen", "Present", "Slides, the stage display, countdowns, livestream overlay and captions"),
-    S.can("checkin.station") && row("#admin-checkin", "kid", "Check-in station", "Rosters by room and pickup by code"),
-    S.can("qr.create") && row("#qr", "qr", "QR codes", "Link to events, classes, registration and check-in"),
+    S.can("checkin.station") && row("#admin-checkin", "kid", "Check-in roster", "Kids in each room, allergy alerts and pickup by code"),
+    canTakeAttendance() && row("#rollcall", "check", "Take attendance", "Tick people off a list for a class, group or service"),
+  ].filter(Boolean);
+  const devices = [
+    S.can("manage.devices") && row("#devices", "lock", "Screens and devices", "Pair kiosks, presentation screens, stage displays and booth computers"),
+    S.can("checkin.station") && row("#kiosk", "screen", "Check-in kiosk", "A self check-in station that prints name tags"),
     S.can("manage.devices") && row("#signs", "image", "Digital signage", "Playlists for lobby and hallway screens"),
-    S.can("manage.devices") && row("#devices", "lock", "Screens and devices", "Sign in kiosks, presentation screens, stage displays and booth computers"),
+    S.can("qr.create") && row("#qr", "qr", "QR codes", "Link to events, classes, registration and check-in"),
   ].filter(Boolean);
   return {
     title: "Ministry tools", back: "me",
     body: html`
       ${builders.length ? html`<section class="sec"><h2 class="sec-head">Builders</h2><div class="rows">${builders}</div></section>` : ""}
-      ${sunday.length ? html`<section class="sec"><h2 class="sec-head">Sunday</h2><div class="rows">${sunday}</div></section>` : ""}
+      ${worship.length ? html`<section class="sec"><h2 class="sec-head">Worship and services</h2><div class="rows">${worship}</div></section>` : ""}
       ${layoutRows.length ? html`<section class="sec"><h2 class="sec-head">Layouts</h2><div class="rows">${layoutRows}</div></section>` : ""}
+      ${people.length ? html`<section class="sec"><h2 class="sec-head">Teams, rooms and check-in</h2><div class="rows">${people}</div></section>` : ""}
+      ${devices.length ? html`<section class="sec"><h2 class="sec-head">Screens and QR codes</h2><div class="rows">${devices}</div></section>` : ""}
       ${myClasses.length ? html`<section class="sec"><h2 class="sec-head">You lead</h2><div class="rows">${myClasses.map(gatheringRow)}</div></section>` : ""}
       ${docs.length ? html`<section class="sec"><h2 class="sec-head">Your recent work</h2><div class="rows">${docs.slice(0, 5).map(docRow)}</div></section>` : ""}`,
   };

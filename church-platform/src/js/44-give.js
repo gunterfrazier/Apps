@@ -1,6 +1,6 @@
 // ---------- Giving ----------
 // Gifts go through Pay: the checkout of the church's own payment processor (Stripe, PayPal or Square) once it's set up
-// under Admin, Giving, a test checkout everywhere else. A church that already gives through another service (Tithe.ly,
+// under Admin, Gifts and funds, a test checkout everywhere else. A church that already gives through another service (Tithe.ly,
 // Pushpay, Givelify...) can link its giving page instead, and the Give screen leads with it. Text-to-give links (#give-CHURCH~AMOUNT) open this screen with the amount filled in.
 
 const FREQ = { once: "One time", weekly: "Every week", monthly: "Every month" };
@@ -32,7 +32,7 @@ Screens.give = (tail = "") => {
       ${link ? html`<a class="panel give-out" href="${link.url}" target="_blank" rel="noopener"><span class="lead-ic">${icon("give")}</span>
         <span class="body"><span class="t">Give with ${givingService(link)}</span><span class="s">Opens ${hostOf(link.url)}. Gifts made there show in ${givingService(link) === "Our giving page" ? "that service" : givingService(link)}, not in your history here.</span></span>${icon("link")}</a>` : ""}
       ${!inApp ? "" : html`${link ? html`<h2 class="sec-head" style="margin-top:22px">Or give here</h2>` : ""}
-      ${Pay.live() ? "" : practiceMode(c) ? demoNote(html`<b>Practice:</b> gifts here are pretend, and no money moves.`) : demoNote(html`<b>Test mode:</b> gifts are recorded here, but no money moves. Real gifts start once ${c.name} sets up online giving under Admin, Giving.`)}
+      ${Pay.live() ? "" : practiceMode(c) ? demoNote(html`<b>Practice:</b> gifts here are pretend, and no money moves.`) : demoNote(html`<b>Test mode:</b> gifts are recorded here, but no money moves. Real gifts start once ${c.name} sets up online giving under Admin, Gifts and funds.`)}
       <form data-form="give" class="panel" novalidate>
         <label for="amount" class="sr">Amount in dollars</label>
         <div style="display:flex;align-items:center;justify-content:center"><span class="amount" aria-hidden="true" style="color:var(--ink-3)">$</span><input id="amount" class="amount" name="amount" type="text" inputmode="decimal" value="${preset}" data-input="give-amount" autocomplete="off" style="width:${Math.max(3, String(preset).length + 1)}ch"></div>

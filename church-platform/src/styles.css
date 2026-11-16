@@ -1299,3 +1299,9 @@ body:has(.bible-actions) #app { padding-bottom: calc(var(--tab-h) + env(safe-are
 @media (prefers-reduced-motion: reduce) { .pk-reader .i { animation: none; } }
 .pk-done-art { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin: 14px 0; } .pk-done-art .receipt-art svg { max-width: 340px; }
 .kiosk-wide { display: block; margin: 14px auto; }
+
+/* Admin: Getting started steps already done stay listed, dimmed, with a check */
+.getting-started .row.done { opacity: .55; }
+.getting-started .row.done:hover, .getting-started .row.done:focus-visible { opacity: .85; }
+.getting-started .row.done .lead-ic { background: var(--ok-soft); color: var(--ok); }
+.getting-started .row.done .s { color: var(--ok); }
