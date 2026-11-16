@@ -109,6 +109,37 @@ function seedExtras(st, { now, daysAgo }) {
     delivered("dl-3", slack, "prayer.created", { name: "Teresa Martinez", summary: "A prayer request is shared: Teresa Martinez" }, 3),
     delivered("dl-4", social, "event.created", { title: "Fall festival", locationId: MAIN, summary: "New event: Fall festival" }, 8, "failed (HTTP 410)"));
 
+  // ----- Event tickets: paid in the app, by cash and check, part now and part later -----
+  {
+    const ev = (id) => st.events.find((e) => e.id === `${R}-${id}`), retreat = ev("e7"), dinner = ev("e8");
+    st.ticketPayments ||= [];
+    const reg = (e, by, tickets, extra = {}) => { const total = e.tickets.reduce((n, t) => n + (tickets[t.id] || 0) * t.price, 0), count = Object.values(tickets).reduce((n, x) => n + x, 0);
+      const r = { id: `${e.id}~${by}`, by, name: nm(by) || extra.name, email: st.users[by]?.email || "", phone: "", count, kids: [], tickets, total, paid: { status: "door", tracked: true }, at: daysAgo(extra.ago || 3), ...extra };
+      delete r.ago; e.registrations.push(r); return r; };
+    const pay = (e, r, amount, method, by, ago, more = {}) => st.ticketPayments.push({ id: `tp-${r.by}-${e.id.slice(-2)}-${st.ticketPayments.length}`, churchId: R, eventId: e.id, regId: r.id, payerId: r.by, amount, method,
+      status: method === "app" ? "test" : "paid", receivedBy: method === "app" ? "" : by, receivedByName: method === "app" ? "" : nm(by), recordedBy: by, at: daysAgo(ago), receipts: [], checkNo: "", note: "", ...(method === "app" ? { ref: `test_${uid()}` } : {}), ...more });
+    if (retreat) {
+      Object.assign(retreat, { payInApp: true, payInPerson: true, payPartial: true, deposit: 25, collectors: ["u-daniel"],
+        payNote: "Bring cash or a check made out to Riverside Community Church to Daniel Kim or the church office by the Sunday before the retreat." });
+      const marcus = reg(retreat, "u-marcus", { "t-student": 2 }, { ago: 9, phone: "(770) 555-0131" });
+      pay(retreat, marcus, 50, "app", "", 9); pay(retreat, marcus, 120, "check", "u-dana", 5, { checkNo: "1042", receipts: [{ via: "email", to: marcus.email, at: daysAgo(5), by: "u-dana" }] });
+      const teresa = reg(retreat, "u-teresa", { "t-student": 1 }, { ago: 6, phone: "(770) 555-0177" });
+      pay(retreat, teresa, 40, "cash", "u-daniel", 4, { receipts: [{ via: "text", to: "(770) 555-0177", at: daysAgo(4), by: "u-daniel" }], note: "Rest after payday" });
+      reg(retreat, "u-jordan", { "t-student": 1, "t-leader": 1 }, { ago: 2 });
+      const hannah = reg(retreat, "walkin-hannah", { "t-student": 1 }, { name: "Hannah Brooks", email: "hannah.brooks@example.com", ago: 3, addedBy: "u-ana" });
+      pay(retreat, hannah, 85, "check", "u-ana", 3, { checkNo: "317", receipts: [{ via: "email", to: "hannah.brooks@example.com", at: daysAgo(3), by: "u-ana" }] });
+      const late = reg(retreat, "u-linda", { "t-leader": 1 }, { ago: 7 });
+      pay(retreat, late, 20, "cash", "u-daniel", 7); pay(retreat, late, 20, "cash", "u-daniel", 1);
+    }
+    if (dinner) {
+      Object.assign(dinner, { payInApp: true, payInPerson: true, payPartial: false, payNote: "Pay at the welcome desk on Sunday, or at the door that night." });
+      const linda = reg(dinner, "u-linda", { "t-adult": 2, "t-child": 1 }, { ago: 5 }); pay(dinner, linda, 38, "cash", "u-ana", 4, { receipts: [{ via: "email", to: linda.email, at: daysAgo(4), by: "u-ana" }] });
+      const mark = reg(dinner, "u-mark", { "t-adult": 2 }, { ago: 4 }); pay(dinner, mark, 30, "app", "", 4); mark.paid = { status: "test", tracked: true, at: daysAgo(4) };
+      reg(dinner, "u-daniel", { "t-adult": 1 }, { ago: 1 });
+      const ana = reg(dinner, "u-ana", { "t-adult": 1, "t-child": 2 }, { ago: 2 }); pay(dinner, ana, 15, "cash", "u-dana", 2);
+    }
+  }
+
   // ----- Custom reports: they run by themselves the first time someone opens the app, so saved copies appear -----
   st.customReports.push(
     { id: "cr-weekly", churchId: R, name: "Weekly attendance", note: "For Monday's staff meeting.", range: "8w", campus: "all", parts: ["overview|stats|Average week, Last Sunday, Kids per week, First-time guests", "overview|chart|People each week", "attendance|table|Attendance by person"],

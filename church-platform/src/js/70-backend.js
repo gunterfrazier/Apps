@@ -298,9 +298,9 @@ const Backend = {
 
 /** Collections kept in the records table, one row per item. */
 const RECORD_KINDS = ["sermons", "events", "news", "prayers", "gatherings", "plans", "gifts", "recurring", "docs", "songs", "library", "services", "layouts", "savedBlocks", "channels", "messages", "cards",
-  "checkins", "serving", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "deliveries", "devices", "signage", "roomSessions", "presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns"];
+  "checkins", "serving", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "deliveries", "devices", "signage", "roomSessions", "presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns", "ticketPayments"];
 /** Kinds a database that hasn't had upgrade-10.sql yet turns away. That's no reason to tell people their changes weren't saved. */
-const QUIET_KINDS = ["presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns"];
+const QUIET_KINDS = ["presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns", "ticketPayments"];
 /** Lists inside a record that belong to one person each, stored as their own rows so security can follow the person. */
 const SPLIT = {
   events: { field: "registrations", kind: "event_regs", owner: (r) => r.by },
@@ -310,7 +310,7 @@ const SPLIT = {
 /** Who a record belongs to, for "your own" security rules. */
 function ownerOf(kind, r) {
   return { prayers: r.by, gifts: r.by, recurring: r.by, docs: r.authorId, cards: r.by, checkins: r.by, serving: r.by, teamMembers: r.userId, blockouts: r.userId, notifications: r.userId,
-    formResponses: r.by, bookings: r.by, messages: r.by, followups: r.assignedTo, devices: r.deviceUser, roomSessions: r.by, presence: r.userId, milestones: r.userId, pledges: r.userId, activity: r.by }[kind] || null;
+    formResponses: r.by, bookings: r.by, messages: r.by, followups: r.assignedTo, devices: r.deviceUser, roomSessions: r.by, presence: r.userId, milestones: r.userId, pledges: r.userId, activity: r.by, ticketPayments: r.payerId }[kind] || null;
 }
 /** A fresh state with no sample churches, for signed-in use. */
 function blankState() {

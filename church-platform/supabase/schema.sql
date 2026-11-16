@@ -75,6 +75,7 @@ create table records (
 create index records_church_kind on records (church_id, kind);
 create index records_owner on records (owner) where owner is not null;
 create index records_parent on records ((data->>'_parent')) where kind in ('event_regs', 'gathering_regs', 'assignments');
+create index records_regid on records ((data->>'regId')) where kind = 'ticketPayments';
 
 -- Server-only tables (no policies, so only the service role used by server functions can reach them).
 create table push_subscriptions (endpoint text primary key, user_id uuid not null references auth.users on delete cascade, keys jsonb not null, created_at timestamptz not null default now());
@@ -127,6 +128,9 @@ create or replace function can(c text, perm text) returns boolean language sql s
 create or replace function sees_location(c text, loc text) returns boolean language sql stable security definer set search_path = public as
   $$ select is_primary(c) or (church_live(c) and (loc is null or exists (select 1 from locations l where l.id = loc and l.visibility = 'public')
        or exists (select 1 from memberships m where m.church_id = c and m.user_id = auth.uid() and (m.locations = '"all"'::jsonb or m.locations ? loc)))) $$;
+-- Is the signed-in person named on this event to take its payments?
+create or replace function collects(event text) returns boolean language sql stable security definer set search_path = public as
+  $$ select exists (select 1 from records e where e.kind = 'events' and e.id = event and e.data->'collectors' ? auth.uid()::text) $$;
 create or replace function leads(gathering text) returns boolean language sql stable security definer set search_path = public as
   $$ select exists (select 1 from records g where g.kind = 'gatherings' and g.id = gathering and g.data->'leaders' ? auth.uid()::text) $$;
 -- Chats: leaders-<church>, g-<group> (members and leaders), p-<class> (parents and teachers), or a direct message channel.
@@ -160,7 +164,10 @@ create or replace function rec_read(k text, c text, loc text, own text, d jsonb)
     when k = 'assignments' then can(c, 'schedule.teams') or can(c, 'services.plan')
     when k = 'teamMembers' then is_member(c)
     when k = 'blockouts' then can(c, 'schedule.teams')
-    when k = 'event_regs' then can(c, 'manage.content')
+    -- Sign-ups: the people who run events, take ticket payments or read reports, and the people an event names to take its payments.
+    when k = 'event_regs' then can(c, 'manage.content') or can(c, 'take.payments') or can(c, 'view.reports') or collects(d->>'_parent')
+    -- Ticket payments: the payer (as owner, above), and the same people.
+    when k = 'ticketPayments' then can(c, 'manage.content') or can(c, 'take.payments') or can(c, 'view.reports') or can(c, 'view.giving') or collects(d->>'eventId')
     when k = 'gathering_regs' then can(c, 'manage.classes') or leads(d->>'_parent')
     when k in ('gifts', 'recurring') then can(c, 'view.giving')
     when k = 'cards' then can(c, 'manage.prayer') or can(c, 'manage.followup')
@@ -202,7 +209,12 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
     -- Joining a volunteer team yourself is a request until a scheduler approves it, unless the church pre-approved you.
     when k = 'teamMembers' then can(c, 'schedule.teams') or (own = auth.uid()::text and is_member(c) and (op = 'delete' or d->>'status' = 'requested' or volunteer_preapproved(c)))
     when k = 'blockouts' then own = auth.uid()::text or can(c, 'schedule.teams')
-    when k = 'event_regs' then (own = auth.uid()::text and is_member(c)) or can(c, 'manage.content')
+    when k = 'event_regs' then (own = auth.uid()::text and is_member(c)) or can(c, 'manage.content') or can(c, 'take.payments') or collects(d->>'_parent')
+    -- Cash and checks are recorded by people who take payments, in their own name unless they manage events. Payments in the
+    -- app are written by the payment webhook; people can only record test payments themselves (the preview and practice).
+    when k = 'ticketPayments' then (d->>'method' in ('cash', 'check') and (can(c, 'manage.content') or ((can(c, 'take.payments') or collects(d->>'eventId'))
+        and (op <> 'insert' or d->>'receivedBy' = auth.uid()::text))))
+      or (own = auth.uid()::text and d->>'method' = 'app' and d->>'status' in ('test', 'refunded') and is_member(c))
     -- Joining a class or group whose leader approves each request: your own sign-up has to wait as a request.
     when k = 'gathering_regs' then (own = auth.uid()::text and is_member(c) and (op = 'delete' or d->>'status' = 'requested'
         or not exists (select 1 from records g where g.kind = 'gatherings' and g.id = d->>'_parent' and g.data->>'registration' = 'approval')))

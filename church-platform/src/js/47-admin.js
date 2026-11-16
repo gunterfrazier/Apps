@@ -44,22 +44,31 @@ const ADMIN = {
       { name: "capacity", label: "Spots available", type: "number", hint: "Leave at 0 for no limit.", get: (r) => r.capacity || 0 },
       { name: "tickets", label: "Tickets", type: "textarea", max: 600, get: (r) => (r.tickets || []).map((t) => [t.name, t.price, t.limit || ""].filter((x) => x !== "").join(", ")).join("\n"),
         hint: "For paid events, one ticket type per line: name, price, and how many there are (optional). Example: Adult, 15. Leave blank for a free sign-up." },
+      { name: "payInApp", label: "Ticket buyers can pay in the app", type: "checkbox", get: (r) => r.payInApp !== false },
+      { name: "payInPerson", label: "Ticket buyers can pay in person with cash or check", type: "checkbox" },
+      { name: "payPartial", label: "They can pay part now and the rest later", type: "checkbox" },
+      { name: "deposit", label: "Smallest first payment", type: "number", hint: "With part payments: the least someone pays when they sign up. Leave at 0 for any amount.", get: (r) => r.deposit || 0 },
+      { name: "payNote", label: "How to pay in person", type: "textarea", max: 300, hint: "Like: Bring cash or a check made out to Riverside Community Church to the welcome desk by Dec 1." },
+      { name: "collectors", label: "Who else can take cash and checks for this event", type: "people", hint: "Besides roles with \"Take cash and check payments\"." },
       { name: "formId", label: "Form to fill in after signing up", type: "select", options: () => [["", "None"], ...S.list("forms").map((f) => [f.id, f.title])], hint: "Use this for permission slips. Build forms under Admin, Forms." },
     ],
     check: (d, rec) => {
       if (new Date(d.end) <= new Date(d.start)) return "The event has to end after it starts.";
       const t = parseTickets(d.tickets, rec); if (t.error) return t.error;
       if (t.list.length && !d.signup) return "Turn on sign-ups to sell tickets.";
+      if (t.list.length && !d.payInApp && !d.payInPerson) return "Choose at least one way to pay: in the app or in person.";
       if (d.locationId && d.location) {
         const hits = roomUses(d.locationId, d.location, new Date(d.start).getTime(), new Date(d.end).getTime()).filter((u) => !(u.kind === "event" && u.id === rec?.id));
         if (hits.length) return `${d.location} is in use then for ${hits[0].title} (${fmtTime(hits[0].start)} to ${fmtTime(hits[0].end)}). Choose another room or time.`;
       }
       return null;
     },
-    save: (d, r) => ({ title: d.title, category: d.category || "Community", start: fromLocalInput(d.start), end: fromLocalInput(d.end), locationId: d.locationId || null, location: d.location, description: d.description, signup: !!d.signup, kids: !!d.kids, capacity: Math.max(0, +d.capacity || 0), registrations: r?.registrations || [], tickets: parseTickets(d.tickets, r).list, formId: d.formId || null }),
+    save: (d, r) => ({ title: d.title, category: d.category || "Community", start: fromLocalInput(d.start), end: fromLocalInput(d.end), locationId: d.locationId || null, location: d.location, description: d.description, signup: !!d.signup, kids: !!d.kids, capacity: Math.max(0, +d.capacity || 0), registrations: r?.registrations || [], tickets: parseTickets(d.tickets, r).list, formId: d.formId || null,
+      payInApp: !!d.payInApp, payInPerson: !!d.payInPerson, payPartial: !!d.payPartial, deposit: Math.max(0, +d.deposit || 0), payNote: d.payNote || "", collectors: d.collectors || [] }),
     after: (e) => { S.list("forms").forEach((f) => { if (f.id === e.formId) f.eventId = e.id; else if (f.eventId === e.id) f.eventId = null; }); },
-    extra: (e) => e.signup && e.registrations.length ? html`<div class="panel" style="margin-bottom:8px"><div style="display:flex;gap:8px;align-items:center;justify-content:space-between"><b>${registeredCount(e)} signed up${e.tickets?.length ? `, ${money(e.registrations.reduce((n, r) => n + (r.paid && r.paid.status !== "refunded" ? r.total || 0 : 0), 0))} paid` : ""}</b><button type="button" class="btn ghost sm" data-act="event-csv" data-id="${e.id}">${icon("download")}CSV</button></div>
-      ${e.registrations.map((r) => html`<p class="faint" style="margin:4px 0">${r.name}${r.count > 1 ? `, party of ${r.count}` : ""}${r.tickets ? `, ${ticketSummary(e, r)}` : ""}${r.kids?.length ? `, ${plural(r.kids.length, "child", "children")}` : ""}${r.total ? `, ${paidLabel(r.paid)}` : ""}${e.formId ? `, ${formsDoneText(e, r)}` : ""}${r.email ? `, ${r.email}` : ""}</p>`)}</div>` : "",
+    extra: (e) => e.signup && e.registrations.length ? html`<div class="panel" style="margin-bottom:8px"><div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap"><b>${registeredCount(e)} signed up${e.tickets?.length ? `, ${money(e.registrations.reduce((n, r) => n + regPaid(e, r), 0))} paid, ${money(e.registrations.reduce((n, r) => n + regBalance(e, r), 0))} owed` : ""}</b>
+      <span class="btns" style="margin:0">${e.tickets?.length ? html`<a class="btn sm" href="#tickets-${e.id}">${icon("list")}Tickets and payments</a>` : ""}<button type="button" class="btn ghost sm" data-act="event-csv" data-id="${e.id}">${icon("download")}CSV</button></span></div>
+      ${e.registrations.map((r) => html`<p class="faint" style="margin:4px 0">${r.name}${r.count > 1 ? `, party of ${r.count}` : ""}${r.tickets ? `, ${ticketSummary(e, r)}` : ""}${r.kids?.length ? `, ${plural(r.kids.length, "child", "children")}` : ""}${r.total ? `, ${PAY_STATUS[regStatus(e, r)].toLowerCase()}${regBalance(e, r) ? ` (${money(regBalance(e, r))} due)` : ""}` : ""}${e.formId ? `, ${formsDoneText(e, r)}` : ""}${r.email ? `, ${r.email}` : ""}</p>`)}</div>` : "",
   },
   sermons: {
     title: "Sermons", one: "sermon", icon: "play", perm: "manage.sermons",
@@ -151,7 +160,7 @@ function adminField(f, rec) {
     case "radios": return html`<fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">${f.label}</legend><div class="radios">${f.options.map(([k, l]) => html`<label><input type="radio" name="${f.name}" value="${k}" ${attr(k === v, "checked")}><span>${l}</span></label>`)}</div></fieldset>`;
     case "days": return html`<fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">${f.label}</legend><div class="radios">${DAYS.map((d, i) => html`<label><input type="checkbox" name="${f.name}" value="${i}" ${attr((v || []).includes(i), "checked")}><span>${d.slice(0, 3)}</span></label>`)}</div></fieldset>`;
     case "people": {
-      const chosen = rec.leaders || [];
+      const chosen = v || [];
       const people = S.members().map((m) => S.user(m.userId)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
       return html`<fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">${f.label}</legend><div class="pick-list">${people.map((p) => html`<label class="check" style="padding:4px 0"><input type="checkbox" name="${f.name}" value="${p.id}" ${attr(chosen.includes(p.id), "checked")}><span>${p.name} <span class="faint">${S.role(S.state.current, p.id)?.name}</span></span></label>`)}</div><small>Assigned teachers can use the lesson builder for this class if their role allows it.</small></fieldset>`;
     }
@@ -194,6 +203,7 @@ Screens.admin = (section) => {
         row("manage.roles", "admin-roles", "key", "Roles and permissions", `${plural(c.roles.length, "role")}; choose what each can do`),
         S.canAny(["manage.people", "manage.roles"]) ? html`<a class="row" href="#admin-people"><span class="lead-ic">${icon("people")}</span><span class="body"><span class="t">People</span><span class="s">${plural(S.members().length, "member")}; roles and location access</span></span>${icon("chev")}</a>` : "",
         row("manage.locations", "admin-map", "pin", "Campus map", "Draw a layout so visitors can find their way"),
+        S.canAny(["take.payments", "manage.content", "view.reports", "view.giving"]) ? html`<a class="row" href="#tickets"><span class="lead-ic">${icon("give")}</span><span class="body"><span class="t">Event tickets and payments</span><span class="s">Who's paid, who owes, and taking cash and checks</span></span>${icon("chev")}</a>` : "",
         row("manage.church", "admin-welcome", "give", "Welcome for new visitors", "The first-visit question, visitor card and welcome message"),
         row("manage.locations", "admin-locations", "pin", "Campuses and locations", `${plural(c.locations.length, "location")}, rooms, service times and livestreams`),
         row("manage.page", "admin-banner", "star", "Home banner", "Background, logo, graphics and text art at the top of Home"),

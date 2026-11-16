@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.church-lifecycle]
 verify_jwt = false
+
+[functions.ticket-receipt]
+verify_jwt = false

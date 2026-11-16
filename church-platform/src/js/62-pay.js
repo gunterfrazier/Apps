@@ -45,7 +45,7 @@ const Pay = {
 let payPending = null;
 Actions["pay-test"] = () => { const r = payPending; payPending = null; closeSheet(true); r?.({ status: "test", ref: `test_${uid()}`, at: new Date().toISOString() }); };
 Actions["pay-cancel"] = () => { const r = payPending; payPending = null; closeSheet(); r?.(null); };
-const paidLabel = (p) => !p ? "Not paid" : p.status === "paid" ? `Paid ${fmtShort(p.at)}` : p.status === "test" ? "Paid (test)" : p.status === "refunded" ? "Refunded" : p.status === "door" ? "Pay at the door" : p.status === "free" ? "Free" : p.status === "pending" ? "Payment not finished" : "Not paid";
+const paidLabel = (p) => !p ? "Not paid" : p.status === "paid" ? `Paid ${fmtShort(p.at)}` : p.status === "test" ? "Paid (test)" : p.status === "refunded" ? "Refunded" : p.status === "door" ? "Paying in person" : p.status === "partial" ? "Partly paid" : p.status === "free" ? "Free" : p.status === "pending" ? "Payment not finished" : "Not paid";
 /** With live payments the page leaves for the processor, so the sign-up or response is saved first as pending and marked paid when the payment comes in. */
 async function savePending() { S.flush(); if (typeof Backend !== "undefined" && Backend.on) { clearTimeout(Backend.timer); await Backend.flush(); } }
 
