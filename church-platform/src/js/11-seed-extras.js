@@ -109,6 +109,31 @@ function seedExtras(st, { now, daysAgo }) {
     delivered("dl-3", slack, "prayer.created", { name: "Teresa Martinez", summary: "A prayer request is shared: Teresa Martinez" }, 3),
     delivered("dl-4", social, "event.created", { title: "Fall festival", locationId: MAIN, summary: "New event: Fall festival" }, 8, "failed (HTTP 410)"));
 
+  // ----- Plan your visit: the demo shows a page a church has filled in -----
+  c.visitPage = { blocks: [
+    { id: "v-welcome", type: "welcome", title: "We can't wait to meet you", text: "Whether you're new to church or looking for a church home, you're welcome at Riverside. Here's everything you need for your first Sunday." },
+    { id: "v-video", type: "video", title: "A welcome from Pastor Dana", url: "", text: "", hidden: true },
+    { id: "v-campus", type: "campus", title: "When and where", parking: "Guest parking is marked with blue signs right by the main entrance. On busy Sundays a shuttle runs from the school lot across Riverbend Road.", notes: "" },
+    { id: "v-contact", type: "contact", title: "Someone to meet you", userId: "u-ana", role: "Guest welcome coordinator", message: "Hi! I'm usually at the welcome desk from 8:30. Tell me you're coming and I'll save you a seat, show you around and help get your kids checked in.", phone: "", email: "" },
+    { id: "v-expect", type: "expect", title: "What to expect", text: "", items: [
+      { title: "How long", text: "Services last about 75 minutes." }, { title: "Music and teaching", text: "A mix of modern worship songs and hymns, prayer, and a message from the Bible that connects to everyday life." },
+      { title: "What to wear", text: "Come as you are. You'll see everything from jeans to suits." }, { title: "Communion", text: "We share communion on the first Sunday of each month. Everyone who follows Jesus is welcome to take part." }] },
+    { id: "v-kids", type: "kids", title: "Bringing kids?", text: KIDS_HOW, kiosks: true, rooms: true },
+    { id: "v-map", type: "map", title: "Find your way around" },
+    { id: "v-amen", type: "amenities", title: "While you're here", items: ["coffee", "wifi", "parking", "accessparking", "accessible", "elevator", "nursery", "kidsclasses", "checkin", "hearing", "livestream"], custom: "Donuts on the first Sunday of the month" },
+    { id: "v-classes", type: "classes", title: "Classes and groups", text: "Most classes don't need you to sign up. Just come. Kids' classes meet during both services; check kids in first." },
+    { id: "v-staff", type: "staff", title: "Meet our staff", text: "", people: [
+      { id: "st-dana", userId: "u-dana", name: "Dana Whitfield", role: "Lead pastor", photo: "", bio: "Dana has led Riverside since 2012. She grew up in Savannah, studied at Columbia Seminary, and loves long walks on the Chattahoochee trails with her husband Lee and their two kids." },
+      { id: "st-marcus", userId: "u-marcus", name: "Marcus Bell", role: "Associate pastor", photo: "", bio: "Marcus oversees adult classes and small groups. Ask him about the best barbecue in Marietta." },
+      { id: "st-linda", userId: "u-linda", name: "Linda Park", role: "Children's director", photo: "", bio: "Linda has taught kids at Riverside for fifteen years and makes sure every child is known by name." },
+      { id: "st-mark", userId: "u-mark", name: "Mark Ellis", role: "Worship and media", photo: "", bio: "" }] },
+    { id: "v-beliefs", type: "beliefs", title: "What we believe", text: "These are the beliefs we hold in common with Christians around the world and through history.", url: "", items: [
+      { title: "God", text: "There is one God, eternally existing as Father, Son and Holy Spirit." },
+      { title: "Jesus", text: "Jesus Christ is fully God and fully human. He lived without sin, died for our sins, rose from the dead, and will come again." },
+      { title: "The Bible", text: "The Bible is God's inspired word, our guide for what we believe and how we live." },
+      { title: "Salvation", text: "We are saved by God's grace through faith in Jesus, not by anything we earn." },
+      { title: "The church", text: "The church is the family of all who follow Jesus, called to worship, love one another and serve our neighbors." }] }] };
+
   // ----- Custom reports: they run by themselves the first time someone opens the app, so saved copies appear -----
   st.customReports.push(
     { id: "cr-weekly", churchId: R, name: "Weekly attendance", note: "For Monday's staff meeting.", range: "8w", campus: "all", parts: ["overview|stats|Average week, Last Sunday, Kids per week, First-time guests", "overview|chart|People each week", "attendance|table|Attendance by person"],
