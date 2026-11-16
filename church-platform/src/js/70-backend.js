@@ -81,6 +81,16 @@ const Backend = {
     })().finally(() => { this.resuming = null; });
   },
 
+  /** For someone signed out who opens Plan your visit (#visit-<churchId>): the church and its public locations. */
+  async pullPublicChurch(cid) {
+    const sb = this.client; if (!sb || !cid) return false;
+    const { data: loc } = await sb.from("locations").select("id").eq("church_id", cid).limit(1).maybeSingle();
+    if (loc) return this.pullPublic(loc.id);
+    const { data: c } = await sb.from("churches").select("*").eq("id", cid).maybeSingle();
+    if (!c) return false;
+    S.state.churches[c.id] = { ...c.data, id: c.id, name: c.name, handle: c.handle, ownerId: c.owner_id, roles: [], locations: [] };
+    S.state.current = c.id; return true;
+  },
   /** For someone signed out who opens a campus map link: that church and its public locations, nothing else.
    *  (Anyone may read a live church's name and its public locations; see the policies on churches and locations.) */
   async pullPublic(locId) {

@@ -52,25 +52,7 @@ function welcomeShow(as) {
 }
 Actions["welcome-go"] = (el) => { closeSheet(true); if (location.hash !== `#${el.dataset.to}`) go(el.dataset.to); };
 
-// ----- Plan your visit -----
-Screens.visit = () => {
-  const c = S.church(); if (!c) return { redirect: "churches" };
-  const locs = S.visibleLocations().filter((l) => l.visibility !== "private" || S.isMember()), day = (n) => ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][n];
-  const time = (t) => { const [h, m] = t.split(":").map(Number); return fmtTime(new Date(2000, 0, 1, h, m)); };
-  const next = upcomingServices(c, 1)[0];
-  return { title: "Plan your visit", back: "home", body: html`
-    <div style="margin-top:14px">${bannerHtml(c)}</div>
-    ${next ? html`<div class="panel" style="margin-top:14px"><p class="muted" style="margin:0">Next service</p><h2 style="margin:2px 0 0">${serviceName(next)}</h2></div>` : ""}
-    ${locs.map((l) => html`<section class="sec panel"><h2 style="margin:0">${locs.length > 1 ? l.name : "When and where"}</h2>
-      ${(l.services || []).length ? html`<ul class="plain" style="margin:10px 0 0;padding:0;list-style:none">${l.services.map((s) => html`<li style="padding:4px 0"><b>${day(s.day)} ${time(s.time)}</b> ${s.label || "Service"}</li>`)}</ul>` : html`<p class="muted" style="margin:8px 0 0">Service times aren't posted yet.</p>`}
-      ${l.address ? html`<p style="margin:10px 0 0">${l.address}</p>` : ""}
-      <div class="btns" style="margin-top:12px">${l.address ? html`<a class="btn" href="${mapLink(l.address)}" target="_blank" rel="noopener">${icon("pin")}Directions</a>` : ""}${mapOf(l) ? html`<a class="btn ghost" href="#map-${l.id}">Campus map</a>` : ""}${l.liveUrl ? html`<a class="btn ghost" href="#live">Watch live</a>` : ""}</div></section>`)}
-    <section class="sec"><div class="rows">
-      ${S.on("checkin") !== false && S.isMember() ? html`<a class="row" href="#household"><span class="lead-ic">${icon("kid")}</span><span class="body"><span class="t">Bringing kids?</span><span class="s">Add them now so check-in is quick when you arrive</span></span>${icon("chev")}</a>` : ""}
-      <button class="row" data-act="connect-card"><span class="lead-ic">${icon("inbox")}</span><span class="body"><span class="t">Have a question?</span><span class="s">Send a connect card and someone will be in touch</span></span>${icon("chev")}</button>
-      <a class="row" href="#events"><span class="lead-ic">${icon("calendar")}</span><span class="body"><span class="t">What's coming up</span><span class="s">Events and ways to get to know people</span></span>${icon("chev")}</a></div></section>
-    ${c.landing?.blocks?.length ? html`<div class="landing">${landingBlocks(c)}</div>` : ""}` };
-};
+// Plan your visit itself is in 87-visit-page.js.
 
 // ----- Settings: Admin, Welcome for new visitors -----
 AdminScreens.welcome = () => {

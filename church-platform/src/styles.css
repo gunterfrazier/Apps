@@ -1218,3 +1218,31 @@ body:has(.bible-actions) #app { padding-bottom: calc(var(--tab-h) + env(safe-are
 .tk-void .t, .tk-void .s { text-decoration: line-through; opacity: .6; }
 .tk-receipt-text { white-space: pre-wrap; font: .88rem/1.45 var(--body, inherit); background: var(--sunken); padding: 12px; border-radius: var(--r-m); margin: 0 0 12px; }
 .tag.part { background: var(--demo-soft); color: var(--demo); }
+/* ---------- Plan your visit ---------- */
+.vp-pick { margin: 14px 0 0; }
+.vp .block h3 { font-size: 1rem; margin: 16px 0 6px; }
+.vp-hero { width: 100%; max-height: 280px; object-fit: cover; border-radius: var(--r-l); margin-bottom: 12px; display: block; }
+.vp-next, .vp-addr { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; }
+.vp-times { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
+.vp-times li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; } .vp-times span { color: var(--ink-2); }
+.vp-person { display: flex; gap: 14px; align-items: center; }
+.vp-person > div { display: flex; flex-direction: column; }
+.vp-photo { border-radius: 50%; object-fit: cover; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.vp-initials { color: #fff; font: 700 1.3rem var(--display); }
+.vp-name { font: 700 1.1rem var(--display); }
+.vp-quote { margin: 12px 0 0; padding: 12px 14px; background: var(--sunken); border-radius: var(--r-m); font-style: italic; }
+.vp-reach { margin-top: 12px; flex-wrap: wrap; }
+.vp-staff { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.vp-card { background: var(--surface); box-shadow: var(--sh-1); border-radius: var(--r-l); padding: 16px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
+.vp-card .vp-reach { justify-content: center; }
+.vp-bio { text-align: left; width: 100%; margin-top: 6px; } .vp-bio summary { cursor: pointer; color: var(--brand-ink); font-weight: 600; text-align: center; }
+.vp-points { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.vp-point { background: var(--surface); box-shadow: var(--sh-1); border-radius: var(--r-m); padding: 12px 14px; } .vp-point p { margin: 4px 0 0; color: var(--ink-2); }
+.vp-belief { border-top: 1px solid var(--line); padding: 10px 0; } .vp-belief summary { cursor: pointer; font-weight: 700; } .vp-belief p { margin: 8px 0 0; }
+.vp-list, .vp-amen { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 8px; }
+.vp-list li, .vp-amen li { display: flex; gap: 10px; align-items: flex-start; }
+.vp-amen { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.vp-amen .icon { color: var(--brand); flex: none; }
+.vp-map { display: block; max-width: 420px; margin: 0 auto; } .vp-map .campus-map { width: 100%; height: auto; }
+.vp-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.vp-hidden { opacity: .55; }

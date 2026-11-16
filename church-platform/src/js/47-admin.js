@@ -205,6 +205,7 @@ Screens.admin = (section) => {
         row("manage.locations", "admin-map", "pin", "Campus map", "Draw a layout so visitors can find their way"),
         S.canAny(["take.payments", "manage.content", "view.reports", "view.giving"]) ? html`<a class="row" href="#tickets"><span class="lead-ic">${icon("give")}</span><span class="body"><span class="t">Event tickets and payments</span><span class="s">Who's paid, who owes, and taking cash and checks</span></span>${icon("chev")}</a>` : "",
         row("manage.church", "admin-welcome", "give", "Welcome for new visitors", "The first-visit question, visitor card and welcome message"),
+        row("manage.church", "admin-visitpage", "star", "Plan your visit page", "What first-time guests see: campus, people to meet, kids, map, beliefs"),
         row("manage.locations", "admin-locations", "pin", "Campuses and locations", `${plural(c.locations.length, "location")}, rooms, service times and livestreams`),
         row("manage.page", "admin-banner", "star", "Home banner", "Background, logo, graphics and text art at the top of Home"),
         row("manage.page", "admin-page", "image", "Landing page", `${plural(c.landing.blocks.length, "block")}${c.landing.showOnHome ? ", shown on Home" : ""}`),
