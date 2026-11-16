@@ -1242,7 +1242,60 @@ body:has(.bible-actions) #app { padding-bottom: calc(var(--tab-h) + env(safe-are
 .vp-list, .vp-amen { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 8px; }
 .vp-list li, .vp-amen li { display: flex; gap: 10px; align-items: flex-start; }
 .vp-amen { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-.vp-amen .icon { color: var(--brand); flex: none; }
+.vp-amen .i { color: var(--brand); flex: none; }
 .vp-map { display: block; max-width: 420px; margin: 0 auto; } .vp-map .campus-map { width: 100%; height: auto; }
 .vp-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .vp-hidden { opacity: .55; }
+/* ---------- Texting ---------- */
+.msg-routes { display: grid; gap: 12px; margin-bottom: 12px; }
+.msg-route { border: 1px solid var(--line); border-radius: var(--r-m); padding: 10px 12px; margin: 0; }
+.msg-route legend { display: flex; flex-direction: column; padding: 0 4px; } .msg-route legend .faint { font-size: .85rem; font-weight: 400; }
+.chip-check { display: inline-flex; } .chip-check input { position: absolute; opacity: 0; pointer-events: none; }
+.chip-check span { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 600; font-size: .92rem; }
+.chip-check input:checked + span { background: var(--brand); color: var(--on-brand, #fff); border-color: var(--brand); }
+.chip-check input:disabled + span { opacity: .45; cursor: not-allowed; }
+.chip-check input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
+.steps-list { padding-left: 20px; margin: 0 0 12px; } .steps-list li { margin: 4px 0; }
+/* ---------- Receipts and tickets ---------- */
+.receipt-art { display: flex; justify-content: center; } .receipt-art svg { width: 100%; max-width: 420px; height: auto; border-radius: 14px; box-shadow: var(--sh-1); }
+.pay-done { text-align: center; } .pay-done .big-check { margin: 0 auto; }
+.pay-done .linkish { display: inline-flex; gap: 6px; align-items: center; margin-top: 10px; }
+#print-job { display: none; }
+@media print {
+  body.print-job > :not(#print-job) { display: none !important; }
+  body.print-job #print-job { display: block; }
+  #print-job svg { width: 100%; height: auto; display: block; }
+  #print-job .label { break-after: page; page-break-after: always; box-shadow: none; border-radius: 0; }
+}
+.pj-row { margin-bottom: 8px; } .pj-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; } .pj-grid select { min-width: 0; }
+/* ---------- Event check-in ---------- */
+.gate-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 14px 0 8px; } .gate-head > div { display: flex; flex-direction: column; } .gate-head span { color: var(--ink-2); font-size: .92rem; }
+.gate-dir { display: flex; gap: 8px; margin: 10px 0; }
+.gate-scan { position: relative; max-width: 460px; margin: 10px auto; } .gate-cam { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.gate-find { display: flex; gap: 8px; margin: 10px auto; max-width: 460px; } .gate-find input { flex: 1; min-width: 0; font: inherit; font-size: 1.05rem; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-m); }
+.gate-result { margin: 12px auto; max-width: 460px; padding: 14px 16px; border-radius: var(--r-l); background: var(--surface); box-shadow: var(--sh-1); display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; border-left: 6px solid var(--line); }
+.gate-result > .i { width: 30px; height: 30px; flex: none; } .gate-result > div:not(.gate-act):not(.rows) { display: flex; flex-direction: column; flex: 1; min-width: 180px; }
+.gate-result.ok { border-left-color: var(--ok, #2c7a4b); } .gate-result.ok > .i { color: var(--ok, #2c7a4b); }
+.gate-result.warn { border-left-color: var(--demo, #b7791f); } .gate-result.bad { border-left-color: var(--warn); } .gate-result.bad > .i { color: var(--warn); }
+.gate-result .rows { width: 100%; } .gate-who b { font-size: 1.25rem; } .gate-who span { color: var(--ink-2); }
+.gate-act { display: flex; gap: 10px; align-items: center; width: 100%; } .gate-act .btn { flex: 1; }
+.stepper { display: inline-flex; align-items: center; gap: 8px; } .stepper b { min-width: 1.6em; text-align: center; font-size: 1.15rem; }
+.stepper .icon-btn { font-size: 1.4rem; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 50%; }
+.stepper.big .icon-btn { width: 54px; height: 54px; font-size: 1.8rem; } .stepper.big b { font-size: 1.5rem; }
+/* ---------- Payment kiosk ---------- */
+.kiosk-h { font-size: clamp(1.5rem, 4vw, 2.2rem); text-align: center; margin: 18px 0 6px; }
+.kiosk-bigs { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; max-width: 900px; margin: 18px auto; }
+.kiosk-big { display: flex; align-items: center; gap: 16px; text-align: left; padding: 22px; border-radius: var(--r-l); background: var(--surface); box-shadow: var(--sh-1); border: 2px solid transparent; font: inherit; color: inherit; cursor: pointer; min-height: 96px; }
+.kiosk-big:hover, .kiosk-big:focus-visible { border-color: var(--brand); } .kiosk-big > .i { width: 40px; height: 40px; color: var(--brand); flex: none; }
+.kiosk-big span { display: flex; flex-direction: column; } .kiosk-big b { font-size: 1.25rem; } .kiosk-big small { color: var(--ink-2); font-size: .95rem; }
+.pk-tickets { display: grid; gap: 10px; max-width: 620px; margin: 14px auto; }
+.pk-ticket { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border-radius: var(--r-l); box-shadow: var(--sh-1); }
+.pk-ticket > span { display: flex; flex-direction: column; } .pk-ticket b { font-size: 1.15rem; } .pk-ticket small { color: var(--ink-2); }
+.pk-who { max-width: 620px; margin: 10px auto; } .btn.big { font-size: 1.1rem; padding: 14px 22px; }
+.pk-amounts { justify-content: center; flex-wrap: wrap; margin: 6px 0; } .pk-amounts .chip { font-size: 1.1rem; padding: 10px 18px; }
+.pk-qr { display: flex; justify-content: center; margin: 14px 0; } .pk-qr svg { background: #fff; padding: 10px; border-radius: 14px; box-shadow: var(--sh-1); } .pk-qr.small svg { padding: 6px; }
+.pk-reader { display: flex; justify-content: center; margin: 18px 0; } .pk-reader .i { width: 120px; height: 120px; color: var(--brand); animation: pk-pulse 1.6s ease-in-out infinite; }
+@keyframes pk-pulse { 50% { transform: scale(1.08); opacity: .75; } }
+@media (prefers-reduced-motion: reduce) { .pk-reader .i { animation: none; } }
+.pk-done-art { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin: 14px 0; } .pk-done-art .receipt-art svg { max-width: 340px; }
+.kiosk-wide { display: block; margin: 14px auto; }

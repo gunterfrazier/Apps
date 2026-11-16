@@ -40,7 +40,7 @@ function signageSlides(pl, now = new Date()) {
       case "sermon": { const sm = sermonsSorted()[0]; if (sm) out.push({ ...base, sermon: sm }); break; }
       case "map": signMapSlide(s, pl, base, out); break;
       case "verse": if (s.ref) out.push({ ...base, ref: s.ref, text: verseCache[s.ref] || "" }); break;
-      case "give": if (S.on("giving")) out.push({ ...base, title: s.title || "Give", body: s.body || "Thank you for your generosity. Giving online takes about a minute.", textGive: c.textGive }); break;
+      case "give": if (S.on("giving")) out.push({ ...base, title: s.title || "Give", body: s.body || "Thank you for your generosity. Giving online takes about a minute.", textGive: textGiveOn(c) ? c.textGive : null }); break;
       case "qr": if (s.target) out.push({ ...base, title: s.title, body: s.body, target: s.target }); break;
       case "text": out.push({ ...base, title: s.title, body: s.body }); break;
       case "image": if (s.image) out.push({ ...base, image: s.image, caption: s.caption, fit: s.fit || "cover" }); break;

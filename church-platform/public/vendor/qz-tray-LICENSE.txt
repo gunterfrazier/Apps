@@ -1,0 +1,1 @@
+qz-tray.js is QZ Tray 2.2.4 (https://qz.io), LGPL-2.1. Loaded only on devices set up to print through QZ Tray.

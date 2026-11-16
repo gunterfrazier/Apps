@@ -76,6 +76,7 @@ create index records_church_kind on records (church_id, kind);
 create index records_owner on records (owner) where owner is not null;
 create index records_parent on records ((data->>'_parent')) where kind in ('event_regs', 'gathering_regs', 'assignments');
 create index records_regid on records ((data->>'regId')) where kind = 'ticketPayments';
+create index records_event_checkins on records ((data->>'eventId')) where kind = 'eventCheckins';
 
 -- Server-only tables (no policies, so only the service role used by server functions can reach them).
 create table push_subscriptions (endpoint text primary key, user_id uuid not null references auth.users on delete cascade, keys jsonb not null, created_at timestamptz not null default now());
@@ -118,7 +119,7 @@ create or replace function my_rank(c text) returns int language sql stable secur
 -- Signed-in church devices (kiosks, screens, the booth) have a membership with role_key 'device:<type>' instead of a role.
 -- A room display also reads bookings and presentations in rooms ('rooms.view', a permission only devices have).
 create or replace function device_perms(t text) returns text[] language sql immutable set search_path = public as $$
-  select case t when 'kiosk' then array['checkin.station', 'use.checkin'] when 'display' then array['present'] when 'room' then array['present', 'rooms.view']
+  select case t when 'kiosk' then array['checkin.station', 'use.checkin', 'checkin.events'] when 'gate' then array['checkin.events'] when 'display' then array['present'] when 'room' then array['present', 'rooms.view']
     when 'stage' then array['present'] when 'overlay' then array['present'] when 'booth' then array['present'] else array[]::text[] end $$;
 create or replace function can(c text, perm text) returns boolean language sql stable security definer set search_path = public as
   $$ select is_primary(c) or (church_live(c) and (exists (select 1 from memberships m join roles r on r.church_id = m.church_id and r.key = m.role_key
@@ -165,7 +166,9 @@ create or replace function rec_read(k text, c text, loc text, own text, d jsonb)
     when k = 'teamMembers' then is_member(c)
     when k = 'blockouts' then can(c, 'schedule.teams')
     -- Sign-ups: the people who run events, take ticket payments or read reports, and the people an event names to take its payments.
-    when k = 'event_regs' then can(c, 'manage.content') or can(c, 'take.payments') or can(c, 'view.reports') or collects(d->>'_parent')
+    when k = 'event_regs' then can(c, 'manage.content') or can(c, 'take.payments') or can(c, 'view.reports') or can(c, 'checkin.events') or collects(d->>'_parent')
+    -- Event check-ins and check-outs: the door, and the people who run events or read reports.
+    when k = 'eventCheckins' then can(c, 'checkin.events') or can(c, 'manage.content') or can(c, 'view.reports') or can(c, 'take.payments') or collects(d->>'eventId')
     -- Ticket payments: the payer (as owner, above), and the same people.
     when k = 'ticketPayments' then can(c, 'manage.content') or can(c, 'take.payments') or can(c, 'view.reports') or can(c, 'view.giving') or collects(d->>'eventId')
     when k = 'gathering_regs' then can(c, 'manage.classes') or leads(d->>'_parent')
@@ -215,6 +218,8 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
     when k = 'ticketPayments' then (d->>'method' in ('cash', 'check') and (can(c, 'manage.content') or ((can(c, 'take.payments') or collects(d->>'eventId'))
         and (op <> 'insert' or d->>'receivedBy' = auth.uid()::text))))
       or (own = auth.uid()::text and d->>'method' = 'app' and d->>'status' in ('test', 'refunded') and is_member(c))
+    -- Checking someone in or out is always in your own name (or the door device's), and is never changed afterwards.
+    when k = 'eventCheckins' then (op = 'insert' and d->>'by' = auth.uid()::text and (can(c, 'checkin.events') or can(c, 'manage.content') or collects(d->>'eventId'))) or (op = 'delete' and can(c, 'manage.content'))
     -- Joining a class or group whose leader approves each request: your own sign-up has to wait as a request.
     when k = 'gathering_regs' then (own = auth.uid()::text and is_member(c) and (op = 'delete' or d->>'status' = 'requested'
         or not exists (select 1 from records g where g.kind = 'gatherings' and g.id = d->>'_parent' and g.data->>'registration' = 'approval')))

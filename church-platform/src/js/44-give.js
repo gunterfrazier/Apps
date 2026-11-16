@@ -52,7 +52,7 @@ Screens.give = (tail = "") => {
         <div class="stat"><div><b>${money(total)}</b><span>Given in ${year}</span></div><div><b>${recurring.length}</b><span>Recurring gift${recurring.length === 1 ? "" : "s"}</span></div></div>
         ${recurring.length ? html`<div class="rows" style="margin-top:12px">${recurring.map((r) => html`<div class="row"><span class="lead-ic">${icon("give")}</span><span class="body"><span class="t">${money(r.amount)} ${FREQ[r.frequency].toLowerCase()}</span><span class="s">${fundName(r.fundId)}, since ${fmtShort(r.at)}. Next gift ${fmtShort(nextGiftDate(r))}.</span></span><button class="btn ghost sm" data-act="give-stop" data-id="${r.id}">Stop</button></div>`)}</div>` : ""}
       </section>
-      <section class="sec"><h2 class="sec-head">Other ways to give</h2><div class="panel">${c.textGive?.number ? html`<p style="margin-top:0"><b>Text to give:</b> text <b>${c.textGive.keyword || "GIVE"} 50</b> to <a href="sms:${digits(c.textGive.number)}?body=${encodeURIComponent(`${c.textGive.keyword || "GIVE"} 50`)}">${c.textGive.number}</a> with any amount. You'll get a link to finish your gift.</p>` : ""}<p style="${c.textGive?.number ? "" : "margin-top:0"}">Drop a check or cash in the offering during any service${c.address ? html`, or mail it to ${c.address}` : ""}. Write the fund name on the memo line.</p></div></section>`,
+      <section class="sec"><h2 class="sec-head">Other ways to give</h2><div class="panel">${textGiveOn(c) && c.textGive?.number ? html`<p style="margin-top:0"><b>Text to give:</b> text <b>${c.textGive.keyword || "GIVE"} 50</b> to <a href="sms:${digits(c.textGive.number)}?body=${encodeURIComponent(`${c.textGive.keyword || "GIVE"} 50`)}">${c.textGive.number}</a> with any amount. You'll get a link to finish your gift.</p>` : ""}<p style="${c.textGive?.number ? "" : "margin-top:0"}">Drop a check or cash in the offering during any service${c.address ? html`, or mail it to ${c.address}` : ""}. Write the fund name on the memo line.</p></div></section>`,
   };
 };
 const parseAmount = (v) => Math.round(parseFloat(String(v).replace(/[^0-9.]/g, "")) * 100) / 100;
@@ -73,10 +73,7 @@ Forms["give-confirm"] = async (d) => {
   const g = S.add("gifts", { by: me.id, name: me.name, fundId: d.fund, amount, frequency: d.frequency, method: d.method, at: now, demo: paid.status === "test", status: paid.status, ref: paid.ref });
   if (d.frequency !== "once") S.add("recurring", { by: me.id, fundId: d.fund, amount, frequency: d.frequency, method: d.method, at: now, active: true, test: paid.status === "test" });
   emit("gift.created", { name: me.name, email: me.email, amount, fund: fundName(d.fund), frequency: d.frequency, method: d.method, preview: true });
-  openSheet("Thank you", html`<p class="lead">Your ${money(amount)} gift to ${fundName(d.fund)} was recorded.</p>
-    <p class="faint">Confirmation ${g.id.toUpperCase()}. In a live app, a receipt goes to ${me.email || "your email"}.</p>
-    <div class="btns"><button class="btn" data-act="go" data-to="history">See giving history</button><button class="btn ghost" data-act="close-sheet">Done</button></div>`);
-  render();
+  render(); paymentDone("gift", g.id);
 };
 Actions["give-stop"] = async (el) => {
   const r = S.get("recurring", el.dataset.id);

@@ -218,6 +218,10 @@ Screens.admin = (section) => {
         row("checkin.station", "kiosk", "screen", "Check-in kiosk", "A self check-in station that prints name tags"),
         row("manage.devices", "devices", "lock", "Screens and devices", (() => { const d = S.list("devices"), w = d.filter((x) => x.status !== "paired").length; return d.length ? `${plural(d.length - w, "device")} signed in${w ? `, ${w} waiting to pair` : ""}` : "Sign in kiosks, presentation screens, stage displays and booth computers"; })()),
         row("manage.devices", "signs", "image", "Digital signage", plural(S.list("signage").length, "playlist")),
+        row("manage.devices", "admin-printing", "printer", "Printing", "A printer for receipts, tickets, name tags and reports"),
+        row("manage.devices", "admin-readers", "card", "Card readers", (() => { const n = (c.cardReaders || []).length; return n ? `${plural(n, "card reader")} for kiosks` : "Tap or insert cards at a payment kiosk"; })()),
+        row("manage.devices", "paykiosk", "card", "Payment kiosk", "Try it here, or set up a kiosk under Screens and devices"),
+        S.canAny(["checkin.events", "manage.content"]) ? html`<a class="row" href="#gate"><span class="lead-ic">${icon("scan")}</span><span class="body"><span class="t">Event check-in</span><span class="s">Scan tickets at the door to check people in and out</span></span>${icon("chev")}</a>` : "",
         row("schedule.teams", "teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when"),
         row("manage.locations", "rooms", "door", "Rooms", (() => { const n = S.list("bookings").filter((b) => b.status === "requested").length; return n ? `${plural(n, "request")} waiting for approval` : "Book rooms and see what's in use"; })(),
           (() => { const n = S.list("bookings").filter((b) => b.status === "requested").length; return n ? html`<span class="tag warn">${n}</span>` : null; })()),
@@ -236,6 +240,8 @@ Screens.admin = (section) => {
         row("view.giving", "admin-giving", "give", "Gifts and funds", "Recent gifts, statements and funds"),
         row("view.giving", "admin-campaigns", "star", "Pledge campaigns", "A goal for a fund, with pledges and progress"),
         row("send.email", "admin-email", "chat", "Email people", "Write to everyone, a role, a group, a team or people not seen lately"),
+        textingOn(c) ? row("send.texts", "admin-texts", "chat", "Text people", "A text to a group, a team or everyone signed up for an event") : "",
+        row("manage.church", "admin-texting", "phone", "Texting", textingOn(c) ? `On, from ${c.texting.number}` : c.texting?.linked ? "Twilio linked, texting off" : "Off. Link the church's Twilio account to turn it on"),
         row("manage.church", "admin-activity", "list", "Activity log", "Who did what, newest first")])}`,
   };
 };
@@ -611,9 +617,8 @@ AdminScreens.giving = () => {
         <label class="field"><span>Giving page address</span><input type="url" name="url" value="${c.givingLink?.url || ""}" placeholder="https://tithe.ly/give?c=..." inputmode="url"></label>
         <p class="faint">Gifts made there stay in that service, so they don't show in giving reports or statements here.</p>
         <div class="btns"><button class="btn ghost sm">Save link</button>${c.givingLink?.url ? html`<button type="button" class="btn ghost sm" data-act="giving-link-remove">Remove link</button>` : ""}</div></form></section>
-      <section class="sec"><h2 class="sec-head">${isTrainingChurch(c) ? "Statements" : "Text to give and statements"}</h2><form data-form="give-settings" class="panel" novalidate>
-          ${isTrainingChurch(c) ? html`<input type="hidden" name="number" value=""><input type="hidden" name="keyword" value="GIVE">` : html`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field" style="margin-top:0"><span>Text-to-give number</span><input type="tel" name="number" value="${c.textGive?.number || ""}" placeholder="(770) 555-0199"><small>A Twilio number pointed at your sms function.</small></label>
-            <label class="field" style="margin-top:0"><span>Keyword</span><input type="text" name="keyword" value="${c.textGive?.keyword || "GIVE"}" maxlength="20"></label></div>`}
+      <section class="sec"><h2 class="sec-head">Text to give and statements</h2><form data-form="give-settings" class="panel" novalidate>
+          <p style="margin-top:0">${textGiveOn(c) ? html`<b>Text to give is on:</b> people text <b>${c.textGive?.keyword || "GIVE"} 50</b> to ${c.texting.number}.` : textingOn(c) ? "Text to give is off." : "Text to give needs texting, which is off."} ${S.can("manage.church") ? html`<a href="#admin-texting">Texting settings</a>` : ""}</p>
           <label class="field"><span>Tax ID (EIN) for statements</span><input type="text" name="taxId" value="${c.taxId || ""}" maxlength="20" placeholder="12-3456789"></label>
           <button class="btn ghost sm">Save</button></form></section>
       <section class="sec"><h2 class="sec-head">Year-end statements</h2><div class="panel">
@@ -629,10 +634,7 @@ AdminScreens.giving = () => {
         <p class="faint">Clear a name to remove that fund. Past gifts keep their fund.</p><button class="btn">Save funds</button></form></section>`,
   };
 };
-Forms["give-settings"] = (d, f) => {
-  if (d.number && digits(d.number).length < 10) return formError(f, "Enter the full text-to-give number, with area code.");
-  S.updateChurch({ textGive: d.number ? { number: d.number, keyword: (d.keyword || "GIVE").toUpperCase() } : null, taxId: d.taxId }); toast("Saved"); render();
-};
+Forms["give-settings"] = (d) => { S.updateChurch({ taxId: d.taxId }); toast("Saved"); render(); };
 // ----- Payment processors: each church connects its own Stripe, PayPal or Square (see 62-pay.js and SETUP.md) -----
 const PROCESSOR_SETUP = {
   stripe: {

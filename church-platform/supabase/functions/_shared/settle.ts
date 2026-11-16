@@ -1,8 +1,13 @@
 // Records payments in the app once a processor reports them: gifts, recurring gifts, event tickets and form fees.
 // Every step can run twice (a webhook and the return page both report the same payment), so each checks first.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.119.0";
-import { notify, patchRecord } from "./util.ts";
+import { env, patchRecord } from "./util.ts";
 import type { PayEvent } from "./payments.ts";
+import { deliver, routeOf, type Church } from "./messaging.ts";
+
+const money = (n: number) => `$${Number(n || 0).toFixed(2).replace(/\.00$/, "")}`;
+/** Where links in receipts and tickets point: the app's own address. */
+export const appBase = (origin?: string) => { const u = String(origin || env("APP_URL") || "").split(/[?#]/)[0]; return u; };
 
 export type Meta = Record<string, string>;
 
@@ -43,10 +48,18 @@ export async function settle(db: SupabaseClient, m: Meta, amount: number, payRef
   if (error?.code === "23505") return;   // already recorded
   if (error) throw new Error(error.message);
   if (m.checkout) await db.from("checkouts").update({ status: "paid" }).eq("id", m.checkout);
+  const { data: church } = await db.from("churches").select("id, name, data").eq("id", m.church).maybeSingle();
+  const to = { userId: m.user || "", email: m.email || "", phone: m.phone || "" };
   if (m.kind === "gift") {
-    const { data: prof } = await db.from("profiles").select("name").eq("id", m.user).maybeSingle();
-    await db.from("records").insert({ kind: "gifts", id: payRef, church_id: m.church, owner: m.user,
-      data: { by: m.user, name: prof?.name || "Someone", fundId: m.fund, amount, frequency: m.frequency || "once", method: m.method || "card", at, status: "paid", ref: payRef, provider: m.provider || "stripe" } });
+    // A gift at a kiosk may have no account behind it: it carries the name they typed, if any.
+    const { data: prof } = m.user ? await db.from("profiles").select("name").eq("id", m.user).maybeSingle() : { data: null };
+    await db.from("records").insert({ kind: "gifts", id: payRef, church_id: m.church, owner: m.user || null,
+      data: { by: m.user || null, name: prof?.name || m.name || "A kiosk gift", fundId: m.fund, amount, frequency: m.frequency || "once", method: m.method || "card", at, status: "paid", ref: payRef, provider: m.provider || "stripe", ...(m.kiosk ? { kiosk: m.kiosk } : {}) } });
+    // deno-lint-ignore no-explicit-any
+    const fund = (church?.data?.funds || []).find((f: any) => f.id === m.fund)?.name || "General fund";
+    if (church) await deliver(db, church as Church, "receipts", to, { title: `Thank you for your ${money(amount)} gift`, notifyKind: "give", id: `n-rcpt-${payRef}`,
+      lines: [`We received your ${money(amount)} gift to ${fund}${m.frequency && m.frequency !== "once" ? ` (${m.frequency})` : ""} on ${new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}.`, `Receipt ${payRef.replace(/[^a-z0-9]/gi, "").slice(-10).toUpperCase()}.`, church.data?.taxId ? `${church.name} is tax-exempt (EIN ${church.data.taxId}). No goods or services were provided in exchange for this gift.` : ""].filter(Boolean),
+      link: m.user ? `${appBase(m.origin)}#receipt-gift~${payRef}` : "", linkLabel: "See your receipt" }).catch((e) => console.error("receipt not sent", e));
     if (subscription && !(await patchRecord(db, "recurring", subscription, { lastAt: at, active: true }))) {
       await db.from("records").insert({ kind: "recurring", id: subscription, church_id: m.church, owner: m.user,
         data: { by: m.user, fundId: m.fund, amount, frequency: m.frequency, method: m.method || "card", at, lastAt: at, active: true, subscriptionId: subscription,
@@ -55,13 +68,26 @@ export async function settle(db: SupabaseClient, m: Meta, amount: number, payRef
   }
   if (m.kind === "event") {
     // Each payment toward tickets is its own record, so a part now and the rest later (or in cash) add up.
-    const eventId = m.ref.split("~")[0];
-    await db.from("records").upsert({ kind: "ticketPayments", id: payRef, church_id: m.church, owner: m.user,
-      data: { id: payRef, churchId: m.church, eventId, regId: m.ref, payerId: m.user, amount, method: "app", status: "paid", at, ref: payRef, provider: m.provider || "stripe", receipts: [] } },
+    // A walk-in who paid at a kiosk is the payer; m.user is only set for someone with an account.
+    const eventId = m.ref.split("~")[0], payer = m.payer || m.user;
+    await db.from("records").upsert({ kind: "ticketPayments", id: payRef, church_id: m.church, owner: payer,
+      data: { id: payRef, churchId: m.church, eventId, regId: m.ref, payerId: payer, amount, method: "app", status: "paid", at, ref: payRef, provider: m.provider || "stripe", receipts: [], ...(m.kiosk ? { kiosk: m.kiosk, via: m.via || "" } : {}) } },
       { onConflict: "kind,id", ignoreDuplicates: true });
     const left = await ticketBalance(db, m.ref);
-    await patchRecord(db, "event_regs", m.ref, { paid: { status: left > 0.004 ? "partial" : "paid", ref: payRef, at, tracked: true } });
-    await notify(db, m.church, m.user, { kind: "event", title: left > 0.004 ? "Payment received" : "You're in", body: `Payment received: $${amount.toFixed(2)}${left > 0.004 ? `. $${left.toFixed(2)} left.` : ". Paid in full."}`, link: `#event-${eventId}` });
+    const { data: reg } = await db.from("records").select("data").eq("kind", "event_regs").eq("id", m.ref).maybeSingle();
+    const code = reg?.data?.code || Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => "ACDEFHJKLMNPQRTUVWXY34679"[b % 25]).join("");
+    await patchRecord(db, "event_regs", m.ref, { paid: { status: left > 0.004 ? "partial" : "paid", ref: payRef, at, tracked: true }, code, held: false });
+    const { data: ev } = await db.from("records").select("data").eq("kind", "events").eq("id", eventId).maybeSingle();
+    if (church) {
+      const who = { ...to, email: to.email || reg?.data?.email || "", phone: to.phone || reg?.data?.phone || "" }, link = `${appBase(m.origin)}#ticket-${eventId}~${payer}~${code}`;
+      await deliver(db, church as Church, "receipts", who, { title: left > 0.004 ? "Payment received" : "You're in", notifyKind: "event", id: `n-rcpt-${payRef}`,
+        lines: [`We received ${money(amount)} for ${ev?.data?.title || "your tickets"}.${left > 0.004 ? ` ${money(left)} left to pay.` : " Paid in full."}`, `Receipt ${payRef.replace(/[^a-z0-9]/gi, "").slice(-10).toUpperCase()}.`],
+        link, linkLabel: "Your ticket" }).catch((e) => console.error("receipt not sent", e));
+      // The receipt carries the ticket link, so the ticket only goes separately by ways the receipt didn't use.
+      const sentWith = routeOf(church as Church, "receipts"), ticketWays = routeOf(church as Church, "tickets").filter((ch) => ch !== "push" && !sentWith.includes(ch));
+      if (ticketWays.length) await deliver(db, { ...church, data: { ...church.data, messaging: { ...church.data?.messaging, tickets: ticketWays } } } as Church, "tickets", who,
+        { title: `Your ticket: ${ev?.data?.title || "event"}`, id: `n-tkt-${payRef}`, lines: [`Show this ticket at the door. Ticket code ${code}.`], link, linkLabel: "Open your ticket" }).catch((e) => console.error("ticket not sent", e));
+    }
   }
   if (m.kind === "form") await patchRecord(db, "formResponses", m.ref, { paid: { status: "paid", ref: payRef, at } });
 }

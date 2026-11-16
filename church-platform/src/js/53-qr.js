@@ -67,9 +67,11 @@ function loadJsQR() {
   jsqrLoading ||= new Promise((resolve, reject) => { const s = document.createElement("script"); s.src = "vendor/jsQR.js"; s.onload = () => resolve(window.jsQR); s.onerror = () => { jsqrLoading = null; reject(new Error("load")); }; document.head.appendChild(s); });
   return jsqrLoading;
 }
+// Ticket scanning also reads Code 128 barcodes where the browser can (Chrome and Edge on Android, Mac and Windows).
+let scanFormats = null;
 async function decodeSource(source, w, h) {
   if ("BarcodeDetector" in window) {
-    try { const det = new window.BarcodeDetector({ formats: ["qr_code"] }); const r = await det.detect(source); if (r[0]) return r[0].rawValue; } catch { /* fall through to jsQR */ }
+    try { const det = new window.BarcodeDetector({ formats: ["qr_code", ...(scanFormats || [])] }); const r = await det.detect(source); if (r[0]) return r[0].rawValue; } catch { /* fall through to jsQR */ }
   }
   const jsQR = await loadJsQR();
   const c = document.createElement("canvas"); c.width = w; c.height = h;
@@ -119,7 +121,7 @@ Inputs["scan-file"] = async (el) => {
   el.value = "";
 };
 function handleScan(text) {
-  const m = String(text).match(/#([a-z0-9-]+)\s*$/i);
+  const m = String(text).match(/#([a-z0-9~-]+)\s*$/i);
   if (m && Screens[m[1].split("-")[0]]) { scanResult = null; toast("Opening"); go(m[1]); return; }
   scanResult = { text };
   const box = $("#scan-result"); if (box) box.innerHTML = flat(scanResultHtml(scanResult));

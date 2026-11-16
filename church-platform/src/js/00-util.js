@@ -163,6 +163,7 @@ const PERMS = [
   ["Sunday", "present", "Run presentations on the screens"],
   ["Sunday", "present.rooms", "Present on any room's display, at any time"],
   ["Sunday", "checkin.station", "Run check-in and see room rosters"],
+  ["Sunday", "checkin.events", "Check people in and out of events by scanning tickets"],
   ["Sunday", "qr.create", "Make QR codes"],
   ["Sunday", "schedule.teams", "Schedule volunteer teams"],
   ["Sunday", "manage.devices", "Digital signage, kiosks and church screens"],
@@ -181,6 +182,7 @@ const PERMS = [
   ["Managing", "manage.church", "Church account, features and defaults"],
   ["Managing", "send.email", "Email groups of people"],
   ["Managing", "take.payments", "Take cash and check payments for event tickets"],
+  ["Managing", "send.texts", "Text groups of people (once the church turns texting on)"],
   ["Managing", "church.deactivate", "Ask to deactivate the church account (the primary account holder approves)"],
 ];
 /** Privileges nobody gets by default, not even administrators, and that only the primary account holder can give a role. */
@@ -190,11 +192,11 @@ const PERM_LABEL = Object.fromEntries(PERMS.map(([, k, l]) => [k, l]));
 const NEW_PERM_DEFAULTS = {
   "book.rooms": ["pastor", "staff", "teacher", "leader"], "schedule.teams": ["pastor", "staff", "media"],
   "manage.followup": ["pastor", "staff"], "view.reports": ["pastor", "staff"], "send.email": ["pastor", "staff"], "manage.devices": ["pastor", "staff", "media"],
-  "present.rooms": ["pastor", "staff", "media"], "take.payments": ["pastor", "staff"],
+  "present.rooms": ["pastor", "staff", "media"], "take.payments": ["pastor", "staff"], "send.texts": ["pastor", "staff"], "checkin.events": ["pastor", "staff"],
 };
 /** What each kind of signed-in church device may do. Devices never get a person's role. */
 // A room display reads bookings ("rooms.view", a device-only permission) to know who has the room right now.
-const DEVICE_PERMS = { kiosk: ["checkin.station", "use.checkin"], signage: [], display: ["present"], room: ["present", "rooms.view"], stage: ["present"], overlay: ["present"], booth: ["present"] };
+const DEVICE_PERMS = { kiosk: ["checkin.station", "use.checkin", "checkin.events"], gate: ["checkin.events"], signage: [], display: ["present"], room: ["present", "rooms.view"], stage: ["present"], overlay: ["present"], booth: ["present"] };
 const mmss = (secs) => { const s = Math.max(0, Math.round(secs)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const MODULES = [
   ["sermons", "Sermons"], ["plans", "Reading plans"], ["events", "Events"], ["classes", "Classes and Sunday school"], ["groups", "Small groups"],
@@ -334,6 +336,9 @@ const ICONS = {
   church: '<path d="M12 2.5v4M10 4.5h4M12 6.5 6 11v9.5h12V11Z"/><path d="M10 20.5v-4a2 2 0 0 1 4 0v4M3.5 20.5h17"/>',
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/>',
   qr: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/>',
+  ticket: '<path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4z"/><path d="M14.5 6.5v2M14.5 11v2M14.5 15.5v2"/>',
+  printer: '<path d="M7 9V4.5h10V9"/><rect x="4" y="9" width="16" height="7.5" rx="1.5"/><path d="M7.5 14h9v6h-9z"/>',
+  card: '<rect x="3" y="6" width="18" height="12.5" rx="2"/><path d="M3 10.5h18M7 15h3.5"/>',
   scan: '<path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M4 12h16"/>',
   screen: '<rect x="3" y="4.5" width="18" height="12" rx="1.5"/><path d="M8.5 20h7M12 16.5V20"/>',
   music: '<path d="M9 18V5.5l10-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',

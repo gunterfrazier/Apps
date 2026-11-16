@@ -11,7 +11,9 @@ handle(async (req) => {
   const db = admin();
   const { data: co } = await db.from("checkouts").select("*").eq("id", String(checkout || "")).maybeSingle();
   if (!co || co.user_id !== user.id) return fail("Payment not found", 404);
-  if (co.status === "paid") return json({ status: "paid", kind: co.kind });
+  // payRef: the payment's ID, so the app can show its receipt.
+  const payRefOf = async () => (await db.from("payments").select("id").eq("data->>checkout", co.id).maybeSingle()).data?.id || "";
+  if (co.status === "paid") return json({ status: "paid", kind: co.kind, ref: co.ref, payRef: await payRefOf() });
   const p = PROCESSORS[co.provider];
   const { data: church } = await db.from("churches").select("id, data").eq("id", co.church_id).single();
   const keys = p && church ? await keysFor(db, church, co.meta) : null;
@@ -20,7 +22,7 @@ handle(async (req) => {
     const r = await p.confirm(keys, co.provider_ref);
     await apply(db, co.church_id, co.provider, r.events);
     if (r.status === "pending") await db.from("checkouts").update({ status: "pending" }).eq("id", co.id);
-    return json({ status: r.status, kind: co.kind });
+    return json({ status: r.status, kind: co.kind, ref: co.ref, payRef: r.status === "paid" ? await payRefOf() : "" });
   } catch (e) {
     if (e instanceof PayError) return fail(e.message, 400);
     throw e;

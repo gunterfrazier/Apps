@@ -156,6 +156,8 @@ function reportXlsx(doc) {
   return zipFiles(files, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
 function reportPrint(doc) {
+  // A computer with a report printer chosen (QZ Tray) sends it there; otherwise the print dialog.
+  if (typeof printPrefs === "function" && printPrefs().printers?.report) return printJob("report", `<div class="pj-report">${flat(renderDoc(doc))}</div>`, { title: doc.title || "Report" });
   if (IN_PREVIEW) { toast("Printing works once the app is on your own website. Download it as a web page or Word file to print it here."); return; }
   $("#print-report")?.remove();
   const box = document.createElement("div"); box.id = "print-report"; box.innerHTML = flat(renderDoc(doc));

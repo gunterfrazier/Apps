@@ -28,7 +28,7 @@ function deviceMapFields(d) {
       <select name="mapSpot"><option value="">Not on the map</option>${mapSpotOptions(s.mapSpot)}</select>
       <small>Campus map slides mark this spot "You are here", and directions on a find-your-way kiosk start here.</small></label></div>` : ""}`;
 }
-const deviceMapSettings = (d) => ({ mapSpot: mapSpotOf(d.mapSpot) ? d.mapSpot : null, ...(d.type === "kiosk" ? { kioskMode: ["wayfind", "both"].includes(d.kioskMode) && mapLocations().length ? d.kioskMode : "checkin" } : {}) });
+let deviceMapSettings = (d) => ({ mapSpot: mapSpotOf(d.mapSpot) ? d.mapSpot : null, ...(d.type === "kiosk" ? { kioskMode: ["wayfind", "both"].includes(d.kioskMode) && mapLocations().length ? d.kioskMode : "checkin" } : {}) });
 
 // ----- The signage slide -----
 /** Where a map slide marks "You are here": the playing screen's own spot, then the spot chosen on the slide. */

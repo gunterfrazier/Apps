@@ -71,7 +71,12 @@ function seedExtras(st, { now, daysAgo }) {
     dev("dev-kiosk", "Kids check-in kiosk", "kiosk", { labelSize: "4x2", kioskMode: "both", mapSpot: `${MAIN}~mp-104` }, daysAgo(0, 2)),
     dev("dev-find", "Find your way kiosk", "kiosk", { labelSize: "4x2", kioskMode: "wayfind", mapSpot: `${MAIN}~mp-door` }, daysAgo(0, 0.03)),
     dev("dev-201", "Room 201 screen", "room", { room: "Room 201", idle: "signage", playlistId: "sign-lobby", hint: true, mapSpot: `${MAIN}~mp-201` }, daysAgo(3)),
-    dev("dev-booth", "Booth computer", "booth", {}, daysAgo(6)));
+    dev("dev-booth", "Booth computer", "booth", {}, daysAgo(6)),
+    // A payment kiosk in the lobby (staff code 1234) and a phone at the gym door for event check-in.
+    dev("dev-pay", "Lobby payment kiosk", "kiosk", { labelSize: "4x2", kioskMode: "pay", eventCheckin: true, mapSpot: `${MAIN}~mp-info`,
+      pay: { ways: { reader: true, screen: true, phone: true, cash: true }, readerId: "rdr-lobby", give: true, partial: true, events: "all", cashPinHash: "0ab2f1a2749e93439f2a0d721e109bfa190663fd9e0740ce2af4980d04f0c3fc" } }, daysAgo(0, 0.01)),
+    dev("dev-gate", "Gym door check-in", "gate", { allowOut: true }, daysAgo(1)));
+  c.cardReaders = [{ id: "rdr-lobby", provider: "stripe", label: "Lobby reader", status: "ready", test: true }];
   // The lobby playlist shows the map too, and a portrait hallway playlist leads with it. Each slide marks a spot for
   // previews; a paired screen marks its own.
   const lobby = st.signage.find((p) => p.id === "sign-lobby");
@@ -114,7 +119,7 @@ function seedExtras(st, { now, daysAgo }) {
     const ev = (id) => st.events.find((e) => e.id === `${R}-${id}`), retreat = ev("e7"), dinner = ev("e8");
     st.ticketPayments ||= [];
     const reg = (e, by, tickets, extra = {}) => { const total = e.tickets.reduce((n, t) => n + (tickets[t.id] || 0) * t.price, 0), count = Object.values(tickets).reduce((n, x) => n + x, 0);
-      const r = { id: `${e.id}~${by}`, by, name: nm(by) || extra.name, email: st.users[by]?.email || "", phone: "", count, kids: [], tickets, total, paid: { status: "door", tracked: true }, at: daysAgo(extra.ago || 3), ...extra };
+      const r = { id: `${e.id}~${by}`, code: ticketCodeNew(), by, name: nm(by) || extra.name, email: st.users[by]?.email || "", phone: "", count, kids: [], tickets, total, paid: { status: "door", tracked: true }, at: daysAgo(extra.ago || 3), ...extra };
       delete r.ago; e.registrations.push(r); return r; };
     const pay = (e, r, amount, method, by, ago, more = {}) => st.ticketPayments.push({ id: `tp-${r.by}-${e.id.slice(-2)}-${st.ticketPayments.length}`, churchId: R, eventId: e.id, regId: r.id, payerId: r.by, amount, method,
       status: method === "app" ? "test" : "paid", receivedBy: method === "app" ? "" : by, receivedByName: method === "app" ? "" : nm(by), recordedBy: by, at: daysAgo(ago), receipts: [], checkNo: "", note: "", ...(method === "app" ? { ref: `test_${uid()}` } : {}), ...more });
