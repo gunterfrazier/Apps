@@ -1202,6 +1202,22 @@ body:has(.bible-actions) #app { padding-bottom: calc(var(--tab-h) + env(safe-are
 .portrait .sg-map .sg-qrwrap { flex-direction: row; gap: 3cqmin; text-align: left; }
 .portrait .sg-map .sg-qr { width: 34cqmin; }
 .portrait .sg-map .sg-title { font-size: 7cqmin; }
+/* ---------- Event tickets ---------- */
+.tk-mine { margin: 0 0 12px; } .tk-pays { margin: 6px 0 0; padding-left: 18px; color: var(--ink-2); font-size: .92rem; }
+.pay-ways .check { padding: 4px 0; } .pay-part { margin: 2px 0 6px 28px; }
+.tk-filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 14px 0 8px; }
+.tk-f { display: flex; flex-direction: column; gap: 3px; font-size: .82rem; color: var(--ink-2); font-weight: 600; min-width: 0; }
+.tk-f select, .tk-f input { font: inherit; font-size: .95rem; color: var(--ink); padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-m); background: var(--surface); min-width: 0; width: 100%; }
+.tk-q { grid-column: 1 / -1; }
+.tk-tools { align-items: center; flex-wrap: wrap; } .tk-tools .seg { display: flex; gap: 6px; }
+.tk-group .sec-head { flex-wrap: wrap; gap: 4px 10px; } .tk-group .sec-head h2 .faint { font-weight: 500; font-size: .9em; } .tk-sub { color: var(--ink-2); font-size: .9rem; }
+.tk-row .t { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tk-amts { display: flex; flex-direction: column; align-items: flex-end; text-align: right; flex: none; margin-left: 8px; } .tk-amts small { color: var(--ink-2); font-size: .78rem; }
+.tk-owe { color: var(--warn) !important; font-weight: 700; }
+.tk-sum { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.tk-void .t, .tk-void .s { text-decoration: line-through; opacity: .6; }
+.tk-receipt-text { white-space: pre-wrap; font: .88rem/1.45 var(--body, inherit); background: var(--sunken); padding: 12px; border-radius: var(--r-m); margin: 0 0 12px; }
+.tag.part { background: var(--demo-soft); color: var(--demo); }
 /* ---------- Plan your visit ---------- */
 .vp-pick { margin: 14px 0 0; }
 .vp .block h3 { font-size: 1rem; margin: 16px 0 6px; }

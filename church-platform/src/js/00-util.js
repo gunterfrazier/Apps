@@ -180,6 +180,7 @@ const PERMS = [
   ["Managing", "manage.roles", "Roles and who has them"],
   ["Managing", "manage.church", "Church account, features and defaults"],
   ["Managing", "send.email", "Email groups of people"],
+  ["Managing", "take.payments", "Take cash and check payments for event tickets"],
   ["Managing", "church.deactivate", "Ask to deactivate the church account (the primary account holder approves)"],
 ];
 /** Privileges nobody gets by default, not even administrators, and that only the primary account holder can give a role. */
@@ -189,7 +190,7 @@ const PERM_LABEL = Object.fromEntries(PERMS.map(([, k, l]) => [k, l]));
 const NEW_PERM_DEFAULTS = {
   "book.rooms": ["pastor", "staff", "teacher", "leader"], "schedule.teams": ["pastor", "staff", "media"],
   "manage.followup": ["pastor", "staff"], "view.reports": ["pastor", "staff"], "send.email": ["pastor", "staff"], "manage.devices": ["pastor", "staff", "media"],
-  "present.rooms": ["pastor", "staff", "media"],
+  "present.rooms": ["pastor", "staff", "media"], "take.payments": ["pastor", "staff"],
 };
 /** What each kind of signed-in church device may do. Devices never get a person's role. */
 // A room display reads bookings ("rooms.view", a device-only permission) to know who has the room right now.

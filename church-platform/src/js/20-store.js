@@ -15,7 +15,7 @@ const S = {
       this.state = saved;
       // Added after the first v2 release: named layouts and saved builder items.
       const seed = buildSeed();
-      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "devices", "signage", "roomSessions", "presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns"]) if (!saved[k]) saved[k] = seed[k];
+      for (const k of ["layouts", "savedBlocks", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "devices", "signage", "roomSessions", "presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns", "ticketPayments"]) if (!saved[k]) saved[k] = seed[k];
       saved.me.pickups ||= []; saved.verseNotes ||= {}; saved.highlights ||= {};
       Object.values(seed.users).forEach((u) => { const mine = saved.users[u.id]; if (!mine) { if (u.guestOf) saved.users[u.id] = u; } else if (!mine.family) Object.assign(mine, { family: u.family, pickups: u.pickups }); });
       Object.values(saved.churches).forEach((c) => {
@@ -162,7 +162,7 @@ const WEBHOOK_EVENTS = [
   ["event.registered", "Someone signs up for an event", "Sign-ups and check-in"], ["gathering.registered", "Someone registers for a class or group", "Sign-ups and check-in"],
   ["checkin.created", "A child is checked in", "Sign-ups and check-in"], ["checkin.completed", "A child is checked out", "Sign-ups and check-in"], ["attendance.recorded", "Attendance is recorded for a service", "Sign-ups and check-in"],
   ["room.booked", "A room is booked or requested", "Sign-ups and check-in"],
-  ["gift.created", "A gift is made", "Giving"], ["pledge.made", "Someone pledges to a campaign", "Giving"],
+  ["gift.created", "A gift is made", "Giving"], ["event.payment", "Someone pays for event tickets in person", "Giving"], ["pledge.made", "Someone pledges to a campaign", "Giving"],
   ["volunteer.scheduled", "Someone is asked to serve", "Volunteers"], ["volunteer.responded", "A volunteer accepts or declines", "Volunteers"],
   ["volunteer.requested", "Someone asks to join a volunteer team", "Volunteers"], ["volunteer.joined", "Someone joins a volunteer team", "Volunteers"],
 ];

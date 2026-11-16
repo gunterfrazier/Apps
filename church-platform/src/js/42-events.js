@@ -48,14 +48,16 @@ Screens.event = (id) => {
       </div>
       <p class="lead">${e.description}</p>
       ${e.signup ? html`<div class="panel" style="margin-top:16px">
-        ${reg ? html`<p style="margin-top:0"><span class="tag ok">You're going</span> ${reg.tickets ? ticketSummary(e, reg) : reg.count > 1 ? `${reg.count} people in your party` : ""}${reg.kids?.length ? `, including ${listJoin(reg.kids.map((k) => S.me().household.find((p) => p.id === k)?.name).filter(Boolean))}` : ""}.${reg.total ? ` ${paidLabel(reg.paid)}, ${money(reg.total)}.` : ""}</p>
-            ${eventFormPanel(e, reg)}
-            <div class="btns">${reg.paid?.status === "pending" ? html`<button class="btn" data-act="event-pay" data-id="${e.id}">${icon("give")}Finish paying ${money(reg.total)}</button><button class="btn ghost" data-act="event-cancel" data-id="${e.id}" data-sure="1">Cancel</button>` : reg.total ? html`<button class="btn danger" data-act="event-cancel" data-id="${e.id}">Cancel and refund</button>` : html`<button class="btn ghost" data-act="event-register" data-id="${e.id}">Change</button><button class="btn danger" data-act="event-cancel" data-id="${e.id}">Cancel my spot</button>`}</div>`
+        ${reg ? html`<p style="margin-top:0"><span class="tag ok">You're going</span> ${reg.tickets ? ticketSummary(e, reg) : reg.count > 1 ? `${reg.count} people in your party` : ""}${reg.kids?.length ? `, including ${listJoin(reg.kids.map((k) => S.me().household.find((p) => p.id === k)?.name).filter(Boolean))}` : ""}.</p>
+            ${myTicketPanel(e, reg)}${eventFormPanel(e, reg)}
+            <div class="btns">${reg.total && regBalance(e, reg) && payWays(e).app ? html`<button class="btn" data-act="event-pay" data-id="${e.id}">${icon("give")}${regPaid(e, reg) ? `Pay the rest, ${money(regBalance(e, reg))}` : `Pay ${money(regBalance(e, reg))} in the app`}</button>` : ""}
+              ${reg.total ? html`<button class="btn ${regPaid(e, reg) ? "danger" : "ghost"}" data-act="event-cancel" data-id="${e.id}">${regPaid(e, reg) ? "Cancel and refund" : "Cancel"}</button>` : html`<button class="btn ghost" data-act="event-register" data-id="${e.id}">Change</button><button class="btn danger" data-act="event-cancel" data-id="${e.id}">Cancel my spot</button>`}</div>`
           : left !== null && left <= 0 ? html`<p style="margin:0"><b>This event is full.</b></p>`
           : html`<button class="btn block" data-act="event-register" data-id="${e.id}">${e.tickets?.length ? "Get tickets" : "Sign up"}</button>`}
       </div>` : ""}
       <div class="btns">${ext(gcalLink(e.title, e.start, e.end, e.description, fullAddress(e)), "Add to Google Calendar", "btn ghost sm", "calendar")}
         <button class="btn ghost sm" data-act="copy" data-done="Event details copied" data-text="${`${e.title}\n${fmtDay(e.start)}, ${fmtTime(e.start)}\n${placeText(e)}\n\n${e.description}\n${appLink(`event-${e.id}`)}`}">${icon("copy")}Copy details</button>
+        ${e.tickets?.length && canTakePay(e) ? html`<a class="btn ghost sm" href="#tickets-${e.id}">${icon("list")}Tickets and payments</a>` : ""}
         ${S.can("qr.create") ? html`<button class="btn ghost sm" data-act="qr-for" data-target="${e.signup ? `register-event-${e.id}` : `event-${e.id}`}" data-label="${e.title}">${icon("qr")}QR code</button>` : ""}</div>`,
     after() { if (pendingRegister === e.id) { pendingRegister = null; if (e.signup && !reg) Actions["event-register"]({ dataset: { id: e.id } }); } },
   };
@@ -98,18 +100,6 @@ function eventFormPanel(e, reg) {
     : html`<p class="faint" style="margin-top:0">${icon("check")} ${form.title} done${form.perChild ? ` for ${listJoin(done.map(name))}` : ""}.</p>`;
 }
 Actions["event-form"] = (el) => { formChild = el.dataset.child || null; formDone = null; go(`form-${el.dataset.form}`); };
-Actions["event-csv"] = (el) => {
-  const e = S.get("events", el.dataset.id), q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-  const rows = [["Signed up", "Name", "Email", "People", ...(e.tickets || []).map((t) => t.name), "Total", "Payment", ...(e.formId ? ["Form"] : [])].map(q).join(","),
-    ...e.registrations.map((r) => [r.at, r.name, r.email, r.count || 1, ...(e.tickets || []).map((t) => r.tickets?.[t.id] || 0), r.total || 0, r.total ? paidLabel(r.paid) : "", ...(e.formId ? [formsDoneText(e, r)] : [])].map(q).join(","))];
-  saveFile(`${e.title.replace(/[^\w]+/g, "-").toLowerCase()}-signups.csv`, rows.join("\n") + "\n");
-};
-Inputs["ticket-total"] = (el) => {
-  const f = el.closest("form"), e = S.get("events", $('input[name="id"]', f).value);
-  const total = (e.tickets || []).reduce((n, t) => n + (+f[`t_${t.id}`]?.value || 0) * t.price, 0);
-  $("[data-total]", f).textContent = total ? `Continue to pay ${money(total)}` : "Choose your tickets";
-};
-
 Actions["event-register"] = (el) => {
   const e = S.get("events", el.dataset.id), reg = myRegistration(e), me = S.me();
   const kids = me.household.filter((p) => p.kind === "child");
@@ -122,6 +112,7 @@ Actions["event-register"] = (el) => {
         ${kids.map((k) => html`<label class="check"><input type="checkbox" name="kids" value="${k.id}"><span>${k.name}</span></label>`)}</fieldset>` : ""}
       <label class="field"><span>Name</span><input type="text" name="name" value="${me.name}" required></label>
       <label class="field"><span>Email for your receipt</span><input type="email" name="email" value="${me.email}"></label>
+      ${payWayFields(e)}
       ${e.formId ? html`<p class="faint">After paying, you'll fill in ${S.get("forms", e.formId)?.title || "a short form"}.</p>` : ""}
       <button class="btn block" data-total>Choose your tickets</button></form>`);
     return;
@@ -149,43 +140,4 @@ Forms["event-register"] = (d, f, fd) => {
   if (isNew) emit("event.registered", { event: e.title, eventId: e.id, name: d.name, count, kids: kids.length });
   S.save(); closeSheet(); toast("You're signed up"); render();
 };
-Forms["event-tickets"] = async (d, f, fd) => {
-  const e = S.get("events", d.id), me = S.me();
-  const tickets = Object.fromEntries((e.tickets || []).map((t) => [t.id, clamp(parseInt(d[`t_${t.id}`], 10) || 0, 0, 20)]).filter(([, n]) => n));
-  const count = Object.values(tickets).reduce((n, x) => n + x, 0);
-  if (!count) return formError(f, "Choose at least one ticket.");
-  if (!d.name) return formError(f, "Enter your name.");
-  for (const t of e.tickets) if (t.limit && tickets[t.id] && ticketsSold(e, t.id) + tickets[t.id] > t.limit) return formError(f, `Only ${t.limit - ticketsSold(e, t.id)} ${t.name.toLowerCase()} tickets are left.`);
-  if (e.capacity && registeredCount(e) + count > e.capacity) return formError(f, `Only ${e.capacity - registeredCount(e)} spots are left.`);
-  const lines = e.tickets.filter((t) => tickets[t.id]).map((t) => ({ label: t.name, amount: t.price, qty: tickets[t.id] }));
-  const total = lines.reduce((n, l) => n + l.amount * l.qty, 0);
-  if (Pay.live() && total > 0) {
-    e.registrations = [...e.registrations.filter((r) => r.by !== me.id), { id: `${e.id}~${me.id}`, by: me.id, name: d.name, email: d.email, count, kids: fd.getAll("kids"), tickets, total, paid: { status: "pending" }, at: new Date().toISOString() }];
-    await savePending();
-  }
-  const paid = await Pay.checkout({ title: e.title, lines, kind: "event", ref: `${e.id}~${me.id}`, email: d.email });
-  if (!paid) return formError(f, "Payment was cancelled. Nothing was charged.");
-  const reg = { id: `${e.id}~${me.id}`, by: me.id, name: d.name, email: d.email, count, kids: fd.getAll("kids"), tickets, total, paid, at: new Date().toISOString() };
-  e.registrations = [...e.registrations.filter((r) => r.by !== me.id), reg];
-  if (d.email && !me.email) me.email = d.email;
-  emit("event.registered", { event: e.title, eventId: e.id, name: d.name, count, kids: reg.kids.length, total, paid: paid.status });
-  S.save(); closeSheet(true);
-  const { form, need } = formsNeeded(e, reg);
-  if (form && need.length) { toast(`You're in. Next: ${form.title}`); formChild = need[0]; formDone = null; go(`form-${form.id}`); }
-  else { toast("You're in. See you there!"); render(); }
-};
-Actions["event-pay"] = (el) => {
-  const e = S.get("events", el.dataset.id), r = myRegistration(e);
-  Pay.checkout({ title: e.title, lines: e.tickets.filter((t) => r.tickets?.[t.id]).map((t) => ({ label: t.name, amount: t.price, qty: r.tickets[t.id] })), kind: "event", ref: r.id, email: r.email });
-};
-Actions["event-cancel"] = (el) => {
-  const e = S.get("events", el.dataset.id), reg = myRegistration(e);
-  if (reg?.total && !el.dataset.sure) {
-    openSheet("Cancel and refund?", html`<p>Your ${money(reg.total)} goes back to the card you paid with${reg.paid?.status === "test" ? " (this was a test payment, so nothing moves)" : ". It can take 5 to 10 days to show up"}.</p>
-      <div class="btns"><button class="btn danger" data-act="event-cancel" data-id="${e.id}" data-sure="1">Cancel and refund</button><button class="btn ghost" data-act="close-sheet">Keep my tickets</button></div>`);
-    return;
-  }
-  if (reg?.paid?.status === "paid" && typeof Backend !== "undefined" && Backend.on) Backend.refund?.(reg.paid.ref);
-  e.registrations = e.registrations.filter((r) => r.by !== S.me().id);
-  S.save(); closeSheet(true); toast(reg?.total ? "Cancelled. Your refund is on its way." : "Your spot is cancelled"); render();
-};
+// Paying for tickets, paying what's left and cancelling are in 88-tickets.js.

@@ -84,6 +84,7 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 
 **Paid events, forms and rooms**
 - Ticketed events: ticket types with prices and limits (Student $85, Adult leader $40), a checkout, receipts by email once payments are live, cancel and refund, and a sign-up list with payments and CSV download.
+- Ticket payments in the app, in person with cash or check, or a part at a time with what's left tracked. People with **Take cash and check payments** (or named on the event) record payments and email or text a receipt; the **Event tickets** report shows who's paid, how, to whom and what's owed, with filters and grouping.
 - Forms built from 12 kinds of question, including multiple choice, checkboxes, dates and a signature pad. Start from a template: permission slip, event questions, volunteer application or contact update. Share by link or QR code, list on the Connect tab, attach to an event, or add a fee.
 - Permission slips take one response per child, prefill allergies from the household, and collect a parent's drawn signature and typed name. An event with a slip asks for it after sign-up and shows which kids still need one.
 - Responses with search, a detail view with the signature, and CSV download. Someone chosen is notified of each new response.

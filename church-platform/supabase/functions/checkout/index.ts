@@ -3,6 +3,7 @@
 // The checkout is saved first, so the payment is recorded from these details when the processor reports it.
 import { admin, caller, env, fail, handle, json, uid } from "../_shared/util.ts";
 import { PayError, processorFor, saveKeys, type Line } from "../_shared/payments.ts";
+import { ticketBalance } from "../_shared/settle.ts";
 
 handle(async (req) => {
   const { user } = await caller(req);
@@ -23,9 +24,20 @@ handle(async (req) => {
       db.from("records").select("data").eq("kind", "events").eq("id", eventId).single(),
       db.from("records").select("data, owner").eq("kind", "event_regs").eq("id", b.ref).single()]);
     if (!ev || !reg || reg.owner !== user.id) return fail("Sign up first");
+    if (ev.data.payInApp === false) return fail("This event takes payment in person.");
+    // The total comes from the tickets; what's owed takes off every payment so far, in the app or in cash and checks.
     // deno-lint-ignore no-explicit-any
     lines = (ev.data.tickets || []).filter((t: any) => reg.data.tickets?.[t.id]).map((t: any) => ({ name: `${ev.data.title}: ${t.name}`, amount: Number(t.price), qty: Number(reg.data.tickets[t.id]) }));
     title = ev.data.title;
+    const full = Math.round(lines.reduce((n, l) => n + l.amount * l.qty, 0) * 100) / 100, owed = await ticketBalance(db, String(b.ref));
+    if (!(owed > 0)) return fail("These tickets are paid in full.");
+    let amount = Math.round(Number(b.amount || owed) * 100) / 100;
+    if (!(amount > 0)) return fail("Enter an amount to pay.");
+    amount = Math.min(amount, owed);
+    if (amount < owed && !ev.data.payPartial) amount = owed;
+    const deposit = Number(ev.data.deposit || 0), firstPayment = owed >= full;
+    if (firstPayment && deposit && amount < Math.min(deposit, owed)) return fail(`The first payment is at least $${Math.min(deposit, owed).toFixed(2)}.`);
+    if (amount < full) lines = [{ name: `${ev.data.title}: payment toward tickets`, amount, qty: 1 }];
   } else if (b.kind === "form") {
     const { data: resp } = await db.from("records").select("data, owner").eq("kind", "formResponses").eq("id", b.ref).single();
     if (!resp || resp.owner !== user.id) return fail("Fill in the form first");

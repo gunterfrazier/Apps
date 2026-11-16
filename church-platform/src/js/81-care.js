@@ -9,7 +9,7 @@ function logActivity(what, area = "") {
   if (!Backend.on && mine.length > 500) S.state.activity = S.state.activity.filter((a) => a.churchId !== S.state.current || mine.indexOf(a) < 500);
   S.save();
 }
-const ACTIVITY_WORDS = { "gift.created": "Gave", "event.registered": "Signed up for an event", "attendance.recorded": "Recorded attendance", "volunteer.requested": "Asked to join a team", "volunteer.joined": "Joined a team",
+const ACTIVITY_WORDS = { "gift.created": "Gave", "event.registered": "Signed up for an event", "event.payment": "Recorded a ticket payment", "attendance.recorded": "Recorded attendance", "volunteer.requested": "Asked to join a team", "volunteer.joined": "Joined a team",
   "followup.created": "Added a new person to follow up", "prayer.created": "Shared a prayer request", "form.submitted": "Sent in a form", "checkin.created": "Checked a child in", "member.joined": "Joined the church" };
 /** Everything the app announces to outside systems is also worth a line in the log. */
 function logEvent(event, data = {}) {
