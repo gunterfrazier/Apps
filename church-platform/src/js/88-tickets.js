@@ -53,7 +53,7 @@ function payWayFields(e) {
       <label class="field pay-part" hidden><span>Amount to pay now</span><input type="number" name="partAmount" min="${w.deposit || 1}" step="0.01" inputmode="decimal" placeholder="${w.deposit || ""}"></label>` : ""}
     ${w.person ? html`<label class="check"><input type="radio" name="payway" value="person" ${attr(!w.app, "checked")} data-input="ticket-total"><span>Pay in person with cash or check</span></label>` : ""}
     ${e.payNote ? html`<p class="faint" style="margin:4px 0 0">${e.payNote}</p>` : ""}</fieldset>
-    <label class="field"><span>Phone for a text receipt (optional)</span><input type="tel" name="phone" value="${S.me().phone || ""}" maxlength="30"></label>`;
+    ${textingOn() && (msgRoute("receipts").includes("text") || msgRoute("tickets").includes("text")) ? html`<label class="field"><span>Mobile number for texts about your tickets (optional)</span><input type="tel" name="phone" value="${S.me().phone || ""}" maxlength="30"></label>` : ""}`;
 }
 Inputs["ticket-total"] = (el) => {
   const f = el.closest("form"), e = S.get("events", $('input[name="id"]', f).value);
@@ -81,7 +81,8 @@ Forms["event-tickets"] = async (d, f, fd) => {
     amount = Math.min(amount, total);
   }
   const id = `${e.id}~${me.id}`;
-  const reg = { id, by: me.id, name: d.name, email: d.email, phone: String(d.phone || "").trim(), count, kids: fd.getAll("kids"), tickets, total, at: new Date().toISOString() };
+  const old = e.registrations.find((r) => r.by === me.id);
+  const reg = { id, by: me.id, name: d.name, email: d.email, phone: String(d.phone || "").trim(), count, kids: fd.getAll("kids"), tickets, total, at: new Date().toISOString(), code: old?.code || ticketCodeNew() };
   const put = (paid) => { e.registrations = [...e.registrations.filter((r) => r.by !== me.id), { ...reg, paid }]; };
   if (d.email && !me.email) me.email = d.email;
   if (way === "person" || total <= 0) {
@@ -89,22 +90,21 @@ Forms["event-tickets"] = async (d, f, fd) => {
     emit("event.registered", { event: e.title, eventId: e.id, name: d.name, count, kids: reg.kids.length, total, paid: "in person" });
     S.save(); closeSheet(true);
     toast(total > 0 ? `You're signed up. Pay ${money(total)} in person.` : "You're in. See you there!");
-    return ticketsNext(e, reg);
+    return ticketsNext(e, reg, () => ticketSheet(ticketInfo(e, myRegistration(e))));
   }
   if (Pay.live()) { put({ status: "pending", tracked: true }); await savePending(); }
   const paid = await Pay.checkout({ title: e.title, lines: amount < total ? [{ label: `Payment toward ${plural(count, "ticket")}`, amount, qty: 1 }] : lines, kind: "event", ref: id, email: d.email, amount });
   if (!paid) { if (!Pay.live()) return formError(f, "Payment was cancelled. Nothing was charged."); return; }
   put({ status: amount < total ? "partial" : paid.status, ref: paid.ref, at: paid.at, tracked: true });
-  S.add("ticketPayments", { eventId: e.id, regId: id, payerId: me.id, amount, method: "app", status: paid.status === "paid" ? "paid" : "test", at: paid.at, ref: paid.ref, receipts: [] });
+  const tp = S.add("ticketPayments", { eventId: e.id, regId: id, payerId: me.id, amount, method: "app", status: paid.status === "paid" ? "paid" : "test", at: paid.at, ref: paid.ref, receipts: [] });
   emit("event.registered", { event: e.title, eventId: e.id, name: d.name, count, kids: reg.kids.length, total, paid: paid.status });
   S.save(); closeSheet(true);
-  toast(amount < total ? `You're in. ${money(total - amount)} left to pay.` : "You're in. See you there!");
-  ticketsNext(e, reg);
+  ticketsNext(e, reg, () => paymentDone("ticket", tp.id));
 };
-function ticketsNext(e, reg) {
+function ticketsNext(e, reg, then) {
   const { form, need } = formsNeeded(e, reg);
   if (form && need.length) { toast(`Next: ${form.title}`); formChild = need[0]; formDone = null; go(`form-${form.id}`); }
-  else render();
+  else { render(); then?.(); }
 }
 /** Paying what's left, all of it or part. */
 Actions["event-pay"] = (el) => {
@@ -125,9 +125,9 @@ async function payToward(e, r, amount) {
   const id = regIdOf(e, r);
   const paid = await Pay.checkout({ title: e.title, lines: [{ label: `Payment toward ${e.title}`, amount, qty: 1 }], kind: "event", ref: id, email: r.email, amount });
   if (!paid) return;
-  S.add("ticketPayments", { eventId: e.id, regId: id, payerId: r.by, amount, method: "app", status: paid.status === "paid" ? "paid" : "test", at: paid.at, ref: paid.ref, receipts: [] });
+  const tp = S.add("ticketPayments", { eventId: e.id, regId: id, payerId: r.by, amount, method: "app", status: paid.status === "paid" ? "paid" : "test", at: paid.at, ref: paid.ref, receipts: [] });
   r.paid = { status: regBalance(e, r) > 0 ? "partial" : paid.status, ref: paid.ref, at: paid.at, tracked: true };
-  S.save(); toast(regBalance(e, r) > 0 ? `Thank you. ${money(regBalance(e, r))} left.` : "Paid in full. Thank you!"); render();
+  S.save(); render(); paymentDone("ticket", tp.id);
 }
 /** What the payer sees on the event: paid so far, what's left, and each payment. */
 function myTicketPanel(e, reg) {
@@ -135,7 +135,9 @@ function myTicketPanel(e, reg) {
   const pays = regPays(e, reg).filter((p) => p.status !== "void"), bal = regBalance(e, reg), st = regStatus(e, reg);
   return html`<div class="tk-mine">${statusTag(st)} <b>${money(regPaid(e, reg))}</b> paid of ${money(reg.total)}${bal ? html`. <b>${money(bal)} left</b>` : ""}.
     ${pays.length ? html`<ul class="tk-pays">${pays.map((p) => html`<li>${fmtShort(p.at)}: ${money(p.amount)} ${p.method === "app" ? "in the app" : `${PAY_METHODS[p.method].toLowerCase()}${p.checkNo ? ` #${p.checkNo}` : ""}, to ${p.receivedByName || nameOf(p.receivedBy)}`}${p.status === "test" ? " (test)" : p.status === "refunded" ? ", refunded" : ""}</li>`)}</ul>` : ""}
-    ${bal && payWays(e).person ? html`<p class="faint" style="margin:6px 0 0">${e.payNote || "You can pay what's left in person with cash or a check."}</p>` : ""}</div>`;
+    ${bal && payWays(e).person ? html`<p class="faint" style="margin:6px 0 0">${e.payNote || "You can pay what's left in person with cash or a check."}</p>` : ""}
+    <div class="btns" style="margin-top:8px"><button class="btn ghost sm" data-act="ticket-show" data-event="${e.id}" data-reg="${regIdOf(e, reg)}">${icon("ticket")}Show my ticket</button>
+      ${pays.filter((p) => payCounts(p) && !p.legacy).length ? html`<button class="btn ghost sm" data-act="receipt-show" data-kind="ticket" data-id="${pays.filter((p) => payCounts(p) && !p.legacy).at(-1).id}">${icon("note")}Last receipt</button>` : ""}</div></div>`;
 }
 /** Cancelling: payments in the app go back to the card; cash and checks are returned by the church. */
 Actions["event-cancel"] = (el) => {
@@ -164,17 +166,18 @@ const findReg = (eventId, regId) => { const e = S.get("events", eventId); return
 /** On file for a receipt: the sign-up's own email and phone, then their account's. */
 const receiptTo = (r) => { const u = S.user(r.by); return { email: r.email || u?.email || "", phone: r.phone || u?.phone || "" }; };
 function receiptChoice(r, name = "receipt") {
-  const on = receiptTo(r), first = on.email ? "email" : on.phone ? "text" : "none";
+  const txt = textingOn(), route = msgRoute("receipts"), on = receiptTo(r);
+  const first = on.email && route.includes("email") ? "email" : txt && on.phone && route.includes("text") ? "text" : on.email ? "email" : "none";
   return html`<fieldset class="field" style="border:0;padding:0"><legend class="flabel">Send a receipt</legend><div class="radios tk-receipt">
       <label><input type="radio" name="${name}" value="email" ${attr(first === "email", "checked")} data-input="tk-receipt"><span>Email</span></label>
-      <label><input type="radio" name="${name}" value="text" ${attr(first === "text", "checked")} data-input="tk-receipt"><span>Text</span></label>
-      <label><input type="radio" name="${name}" value="both" data-input="tk-receipt"><span>Both</span></label>
+      ${txt ? html`<label><input type="radio" name="${name}" value="text" ${attr(first === "text", "checked")} data-input="tk-receipt"><span>Text</span></label>
+      <label><input type="radio" name="${name}" value="both" data-input="tk-receipt"><span>Both</span></label>` : ""}
       <label><input type="radio" name="${name}" value="none" ${attr(first === "none", "checked")} data-input="tk-receipt"><span>Don't send</span></label></div>
     <label class="field tk-to-email" ${attr(!["email", "both"].includes(first), "hidden")}><span>Email</span><input type="email" name="toEmail" value="${on.email}" maxlength="120" placeholder="Their email address"></label>
-    <label class="field tk-to-phone" ${attr(!["text", "both"].includes(first), "hidden")}><span>Mobile number</span><input type="tel" name="toPhone" value="${on.phone}" maxlength="30" placeholder="Their mobile number"></label>
-    ${!on.email && !on.phone ? html`<small>No email or phone is on file for ${r.name}. Add one to send a receipt.</small>` : html`<small>Filled in from what's on file. Change it if they'd like it somewhere else.</small>`}</fieldset>`;
+    <label class="field tk-to-phone" ${attr(!txt || !["text", "both"].includes(first), "hidden")}><span>Mobile number</span><input type="tel" name="toPhone" value="${on.phone}" maxlength="30" placeholder="Their mobile number"></label>
+    ${!on.email && (!on.phone || !txt) ? html`<small>No email${txt ? " or phone" : ""} is on file for ${r.name}. Add one to send a receipt.</small>` : html`<small>Filled in from what's on file. Change it if they'd like it somewhere else.</small>`}</fieldset>`;
 }
-Inputs["tk-receipt"] = (el) => { const f = el.closest("form"), v = el.value; $(".tk-to-email", f).hidden = !["email", "both"].includes(v); $(".tk-to-phone", f).hidden = !["text", "both"].includes(v); };
+Inputs["tk-receipt"] = (el) => { const f = el.closest("form"), v = el.value; $(".tk-to-email", f).hidden = !["email", "both"].includes(v); const ph = $(".tk-to-phone", f); if (ph) ph.hidden = !textingOn() || !["text", "both"].includes(v); };
 /** Record a payment for someone: their sign-up, how much, cash or check, and a receipt. */
 Actions["tk-record"] = (el) => {
   const { e, r } = findReg(el.dataset.event, el.dataset.reg);
@@ -381,7 +384,7 @@ Actions["tk-open"] = (el) => {
     <h3 style="margin:14px 0 6px">Payments</h3>
     ${pays.length ? html`<div class="rows">${pays.map((p) => html`<div class="row ${p.status === "void" ? "tk-void" : ""}"><span class="lead-ic">${icon(p.method === "app" ? "give" : p.method === "check" ? "note" : "check")}</span><span class="body"><span class="t">${money(p.amount)} ${PAY_METHODS[p.method]}${p.checkNo ? ` #${p.checkNo}` : ""}</span>
       <span class="s">${fmtShort(p.at)}. ${p.method === "app" ? `Paid in the app${p.status === "test" ? " (test)" : ""}` : `Received by ${p.receivedByName || nameOf(p.receivedBy)}`}${p.status === "refunded" ? ". Refunded" : ""}${p.status === "void" ? `. Voided: ${p.voidReason}` : ""}${p.note ? `. ${p.note}` : ""}${(p.receipts || []).length ? `. Receipt ${listJoin(p.receipts.map((x) => x.via === "text" ? "texted" : "emailed"))}` : ""}</span></span>
-      ${take && !p.legacy && p.status !== "void" ? html`<span class="row-tools"><button class="icon-btn" data-act="tk-resend" data-id="${p.id}" aria-label="Send a receipt">${icon("mail")}</button>${p.method !== "app" ? html`<button class="icon-btn" data-act="tk-void" data-id="${p.id}" aria-label="Void">${icon("close")}</button>` : ""}</span>` : ""}</div>`)}</div>`
+      ${take && !p.legacy && p.status !== "void" ? html`<span class="row-tools"><button class="icon-btn" data-act="tk-resend" data-id="${p.id}" aria-label="Send a receipt">${icon("mail")}</button>${p.method !== "app" ? html`<button class="icon-btn" data-act="tk-void" data-id="${p.id}" aria-label="Void">${icon("x")}</button>` : ""}</span>` : ""}</div>`)}</div>`
       : html`<p class="muted">Nothing paid yet.${r.paid?.status === "door" ? " They're paying in person." : ""}</p>`}
     <div class="btns">${take ? html`<button class="btn" data-act="tk-record" data-event="${e.id}" data-reg="${regIdOf(e, r)}">${icon("plus")}Record cash or check</button>` : ""}
       ${S.user(r.by) && r.by !== S.me().id && S.can("use.chat") ? html`<button class="btn ghost" data-act="dm-start" data-user="${r.by}">${icon("chat")}Message</button>` : ""}</div>`, { wide: true });
@@ -389,8 +392,8 @@ Actions["tk-open"] = (el) => {
 /** The report as tables: every sign-up, and every payment. */
 function tkTables(rows) {
   return {
-    signups: { head: ["Name", "Event", "Tickets", "Signed up", "Total", "Paid", "Balance", "Status", "Paid with", "Received by", "Last payment", "Email", "Phone"],
-      rows: rows.map((x) => [x.name, x.event, x.tickets, String(x.at || "").slice(0, 10), x.total, x.paid, x.balance, PAY_STATUS[x.status], x.methodText, x.receiverText, String(x.last || "").slice(0, 10), x.email, x.phone]), numeric: [4, 5, 6] },
+    signups: { head: ["Name", "Event", "Tickets", "Signed up", "Total", "Paid", "Balance", "Status", "Paid with", "Received by", "Last payment", "Checked in", "Email", "Phone"],
+      rows: rows.map((x) => { const c = entryCount(x.e, x.r); return [x.name, x.event, x.tickets, String(x.at || "").slice(0, 10), x.total, x.paid, x.balance, PAY_STATUS[x.status], x.methodText, x.receiverText, String(x.last || "").slice(0, 10), c.now ? `${c.now} in now` : c.came ? "Came, left" : "No", x.email, x.phone]; }), numeric: [4, 5, 6] },
     payments: { head: ["Date", "Name", "Event", "Amount", "Paid with", "Check number", "Received by", "Status", "Receipt", "Note"],
       rows: tkPayRows(rows).map(({ x, p }) => [String(p.at).slice(0, 10), x.name, x.event, p.amount, PAY_METHODS[p.method], p.checkNo || "", p.method === "app" ? "Paid in the app" : p.receivedByName || nameOf(p.receivedBy),
         p.status === "void" ? `Voided: ${p.voidReason}` : p.status === "test" ? "Test" : p.status === "refunded" ? "Refunded" : "Paid", (p.receipts || []).map((r) => `${r.via === "text" ? "Texted" : "Emailed"} ${String(r.at).slice(0, 10)}`).join("; "), p.note || ""]), numeric: [3] },

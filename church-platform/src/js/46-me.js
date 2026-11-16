@@ -35,9 +35,11 @@ Screens.me = () => {
           ${row("#household", "people", "Household", me.household.length ? me.household.map((p) => p.name).join(", ") : "Add your family for classes and check-in")}
           ${S.on("checkin") ? row("#checkin", "kid", "Check in", "Kids and volunteers") : ""}
           ${S.on("giving") ? row("#history", "give", "Giving history", "Gifts and year-end statements") : ""}
+          ${S.on("events") && S.isMember() && S.visible("events").some((e) => myRegistration(e) && (e.end || e.start) >= new Date().toISOString()) ? row("#mytickets", "ticket", "My tickets", "Show them at the door, save or print them") : ""}
           ${S.on("chat") && S.can("use.chat") ? row("#chat", "chat", "Messages") : ""}
           ${row("#settings", "gear", "Settings", "Language, text size, read aloud and notifications")}
           ${row("#scan", "scan", "Scan a QR code")}
+          ${hasAdminTools() ? html`<button class="row" data-act="printers-setup"><span class="lead-ic">${icon("printer")}</span><span class="body"><span class="t">Printers on this computer</span><span class="s">Where receipts, tickets, name tags and reports print</span></span>${icon("chev")}</button>` : ""}
           ${S.on("sermons") ? row("#notes", "note", "Sermon notes") : ""}
         </div></section>
 

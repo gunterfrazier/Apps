@@ -19,7 +19,7 @@ function logEvent(event, data = {}) {
 }
 AdminScreens.activity = () => {
   const stop = guard("manage.church"); if (stop) return stop;
-  const list = S.list("activity").sort((a, b) => b.at.localeCompare(a.at));
+  const list = S.list("activity").filter((a) => !a.hidden).sort((a, b) => b.at.localeCompare(a.at));
   return { title: "Activity log", back: "admin", body: html`<p class="muted" style="margin-top:14px">Who did what at ${S.church().name}, newest first.</p>
     <div class="panel">${reportTable("activity", "activity-log", ["When", "Who", "What"], list.map((a) => [fmt(a.at, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }), a.name || nameOf(a.by) || "Someone", a.what]), { limit: 100, empty: "Nothing has been logged yet. Changes people make from now on show here." })}</div>` };
 };

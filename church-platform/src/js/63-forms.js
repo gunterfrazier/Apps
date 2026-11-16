@@ -211,6 +211,7 @@ Forms["form-submit"] = async (d, form, fd) => {
   if (f.notify && f.notify !== me.id) notify(f.notify, { kind: "form", title: `New response: ${f.title}`, body: `${me.name}${child ? ` for ${child.name}` : ""}`, link: `#responses-${f.id}` });
   emit("form.submitted", { form: f.title, formId: f.id, name: me.name, child: child?.name || "", paid: r.paid?.status || "" });
   formDone = { formId: f.id, responseId: r.id }; formChild = null; render(); window.scrollTo(0, 0);
+  if (f.fee && r.paid && ["paid", "test"].includes(r.paid.status)) paymentDone("form", r.id);
 };
 
 // ----- Signature pad -----

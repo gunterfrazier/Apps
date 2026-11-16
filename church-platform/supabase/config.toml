@@ -56,3 +56,12 @@ verify_jwt = false
 
 [functions.ticket-receipt]
 verify_jwt = false
+
+[functions.texting]
+verify_jwt = false
+
+[functions.kiosk]
+verify_jwt = false
+
+[functions.qz-sign]
+verify_jwt = false

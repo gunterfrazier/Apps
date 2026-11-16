@@ -77,7 +77,7 @@ function deviceForm(d = { type: "signage", settings: {} }) {
     <label class="field"><span>Name</span><input type="text" name="name" value="${d.name || (d.type === "room" && s.room ? `${s.room} screen` : DEVICE_TYPES[d.type][0])}" required maxlength="50" placeholder="Lobby screen" ${attr(!d.id, 'data-auto="1"')}></label>
     ${d.id ? html`<input type="hidden" name="type" value="${d.type}"><p class="faint" style="margin:0">${DEVICE_TYPES[d.type][0]}</p>` : html`<fieldset class="field" style="border:0;padding:0"><legend class="flabel">What does it do?</legend>
       <div class="rows">${Object.entries(DEVICE_TYPES).map(([k, [l, ic, sub]]) => html`<label class="row" style="cursor:pointer"><input type="radio" name="type" value="${k}" ${attr(k === d.type, "checked")} style="accent-color:var(--brand)"><span class="lead-ic">${icon(ic)}</span><span class="body"><span class="t">${l}</span><span class="s">${sub}</span></span></label>`)}</div></fieldset>`}
-    <div class="dev-opt" data-for="kiosk signage display stage overlay booth" ${attr(d.type === "room", "hidden")}><label class="field"><span>Location</span><select name="locationId">${locationOptions(d.locationId, "Any location")}</select></label></div>
+    <div class="dev-opt" data-for="kiosk gate signage display stage overlay booth" ${attr(d.type === "room", "hidden")}><label class="field"><span>Location</span><select name="locationId">${locationOptions(d.locationId, "Any location")}</select></label></div>
     <div class="dev-opt" data-for="room" ${attr(d.type !== "room", "hidden")}>
       <label class="field"><span>Room</span><select name="roomKey"><option value="">Choose a room</option>${roomLocs.map((l) => html`<optgroup label="${l.name}">${l.rooms.map((r) => { const sub = roomSub(l, r, false); return html`<option value="${l.id}~${r}" ${attr(`${l.id}~${r}` === roomNow, "selected")}>${r}${sub ? ` (${sub})` : ""}</option>`; })}</optgroup>`)}</select>
         <small>${S.can("manage.locations") ? html`Add rooms, their numbers and where they are under <a href="#admin-rooms">Rooms</a>.` : "Rooms come from each campus's list of rooms."}</small></label>
@@ -281,7 +281,7 @@ Actions["device-exit"] = () => {
   const d = thisDevice(); if (!d) return;
   openSheet(d.name, html`<p class="muted" style="margin-top:0">${DEVICE_TYPES[d.type][0]}${d.locationId ? `, ${locName(d.locationId)}` : ""}.</p>
     <form data-form="device-leave" novalidate>${d.settings?.exitPin ? html`<label class="field"><span>Exit code</span><input type="password" name="pin" inputmode="numeric" maxlength="6" autocomplete="off"></label>` : ""}
-      <div class="btns"><button class="btn danger">Stop being a device</button><button type="button" class="btn ghost" data-act="close-sheet">Cancel</button></div></form>
+      <div class="btns"><button type="button" class="btn ghost" data-act="printers-setup">${icon("printer")}Printers</button><button class="btn danger">Stop being a device</button><button type="button" class="btn ghost" data-act="close-sheet">Cancel</button></div></form>
     ${!Backend.on ? html`<p class="faint">In the preview, device mode lasts until this tab closes.</p>` : ""}`);
 };
 Forms["device-leave"] = async (d, f) => {

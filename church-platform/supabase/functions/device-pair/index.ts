@@ -5,7 +5,7 @@
 //   { action: "remove", deviceId, churchId }   staff with manage.devices: deletes the device's account, which signs it out.
 import { admin, caller, can, fail, handle, json } from "../_shared/util.ts";
 
-const DEVICE_TYPES = ["kiosk", "signage", "display", "room", "stage", "overlay", "booth"];
+const DEVICE_TYPES = ["kiosk", "gate", "signage", "display", "room", "stage", "overlay", "booth"];
 const password = () => [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
 handle(async (req) => {

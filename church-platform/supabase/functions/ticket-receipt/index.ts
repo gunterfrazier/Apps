@@ -3,10 +3,11 @@
 // Only people who can take payments for that event may send one: the "Take cash and check payments" or "Announcements
 // and events" permission, or being named on the event to take its payments. The receipt says what was paid, how and
 // to whom, and what's left. "to" defaults to what's on file: the sign-up's own email or phone, then the account's.
-// Texts go through Twilio when TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM (a number you own) are set;
-// without them this answers 503 and the app opens the text on the sender's phone instead.
-import { admin, caller, can, emailReady, env, fail, handle, json, sendEmail } from "../_shared/util.ts";
+// Texts go out from the church's own Twilio number once it's linked and texting is on (Admin, Texting); otherwise
+// this answers 503 and the app opens the text on the sender's phone instead.
+import { admin, caller, can, emailReady, fail, handle, json, sendEmail } from "../_shared/util.ts";
 import { emailHtml } from "../_shared/email.ts";
+import { sendText, textingOn } from "../_shared/messaging.ts";
 
 const money = (n: number) => `$${Number(n || 0).toFixed(2).replace(/\.00$/, "")}`;
 const day = (s: string) => new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/New_York" });
@@ -55,14 +56,9 @@ handle(async (req) => {
       church: { name: church.name, color: church.data?.color, logo: church.data?.logo } });
     if (!(await sendEmail(dest, subject, `${church.name}: receipt\n\n${lines.join("\n")}`, html))) return fail("The receipt email couldn't be sent.", 502);
   } else {
-    const digits = dest.replace(/\D/g, ""), e164 = dest.trim().startsWith("+") ? `+${digits}` : digits.length === 10 ? `+1${digits}` : `+${digits}`;
-    if (digits.length < 10) return fail("That mobile number doesn't look right.");
-    const sid = env("TWILIO_ACCOUNT_SID"), token = env("TWILIO_AUTH_TOKEN"), from = env("TWILIO_FROM");
-    if (!sid || !token || !from) return fail("Texting isn't set up on the server", 503);
-    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, { method: "POST",
-      headers: { Authorization: `Basic ${btoa(`${sid}:${token}`)}`, "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ To: e164, From: from, Body: `${church.name}: receipt\n${lines.join("\n")}` }) });
-    if (!r.ok) { console.error("text not sent", r.status, await r.text()); return fail("The text couldn't be sent", 502); }
+    if (!textingOn(church)) return fail("Texting isn't turned on for this church", 503);
+    const why = await sendText(db, church, dest, `${church.name}: receipt\n${lines.join("\n")}`);
+    if (why) return fail(why, 502);
   }
   const receipts = [...(p.receipts || []), { via, to: dest, at: new Date().toISOString(), by: user.id }].slice(-20);
   await db.from("records").update({ data: { ...p, receipts } }).eq("kind", "ticketPayments").eq("id", paymentId);
