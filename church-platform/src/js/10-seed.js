@@ -328,7 +328,7 @@ function buildSeed() {
   ];
 
   // ----- Songs, saved segments and a service plan -----
-  const songs = PD_SONGS.map((s) => ({ id: `riverside-song-${s.key}`, churchId: "riverside", title: s.title, author: s.author, copyright: s.copyright, ccliSong: "", publicDomain: true, lyrics: s.lyrics || partsToLyrics(s.parts), order: s.order, ...(s.parts ? { parts: s.parts.map((p) => ({ ...p, id: `riverside-song-${s.key}-${p.id}` })) } : {}) }));
+  const songs = PD_SONGS.map((s) => ({ id: `riverside-song-${s.key}`, churchId: "riverside", title: s.title, author: s.author, copyright: s.copyright, ccliSong: "", publicDomain: true, lyrics: s.lyrics || partsToLyrics(s.parts), order: s.order, ...(s.parts ? { parts: s.parts.map((p) => ({ ...p, id: `riverside-song-${s.key}-${p.id}` })) } : {}), ...(s.key === "assurance" ? { charts: sampleCharts() } : {}) }));
   const seg = (type, title, minutes, content = {}, o = {}) => ({ id: uid(), type, title, minutes, leader: "", notes: "", show: true, content, ...o });
   const library = [
     seg("welcome", "Welcome", 3, { text: "Welcome to Riverside! Grab a coffee, and make sure you've met someone new today." }, { leader: "Marcus Bell" }),

@@ -299,7 +299,7 @@ Screens.songs = () => {
     body: html`${demoNote(html`Most worship songs are copyrighted. Project them under your church's <b>CCLI license</b> (add its number under Account details) and get lyrics from CCLI SongSelect. Hymns published before 1929 are public domain.`)}
       ${canPlan() ? html`<div class="btns"><button class="btn" data-act="song-edit">${icon("plus")}Add a song</button></div>` : ""}
       <label class="field"><span class="sr">Search songs</span><input type="search" placeholder="Search songs" data-input="filter-rows" data-target="#song-list" data-empty="#song-none"></label>
-      <div class="rows" id="song-list">${list.map((s) => html`<button class="row" data-act="song-edit" data-id="${s.id}" data-search="${s.title} ${s.author}"><span class="lead-ic">${icon("music")}</span><span class="body"><span class="t">${s.title}</span><span class="s">${s.author || "Unknown author"}, ${plural(songParts(s).length, "section")}${s.publicDomain ? ", public domain" : s.ccliSong ? `, CCLI ${s.ccliSong}` : ""}</span>
+      <div class="rows" id="song-list">${list.map((s) => html`<button class="row" data-act="song-edit" data-id="${s.id}" data-search="${s.title} ${s.author} ${(s.charts || []).map((c) => c.part).join(" ")}"><span class="lead-ic">${icon("music")}</span><span class="body"><span class="t">${s.title}</span><span class="s">${s.author || "Unknown author"}, ${plural(songParts(s).length, "section")}${s.publicDomain ? ", public domain" : s.ccliSong ? `, CCLI ${s.ccliSong}` : ""}${s.charts?.length ? `. Sheet music: ${s.charts.map((c) => c.part).join(", ")}` : ""}</span>
         <span class="part-strip" aria-hidden="true">${songOrder(s).map((l) => { const p = songParts(s).find((x) => sameLabel(x.label, l)); return html`<i class="pt-${p.type}" title="${p.label}"></i>`; })}</span></span>${icon(canPlan() ? "edit" : "chev")}</button>`)}</div>
       <div id="song-none" class="empty" ${attr(list.length, "hidden")}><p>${list.length ? "No songs match." : "No songs yet."}</p></div>`,
   };
@@ -350,6 +350,7 @@ function songFormHtml() {
     <label class="field"><span>Copyright line</span><input type="text" name="copyright" value="${e.copyright}" maxlength="160" placeholder="© 2010 Publisher Name" ${attr(ro, "readonly")}></label>
     <label class="check"><input type="checkbox" name="publicDomain" ${attr(e.publicDomain, "checked")} ${attr(ro, "disabled")}><span>This song is in the public domain</span></label>
     <div id="song-ed">${songPartsHtml()}</div>
+    <div id="song-charts">${songChartsHtml()}</div>
     ${ro ? "" : html`<div class="btns"><button class="btn">Save song</button>${e.id ? html`<button type="button" class="btn danger" data-act="song-delete" data-id="${e.id}">Delete</button>` : ""}</div>`}</form>`;
 }
 function redrawSongEd(focus) {
@@ -367,7 +368,7 @@ Actions["song-edit"] = (el) => {
   const s = S.get("songs", el.dataset.id);
   const parts = s ? songParts(s).map((p) => ({ ...p, id: s.parts ? p.id : uid(), orig: p.label })) : [];
   const order = s ? songOrder(s).map((l) => parts.find((p) => sameLabel(p.label, l))?.id).filter(Boolean) : [];
-  songEd = { id: s?.id || "", title: s?.title || "", author: s?.author || "", ccliSong: s?.ccliSong || "", copyright: s?.copyright || "", publicDomain: !!s?.publicDomain, parts, order, ro: !canPlan(), paste: !s, pasteText: "", adding: false };
+  songEd = { id: s?.id || "", charts: JSON.parse(JSON.stringify(s?.charts || [])), chartPart: "", title: s?.title || "", author: s?.author || "", ccliSong: s?.ccliSong || "", copyright: s?.copyright || "", publicDomain: !!s?.publicDomain, parts, order, ro: !canPlan(), paste: !s, pasteText: "", adding: false };
   openSheet(s ? s.title : "Add a song", songFormHtml(), { wide: true });
   redrawSongEd();
 };
@@ -448,14 +449,15 @@ Forms["song-save"] = (d, f) => {
   const parts = e.parts.map((p) => ({ id: p.id, type: p.type, label: p.label.trim().replace(/\s+/g, " "), lyrics: p.lyrics.replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim() }));
   const labels = e.order.map((id) => parts.find((p) => p.id === id)?.label).filter(Boolean);
   const straight = labels.join("\n") === parts.map((p) => p.label).join("\n");
-  const rec = { title: d.title, author: d.author, ccliSong: d.ccliSong, copyright: d.copyright, publicDomain: !!d.publicDomain, parts, order: straight ? [] : labels, lyrics: partsToLyrics(parts) };
+  const charts = e.charts.map(({ id, part, name, pages, starts }) => ({ id, part, name, pages, starts: Object.fromEntries(Object.entries(starts || {}).filter(([l, n]) => parts.some((p) => p.label.toLowerCase() === l) && n < pages.length)) }));
+  const rec = { title: d.title, author: d.author, ccliSong: d.ccliSong, copyright: d.copyright, publicDomain: !!d.publicDomain, parts, order: straight ? [] : labels, lyrics: partsToLyrics(parts), charts };
   if (e.id) {
     const map = new Map();
     const before = songParts(S.get("songs", e.id));
     before.forEach((b) => { const now = e.parts.find((p) => p.orig && sameLabel(p.orig, b.label)); map.set(b.label.trim().toLowerCase(), now ? now.label.trim() : null); });
     renameSongSections(e.id, map);
     S.update("songs", e.id, rec);
-  } else S.add("songs", rec);
+  } else S.add("songs", { ...rec, ...(e.fileId ? { id: e.fileId } : {}) });
   songEd = null; closeSheet(); toast("Song saved"); render();
 };
 Actions["song-delete"] = (el) => { S.remove("songs", el.dataset.id); songEd = null; closeSheet(); render(); };

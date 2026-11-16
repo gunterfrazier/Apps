@@ -1,6 +1,7 @@
 // ---------- Worship team screens: stage display, countdowns, livestream overlay and live captions ----------
 // The stage display is a confidence monitor for the band and the preacher: the words now, what's next, the clock,
-// time left in this part of the service and messages from the booth. The overlay is a see-through page for
+// time left in this part of the service and messages from the booth, and, if the screen is set to an instrument, its
+// sheet music (94-sheet-music.js). The overlay is a see-through page for
 // streaming software (OBS, vMix, Streamlabs) that shows lyrics, scripture and live captions as a lower third.
 // Both follow the operator through BroadcastChannel on the same computer, and through Realtime once Supabase is connected.
 
@@ -43,15 +44,21 @@ function stageMonitor(data, st, full) {
     ? html`<span class="sm-timer ${cur.minutes * 60 - (now - st.segAt) / 1000 < 0 ? "over" : ""}" data-seg-start="${st.segAt}" data-mins="${cur.minutes}" title="Time left in ${cur.section}">${segLeftText(cur.minutes * 60 - (now - (st.segAt || now)) / 1000)}</span>`
     : html`<span class="sm-timer" data-since="${st.startedAt || now}" title="Time since the presentation started">${cdText((now - (st.startedAt || now)) / 1000)}</span>`;
   const audience = st.black ? "Screen is black" : st.logo ? "Logo on screen" : "";
+  // On a stage screen (not the booth's preview): the words, one instrument's sheet music, or both. See 94-sheet-music.js.
+  const view = full ? stageView() : { lyrics: true, part: "" }, song = cur?.songId && S.get("songs", cur.songId), chart = chartFor(song, view.part);
   const nowBody = !cur ? html`<span class="faint">No slides</span>`
     : cur.kind === "countdown" ? html`<span class="sm-count" data-cd-end="${cur.end}">${cdText((cur.end - now) / 1000)}</span>`
     : cur.kind === "scripture" ? html`${slideWords(cur)}<span class="sm-ref">${cur.ref}</span>` : slideWords(cur);
-  return html`<div class="stage-mon ${full ? "full" : ""}" aria-label="Stage display">
-    <div class="sm-top"><span class="sm-clock" data-clock>${fmtTime(now)}</span><span class="sm-sec">${cur?.section || data?.title || ""}${cur?.label ? `, ${cur.label}` : ""}</span>${timer}</div>
+  const nextLine = html`<div class="sm-next"><span class="sm-label">Next${next && next.section !== cur?.section ? `: ${next.section}` : ""}</span>${next ? slideWords(next).split("\n").slice(0, 2).join("\n") : "End of the service"}</div>`;
+  // Music without the words: just what comes next, by name.
+  const nextName = html`<div class="sm-next short"><span class="sm-label">Next</span>${next ? [next.section !== cur?.section ? next.section : "", next.label].filter(Boolean).join(", ") || "Next slide" : "End of the service"}</div>`;
+  const words = view.lyrics || !chart;
+  return html`<div class="stage-mon ${full ? "full" : ""} ${chart ? "with-music" : ""} ${chart && view.lyrics ? "and-words" : ""}" aria-label="Stage display">
+    <div class="sm-top"><span class="sm-clock" data-clock>${fmtTime(now)}</span>${full ? stageViewBtn() : ""}<span class="sm-sec">${cur?.section || data?.title || ""}${cur?.label ? `, ${cur.label}` : ""}</span>${timer}</div>
     ${st.msg ? html`<div class="sm-msg" role="status">${st.msg}</div>` : ""}
     ${audience ? html`<div class="sm-aud">${audience}</div>` : ""}
-    <div class="sm-now ${cur?.kind === "lyrics" || cur?.kind === "scripture" ? "words" : ""}">${nowBody}</div>
-    <div class="sm-next"><span class="sm-label">Next${next && next.section !== cur?.section ? `: ${next.section}` : ""}</span>${next ? slideWords(next).split("\n").slice(0, 2).join("\n") : "End of the service"}</div>
+    ${chart ? stageMusicHtml(chart, song, cur.label) : view.part && song ? html`<p class="sm-nochart">No ${view.part.toLowerCase()} music for ${song.title}</p>` : ""}
+    ${words ? html`<div class="sm-now ${cur?.kind === "lyrics" || cur?.kind === "scripture" ? "words" : ""}">${nowBody}</div>${nextLine}` : nextName}
     ${cur?.notes ? html`<div class="sm-notes">${cur.notes}</div>` : ""}
   </div>`;
 }
@@ -62,6 +69,7 @@ Screens.stage = (tail) => {
   if (tail === "follow") return startFollow("stage");
   let st = { index: 0, segAt: Date.now(), startedAt: Date.now() };
   const draw = () => { applyBrand(); $("#app").innerHTML = flat(stageMonitor(routeData(tail), st, true)); };
+  stageRedraw = draw;
   document.body.classList.add("presenting");
   draw();
   if (Backend.on) Backend.onBroadcast((m) => presChannel?.onmessage?.({ data: m }));

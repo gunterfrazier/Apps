@@ -329,7 +329,7 @@ function drawFollow(kind) {
   if (kind !== "stage" && kind !== "overlay" && mediaDraw(app, m)) return;   // a video, website or file in place of the slides
   if (!data) { app.innerHTML = flat(html`${idleHtml(kind)}${deviceExitBtn()}`); return; }
   const st = { ...m, index: clamp(m.index || 0, 0, data.slides.length - 1) };
-  if (kind === "stage") app.innerHTML = flat(html`${stageMonitor(data, st, true)}${deviceExitBtn()}`);
+  if (kind === "stage") { stageRedraw = () => drawFollow("stage"); app.innerHTML = flat(html`${stageMonitor(data, st, true)}${deviceExitBtn()}`); }
   else if (kind === "overlay") app.innerHTML = flat(html`<div class="ov-frame">${overlayHtml(liveAt(data.slides, st).cur, st)}</div>${deviceExitBtn()}`);
   else { const s = st.black ? { kind: "black" } : st.logo ? { kind: "logo" } : timedSlide(liveAt(data.slides, st).cur, st.segAt); app.innerHTML = flat(html`<div class="display"><div class="stage">${slideHtml(s)}</div></div>${deviceExitBtn()}`); }
 }
