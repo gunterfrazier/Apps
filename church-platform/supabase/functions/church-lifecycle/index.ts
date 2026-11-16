@@ -77,8 +77,7 @@ async function tend(db: Db, c: Church) {
     out.email = await mail(db, c.id, `ask-${d.requestedAt}`, c.owner_id, {
       subject: `${d.requestedByName || "An administrator"} asked to deactivate ${c.name}`,
       lines: [`${d.requestedByName || "An administrator"} asked to deactivate the church account for ${c.name} in ${APP}.${d.reason ? ` Their reason: "${d.reason}"` : ""}`,
-        "Nothing changes unless you approve it. If you approve, the church is hidden from everyone but you, and removed from the list of churches in the app. You could reactivate it for one year; after that its data is permanently deleted.",
-        "You are getting this because you are the primary account holder."],
+        "Nothing changes unless you approve it. If you approve, the church is hidden from everyone but you, and removed from the list of churches in the app. You could reactivate it for one year; after that its data is permanently deleted."],
       button: link ? ["Review the request", `${link}#admin-deactivate`] : undefined });
   } else if (d.status === "deactivated") {
     const unstopped = await stopRecurring(db, c, d.at);
