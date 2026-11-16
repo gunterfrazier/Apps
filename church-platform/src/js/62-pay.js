@@ -1,5 +1,5 @@
 // ---------- Payments: one way to take money for gifts, tickets and form fees ----------
-// Each church chooses its payment processor under Admin, Giving: Stripe, PayPal or Square (see SETUP.md).
+// Each church chooses its payment processor under Admin, Gifts and funds: Stripe, PayPal or Square (see SETUP.md).
 // On your own website with one connected, checkout() asks the server for that processor's checkout page and sends the
 // person there; coming back, the paid screen asks the server to confirm it, and the processor's webhook records it too.
 // Everywhere else, including this preview, it opens a test checkout: nothing is charged and records are marked "test".

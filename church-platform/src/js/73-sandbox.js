@@ -117,8 +117,8 @@ const TRAINING = [
     ["sign", "Make a slide for the lobby screens", "Admin, Digital signage", "signs", "image", (st, cid) => JSON.stringify(here(st, cid, "signage"))],
   ] },
   { area: "Giving and reports", items: [
-    ["processor", "Connect a payment processor (practice)", "Admin, Giving, Online payments", "admin-giving", "give", (st, cid) => (st.churches[cid]?.practicePayments || st.churches[cid]?.payments ? 1 : 0)],
-    ["fund", "Add a giving fund", "Admin, Giving, Funds", "admin-giving", "give", (st, cid) => (st.churches[cid]?.funds || []).length],
+    ["processor", "Connect a payment processor (practice)", "Admin, Gifts and funds, Online payments", "admin-giving", "give", (st, cid) => (st.churches[cid]?.practicePayments || st.churches[cid]?.payments ? 1 : 0)],
+    ["fund", "Add a giving fund", "Admin, Gifts and funds, Funds", "admin-giving", "give", (st, cid) => (st.churches[cid]?.funds || []).length],
     ["reports", "Read the reports", "Admin, Reports", "reports", "list", visited("reports")],
   ] },
 ];

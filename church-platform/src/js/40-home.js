@@ -167,9 +167,9 @@ function quickActions() {
     S.on("live") && ["#live", live ? "live" : "play", live ? "Watch live" : "Watch"],
     S.on("classes") && ["#classes", "door", "Classes"],
     S.on("parents") && member && hasKidsRegs && ["#parents", "kid", "Parents"],
-    ["#scan", "scan", "Scan"],
     hasMinistryTools() && ["#ministry", "layers", "Ministry"],
     hasAdminTools() && ["#admin", "shield", "Admin"],
+    ["#scan", "scan", "Scan"],
   ].filter(Boolean).slice(0, 8);
   return html`<div class="quick">${items.map(([href, ic, label]) => html`<a href="${href}"><span class="ic">${icon(ic)}</span>${label}</a>`)}</div>`;
 }
