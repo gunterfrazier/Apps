@@ -42,6 +42,7 @@ const CHURCH_SCOPED = ["home", "give", "checkin", "parents", "serve", "live", "e
 function churchForRoute(head, tail) {
   if (!tail) return null;
   if (CHURCH_SCOPED.includes(head) && S.state.churches[tail.split("~")[0]]) return tail.split("~")[0];
+  if (head === "visit") return S.state.churches[tail] ? tail : null;
   if (head === "map") return Object.values(S.state.churches).find((c) => c.locations?.some((l) => l.id === tail.split("~")[0]))?.id || null;
   if (head === "register") { const [k, ...r] = tail.split("-"); return S.get(k === "event" ? "events" : "gatherings", r.join("-"))?.churchId || null; }
   const kind = { event: "events", gathering: "gatherings", sermon: "sermons", outline: "docs", plan: "plans" }[head];
@@ -58,7 +59,7 @@ function render() {
   // Back from an email sign-in link: Supabase finishes it as it starts.
   if (/^#(access_token|error)=/.test(location.hash) && !Backend.ready) { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Signing you in...</div>`); return; }
   // A campus map opens for anyone with its link (a visitor scanning a sign); Screens.map loads a public location itself.
-  const signedOutOk = head === "page" || head === "pair" || head === "map";
+  const signedOutOk = head === "page" || head === "pair" || head === "map" || (head === "visit" && !!tail);
   // A church device that lost its session signs itself back in. Until then it says so, rather than asking for a code.
   if (Backend.on && !Backend.user && head !== "pair" && DeviceSignin.get()) {
     const name = DeviceSignin.get().name || "This screen";
@@ -78,7 +79,7 @@ function render() {
     if (needsAccountSetup()) { if (head !== "setup") { if (head !== "home") pendingRoute = pendingRoute || route; head = "setup"; tail = ""; } }
     else if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
     else if (!me.name && head !== "welcome" && !signedOutOk && !thisDevice()) { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
-    else if (!S.church() && !OPEN_ROUTES.includes(head) && !(head === "map" && Backend.on && !Backend.user)) { head = "churches"; tail = ""; }
+    else if (!S.church() && !OPEN_ROUTES.includes(head) && !((head === "map" || head === "visit") && Backend.on && !Backend.user)) { head = "churches"; tail = ""; }
     // A deactivated church shows its primary account holder one screen: what's happening, and the way back.
     else if (S.church() && deactStatus() === "deactivated" && !DEACT_OPEN.includes(head)) { head = "deactivated"; tail = ""; }
   }
