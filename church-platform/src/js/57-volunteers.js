@@ -622,7 +622,7 @@ Screens["schedule-calendar"] = () => {
     const dayPlans = plans.filter((p) => p.date === dayStr);
     const awayUsers = S.members().map((m) => m.userId).filter((u) => isAway(u, dayStr));
     cells.push(html`<div class="scal-cell ${dayPlans.length ? "has-plans" : ""}">
-      <div class="scal-day-top"><b>${d}</b>${awayUsers.length ? html`<span class="tag warn" style="font-size:.66rem" title="Away: ${awayUsers.map(S.userName).join(", ")}">${awayUsers.length} away</span>` : ""}</div>
+      <div class="scal-day-top"><b>${d}</b>${awayUsers.length ? html`<span class="tag warn" style="font-size:.66rem" title="Away: ${awayUsers.map((u) => S.userName(u)).join(", ")}">${awayUsers.length} away</span>` : ""}</div>
       ${dayPlans.map((p) => {
         const st = fillStats(p);
         return html`<a class="scal-plan ${st.open ? "open" : "full"}" href="#crew-${p.id}">

@@ -33,7 +33,8 @@ const TREASURER_METHODS = [
   ["in-kind", "Non-Cash / In-Kind"],
 ];
 
-const canTreasurer = () => S.isMember() && S.canAny(["view.giving", "manage.church", "take.payments"]);
+// Treasurers are people who can see giving: the database only shows donor records to them (rec_read in upgrade-15.sql).
+const canTreasurer = () => S.isMember() && S.can("view.giving");
 const giftCategoriesOf = (c = S.church()) => c?.giftCategories?.length ? c.giftCategories : DEFAULT_GIFT_CATEGORIES;
 const giftCatLabel = (k, c = S.church()) => (giftCategoriesOf(c).find(([x]) => x === k) || [k, String(k || "Tithe").replace(/^./, (m) => m.toUpperCase())])[1];
 const deptLabel = (k) => (BUDGET_DEPARTMENTS.find(([x]) => x === k) || [k, k])[1];
@@ -105,8 +106,9 @@ function seedAccountingFor(cid) {
     this.state.budgets ||= [];
     this.state.batches ||= [];
     Object.values(this.state.churches || {}).forEach((c) => {
-      c.giftCategories ||= DEFAULT_GIFT_CATEGORIES.map((x) => [...x]);
-      (c.funds || []).forEach((f, idx) => {
+      // Sample opening balances, goals and fund codes are for the demo only: on the live app a church's funds start
+      // without them, and gift categories come from giftCategoriesOf until the treasurer changes them.
+      if (!Backend.configured()) (c.funds || []).forEach((f, idx) => {
         f.code ||= `${(idx + 1) * 100}-${f.id.slice(0, 3).toUpperCase()}`;
         if (f.restricted === undefined) f.restricted = f.id !== "general";
         if (f.openingBalance === undefined) f.openingBalance = idx === 0 ? 14500 : idx === 1 ? 8200 : 3500;
@@ -130,8 +132,9 @@ function seedAccountingFor(cid) {
     S.state.budgets ||= [];
     S.state.batches ||= [];
     Object.values(S.state.churches || {}).forEach((c) => {
-      c.giftCategories ||= DEFAULT_GIFT_CATEGORIES.map((x) => [...x]);
-      (c.funds || []).forEach((f, idx) => {
+      // Sample opening balances, goals and fund codes are for the demo only: on the live app a church's funds start
+      // without them, and gift categories come from giftCategoriesOf until the treasurer changes them.
+      if (!Backend.configured()) (c.funds || []).forEach((f, idx) => {
         f.code ||= `${(idx + 1) * 100}-${f.id.slice(0, 3).toUpperCase()}`;
         if (f.restricted === undefined) f.restricted = f.id !== "general";
         if (f.openingBalance === undefined) f.openingBalance = idx === 0 ? 14500 : idx === 1 ? 8200 : 3500;

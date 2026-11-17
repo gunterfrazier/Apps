@@ -41,13 +41,16 @@ Screens.settings = () => {
           ${toggle("notify.serve", "Serving", "Requests to serve and reminders the day before", p.notify.serve)}
           ${toggle("notify.event", "Events and classes", "Reminders the day before something you signed up for", p.notify.event)}
           ${staff ? toggle("notify.staff", "Staff updates", "New people to follow up, room requests and form responses", p.notify.staff) : ""}
-          ${toggle("quiet", "Quiet at night", "Hold push notifications from 9 PM to 7 AM", p.quiet)}</div></section>`,
+          ${toggle("quiet", "Quiet at night", "Hold push notifications from 9 PM to 7 AM", p.quiet)}</div></section>
+      ${typeof geofenceOffered === "function" && geofenceOffered() ? html`<section class="sec"><h2 class="sec-head">Location</h2><div class="rows">
+          ${toggle("geofenceCheckin", "Check me in when I arrive", `Your phone checks your location while the app is open during a service or event, and marks you as here when you're on campus. Your location is never saved, only that you arrived.`, p.geofenceCheckin === true)}</div></section>` : ""}`,
   };
 };
 Inputs["pref"] = (el) => {
   const p = prefs(), [a, b] = el.dataset.k.split(".");
   if (b) p[a][b] = el.checked; else p[a] = el.checked;
   S.save(); applyDisplay();
+  if (a === "geofenceCheckin" && el.checked && typeof startGeofenceMonitor === "function") startGeofenceMonitor(true);
 };
 Inputs["pref-theme"] = (el) => { prefs().theme = el.value; S.save(); applyDisplay(); render(); };
 Actions["toggle-sanctuary"] = () => {

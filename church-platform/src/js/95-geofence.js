@@ -240,15 +240,16 @@ function handleGeoPosition(lat, lng, accuracy = 25, { manualTest = false, forceL
 }
 
 /** Starts or refreshes the passive campus geofence watcher when the member allows it. */
-function startGeofenceMonitor() {
+/** Whether this church uses arrival check-in at all, so Settings only offers the switch where it does something. */
+function geofenceOffered() { const c = S.church(); return !!c && S.isMember() && !thisDevice() && !!c.locations?.some((l) => geoConfigOf(l).enabled); }
+/** Checks in someone who turned on "Check me in when I arrive" (Settings, Location). It's off until they do. */
+function startGeofenceMonitor(justTurnedOn = false) {
   if (typeof navigator === "undefined" || !("geolocation" in navigator) || thisDevice()) return;
-  if (typeof prefs === "function" && prefs().geofenceCheckin === false) return;
-  const c = S.church();
-  if (!c || !S.isMember()) return;
-  if (!c.locations?.some((l) => geoConfigOf(l).enabled)) return;
-  // Only auto-poll during a service window or if user explicitly enabled background campus check
+  if (typeof prefs !== "function" || prefs().geofenceCheckin !== true) return;
+  if (!geofenceOffered()) return;
+  // Only during a service or event (or if they also chose to be checked whenever they're on campus).
   const svc = serviceNow();
-  if (!svc && !prefs().geofenceAlways) return;
+  if (!svc && !prefs().geofenceAlways) { if (justTurnedOn) toast("You'll be checked in when you arrive for a service or event."); return; }
   try {
     navigator.geolocation.getCurrentPosition(
       (pos) => handleGeoPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
@@ -288,6 +289,7 @@ AdminScreens.geofence = () => {
       <form data-form="geo-save" class="panel" style="margin-top:14px" novalidate>
         <input type="hidden" name="locId" value="${loc.id}">
         <label class="check"><input type="checkbox" name="enabled" ${attr(cfg.enabled, "checked")}><span><b>Enable geofenced triggers for ${loc.name}</b></span></label>
+        <p class="faint" style="margin:6px 0 0">Each member chooses whether to be checked in by location: they turn on "Check me in when I arrive" in Settings, under Location. It's off until they do, and only works while the app is open.</p>
 
         <h3 style="margin-top:16px">Campus GPS coordinates &amp; radius</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px">

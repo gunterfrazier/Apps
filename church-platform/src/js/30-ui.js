@@ -22,6 +22,8 @@ function tabsFor() {
 function go(hash) { if (location.hash.slice(1) === hash) render(); else location.hash = hash; }
 function splitRoute() {
   const h = location.hash.slice(1);
+  // A screen whose own name has a dash (#schedule-matrix) is that screen, not "schedule" with a detail.
+  if (Screens[h]) return { route: h, head: h, tail: "" };
   const i = h.indexOf("-");
   return { route: h, head: i < 0 ? h : h.slice(0, i), tail: i < 0 ? "" : h.slice(i + 1) };
 }
@@ -120,9 +122,7 @@ let pendingRoute = null;
 function headerIcons() {
   const unread = S.church() ? unreadNews().length + myNotifications().filter((n) => !n.read).length : 0;
   const chatUnread = S.church() && S.on("chat") && S.can("use.chat") ? unreadChats() : 0;
-  const sanct = typeof prefs === "function" && prefs().theme === "sanctuary";
   return html`
-    <button type="button" class="icon-btn ${sanct ? "sanctuary-on" : ""}" data-act="toggle-sanctuary" aria-pressed="${sanct}" title="${sanct ? "Leave Sanctuary OLED mode" : "Sanctuary OLED dark mode"}" aria-label="${sanct ? "Leave Sanctuary dark mode" : "Turn on Sanctuary dark mode"}">${icon(sanct ? "sun" : "moon")}</button>
     ${S.church() && S.on("chat") && S.can("use.chat") ? html`<a class="icon-btn" href="#chat" aria-label="Messages${chatUnread ? `, ${chatUnread} unread` : ""}">${icon("chat")}${chatUnread ? html`<span class="dot">${chatUnread}</span>` : ""}</a>` : ""}
     ${S.church() ? html`<a class="icon-btn" href="#alerts" aria-label="Notifications${unread ? `, ${unread} unread` : ""}">${icon("bell")}${unread ? html`<span class="dot">${unread}</span>` : ""}</a>` : ""}
     <a class="me-link" href="#me" aria-label="Me">${avatar(S.me())}</a>`;

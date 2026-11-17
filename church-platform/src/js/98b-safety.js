@@ -16,7 +16,9 @@ function isSecurityMember(userId = S.me().id, cid = S.state.current) {
   if (!S.isMember(cid)) return false;
   if (S.isPrimary(cid, userId)) return true;
   const r = S.role(cid, userId);
-  if (r && (r.perms?.["security.team"] || r.perms?.["manage.church"] || r.id === "admin" || r.rank >= 70)) return true;
+  // Matches on_security_team() in upgrade-15.sql: the Security team permission, church admins, or a security,
+  // safety, medical, first aid, greeter or usher team.
+  if (r && (r.perms?.["security.team"] || r.perms?.["manage.church"] || r.id === "admin")) return true;
   const teams = S.list("teamMembers").filter((m) => m.userId === userId && m.status !== "requested").map((m) => m.team.toLowerCase());
   return teams.some((t) => /security|safety|medical|first.?aid|greeter|usher/.test(t));
 }
@@ -25,10 +27,35 @@ function canViewUnaccountedReport(userId = S.me().id, cid = S.state.current) {
   return isSecurityMember(userId, cid) || S.can("view.reports", cid) || S.can("checkin.station", cid) || S.can("manage.classes", cid);
 }
 
+const SAFETY_DEFAULTS = {
+  securityProtocols: () => defaultSecurityProtocols(), securityDoors: (id) => defaultSecurityDoors(id), securityAeds: (id) => defaultSecurityAeds(id),
+  medicalResponders: (id) => defaultMedicalResponders(id), drillPlanner: (id) => defaultDrillPlannerConfig(id),
+};
+const safetyDefaultJson = new Map();
+/** Fills in a church's missing safety settings with defaults. In the demo they're ordinary settings, saved in the browser.
+ *  On the live app they're hidden from saving (not enumerable), and Backend.rows sends one only after it's changed. */
+let fillingSafetyDefaults = false;
+function safetyDefaults(c) {
+  // Some defaults look up the church's people, which reads the church again: fill each in once, not over and over.
+  if (!c || typeof c !== "object" || fillingSafetyDefaults) return c;
+  fillingSafetyDefaults = true;
+  try { fillSafetyDefaults(c); } finally { fillingSafetyDefaults = false; }
+  return c;
+}
+function fillSafetyDefaults(c) {
+  for (const [k, make] of Object.entries(SAFETY_DEFAULTS)) {
+    if (Object.prototype.hasOwnProperty.call(c, k)) continue;
+    const v = make(c.id), live = Backend.configured();
+    if (live) safetyDefaultJson.set(`${c.id}:${k}`, JSON.stringify(v));
+    Object.defineProperty(c, k, { value: v, writable: true, configurable: true, enumerable: !live });
+  }
+}
+
 function securityTeamUserIds(cid = S.state.current) {
   const members = S.members(cid).map((m) => m.userId).filter((u) => S.user(u));
   const sec = members.filter((u) => isSecurityMember(u, cid));
-  return sec.length ? [...new Set(sec)] : members;
+  // With no security team set up, alerts go to the church's admins and primary account holder, not to everyone.
+  return sec.length ? [...new Set(sec)] : members.filter((u) => S.isPrimary(cid, u) || S.role(cid, u)?.perms?.["manage.church"]);
 }
 
 function staffAndVolunteersUserIds(cid = S.state.current) {
@@ -273,44 +300,30 @@ function defaultDrillPlannerConfig(cid) {
   if (typeof QUIET_KINDS !== "undefined" && !QUIET_KINDS.includes("securityIncidents")) {
     QUIET_KINDS.push("securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications");
   }
+  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications"]) st[k] ||= []; };
   const prevLoad = S.load.bind(S);
-  S.load = function () {
-    prevLoad();
-    this.state.securityIncidents ||= [];
-    this.state.securityMessages ||= [];
-    this.state.securityRollCall ||= [];
-    this.state.securityDrills ||= [];
-    this.state.securityReunifications ||= [];
-    Object.values(this.state.churches || {}).forEach((c) => {
-      c.modules ||= {};
-      if (c.modules.safety === undefined) c.modules.safety = true;
-      c.securityProtocols ||= defaultSecurityProtocols();
-      c.securityDoors ||= defaultSecurityDoors(c.id);
-      c.securityAeds ||= defaultSecurityAeds(c.id);
-      c.medicalResponders ||= defaultMedicalResponders(c.id);
-      c.activeAlert ||= null;
-      c.activeDrill ||= null;
-      c.drillPlanner ||= defaultDrillPlannerConfig(c.id);
-    });
+  S.load = function () { prevLoad(); lists(this.state); };
+  if (S.state) lists(S.state);
+  // Each church starts with default protocols, doors, AEDs, responders and drill settings. They're filled in when the
+  // church is read (see safetyDefaults) rather than written into it, so opening the app never changes the church's
+  // settings. On the live app they're only saved once someone changes them.
+  const church = S.church.bind(S);
+  S.church = (...a) => safetyDefaults(church(...a));
+  const rows = Backend.rows.bind(Backend);
+  Backend.rows = function () {
+    const out = rows();
+    for (const r of out) {
+      if (r.table !== "churches") continue;
+      const c = S.state.churches[r.value.id]; if (!c) continue;
+      let changed = false;
+      for (const k of Object.keys(SAFETY_DEFAULTS)) {
+        const d = Object.getOwnPropertyDescriptor(c, k);
+        if (d && !d.enumerable && JSON.stringify(d.value) !== safetyDefaultJson.get(`${c.id}:${k}`)) { r.value.data[k] = d.value; changed = true; }
+      }
+      if (changed) r.json = JSON.stringify(r.value);
+    }
+    return out;
   };
-  if (S.state) {
-    S.state.securityIncidents ||= [];
-    S.state.securityMessages ||= [];
-    S.state.securityRollCall ||= [];
-    S.state.securityDrills ||= [];
-    S.state.securityReunifications ||= [];
-    Object.values(S.state.churches || {}).forEach((c) => {
-      c.modules ||= {};
-      if (c.modules.safety === undefined) c.modules.safety = true;
-      c.securityProtocols ||= defaultSecurityProtocols();
-      c.securityDoors ||= defaultSecurityDoors(c.id);
-      c.securityAeds ||= defaultSecurityAeds(c.id);
-      c.medicalResponders ||= defaultMedicalResponders(c.id);
-      c.activeAlert ||= null;
-      c.activeDrill ||= null;
-      c.drillPlanner ||= defaultDrillPlannerConfig(c.id);
-    });
-  }
 }
 
 // Cross-tab & Supabase Realtime broadcast channel for instant emergency display takeover & tactical updates
@@ -322,6 +335,48 @@ if (safetyChannel) {
     if (!c || e.data?.churchId !== c.id) return;
     S.load();
     render();
+  };
+}
+// ----- On the live app: alerts and the live sermon reach every member's phone right away -----
+// The church's own channel carries safety alerts and drills (and the live sermon from 41-word.js). Changes to the church's
+// settings only reach other devices the next time they load, so these go out on this channel as they happen.
+const churchTopic = (id) => `church:${id}`;
+function heardOnChurchChannel(m) {
+  const c = S.church(); if (!c || m?.churchId !== c.id) return;
+  if (m.type === "safety-alert") { c.activeAlert = m.activeAlert || null; c.activeDrill = m.activeDrill || null; }
+  else if (m.type === "pew-sync") c.livePew = m.pew || null;
+  else return;
+  render();
+}
+{
+  const subscribe = Backend.subscribe.bind(Backend);
+  Backend.subscribe = function () { subscribe(); const c = S.state.current; if (c && this.listening !== c) { this.listening = c; this.onBroadcast(heardOnChurchChannel, churchTopic(c)); } };
+}
+/** Settings a person's role can't change are sent back as they last came from the server, so a value heard on the
+ *  church channel (an alert, the live sermon) isn't sent back as a change their role would be refused. */
+const CHURCH_KEY_ROLES = {
+  activeAlert: () => isSecurityMember(), activeDrill: () => isSecurityMember(), securityDoors: () => isSecurityMember(), drillPlanner: () => isSecurityMember(),
+  securityProtocols: () => isSecurityMember(), securityAeds: () => isSecurityMember(), medicalResponders: () => isSecurityMember(),
+  livePew: () => S.canAny(["present", "manage.sermons"]), giftCategories: () => S.can("view.giving"),
+};
+{
+  const rows = Backend.rows.bind(Backend);
+  Backend.rows = function () {
+    const out = rows();
+    for (const r of out) {
+      if (r.table !== "churches" || r.value.id !== S.state.current) continue;
+      let last = null; try { last = JSON.parse(this.snap.get(r.key) || "null"); } catch { /* not synced yet */ }
+      if (!last) continue;
+      let changed = false;
+      for (const [k, may] of Object.entries(CHURCH_KEY_ROLES)) {
+        if (S.isPrimary() || may()) continue;
+        if (JSON.stringify(r.value.data[k]) === JSON.stringify(last.data?.[k])) continue;
+        if (last.data && k in last.data) r.value.data[k] = last.data[k]; else delete r.value.data[k];
+        changed = true;
+      }
+      if (changed) r.json = JSON.stringify(r.value);
+    }
+    return out;
   };
 }
 let secEarpieceMode = false;
@@ -350,7 +405,8 @@ function broadcastSafetyUpdate(payload = {}) {
   const msg = { type: "safety-alert", churchId: c.id, activeAlert: c.activeAlert, activeDrill: c.activeDrill, ...payload, at: Date.now() };
   try { safetyChannel?.postMessage(msg); } catch {}
   try { presChannel?.postMessage(msg); } catch {}
-  if (typeof Backend !== "undefined" && Backend.on) Backend.broadcast(msg);
+  // Screens following the booth hear it on the presentation channel; members' phones on the church's own channel.
+  if (typeof Backend !== "undefined" && Backend.on) { Backend.broadcast(msg); Backend.broadcast(msg, churchTopic(c.id)); }
   if (secEarpieceMode && payload.spokenText && payload.msgId !== lastSpokenMsgId) {
     lastSpokenMsgId = payload.msgId || String(Date.now());
     playEarpieceCallout(payload.spokenText, payload.voiceUrl || "");
@@ -448,54 +504,47 @@ Actions["sos-open"] = () => {
   `, { wide: true });
 };
 
-Actions["sos-call-911"] = async (el) => {
-  el.disabled = true;
-  el.textContent = "Sending GPS to Security & Dialing 911...";
-  const gps = await getQuickGpsFix();
-  const me = S.me(), c = S.church();
-  const mapUrl = gps ? `https://www.google.com/maps?q=${gps.lat},${gps.lng}` : "";
-  const inc = S.add("securityIncidents", {
-    kind: "911_CALL",
-    category: "911 Emergency Call",
-    severity: "critical",
-    by: me.id,
-    reporterName: me.name || "Campus Visitor",
-    reporterPhone: me.phone || "",
-    room: "GPS Location Attached",
-    details: `${me.name || "A user on site"} pressed CALL 911 from the app.${gps ? ` GPS: ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)} (±${gps.accuracy || 20}m)` : ""}`,
-    gps,
-    mapUrl,
-    status: "open",
-    at: new Date().toISOString(),
-  });
-  S.add("securityMessages", {
-    by: me.id,
-    senderName: me.name || "Emergency SOS",
-    priority: "urgent",
-    text: `🚨 911 CALLED by ${me.name || "On-Site User"}${me.phone ? ` (${me.phone})` : ""}! ${gps ? `GPS: ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}` : "Location: On Campus"}`,
-    gps,
-    mapUrl,
-    incidentId: inc.id,
-    at: new Date().toISOString(),
-  });
-  securityTeamUserIds().forEach((u) => notify(u, {
-    kind: "security",
-    title: `🚨 911 CALLED BY ${(me.name || "USER").toUpperCase()}`,
-    body: `${gps ? `GPS: ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}. ` : ""}Tap to open Security Command & dispatch team.`,
-    link: "#security-incidents",
-  }));
-  logActivity(`Emergency 911 button activated by ${me.name}`, "security");
-  S.save();
-  broadcastSafetyUpdate({ incidentId: inc.id });
-  closeSheet(true);
-  toast("Security Team alerted with your GPS location. Dialing 911...");
-  // Trigger native phone dialer for 911
+Actions["sos-call-911"] = (el) => {
+  // Dial first, while the tap still counts as the person's own action: phones may refuse to dial from a page after a
+  // delay. The alert to the security team goes out at once without a location, and the location follows when the phone
+  // finds it.
   const a = document.createElement("a");
   a.href = "tel:911";
   document.body.appendChild(a);
   a.click();
   a.remove();
+  el.disabled = true;
+  el.textContent = "Calling 911. Alerting security...";
+  const me = S.me(), c = S.church(), at = new Date().toISOString();
+  const inc = S.add("securityIncidents", {
+    kind: "911_CALL", category: "911 Emergency Call", severity: "critical", by: me.id,
+    reporterName: me.name || "Campus Visitor", reporterPhone: me.phone || "", room: "Finding location...",
+    details: `${me.name || "A user on site"} pressed CALL 911 from the app.`, gps: null, mapUrl: "", status: "open", at,
+  });
+  const msg = S.add("securityMessages", {
+    by: me.id, senderName: me.name || "Emergency SOS", priority: "urgent",
+    text: `🚨 911 CALLED by ${me.name || "On-Site User"}${me.phone ? ` (${me.phone})` : ""}! Finding their location...`,
+    gps: null, mapUrl: "", incidentId: inc.id, at,
+  });
+  securityTeamUserIds().forEach((u) => notify(u, {
+    kind: "security", title: `🚨 911 CALLED BY ${(me.name || "USER").toUpperCase()}`,
+    body: "Tap to open Security Command & dispatch team. Their location follows when their phone finds it.", link: "#security-incidents",
+  }));
+  logActivity(`Emergency 911 button activated by ${me.name}`, "security");
+  S.save();
+  if (Backend.on) Backend.flush();   // don't wait: the phone may pause this page during the call
+  broadcastSafetyUpdate({ incidentId: inc.id });
+  closeSheet(true);
+  toast("Calling 911. Security has been alerted.");
   render();
+  getQuickGpsFix().then((gps) => {
+    if (!gps) return;
+    const where = `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}`, mapUrl = `https://www.google.com/maps?q=${gps.lat},${gps.lng}`;
+    S.update("securityIncidents", inc.id, { gps, mapUrl, room: "GPS Location Attached", details: `${inc.details} GPS: ${where} (±${gps.accuracy || 20}m)` });
+    S.update("securityMessages", msg.id, { gps, mapUrl, text: `🚨 911 CALLED by ${me.name || "On-Site User"}${me.phone ? ` (${me.phone})` : ""}! GPS: ${where}` });
+    S.save(); if (Backend.on) Backend.flush();
+    broadcastSafetyUpdate({ incidentId: inc.id });
+  });
 };
 
 // Voice recording helper (works in both SOS modal and Security Tactical Channel)
@@ -2534,7 +2583,7 @@ function renderEmergencyDisplayOverride(alert) {
     if (!c || c.modules?.safety === false) return base;
     const alertOn = !!c.activeAlert?.active;
     return html`<button type="button" class="icon-btn sos-hdr-btn ${alertOn ? "alert-pulse" : ""}" data-act="sos-open" title="Emergency SOS / Security Assistance" aria-label="Emergency SOS and Security">${icon("shield")}</button>
-      ${isSecurityMember() ? html`<a class="icon-btn" href="#security" title="Security Command Center" aria-label="Security Command Center">${icon("lock")}</a>` : ""}${base}`;
+${base}`;
   };
 
   // 2. Show Active Protocol Banner at the top of Home if an alert is active (and Home Banner is not excluded by a staff-only drill)

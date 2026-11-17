@@ -48,7 +48,7 @@ function broadcastPewSync(pewPatch) {
   S.save();
   try { pewChannel?.postMessage({ churchId: c.id, pew: c.livePew }); } catch {}
   if (typeof Backend !== "undefined" && Backend.on) {
-    Backend.broadcast({ type: "pew-sync", churchId: c.id, pew: c.livePew });
+    Backend.broadcast({ type: "pew-sync", churchId: c.id, pew: c.livePew }, `church:${c.id}`);
   }
 }
 

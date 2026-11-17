@@ -258,7 +258,7 @@ Screens.admin = (section) => {
         item("manage.devices", "signs", "image", "Digital signage", plural(S.list("signage").length, "playlist"), null, "lobby tv"),
       ])}
       ${sec("Giving and payments", "", [
-        item(["view.giving", "manage.church", "take.payments"], "treasurer", "give", "Treasurer & accounting platform", "Cash, check & card batches, tithes/offerings, funds, budgets, expenses, weekly & IRS tax reports", null, "treasurer accounting cash check batch tithe offering budget expense tax statements"),
+        item("view.giving", "treasurer", "give", "Treasurer & accounting platform", "Cash, check & card batches, tithes/offerings, funds, budgets, expenses, weekly & IRS tax reports", null, "treasurer accounting cash check batch tithe offering budget expense tax statements"),
         item("view.giving", "admin-giving", "give", "Gifts and funds", "Online payments, funds, recent gifts and year-end statements", null, "giving stripe paypal square processor donations"),
         item("view.giving", "admin-campaigns", "star", "Pledge campaigns", "A goal for a fund, with pledges and progress"),
         item(["take.payments", "manage.content", "view.reports", "view.giving"], "tickets", "ticket", "Event tickets and payments", "Who's paid, who owes, and taking cash and checks"),

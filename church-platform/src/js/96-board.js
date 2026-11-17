@@ -82,8 +82,6 @@ function defaultPostsFor(cid) {
     this.state.boards ||= [];
     this.state.boardPosts ||= [];
     Object.values(this.state.churches || {}).forEach((c) => {
-      c.modules ||= {};
-      if (c.modules.board === undefined) c.modules.board = true;
       if (!Backend.configured() && !this.state.boards.some((b) => b.churchId === c.id)) {
         this.state.boards.push(...defaultBoardsFor(c.id));
         this.state.boardPosts.push(...defaultPostsFor(c.id));
@@ -94,8 +92,6 @@ function defaultPostsFor(cid) {
     S.state.boards ||= [];
     S.state.boardPosts ||= [];
     Object.values(S.state.churches || {}).forEach((c) => {
-      c.modules ||= {};
-      if (c.modules.board === undefined) c.modules.board = true;
       if (!Backend.configured() && !S.state.boards.some((b) => b.churchId === c.id)) {
         S.state.boards.push(...defaultBoardsFor(c.id));
         S.state.boardPosts.push(...defaultPostsFor(c.id));
@@ -108,8 +104,10 @@ const canModBoard = () => S.isMember() && S.canAny(["manage.prayer", "manage.con
 function boardsOf(cid = S.state.current) {
   let list = (S.state.boards || []).filter((b) => b.churchId === cid && S.inScope(b));
   if (!list.length && S.church(cid)) {
+    // A church with no boards yet gets the starter set. On the live app they're only saved when a moderator opens the
+    // board; everyone else sees them without saving anything.
     const seeded = defaultBoardsFor(cid);
-    S.state.boards.push(...seeded);
+    if (!Backend.configured() || canModBoard()) S.state.boards.push(...seeded);
     list = seeded;
   }
   return list.sort((a, b) => (a.order || 99) - (b.order || 99) || a.name.localeCompare(b.name));
