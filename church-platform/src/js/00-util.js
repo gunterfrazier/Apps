@@ -362,5 +362,11 @@ const ICONS = {
   next: '<path d="m9 5 7 7-7 7"/>',
   prev: '<path d="M15 5 8 12l7 7"/>',
   grip: '<circle cx="9" cy="6" r="1.3" fill="currentColor"/><circle cx="15" cy="6" r="1.3" fill="currentColor"/><circle cx="9" cy="12" r="1.3" fill="currentColor"/><circle cx="15" cy="12" r="1.3" fill="currentColor"/><circle cx="9" cy="18" r="1.3" fill="currentColor"/><circle cx="15" cy="18" r="1.3" fill="currentColor"/>',
+  pause: '<rect x="6.5" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="13.5" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/>',
+  skipBack: '<path d="M11 5 7 8.5 11 12"/><path d="M7.5 8.5H12a6.5 6.5 0 1 1-5.8 9.5"/>',
+  skipFwd: '<path d="m13 5 4 3.5L13 12"/><path d="M16.5 8.5H12a6.5 6.5 0 1 0 5.8 9.5"/>',
+  cast: '<path d="M3 18.5a2.5 2.5 0 0 1 2.5 2.5M3 14.5a6.5 6.5 0 0 1 6.5 6.5M3 10.5a10.5 10.5 0 0 1 10.5 10.5"/><path d="M3 6.5V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2.5"/>',
+  moon: '<path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
 };
 const icon = (name, label) => raw(`<svg class="i" viewBox="0 0 24 24" ${label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true"'}>${ICONS[name] || ""}</svg>`);

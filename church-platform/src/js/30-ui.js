@@ -26,12 +26,20 @@ function splitRoute() {
   return { route: h, head: i < 0 ? h : h.slice(0, i), tail: i < 0 ? "" : h.slice(i + 1) };
 }
 
+function normHex(v, fallback = PLATFORM.color) {
+  const s = String(v || "").trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(s)) return "#" + s.slice(1).split("").map((c) => c + c).join("").toLowerCase();
+  return fallback;
+}
 function applyBrand() {
   const c = S.church();
-  const color = c?.color || PLATFORM.color;
+  const color = normHex(c?.color, PLATFORM.color);
   document.documentElement.style.setProperty("--brand", color);
   document.documentElement.style.setProperty("--on-brand", onColor(color));
-  const meta = $('meta[name="theme-color"]'); if (meta) meta.content = color;
+  const theme = document.documentElement.dataset.theme || "auto";
+  const meta = $('meta[name="theme-color"]');
+  if (meta) meta.content = theme === "sanctuary" ? "#000000" : theme === "dark" ? "#161b25" : color;
   document.title = c ? `${c.name} | ${PLATFORM.name}` : PLATFORM.name;
 }
 
@@ -104,6 +112,7 @@ function render() {
     lastRoute = route;
   }
   view.after?.();
+  if (typeof Player !== "undefined") Player.syncUI(head, view);
   sandboxAfterRender(head);
 }
 let pendingRoute = null;
@@ -111,7 +120,9 @@ let pendingRoute = null;
 function headerIcons() {
   const unread = S.church() ? unreadNews().length + myNotifications().filter((n) => !n.read).length : 0;
   const chatUnread = S.church() && S.on("chat") && S.can("use.chat") ? unreadChats() : 0;
+  const sanct = typeof prefs === "function" && prefs().theme === "sanctuary";
   return html`
+    <button type="button" class="icon-btn ${sanct ? "sanctuary-on" : ""}" data-act="toggle-sanctuary" aria-pressed="${sanct}" title="${sanct ? "Leave Sanctuary OLED mode" : "Sanctuary OLED dark mode"}" aria-label="${sanct ? "Leave Sanctuary dark mode" : "Turn on Sanctuary dark mode"}">${icon(sanct ? "sun" : "moon")}</button>
     ${S.church() && S.on("chat") && S.can("use.chat") ? html`<a class="icon-btn" href="#chat" aria-label="Messages${chatUnread ? `, ${chatUnread} unread` : ""}">${icon("chat")}${chatUnread ? html`<span class="dot">${chatUnread}</span>` : ""}</a>` : ""}
     ${S.church() ? html`<a class="icon-btn" href="#alerts" aria-label="Notifications${unread ? `, ${unread} unread` : ""}">${icon("bell")}${unread ? html`<span class="dot">${unread}</span>` : ""}</a>` : ""}
     <a class="me-link" href="#me" aria-label="Me">${avatar(S.me())}</a>`;

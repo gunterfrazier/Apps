@@ -39,6 +39,7 @@ const ADMIN = {
       { name: "locationId", label: "Location", type: "location", allLabel: "Off-site or church-wide" },
       { name: "location", label: "Room or place", type: "room", required: true, max: 120 },
       { name: "description", label: "Description", type: "textarea", max: 1000 },
+      { name: "image", label: "Banner image (optional)", type: "image", max: 1400, hint: "Full-width 16:9 image shown on event cards and the event page." },
       { name: "signup", label: "People sign up for this event", type: "checkbox" },
       { name: "kids", label: "Parents can register their kids", type: "checkbox" },
       { name: "capacity", label: "Spots available", type: "number", hint: "Leave at 0 for no limit.", get: (r) => r.capacity || 0 },
@@ -63,7 +64,7 @@ const ADMIN = {
       }
       return null;
     },
-    save: (d, r) => ({ title: d.title, category: d.category || "Community", start: fromLocalInput(d.start), end: fromLocalInput(d.end), locationId: d.locationId || null, location: d.location, description: d.description, signup: !!d.signup, kids: !!d.kids, capacity: Math.max(0, +d.capacity || 0), registrations: r?.registrations || [], tickets: parseTickets(d.tickets, r).list, formId: d.formId || null,
+    save: (d, r) => ({ title: d.title, category: d.category || "Community", start: fromLocalInput(d.start), end: fromLocalInput(d.end), locationId: d.locationId || null, location: d.location, description: d.description, image: d.image || "", signup: !!d.signup, kids: !!d.kids, capacity: Math.max(0, +d.capacity || 0), registrations: r?.registrations || [], tickets: parseTickets(d.tickets, r).list, formId: d.formId || null,
       payInApp: !!d.payInApp, payInPerson: !!d.payInPerson, payPartial: !!d.payPartial, deposit: Math.max(0, +d.deposit || 0), payNote: d.payNote || "", collectors: d.collectors || [] }),
     after: (e) => { S.list("forms").forEach((f) => { if (f.id === e.formId) f.eventId = e.id; else if (f.eventId === e.id) f.eventId = null; }); },
     extra: (e) => e.signup && e.registrations.length ? html`<div class="panel" style="margin-bottom:8px"><div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap"><b>${registeredCount(e)} signed up${e.tickets?.length ? `, ${money(e.registrations.reduce((n, r) => n + regPaid(e, r), 0))} paid, ${money(e.registrations.reduce((n, r) => n + regBalance(e, r), 0))} owed` : ""}</b>
@@ -89,9 +90,10 @@ const ADMIN = {
       { name: "videoUrl", label: "Video link", type: "url", get: (r) => sermonVideo(r), hint: "YouTube, Vimeo or Facebook. Add a transcript under Media and transcript on the sermon's page." },
       { name: "audioUrl", label: "Audio file for the podcast", type: "url", get: (r) => sermonAudio(r), hint: "An MP3 or M4A link." },
       { name: "minutes", label: "Length in minutes", type: "number", get: (r) => r.minutes || 35 },
+      { name: "artwork", label: "Series or sermon square artwork (optional)", type: "image", max: 1000, hint: "Square 1:1 album artwork shown on sermon cards and in the mini-player." },
     ],
     check: (d) => !parseRef(d.passage) ? "That passage doesn't look like a Bible reference. Try a form like John 15:1-8." : null,
-    save: (d, r) => ({ title: d.title, series: d.series || "Messages", speaker: d.speaker, date: dateToIso(d.date), time: d.time, locationId: d.locationId || null, passage: d.passage, topic: d.topic, summary: d.summary, outline: d.outline, docId: d.docId || null, videoUrl: d.videoUrl, audioUrl: d.audioUrl, mediaUrl: d.videoUrl || d.audioUrl, minutes: +d.minutes || 35, transcript: r?.transcript || [], audioBytes: r?.audioBytes || 0 }),
+    save: (d, r) => ({ title: d.title, series: d.series || "Messages", speaker: d.speaker, date: dateToIso(d.date), time: d.time, locationId: d.locationId || null, passage: d.passage, topic: d.topic, summary: d.summary, outline: d.outline, docId: d.docId || null, videoUrl: d.videoUrl, audioUrl: d.audioUrl, mediaUrl: d.videoUrl || d.audioUrl, minutes: +d.minutes || 35, artwork: d.artwork || r?.artwork || "", transcript: r?.transcript || [], audioBytes: r?.audioBytes || 0 }),
     tools: () => html`<a class="btn ghost" href="#podcast">${icon("music")}Podcast feed</a>`,
   },
   plans: {
@@ -149,6 +151,7 @@ function adminField(f, rec) {
   const hint = f.hint ? html`<small>${f.hint}</small>` : "";
   const req = attr(f.required, "required");
   switch (f.type) {
+    case "image": return imageField(f.name, f.label, v, f.hint, f.max);
     case "textarea": return html`<label class="field"><span>${f.label}</span><textarea name="${f.name}" maxlength="${f.max || 2000}" ${req}>${v || ""}</textarea>${hint}</label>`;
     case "lines": return html`<label class="field"><span>${f.label}</span><textarea name="${f.name}" ${req}>${(v || []).join("\n")}</textarea>${hint}</label>`;
     case "checkbox": return html`<label class="check"><input type="checkbox" name="${f.name}" ${attr(v, "checked")}><span>${f.label}</span></label>`;
@@ -222,6 +225,7 @@ Screens.admin = (section) => {
       ${sec("Content", "", [
         ...["news", "events", "sermons", "plans", "gatherings"].map((k) => { const a = ADMIN[k]; return item(a.perm, `admin-${k}`, a.icon, a.title, plural(count(k), a.one, a.many || a.one + "s")); }),
         item("manage.content", "forms", "note", "Forms", `${plural(S.list("forms").length, "form")}: sign-ups, permission slips and applications`, null, "registration survey"),
+        item(["manage.prayer", "manage.content", "manage.classes"], "admin-boards", "people", "Community boards", `${plural((S.state.boards || []).filter((b) => b.churchId === c.id).length, "topic board")}: meal trains, rides, polls and moderation`, null, "board community moderation meal train carpool"),
       ])}
       ${sec("People and care", "", [
         item(["manage.people", "manage.roles"], "admin-people", "people", "People", `${plural(S.members().length, "member")}; roles and location access`, null, "members directory"),
@@ -230,6 +234,7 @@ Screens.admin = (section) => {
         item("manage.prayer", "admin-prayer", "pray", "Prayer requests", `${S.list("prayers").filter((p) => p.private).length} private, ${S.list("prayers").filter((p) => p.hidden).length} hidden`),
       ])}
       ${sec("Communication", "", [
+        item(["manage.content", "send.email", "send.texts", "schedule.teams"], "admin-push", "bell", "Targeted push notifications", "Send push and in-app alerts to parents by grade/age, teams, campuses or event sign-ups", null, "push segments parents grade worship team notifications"),
         item("send.email", "admin-email", "chat", "Email people", "Write to everyone, a role, a group, a team or people not seen lately"),
         textingOn(c) ? item("send.texts", "admin-texts", "phone", "Text people", "A text to a group, a team or everyone signed up for an event", null, "sms") : "",
         item("manage.church", "admin-texting", "phone", "Texting and message settings", textingOn(c) ? `On, from ${c.texting.number}. Choose how receipts and reminders go out` : c.texting?.linked ? "Twilio linked, texting off" : "Off. Link the church's Twilio account to turn it on", null, "twilio sms reminders receipts routing"),
@@ -238,6 +243,10 @@ Screens.admin = (section) => {
         item("checkin.station", "admin-checkin", "kid", "Check-in roster", "Kids in each room, allergy alerts, pickup and volunteers on duty", null, "children nursery"),
         item(["checkin.events", "manage.content"], "gate", "scan", "Event check-in", "Scan tickets at the door to check people in and out", null, "gate tickets door"),
         item("schedule.teams", "teams", "hand", "Volunteer scheduling", "Teams, positions and who serves when", null, "serve"),
+        item("schedule.teams", "schedule-matrix", "calendar", "Drag & drop scheduler & calendar", "Multi-week drag-and-drop volunteer slots, staffing calendar, blockouts and crew chat", null, "drag drop matrix calendar blockouts away sub"),
+        item("manage.locations", "admin-geofence", "pin", "Campus geofencing & triggers", "Auto-attendance by GPS, volunteer/staff arrival tracking, ticket & check-in pop-ups", null, "geofence gps location arrival trigger attendance"),
+        item(true, "security", "shield", "Security command & tactical comms", "Security staff multimodal channel (voice, video, photo, GPS), door lock checks & live roll call", null, "security safety 911 sos lockdown roll call unaccounted doors"),
+        item(["manage.church", "manage.locations"], "security-protocols", "lock", "5-level security protocol generator", "Configure church-specific emergency levels, display broadcasts, door checks & role checklists", null, "protocol lockdown code adam missing child emergency levels"),
         item("manage.locations", "rooms", "door", "Rooms", roomAsks ? `${plural(roomAsks, "request")} waiting for approval` : "Book rooms and see what's in use", warn(roomAsks), "booking calendar"),
       ])}
       ${sec("Kiosks, screens and printers", "", [
@@ -249,12 +258,14 @@ Screens.admin = (section) => {
         item("manage.devices", "signs", "image", "Digital signage", plural(S.list("signage").length, "playlist"), null, "lobby tv"),
       ])}
       ${sec("Giving and payments", "", [
+        item(["view.giving", "manage.church", "take.payments"], "treasurer", "give", "Treasurer & accounting platform", "Cash, check & card batches, tithes/offerings, funds, budgets, expenses, weekly & IRS tax reports", null, "treasurer accounting cash check batch tithe offering budget expense tax statements"),
         item("view.giving", "admin-giving", "give", "Gifts and funds", "Online payments, funds, recent gifts and year-end statements", null, "giving stripe paypal square processor donations"),
         item("view.giving", "admin-campaigns", "star", "Pledge campaigns", "A goal for a fund, with pledges and progress"),
         item(["take.payments", "manage.content", "view.reports", "view.giving"], "tickets", "ticket", "Event tickets and payments", "Who's paid, who owes, and taking cash and checks"),
       ])}
       ${sec("Reports", "", [
         item(true, "dashboard", "layers", "Dashboard", "The church at a glance: numbers, what needs attention, attendance, giving and what's coming up"),
+        item(["view.reports", "schedule.teams"], "reports-staff-attendance", "check", "Volunteer & staff attendance", "Geofence and check-in arrival times vs. scheduled volunteers and staff", null, "geofence staff volunteer attendance punctuality"),
         S.can("view.reports") || S.can("view.giving") ? item(true, "reports", "list", "Reports", `${S.can("view.reports") ? "Attendance, new people" : ""}${S.can("view.reports") && S.can("view.giving") ? " and giving" : S.can("view.giving") ? "Giving" : ""}, custom reports, charts and downloads`, null, "csv export") : "",
         item("manage.church", "admin-activity", "list", "Activity log", "Who did what, newest first", null, "audit history"),
       ])}
@@ -355,7 +366,8 @@ AdminScreens.account = () => {
       <label class="field"><span>One line about your church</span><input type="text" name="tagline" value="${c.tagline}" maxlength="90"></label>
       ${imageField("logo", "Logo", c.logo, "Any shape works: the whole logo always shows. Shown on Home, the banner and in the church list.", 512)}
       <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Brand color</legend>
-        <div class="swatches">${[...new Set([c.color, ...BRAND_COLORS])].map((col) => html`<label><input type="radio" name="color" value="${col}" ${attr(col === c.color, "checked")}><span style="background:${col}"></span><span class="sr">${col}</span></label>`)}</div></fieldset>
+        <div class="swatches">${[...new Set([c.color, ...BRAND_COLORS])].map((col) => html`<label><input type="radio" name="color" value="${col}" data-change="brand-swatch" ${attr(col === c.color, "checked")}><span style="background:${col}"></span><span class="sr">${col}</span></label>`)}</div>
+        <div class="hex-row"><input type="color" value="${normHex(c.color)}" data-input="brand-picker" aria-label="Pick custom brand color"><input type="text" name="customColor" value="${normHex(c.color)}" maxlength="7" placeholder="#4250d6" data-input="brand-hex" aria-label="Brand hex code"><small class="faint" style="margin:0">Enter any hex color for buttons, cards and accents.</small></div></fieldset>
       <p class="faint">The Home banner's background, graphics and text art are under <a href="#admin-banner">Home banner</a>.</p>
       <h2 style="margin-top:22px">Website and social media</h2>
       ${SOCIAL.map(([k, label]) => html`<label class="field"><span>${label}</span><input type="url" name="s_${k}" value="${k === "website" ? c.website : c.social?.[k] || ""}" placeholder="https://"></label>`)}
@@ -371,8 +383,28 @@ Forms["admin-account"] = (d, f) => {
   if (S.churches().some((x) => x.id !== c.id && x.handle === handle)) return formError(f, `The church ID "${handle}" is taken.`);
   const bad = SOCIAL.find(([k]) => d[`s_${k}`] && !isUrl(d[`s_${k}`]));
   if (bad) return formError(f, `The ${bad[1]} link should start with https://`);
-  S.updateChurch({ name: d.name, handle, email: d.email, phone: d.phone, city: d.city, tagline: d.tagline, logo: d.logo, color: d.color || c.color,
+  const chosenColor = /^#[0-9a-fA-F]{6}$/.test(d.customColor || "") ? d.customColor.toLowerCase() : (d.color || c.color);
+  S.updateChurch({ name: d.name, handle, email: d.email, phone: d.phone, city: d.city, tagline: d.tagline, logo: d.logo, color: chosenColor,
     website: d.s_website, social: Object.fromEntries(SOCIAL.filter(([k]) => k !== "website").map(([k]) => [k, d[`s_${k}`]])), ccli: d.ccli });
+  applyBrand();
+Inputs["brand-picker"] = (el) => {
+  const f = el.closest("form"), hex = $("input[name=customColor]", f);
+  if (hex) hex.value = el.value.toLowerCase();
+  $$("input[name=color]", f).forEach((r) => { r.checked = r.value.toLowerCase() === el.value.toLowerCase(); });
+};
+Inputs["brand-hex"] = (el) => {
+  const f = el.closest("form"), picker = $("[data-input=brand-picker]", f), v = el.value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+    if (picker) picker.value = v.toLowerCase();
+    $$("input[name=color]", f).forEach((r) => { r.checked = r.value.toLowerCase() === v.toLowerCase(); });
+  }
+};
+Inputs["brand-swatch"] = (el) => {
+  const f = el.closest("form"), hex = $("input[name=customColor]", f), picker = $("[data-input=brand-picker]", f);
+  if (hex) hex.value = el.value.toLowerCase();
+  if (picker) picker.value = el.value.toLowerCase();
+};
+
   toast("Account details saved"); render();
 };
 

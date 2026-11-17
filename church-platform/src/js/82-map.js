@@ -15,7 +15,9 @@ const PLACE_TYPES = {
   restroom: ["Restrooms", "#cfe9ee", "🚻"], entrance: ["Entrance", "#bfe5c4", "🚪"], exit: ["Exit", "#f5cbc4", "🏃"], info: ["Welcome desk", "#f7e59a", "ℹ️"],
   cafe: ["Coffee and food", "#e8cdb5", "☕"], office: ["Office", "#dcd6ee", "💼"], hallway: ["Hallway or path", "#f1efe9", ""], stairs: ["Stairs", "#d5d8dc", "🪜"],
   elevator: ["Elevator", "#cdd9e6", "🛗"], parking: ["Parking", "#dfe3e8", "🅿️"], outside: ["Outdoors", "#d3ecc9", "🌳"],
+  safezone: ["Designated Safe Zone", "#bbf7d0", "🛡️"], aed: ["AED & First Aid Kit", "#fecaca", "❤️‍🩹"], security: ["Security Post", "#c7d2fe", "🔒"],
 };
+let mapSafetyOverlay = false;
 const placeKind = (it) => PLACE_TYPES[it?.type] || PLACE_TYPES.room;
 const placeName = (it) => it.name || placeKind(it)[0];
 /** Staff-only places (offices, storage) are left off the map for members and visitors. It tidies the map; it isn't a lock. */
@@ -57,6 +59,7 @@ function mapSvg(m, floor, { edit = false, picked = null, route = null, here = nu
         ${animate ? html`<circle class="map-walker" r="7" fill="#fff" stroke="#12324a" stroke-width="3"><animateMotion dur="${MAP_WALK_SECONDS}s" fill="freeze" path="M${pts.split(" ").join(" L")}"></animateMotion></circle>` : ""}</g>`; })}
     ${hereIt ? (() => { const [x, y] = cellXY(cellOf(hereIt)); return html`<g class="map-here" aria-hidden="true"><circle cx="${x}" cy="${y}" r="16" fill="#1f8a4c" opacity=".2"></circle><circle cx="${x}" cy="${y}" r="8" fill="#1f8a4c" stroke="#fff" stroke-width="3"></circle>
       <rect x="${x - 38}" y="${y - 34}" width="76" height="18" rx="9" fill="#1f8a4c"></rect><text x="${x}" y="${y - 25}" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="700" fill="#fff">You are here</text></g>`; })() : ""}
+    ${!guest && (mapSafetyOverlay || S.church()?.activeAlert?.active) && typeof renderMapSafetyPinsSvg === "function" ? renderMapSafetyPinsSvg(m, floor, items) : ""}
   </svg>`;
 }
 /** How long the walking animation takes on a route, in seconds. */
@@ -203,7 +206,7 @@ function mapScreen(tail = "") {
   const multi = mapFloors(m).length > 1, floorOf = (i) => multi ? `, ${mapFloors(m)[i.floor || 0]}` : "";
   return { title: "Campus map", back: "home", body: html`${head}
     <p class="muted" style="margin:14px 0 0">${l.name}${l.address ? html`. <a href="${mapLink(l.address)}" target="_blank" rel="noopener">Directions</a>` : ""}. Tap a place to see what it is and how to get there.</p>
-    ${types.length > 2 ? html`<div class="chips map-legend" role="group" aria-label="Show on the map" style="margin-top:10px">${["", ...types].map((t) => html`<button class="chip" data-act="map-type" data-type="${t}" aria-pressed="${t === mapType}">${t ? html`<i class="map-dot" style="background:${PLACE_TYPES[t][1]}"></i>${PLACE_TYPES[t][0]}` : "Everything"}</button>`)}</div>` : ""}
+    ${types.length > 2 || mapStaff() ? html`<div class="chips map-legend" role="group" aria-label="Show on the map" style="margin-top:10px">${["", ...types].map((t) => html`<button class="chip" data-act="map-type" data-type="${t}" aria-pressed="${t === mapType}">${t ? html`<i class="map-dot" style="background:${PLACE_TYPES[t][1]}"></i>${PLACE_TYPES[t][0]}` : "Everything"}</button>`)}${mapStaff() || (typeof isSecurityMember === "function" && isSecurityMember()) ? html`<button class="chip" data-act="map-safety-toggle" aria-pressed="${mapSafetyOverlay || !!S.church()?.activeAlert?.active}">🛡️ Safety, Doors &amp; AEDs</button>` : ""}</div>` : ""}
     ${floorTabs(m, "map-floor", routeFloors.length > 1 ? routeFloors : [])}
     <div class="map-wrap"><div class="map-frame" data-zoom="${mapZoom}">${mapSvg(m, mapFloor, { picked: mapPick, route: route?.legs ? route : null, here: hereId, type: mapType, animate: mapAnimate })}</div>
       <div class="map-zoom" role="group" aria-label="Zoom"><button class="btn ghost sm" data-act="map-zoom" data-d="1" aria-label="Zoom in">${icon("plus")}</button>${mapZoom > 1 ? html`<button class="btn ghost sm" data-act="map-zoom" data-d="-1" aria-label="Zoom out">−</button><button class="btn ghost sm" data-act="map-zoom" data-d="0" aria-label="Fit the whole map">${icon("expand")}</button>` : ""}</div></div>
@@ -410,3 +413,5 @@ function mapWire(l, edit) {
   const end = () => { if (!drag) return; const d = drag; drag = null; if (d.moved) { if (mapPick && mapPick !== d.it.id) mapKeep(); d.it.x += d.dx; d.it.y += d.dy; mapPick = d.it.id; mapSave(l); render(); } else pick(d.it.id); };
   svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", () => { drag = null; render(); });
 }
+
+Actions["map-safety-toggle"] = () => { mapSafetyOverlay = !mapSafetyOverlay; render(); };
