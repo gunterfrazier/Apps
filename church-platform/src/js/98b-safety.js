@@ -27,9 +27,12 @@ function canViewUnaccountedReport(userId = S.me().id, cid = S.state.current) {
   return isSecurityMember(userId, cid) || S.can("view.reports", cid) || S.can("checkin.station", cid) || S.can("manage.classes", cid);
 }
 
+// Protocols and drill settings start from the app's standard ones. Doors, AEDs and medical responders are the church's
+// own building and people, so they start empty and the security team adds them; the sample church has its own
+// (12-seed-features.js). defaultSecurityDoors and the others below are examples kept for reference.
 const SAFETY_DEFAULTS = {
-  securityProtocols: () => defaultSecurityProtocols(), securityDoors: (id) => defaultSecurityDoors(id), securityAeds: (id) => defaultSecurityAeds(id),
-  medicalResponders: (id) => defaultMedicalResponders(id), drillPlanner: (id) => defaultDrillPlannerConfig(id),
+  securityProtocols: () => defaultSecurityProtocols(), securityDoors: () => [], securityAeds: () => [],
+  medicalResponders: () => [], drillPlanner: (id) => defaultDrillPlannerConfig(id),
 };
 const safetyDefaultJson = new Map();
 /** Fills in a church's missing safety settings with defaults. In the demo they're ordinary settings, saved in the browser.
@@ -458,7 +461,7 @@ Actions["sos-open"] = () => {
           <span class="sos-911-badge">911</span>
           <div>
             <b style="font-size:1.05rem">Life-Threatening Emergency?</b>
-            <p class="muted" style="margin:2px 0 0;font-size:.86rem">Calls 911 immediately from your phone AND automatically alerts the Church Security Team with your name and live GPS coordinates.</p>
+            <p class="muted" style="margin:2px 0 0;font-size:.86rem">${practiceMode() ? "Practice: in the real app this calls 911 from your phone. Here it only alerts the security team, so you can see what they get." : "Calls 911 immediately from your phone AND automatically alerts the Church Security Team with your name and live GPS coordinates."}</p>
           </div>
         </div>
         <button type="button" class="btn danger block" style="margin-top:12px;font-size:1.05rem;padding:13px" data-act="sos-call-911">
@@ -507,14 +510,17 @@ Actions["sos-open"] = () => {
 Actions["sos-call-911"] = (el) => {
   // Dial first, while the tap still counts as the person's own action: phones may refuse to dial from a page after a
   // delay. The alert to the security team goes out at once without a location, and the location follows when the phone
-  // finds it.
-  const a = document.createElement("a");
-  a.href = "tel:911";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  // finds it. In the demo and in training nothing dials: the rest happens so it can be practiced.
+  const practice = practiceMode();
+  if (!practice) {
+    const a = document.createElement("a");
+    a.href = "tel:911";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
   el.disabled = true;
-  el.textContent = "Calling 911. Alerting security...";
+  el.textContent = practice ? "Practice: alerting security..." : "Calling 911. Alerting security...";
   const me = S.me(), c = S.church(), at = new Date().toISOString();
   const inc = S.add("securityIncidents", {
     kind: "911_CALL", category: "911 Emergency Call", severity: "critical", by: me.id,
@@ -535,7 +541,7 @@ Actions["sos-call-911"] = (el) => {
   if (Backend.on) Backend.flush();   // don't wait: the phone may pause this page during the call
   broadcastSafetyUpdate({ incidentId: inc.id });
   closeSheet(true);
-  toast("Calling 911. Security has been alerted.");
+  toast(practice ? "Practice only: 911 wasn't called. The security team got the alert." : "Calling 911. Security has been alerted.");
   render();
   getQuickGpsFix().then((gps) => {
     if (!gps) return;
@@ -2034,7 +2040,7 @@ function renderSecurityDrillSimulator(c) {
             <div>
               <span class="tag brand">SCORE: ${d.score}/100</span>
               <b style="margin-left:6px">${d.scenarioTitle} (Level ${d.level})</b>
-              <span class="faint"> · ${fmtDate(d.startedAt)} · Duration: ${d.durationSec}s</span>
+              <span class="faint"> · ${fmtShort(d.startedAt)} · Duration: ${d.durationSec}s</span>
             </div>
             <span class="tag ok">${d.participationMode === "real_only" ? "Real Staff Only" : d.participationMode === "sim_only" ? "100% Simulated" : "Hybrid Real + Sim"}</span>
           </div>

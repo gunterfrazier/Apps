@@ -99,6 +99,9 @@ const TRAINING = [
     ["group", "Join a class or group", "Connect, Classes and groups", "classes", "people", (st, cid) => here(st, cid, "gatherings").reduce((n, g) => n + (g.members || []).filter((m) => m.userId === st.me.id).length, 0)],
     ["prayer", "Share a prayer request", "Connect, Prayer", "connect", "pray", mine("prayers")],
     ["notes", "Take notes on a sermon", "Word, open a sermon, Notes", "word", "note", (st) => Object.keys(st.notes || {}).length],
+    ["theme", "Try dark or Sanctuary mode", "Me, Settings, Display", "settings", "moon", (st) => st.prefs?.theme || "auto"],
+    ["board", "Post on a community board", "Connect, Board, New community post", "board", "people", mine("boardPosts")],
+    ["away", "Mark dates you're away from serving", "Me, Serving, Dates away", "serving", "calendar", (st, cid) => here(st, cid, "blockouts").filter((b) => b.userId === st.me.id).length],
   ] },
   { area: "Church staff", items: [
     ["news", "Post an announcement", "Admin, Announcements, Add", "admin-news", "bell", (st, cid) => here(st, cid, "news").length],
@@ -107,6 +110,9 @@ const TRAINING = [
     ["form", "Build a form", "Admin, Forms", "forms", "note", (st, cid) => here(st, cid, "forms").length],
     ["role", "Create a role", "Admin, Roles and permissions", "admin-roles", "key", (st, cid) => (st.churches[cid]?.roles || []).length],
     ["followup", "Look over follow-up for new people", "Admin, Follow-up", "followup", "people", visited("followup")],
+    ["push", "Send a notification to one group", "Admin, Targeted push notifications", "admin-push", "bell", (st, cid) => here(st, cid, "pushCampaigns").length],
+    ["boards", "Approve or pin a board post", "Admin, Community boards", "admin-boards", "people", (st, cid) => JSON.stringify(here(st, cid, "boardPosts").filter((p) => p.pinned || p.approvedAt || p.locked).map((p) => [p.id, !!p.pinned, p.approvedAt || "", !!p.locked]))],
+    ["arrival", "Set up arrival check-in for a campus", "Admin, Campus geofencing & triggers", "admin-geofence", "pin", (st, cid) => JSON.stringify((st.churches[cid]?.locations || []).map((l) => l.geofence || null))],
   ] },
   { area: "Sunday", items: [
     ["song", "Add a song with sections", "Ministry tools, Songs", "songs", "music", (st, cid) => here(st, cid, "songs").length],
@@ -115,16 +121,30 @@ const TRAINING = [
     ["present", "Present a service", "Services, open one, Present", "services", "screen", visited("present")],
     ["checkin", "Check in a child at the kiosk", "Admin, Check-in kiosk", "kiosk", "kid", (st, cid) => here(st, cid, "checkins").length],
     ["sign", "Make a slide for the lobby screens", "Admin, Digital signage", "signs", "image", (st, cid) => JSON.stringify(here(st, cid, "signage"))],
+    ["chords", "Add chords to a song", "Ministry tools, Songs and lyrics", "songs", "music", (st, cid) => here(st, cid, "songs").filter((x) => /\[[A-G][#b]?(m|maj|min|dim|aug|sus|add|\d)*(\/[A-G][#b]?)?\]/.test(JSON.stringify(x.parts || x.lyrics || ""))).length],
+    ["dragdrop", "Open the drag and drop scheduler", "Admin, Drag & drop scheduler & calendar", "schedule-matrix", "hand", visited("schedule-matrix")],
   ] },
   { area: "Giving and reports", items: [
     ["processor", "Connect a payment processor (practice)", "Admin, Gifts and funds, Online payments", "admin-giving", "give", (st, cid) => (st.churches[cid]?.practicePayments || st.churches[cid]?.payments ? 1 : 0)],
     ["fund", "Add a giving fund", "Admin, Gifts and funds, Funds", "admin-giving", "give", (st, cid) => (st.churches[cid]?.funds || []).length],
     ["reports", "Read the reports", "Admin, Reports", "reports", "list", visited("reports")],
+    ["handgift", "Record a cash or check gift", "Admin, Treasurer, Record cash / check / card gift", "treasurer", "give", (st, cid) => here(st, cid, "gifts").filter((g) => g.recordedBy).length],
+    ["batch", "Count a Sunday offering batch", "Admin, Treasurer, New Sunday offering batch", "treasurer", "list", (st, cid) => JSON.stringify(here(st, cid, "batches").map((b) => [b.id, b.status]))],
+    ["expense", "Record an expense", "Admin, Treasurer, Record expense", "treasurer", "note", (st, cid) => here(st, cid, "expenses").length],
+    ["staffreport", "Check who served and arrived on time", "Admin, Volunteer & staff attendance", "reports-staff-attendance", "check", visited("reports-staff-attendance")],
+  ] },
+  { area: "Safety", items: [
+    ["sos", "Send a practice alert to the security team", "The shield button at the top", "home", "shield", mine("securityIncidents")],
+    ["protocol", "Start a safety protocol, then end it", "Security Command", "security", "lock", (st, cid) => st.churches[cid]?.activeAlert?.level || 0],
+    ["doors", "Check the doors", "Security Command, Doors", "security-doors", "lock", (st, cid) => JSON.stringify((st.churches[cid]?.securityDoors || []).map((d) => d.status))],
+    ["rollcall", "Look over roll call", "Security Command, Roll call", "security-rollcall", "people", visited("security-rollcall")],
+    ["drill", "Run a safety drill", "Security Command, Drill simulator", "security-drill", "star", (st, cid) => here(st, cid, "securityDrills").length],
   ] },
 ];
 const TRAINING_ITEMS = TRAINING.flatMap((g) => g.items);
 /** Exercises counted from what the whole church has, which teammates' changes can move. The rest are yours alone. */
-const SHARED_ITEMS = new Set(["news", "newevent", "banner", "form", "role", "song", "plan", "schedule", "checkin", "sign", "processor", "fund"]);
+const SHARED_ITEMS = new Set(["news", "newevent", "banner", "form", "role", "song", "plan", "schedule", "checkin", "sign", "processor", "fund",
+  "push", "boards", "arrival", "chords", "handgift", "batch", "expense", "protocol", "doors", "drill"]);
 
 /** Where you train: a sandbox, a shared training church, or the checklist opened in the browser-only preview. */
 const trainingHere = () => SANDBOX === "training" || isTrainingChurch() || (typeof Backend !== "undefined" && !Backend.on && !!S.state.training);
@@ -133,7 +153,9 @@ function trainingState(cid = S.state.current) {
   const st = S.state;
   if (!st.training || st.training.base) st.training = {};   // an earlier one-church checklist starts over
   const t = (st.training[cid] ||= { base: null, visited: {}, done: {} });
-  if (!t.base) { t.base = {}; TRAINING_ITEMS.forEach(([id, , , , , read]) => { t.base[id] = read(st, cid); }); }
+  t.base ||= {};
+  // Exercises added since this checklist began start from where things stand now, so they don't tick themselves.
+  TRAINING_ITEMS.forEach(([id, , , , , read]) => { if (!(id in t.base)) t.base[id] = read(st, cid); });
   return t;
 }
 function trainingDone(id) {
@@ -151,9 +173,10 @@ let trainingFresh = true, trainingRemote = false;
 /** After each screen: note the visit, and cheer each exercise the moment it's done. */
 function sandboxAfterRender(head) {
   if (!S.state.current || !trainingHere()) return;
-  const t = trainingState(), cid = S.state.current;
-  let changed = !t.visited[head];
+  const t = trainingState(), cid = S.state.current, route = location.hash.slice(1);
+  let changed = !t.visited[head] || (route && !t.visited[route]);
   t.visited[head] = true;
+  if (route) t.visited[route] = true;
   if (trainingFresh || trainingRemote) {
     trainingFresh = trainingRemote = false;
     TRAINING_ITEMS.forEach(([id, , , , , read]) => { if (!t.done[id] && SHARED_ITEMS.has(id)) t.base[id] = read(S.state, cid); });
