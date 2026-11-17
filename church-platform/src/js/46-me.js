@@ -25,9 +25,10 @@ Screens.me = () => {
 
       <section class="sec"><div class="sec-head"><h2>${c.name}</h2>${role ? html`<span class="tag ${role.rank >= 90 ? "brand" : ""}">${role.name}</span>` : html`<span class="tag">Looking around</span>`}</div>
         ${m && S.locations().length > 1 ? html`<p class="faint" style="margin-top:-4px">Locations: ${accessText(m)}</p>` : ""}
-        ${hasAdminTools() || hasMinistryTools() ? html`<div class="rows">
+        ${hasAdminTools() || hasMinistryTools() || (typeof isSecurityMember === "function" && S.on("safety") && isSecurityMember()) ? html`<div class="rows">
           ${hasAdminTools() ? row("#admin", "shield", "Admin", "Content, people, Sundays, devices, giving and reports") : ""}
           ${hasMinistryTools() ? row("#ministry", "layers", "Ministry tools", "Builders, service plans, presenting, teams and check-in") : ""}
+          ${typeof isSecurityMember === "function" && S.on("safety") && isSecurityMember() ? row("#security", "lock", "Security Command", "Incidents, team channel, protocols, roll call and drills") : ""}
         </div>` : ""}</section>
 
       <section class="sec"><h2 class="sec-head">My church life</h2><div class="rows">

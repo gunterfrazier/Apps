@@ -123,7 +123,8 @@ Screens.start = () => {
       <label class="field"><span>City and state</span><input type="text" name="city" placeholder="Springfield, IL" maxlength="60"></label>
       <label class="field"><span>One line about your church</span><input type="text" name="tagline" maxlength="90"></label>
       <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Brand color</legend>
-        <div class="swatches">${BRAND_COLORS.map((col, i) => html`<label><input type="radio" name="color" value="${col}" ${attr(i === 0, "checked")}><span style="background:${col}"></span><span class="sr">${col}</span></label>`)}</div></fieldset>
+        <div class="swatches">${BRAND_COLORS.map((col, i) => html`<label><input type="radio" name="color" value="${col}" data-change="brand-swatch" ${attr(i === 0, "checked")}><span style="background:${col}"></span><span class="sr">${col}</span></label>`)}</div>
+        <div class="hex-row"><input type="color" value="${BRAND_COLORS[0]}" data-input="brand-picker" aria-label="Pick custom brand color"><input type="text" name="customColor" value="${BRAND_COLORS[0]}" maxlength="7" placeholder="#4250d6" data-input="brand-hex" aria-label="Brand hex code"><small class="faint" style="margin:0">Pick a swatch or enter your church's exact hex color.</small></div></fieldset>
       <h2 style="margin-top:20px">Campuses and locations</h2>
       <p class="faint">Give each location a unique ID, like MAIN or EAST. Private locations only show to people you give access.</p>
       <div id="loc-rows">${startLocRow(0)}</div>
@@ -151,7 +152,8 @@ Forms["start-church"] = (d, f) => {
       services: d[`locTime${i}`] ? [svc(+d[`locDay${i}`], d[`locTime${i}`], "Worship service")] : [] });
   }
   if (!locations.length) locations.push({ code: "MAIN", name: "Main campus", address: "", visibility: "public", rooms: [], liveUrl: "", services: [svc(0, "10:00", "Worship service")] });
-  const c = S.createChurch({ name: d.name, handle, email: d.email || "", phone: d.phone || "", city: d.city || "", tagline: d.tagline || "", color: d.color || BRAND_COLORS[0], sign: ["Welcome", d.tagline || ""], locations });
+  const chosenColor = /^#[0-9a-fA-F]{6}$/.test(d.customColor || "") ? d.customColor.toLowerCase() : (d.color || BRAND_COLORS[0]);
+  const c = S.createChurch({ name: d.name, handle, email: d.email || "", phone: d.phone || "", city: d.city || "", tagline: d.tagline || "", color: chosenColor, sign: ["Welcome", d.tagline || ""], locations });
   toast(`${c.name} is ready. You're its primary account holder.`); go("admin");
 };
 
@@ -204,9 +206,14 @@ Screens.home = () => {
       ${c.landing?.showOnHome && c.landing.blocks.length ? html`<div class="landing">${landingBlocks(c, { home: true })}</div>` : ""}
 
       ${latest ? html`<section class="sec"><div class="sec-head"><h2>Latest message</h2><a href="#word">All sermons</a></div>
-        <a class="sermon-card" href="#sermon-${latest.id}"><span class="sc-play">${icon("play")}</span>
-          <span class="sc-k">${latest.series}</span><span class="sc-title">${latest.title}</span>
-          <span class="sc-meta">${latest.passage}, ${latest.speaker}</span></a></section>` : ""}
+        <div class="sermon-card modern">
+          <a href="#sermon-${latest.id}" style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:16px;flex:1;min-width:0">
+            ${typeof sermonArtTile === "function" ? sermonArtTile(latest, 84) : ""}
+            <span class="sc-body"><span class="sc-k">${latest.series}</span><span class="sc-title">${latest.title}</span>
+            <span class="sc-meta">${latest.passage} · ${latest.speaker}</span></span>
+          </a>
+          <button type="button" class="sc-play-btn" data-act="mini-play" data-id="${latest.id}" aria-label="Play ${latest.title}">${icon(typeof Player !== "undefined" && Player.isPlaying(latest.id) ? "pause" : "play")}</button>
+        </div></section>` : ""}
 
       <section class="sec">
         <div class="sec-head"><h2>Gather with us</h2>${S.on("live") ? html`<a href="#live">Watch live</a>` : ""}</div>
@@ -232,9 +239,15 @@ Screens.home = () => {
 };
 function eventCard(e) {
   const reg = myRegistration(e), d = new Date(e.start);
-  return html`<a class="event-card" href="#event-${e.id}"><span class="ec-date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span>
-    ${reg ? html`<span class="tag ok ec-tag">Going</span>` : ""}
-    <span class="ec-title">${e.title}</span><span class="ec-meta">${fmt(d, { weekday: "short" })} ${fmtTime(d)}</span><span class="ec-meta">${placeText(e)}</span></a>`;
+  return html`<a class="event-card" href="#event-${e.id}">
+    <div class="ec-media">${e.image ? html`<img src="${e.image}" alt="">` : ""}
+      ${e.category ? html`<span class="tag ec-cat">${e.category}</span>` : ""}
+      <span class="ec-date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span>
+      ${reg ? html`<span class="tag ok ec-tag">Going</span>` : ""}
+    </div>
+    <div class="ec-body">
+      <span class="ec-title">${e.title}</span><span class="ec-meta">${fmt(d, { weekday: "short" })} ${fmtTime(d)}</span><span class="ec-meta">${placeText(e)}</span>
+    </div></a>`;
 }
 
 function planTodayRow(p) {
@@ -247,10 +260,12 @@ function planTodayRow(p) {
 }
 
 function eventRow(e) {
-  const reg = myRegistration(e);
-  return html`<a class="row" href="#event-${e.id}"><span class="date"><span>${fmtMonth(e.start)}</span><b>${new Date(e.start).getDate()}</b></span>
-    <span class="body"><span class="t">${e.title}</span><span class="s">${fmt(e.start, { weekday: "short" })} ${fmtTime(e.start)}, ${placeText(e)}</span></span>
-    ${reg ? html`<span class="tag ok">Going</span>` : icon("chev")}</a>`;
+  const reg = myRegistration(e), d = new Date(e.start);
+  return html`<a class="event-card-row" href="#event-${e.id}">
+    ${e.image ? html`<div class="ecr-banner"><img src="${e.image}" alt=""></div>` : ""}
+    <div class="ecr-main"><span class="date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span>
+      <span class="body"><span class="t">${e.title}</span><span class="s">${fmt(d, { weekday: "short" })} ${fmtTime(d)} · ${placeText(e)}</span>${e.category ? html`<span class="tag brand" style="margin-top:4px">${e.category}</span>` : ""}</span>
+      ${reg ? html`<span class="tag ok">Going</span>` : icon("chev")}</div></a>`;
 }
 
 Actions["open-switcher"] = () => {

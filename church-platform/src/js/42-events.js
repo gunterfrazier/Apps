@@ -14,8 +14,8 @@ Screens.events = () => {
     body: html`
       <div style="margin-top:12px">${campusChip()}</div>
       ${cats.length > 2 ? html`<div class="chips" role="group" aria-label="Filter events" style="margin-top:8px">${cats.map((c) => html`<button class="chip" data-act="event-filter" data-cat="${c}" aria-pressed="${c === eventFilter}">${c}</button>`)}</div>` : ""}
-      ${mine.length && eventFilter === "All" ? html`<section class="sec" style="margin-top:12px"><h2 class="sec-head">You're going</h2><div class="rows">${mine.map(eventRow)}</div></section>` : ""}
-      ${shown.length ? months.map((m) => html`<section class="sec" style="margin-top:18px"><h2 class="sec-head">${m}</h2><div class="rows">${shown.filter((e) => fmt(e.start, { month: "long", year: "numeric" }) === m).map(eventRow)}</div></section>`)
+      ${mine.length && eventFilter === "All" ? html`<section class="sec" style="margin-top:12px"><h2 class="sec-head">You're going</h2><div class="card-list">${mine.map(eventRow)}</div></section>` : ""}
+      ${shown.length ? months.map((m) => html`<section class="sec" style="margin-top:18px"><h2 class="sec-head">${m}</h2><div class="card-list">${shown.filter((e) => fmt(e.start, { month: "long", year: "numeric" }) === m).map(eventRow)}</div></section>`)
         : html`<div class="rows" style="margin-top:14px">${empty("Nothing on the calendar yet.")}</div>`}`,
   };
 };
@@ -38,6 +38,7 @@ Screens.event = (id) => {
   return {
     title: e.title, back: "events", tab: "events",
     body: html`
+      ${e.image ? html`<img class="event-hero-img" src="${e.image}" alt="">` : ""}
       <p style="margin:16px 0 4px"><span class="tag brand">${e.category}</span>${e.locationId && S.location(e.locationId)?.visibility === "private" ? html` <span class="tag">${icon("lock")}Private location</span>` : ""}</p>
       <h1>${e.title}</h1>
       <div class="meta">

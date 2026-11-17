@@ -368,7 +368,7 @@ Actions["song-edit"] = (el) => {
   const s = S.get("songs", el.dataset.id);
   const parts = s ? songParts(s).map((p) => ({ ...p, id: s.parts ? p.id : uid(), orig: p.label })) : [];
   const order = s ? songOrder(s).map((l) => parts.find((p) => sameLabel(p.label, l))?.id).filter(Boolean) : [];
-  songEd = { id: s?.id || "", charts: JSON.parse(JSON.stringify(s?.charts || [])), chartPart: "", title: s?.title || "", author: s?.author || "", ccliSong: s?.ccliSong || "", copyright: s?.copyright || "", publicDomain: !!s?.publicDomain, parts, order, ro: !canPlan(), paste: !s, pasteText: "", adding: false };
+  songEd = { id: s?.id || "", charts: JSON.parse(JSON.stringify(s?.charts || [])), chartPart: "", title: s?.title || "", author: s?.author || "", ccliSong: s?.ccliSong || "", copyright: s?.copyright || "", publicDomain: !!s?.publicDomain, key: s?.key || "D", bpm: s?.bpm || 76, timeSig: s?.timeSig || "4/4", parts, order, ro: !canPlan(), paste: !s, pasteText: "", adding: false };
   openSheet(s ? s.title : "Add a song", songFormHtml(), { wide: true });
   redrawSongEd();
 };
@@ -450,7 +450,7 @@ Forms["song-save"] = (d, f) => {
   const labels = e.order.map((id) => parts.find((p) => p.id === id)?.label).filter(Boolean);
   const straight = labels.join("\n") === parts.map((p) => p.label).join("\n");
   const charts = e.charts.map(({ id, part, name, pages, starts }) => ({ id, part, name, pages, starts: Object.fromEntries(Object.entries(starts || {}).filter(([l, n]) => parts.some((p) => p.label.toLowerCase() === l) && n < pages.length)) }));
-  const rec = { title: d.title, author: d.author, ccliSong: d.ccliSong, copyright: d.copyright, publicDomain: !!d.publicDomain, parts, order: straight ? [] : labels, lyrics: partsToLyrics(parts), charts };
+  const rec = { title: d.title, author: d.author, ccliSong: d.ccliSong, copyright: d.copyright, publicDomain: !!d.publicDomain, key: e.key || d.songKey || "D", bpm: +e.bpm || +d.songBpm || 76, timeSig: e.timeSig || d.songTimeSig || "4/4", parts, order: straight ? [] : labels, lyrics: partsToLyrics(parts), charts };
   if (e.id) {
     const map = new Map();
     const before = songParts(S.get("songs", e.id));

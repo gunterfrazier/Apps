@@ -1,15 +1,20 @@
 // ---------- Settings: language, text size, contrast, motion, read aloud and notifications ----------
 // Display settings belong to the device, so they live in S.state.prefs and apply before the first paint.
 
-const DEFAULT_PREFS = { lang: "", text: "m", contrast: false, calm: false, voice: {}, rate: 1, notify: { news: true, chat: true, serve: true, event: true, staff: true }, push: false, quiet: false };
-const prefs = () => { S.state.prefs ||= JSON.parse(JSON.stringify(DEFAULT_PREFS)); return S.state.prefs; };
+const DEFAULT_PREFS = { lang: "", theme: "auto", text: "m", contrast: false, calm: false, voice: {}, rate: 1, notify: { news: true, chat: true, serve: true, event: true, staff: true }, push: false, quiet: false };
+const prefs = () => { S.state.prefs ||= JSON.parse(JSON.stringify(DEFAULT_PREFS)); S.state.prefs.theme ||= "auto"; return S.state.prefs; };
 const lang = () => S.state?.prefs?.lang || ((navigator.language || "en").toLowerCase().startsWith("es") ? "es" : "en");
 const appLocale = () => (lang() === "es" ? "es-US" : undefined);
 function applyDisplay() {
-  const p = prefs(), root = document.documentElement;
+  const p = prefs(), root = document.documentElement, theme = p.theme || "auto";
+  if (theme === "auto") delete root.dataset.theme; else root.dataset.theme = theme;
+  root.classList.toggle("theme-light", theme === "light");
+  root.classList.toggle("theme-dark", theme === "dark");
+  root.classList.toggle("theme-sanctuary", theme === "sanctuary");
   root.classList.toggle("text-l", p.text === "l"); root.classList.toggle("text-xl", p.text === "xl");
   root.classList.toggle("contrast", !!p.contrast); root.classList.toggle("calm", !!p.calm);
   root.lang = lang() === "es" ? "es" : "en";
+  if (typeof applyBrand === "function" && S.state) applyBrand();
 }
 
 Screens.settings = () => {
@@ -22,7 +27,8 @@ Screens.settings = () => {
         <nav class="seg" aria-label="Language" style="margin-top:0">${[["en", "English"], ["es", "Español"]].map(([k, l]) => html`<a href="#settings" data-act="set-lang" data-v="${k}" lang="${k}" ${attr(lang() === k, 'aria-current="page"')}>${l}</a>`)}</nav>
         <p class="faint">Changes the app's buttons, menus and dates. Sermons, announcements and other things your church writes stay as they wrote them.</p></section>
       <section class="sec"><h2 class="sec-head">Display</h2>
-        <fieldset class="field" style="border:0;padding:0;margin-top:0"><legend class="flabel">Text size</legend><div class="radios">${[["m", "Default"], ["l", "Large"], ["xl", "Largest"]].map(([k, l]) => html`<label><input type="radio" name="text" value="${k}" data-change="pref-text" ${attr(p.text === k, "checked")}><span style="font-size:${k === "m" ? 1 : k === "l" ? 1.12 : 1.25}em">${l}</span></label>`)}</div></fieldset>
+        <fieldset class="field" style="border:0;padding:0;margin-top:0"><legend class="flabel">Appearance</legend><div class="radios">${[["auto", "System"], ["light", "Light"], ["dark", "Dark"], ["sanctuary", "Sanctuary OLED"]].map(([k, l]) => html`<label><input type="radio" name="theme" value="${k}" data-change="pref-theme" ${attr((p.theme || "auto") === k, "checked")}><span>${l}</span></label>`)}</div><small>Sanctuary OLED uses a pure black background with soft brand accents so your screen never glows in a darkened worship service.</small></fieldset>
+        <fieldset class="field" style="border:0;padding:0"><legend class="flabel">Text size</legend><div class="radios">${[["m", "Default"], ["l", "Large"], ["xl", "Largest"]].map(([k, l]) => html`<label><input type="radio" name="text" value="${k}" data-change="pref-text" ${attr(p.text === k, "checked")}><span style="font-size:${k === "m" ? 1 : k === "l" ? 1.12 : 1.25}em">${l}</span></label>`)}</div></fieldset>
         <div class="rows">${toggle("contrast", "More contrast", "Darker text and stronger outlines", p.contrast)}${toggle("calm", "Reduce motion", "Turn off animations and moving effects", p.calm)}</div></section>
       ${readAloudSection()}
       ${bibleSection()}
@@ -35,13 +41,23 @@ Screens.settings = () => {
           ${toggle("notify.serve", "Serving", "Requests to serve and reminders the day before", p.notify.serve)}
           ${toggle("notify.event", "Events and classes", "Reminders the day before something you signed up for", p.notify.event)}
           ${staff ? toggle("notify.staff", "Staff updates", "New people to follow up, room requests and form responses", p.notify.staff) : ""}
-          ${toggle("quiet", "Quiet at night", "Hold push notifications from 9 PM to 7 AM", p.quiet)}</div></section>`,
+          ${toggle("quiet", "Quiet at night", "Hold push notifications from 9 PM to 7 AM", p.quiet)}</div></section>
+      ${typeof geofenceOffered === "function" && geofenceOffered() ? html`<section class="sec"><h2 class="sec-head">Location</h2><div class="rows">
+          ${toggle("geofenceCheckin", "Check me in when I arrive", `Your phone checks your location while the app is open during a service or event, and marks you as here when you're on campus. Your location is never saved, only that you arrived.`, p.geofenceCheckin === true)}</div></section>` : ""}`,
   };
 };
 Inputs["pref"] = (el) => {
   const p = prefs(), [a, b] = el.dataset.k.split(".");
   if (b) p[a][b] = el.checked; else p[a] = el.checked;
   S.save(); applyDisplay();
+  if (a === "geofenceCheckin" && el.checked && typeof startGeofenceMonitor === "function") startGeofenceMonitor(true);
+};
+Inputs["pref-theme"] = (el) => { prefs().theme = el.value; S.save(); applyDisplay(); render(); };
+Actions["toggle-sanctuary"] = () => {
+  const p = prefs(), on = p.theme === "sanctuary";
+  p.theme = on ? "auto" : "sanctuary";
+  S.save(); applyDisplay(); render();
+  toast(on ? "Standard appearance restored" : "Sanctuary OLED mode on");
 };
 Inputs["pref-text"] = (el) => { prefs().text = el.value; S.save(); applyDisplay(); };
 Actions["set-lang"] = (el) => { prefs().lang = el.dataset.v; S.save(); applyDisplay(); render(); toast(el.dataset.v === "es" ? "Idioma: español" : "Language: English"); };

@@ -22,16 +22,26 @@ function tabsFor() {
 function go(hash) { if (location.hash.slice(1) === hash) render(); else location.hash = hash; }
 function splitRoute() {
   const h = location.hash.slice(1);
+  // A screen whose own name has a dash (#schedule-matrix) is that screen, not "schedule" with a detail.
+  if (Screens[h]) return { route: h, head: h, tail: "" };
   const i = h.indexOf("-");
   return { route: h, head: i < 0 ? h : h.slice(0, i), tail: i < 0 ? "" : h.slice(i + 1) };
 }
 
+function normHex(v, fallback = PLATFORM.color) {
+  const s = String(v || "").trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(s)) return "#" + s.slice(1).split("").map((c) => c + c).join("").toLowerCase();
+  return fallback;
+}
 function applyBrand() {
   const c = S.church();
-  const color = c?.color || PLATFORM.color;
+  const color = normHex(c?.color, PLATFORM.color);
   document.documentElement.style.setProperty("--brand", color);
   document.documentElement.style.setProperty("--on-brand", onColor(color));
-  const meta = $('meta[name="theme-color"]'); if (meta) meta.content = color;
+  const theme = document.documentElement.dataset.theme || "auto";
+  const meta = $('meta[name="theme-color"]');
+  if (meta) meta.content = theme === "sanctuary" ? "#000000" : theme === "dark" ? "#161b25" : color;
   document.title = c ? `${c.name} | ${PLATFORM.name}` : PLATFORM.name;
 }
 
@@ -104,6 +114,7 @@ function render() {
     lastRoute = route;
   }
   view.after?.();
+  if (typeof Player !== "undefined") Player.syncUI(head, view);
   sandboxAfterRender(head);
 }
 let pendingRoute = null;

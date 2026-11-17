@@ -75,7 +75,7 @@ function slideHtml(s, c = S.church()) {
     switch (s.kind) {
       case "logo": return html`<div class="slide-center">${c.logo ? html`<img class="slide-logo" src="${c.logo}" alt="">` : html`<div class="slide-mono">${initials(c.name)}</div>`}<div class="slide-church">${c.name}</div></div>`;
       case "title": return html`<div class="slide-center"><div class="slide-title">${s.title}</div>${s.body ? html`<div class="slide-sub">${s.body}</div>` : ""}</div>`;
-      case "lyrics": return html`<div class="slide-center"><div class="slide-lyrics">${s.body}</div></div>`;
+      case "lyrics": return html`<div class="slide-center"><div class="slide-lyrics">${typeof stripInlineChords === "function" ? stripInlineChords(s.body) : s.body}</div></div>`;
       case "scripture": return html`<div class="slide-scripture">${s.title ? html`<div class="slide-kicker">${s.title}</div>` : ""}<div class="slide-verses">${s.verses.map((v) => { const m = v.match(/^(\d+)\s([\s\S]*)$/); return m ? html`<sup>${m[1]}</sup>${m[2]} ` : html`${v} `; })}</div><div class="slide-ref">${s.ref}</div></div>`;
       case "keynote": return html`<div class="slide-center"><div class="slide-keynote">${s.body}</div></div>`;
       case "point": return html`<div class="slide-center"><div class="slide-point">${s.body}</div></div>`;
@@ -114,6 +114,16 @@ let presChannel = null;
 try { presChannel = "BroadcastChannel" in window ? new BroadcastChannel("our-faithful-present") : null; } catch { presChannel = null; }
 const presLoc = (key) => { const [k, ...r] = key.split("-"); return S.get(k === "doc" ? "docs" : "services", r.join("-"))?.locationId || null; };
 function presBroadcast() {
+  try {
+    const c = S.church();
+    if (c?.livePew?.active && pres.key) {
+      const data = routeData(pres.key), cur = data?.slides?.[pres.index];
+      if (cur && typeof broadcastPewSync === "function") {
+        if (cur.kind === "scripture" && cur.ref) broadcastPewSync({ activeRef: cur.ref, activeSlideText: (cur.verses || []).join(" ") });
+        else if (cur.kind === "point" || cur.kind === "keynote") broadcastPewSync({ activeSlideText: cur.body || "" });
+      }
+    }
+  } catch {}
   const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, live: pres.live, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "", media: pres.media ? { ...pres.media } : null };
   // Presenting in a room: only that room's display hears it, on the room's own channel.
   if (pres.room) { Object.assign(msg, { room: pres.room.token, loc: pres.room.loc, msg: "", captions: "" }); try { presChannel?.postMessage(msg); } catch {} if (Backend.on) Backend.broadcast(msg, roomTopic(pres.room.token)); return; }

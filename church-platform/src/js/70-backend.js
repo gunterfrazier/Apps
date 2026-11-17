@@ -320,7 +320,8 @@ const SPLIT = {
 /** Who a record belongs to, for "your own" security rules. */
 function ownerOf(kind, r) {
   return { prayers: r.by, gifts: r.by, recurring: r.by, docs: r.authorId, cards: r.by, checkins: r.by, serving: r.by, teamMembers: r.userId, blockouts: r.userId, notifications: r.userId,
-    formResponses: r.by, bookings: r.by, messages: r.by, followups: r.assignedTo, devices: r.deviceUser, roomSessions: r.by, presence: r.userId, milestones: r.userId, pledges: r.userId, activity: r.by, ticketPayments: r.payerId, eventCheckins: r.by }[kind] || null;
+    formResponses: r.by, bookings: r.by, messages: r.by, followups: r.assignedTo, devices: r.deviceUser, roomSessions: r.by, presence: r.userId, milestones: r.userId, pledges: r.userId, activity: r.by,
+    boardPosts: r.by, expenses: r.by, securityIncidents: r.by, securityMessages: r.by, ticketPayments: r.payerId, eventCheckins: r.by }[kind] || null;
 }
 /** A fresh state with no sample churches, for signed-in use. */
 function blankState() {
