@@ -1742,3 +1742,8 @@ body.presenting #mini-player, body.kiosk-mode #mini-player, html.overlay-page #m
   opacity: 0.78;
   background: var(--sunken);
 }
+
+/* Event rows: the title, then the time and place on their own line */
+.ecr-main .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.ecr-main .body .t { font-weight: 700; }
+.ecr-main .body .s { color: var(--ink-2); font-size: .92rem; }

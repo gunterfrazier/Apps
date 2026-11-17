@@ -13,7 +13,7 @@ const practiceMode = (c = S.church()) => !!SANDBOX || isTrainingChurch(c);
 
 // What a copy of the real church brings over: its content and settings, but nothing personal. No people, gifts,
 // prayers, messages, check-ins, sign-ups, form answers or sermon drafts, and none of its connections to the outside.
-const TRAINING_COPY_KINDS = ["sermons", "events", "news", "gatherings", "plans", "songs", "library", "services", "layouts", "savedBlocks", "forms", "signage"];
+const TRAINING_COPY_KINDS = ["sermons", "events", "news", "gatherings", "plans", "songs", "library", "services", "layouts", "savedBlocks", "forms", "signage", "boards"];
 const TRAINING_EMPTY_FIELDS = { events: "registrations", gatherings: "members", services: "assignments" };
 const TRAINING_SKIP_SETTINGS = ["id", "name", "handle", "ownerId", "previousOwner", "sample", "payments", "stripe", "practicePayments", "textGive", "integrations",
   "podcast", "trainingChurch", "training", "created", "roles", "locations", "defaults"];

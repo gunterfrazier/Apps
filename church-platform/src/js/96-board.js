@@ -380,7 +380,7 @@ Actions["board-flag"] = (el) => {
 Actions["board-approve"] = (el) => {
   const p = (S.state.boardPosts || []).find((x) => x.id === el.dataset.post);
   if (!p || !canModBoard()) return;
-  p.status = "approved";
+  p.status = "approved"; p.approvedAt = new Date().toISOString();
   notify(p.by, { kind: "news", title: "Your community board post is live", body: p.title, link: "#board" });
   S.save(); toast("Post approved"); render();
 };
