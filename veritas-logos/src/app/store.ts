@@ -4,7 +4,13 @@ import { LENS_IDS, type LensId } from "../core/content";
 import { sanitizeGuide, type Guide } from "../core/guide";
 import type { CiteRecord } from "../core/cite";
 
-export type Theme = "system" | "light" | "dark";
+export const THEMES = [
+  ["system", "Match this device"],
+  ["light", "Paper"],
+  ["sepia", "Sepia"],
+  ["dark", "Evening Charcoal"],
+] as const;
+export type Theme = (typeof THEMES)[number][0];
 export type HighlightColor = "amber" | "green" | "blue" | "rose";
 export interface VerseNote { key: string; ref: string; text: string; updatedAt: string; tags?: string[] }
 /** A research note, not tied to one verse. Passages, terms and writers it names become links both ways. */
@@ -77,7 +83,7 @@ export function mergeData(raw: any): UserData {
       translation: isTranslationId(p.translation) ? p.translation : DEFAULT_TRANSLATION,
       compare: isTranslationId(p.compare) ? p.compare : "",
       lens: LENS_IDS.includes(p.lens) ? p.lens : "all",
-      theme: p.theme === "light" || p.theme === "dark" ? p.theme : "system",
+      theme: THEMES.find(([theme]) => theme === p.theme)?.[0] ?? "system",
       textSize: typeof p.textSize === "number" ? Math.min(30, Math.max(14, p.textSize)) : 19,
       voice: typeof p.voice === "string" ? p.voice : "",
       readVoice: p.readVoice === "builtin" ? "builtin" : "device",

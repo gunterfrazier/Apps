@@ -4,7 +4,7 @@ import { LENS_IDS, type LensId } from "../core/content";
 import { lensName, ORIGIN_LABEL, type Origin } from "../core/guide";
 import { findReferences } from "../core/references";
 import { hashForReference } from "./routes";
-import { navigate, openPeek, useData, useUi } from "./store";
+import { navigate, openPeek, setPref, THEMES, useData, useUi } from "./store";
 
 export function useAsync<T>(fn: () => Promise<T>, deps: readonly unknown[]): { data?: T; error?: Error; loading: boolean } {
   const [s, setS] = useState<{ data?: T; error?: Error; loading: boolean }>({ loading: true });
@@ -81,6 +81,18 @@ export function TranslationSelect({ value, onChange, id = "translation", allowNo
     <select id={id} aria-label="Bible translation" value={value} onChange={(e) => onChange(e.target.value)}>
       {allowNone && <option value="">None</option>}
       {TRANSLATIONS.map((t) => <option key={t.id} value={t.id}>{short ? t.id : `${t.id} · ${t.name}`}</option>)}
+    </select>
+  );
+}
+
+export function ThemeSelect({ id }: { id: string }) {
+  const { prefs } = useData();
+  return (
+    <select id={id} value={prefs.theme} onChange={(e) => {
+      const theme = THEMES.find(([value]) => value === e.target.value);
+      if (theme) setPref("theme", theme[0]);
+    }}>
+      {THEMES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
     </select>
   );
 }

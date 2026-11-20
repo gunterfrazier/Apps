@@ -7,7 +7,7 @@ import { detectAi, resetAiDetection, type AiMode } from "../ai-client";
 import { IS_ARTIFACT, saveFile, copyText } from "../files";
 import { BUILT_IN, mb } from "../speech";
 import { mergeData, setPref, toast, update, useData, useSyncState, getData } from "../store";
-import { Empty, RefLink, TranslationSelect, LensSelect, useAsync } from "../ui";
+import { Empty, RefLink, TranslationSelect, ThemeSelect, LensSelect, useAsync } from "../ui";
 
 const keyToRef = (k: string) => {
   const [b, c, rest] = k.split(":");
@@ -63,7 +63,7 @@ export function LibraryPage() {
           <div><label className="label" htmlFor="set-translation">Bible translation</label><TranslationSelect id="set-translation" value={prefs.translation} onChange={(t) => setPref("translation", t)} /></div>
           <ul className="fine-list">{TRANSLATIONS.map((t) => <li key={t.id}><strong>{t.id}</strong> {t.name} ({t.year}). {t.style}.</li>)}</ul>
           <div><label className="label" htmlFor="set-lens">Theological lens</label><LensSelect id="set-lens" value={prefs.lens} onChange={(l) => setPref("lens", l)} /></div>
-          <div><label className="label" htmlFor="set-theme">Appearance</label><select id="set-theme" value={prefs.theme} onChange={(e) => setPref("theme", e.target.value as "system" | "light" | "dark")}><option value="system">Match this device</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+          <div><label className="label" htmlFor="set-theme">Appearance</label><ThemeSelect id="set-theme" /></div>
           <div><label className="label" htmlFor="set-voice">Read-aloud voice</label><select id="set-voice" value={prefs.readVoice} onChange={(e) => setPref("readVoice", e.target.value === "builtin" ? "builtin" : "device")}><option value="device">This device's voice, when it has one</option>{BUILT_IN && <option value="builtin">{BUILT_IN.name}, built into Veritas Logos</option>}</select>
             {BUILT_IN && <p className="fine">Where the browser has no voice, such as in the Claude app on Android, {BUILT_IN.name} reads. It downloads {mb(BUILT_IN.downloadBytes)} the first time and is kept in this browser.</p>}</div>
           <div><label className="label" htmlFor="set-rate">Read-aloud speed</label><select id="set-rate" value={prefs.rate} onChange={(e) => setPref("rate", Number(e.target.value))}>{[0.85, 1, 1.15, 1.3].map((r) => <option key={r} value={r}>{r}×</option>)}</select></div>
