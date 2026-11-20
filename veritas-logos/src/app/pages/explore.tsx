@@ -30,6 +30,7 @@ const TOOLS: [string, { hash: string; title: string; text: string }[]][] = [
     { hash: "dc", title: "Deuterocanon and related books", text: "Books in Catholic and Orthodox Bibles, with where each church stands" },
     { hash: "originals", title: "Primary texts", text: "Apostolic Fathers in Greek and English, and Josephus" },
     { hash: "books", title: "Books of the Bible", text: "Book guides, names, chapters and disputed dates" },
+    { hash: "dictionary", title: "Tyndale Open Bible Dictionary", text: "Search articles on biblical people, places and subjects" },
     { hash: "places", title: "Places in a passage", text: "Find biblical places and proposed locations on a map" },
     { hash: "topics", title: "Topics", text: "5,319 subjects from Nave's Topical Bible" },
   ]],

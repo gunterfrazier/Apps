@@ -122,6 +122,7 @@ function About() {
         <li><strong>Strong's dictionaries:</strong> Open Scriptures, CC BY-SA.</li>
         <li><strong>Cross-references:</strong> OpenBible.info, CC BY. Quotations are detected from these by matching wording.</li>
         <li><strong>Places and maps:</strong> <a href="https://www.openbible.info/geo/">OpenBible.info Geocoding</a> (CC BY 4.0) and <a href="https://www.naturalearthdata.com/">Natural Earth</a> (public domain).</li>
+        <li><strong>Bible dictionary:</strong> Adapted from <a href="https://tyndaleopenresources.com/">Tyndale Open Bible Dictionary</a>, copyright © 2023 Tyndale House Publishers, CC BY-SA 4.0.</li>
         <li><strong>Study notes:</strong> Adapted from <a href="https://tyndaleopenresources.com/">Tyndale Open Study Notes</a>, copyright © 2022 Tyndale House Publishers, CC BY-SA 4.0.</li>
         <li><strong>Topics:</strong> Nave's Topical Bible (public domain), via BibleData by Brady Stephenson, CC BY 4.0.</li>
         <li><strong>People:</strong> TIPNR from STEPBible (Tyndale House), CC BY 4.0, with BibleData, CC BY 4.0. Family claims from these, Theographic and ACAI (both CC BY-SA 4.0) were tested against the tagged Hebrew and Greek, and the Bible decides. The people data is shared under CC BY-SA 4.0. <a href="#people-data">See what was kept, changed and dropped</a>.</li>
