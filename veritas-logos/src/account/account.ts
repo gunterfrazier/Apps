@@ -37,6 +37,10 @@ const MESSAGES: Record<string, string> = {
   user_not_found: "There's no account with that email.",
   session_not_found: "You've been signed out. Sign in again.",
   reauthentication_needed: "For your safety, sign in again before changing your password.",
+  passkey_disabled: "Passkeys are unavailable right now. You can still sign in with an email code.",
+  webauthn_credential_not_found: "This passkey isn't registered. Sign in with an email code to add a passkey.",
+  webauthn_credential_exists: "This passkey is already registered to your account.",
+  too_many_passkeys: "Your account has reached its passkey limit. Remove an old passkey to add one.",
 };
 
 export function friendlyError(e: unknown): string {
@@ -53,6 +57,14 @@ export function friendlyError(e: unknown): string {
 }
 
 const fail = (error: unknown): never => { throw Object.assign(new Error(friendlyError(error)), { cause: error }); };
+function failPasskey(error: unknown): never {
+  const detail = error as { name?: string; code?: string; cause?: { name?: string } } | null;
+  if (detail?.name === "NotAllowedError" || detail?.cause?.name === "NotAllowedError" ||
+      detail?.code === "ERROR_CEREMONY_ABORTED") {
+    throw new Error("The passkey prompt didn’t finish. Try again or use another sign-in method.");
+  }
+  return fail(error);
+}
 
 function userOf(session: Session | null): AccountUser | null {
   const u = session?.user;
@@ -62,8 +74,10 @@ function userOf(session: Session | null): AccountUser | null {
 }
 
 export function createAccount(config: AccountConfig): AccountApi {
+  const passkeyOrigin = ["https://veritaslogos.com", "https://www.veritaslogos.com"].includes(location.origin);
   const sb: SupabaseClient = createClient(config.url, config.key, {
-    auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "veritas.account" },
+    auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "veritas.account",
+      experimental: { passkey: passkeyOrigin } },
   });
   let session: Session | null = null;
   const listeners = new Set<(u: AccountUser | null) => void>();
@@ -98,9 +112,14 @@ export function createAccount(config: AccountConfig): AccountApi {
     try {
       const res = await fetch(`${config.url}/auth/v1/settings`, { headers: { apikey: config.key } });
       const s = await res.json();
-      return { google: Boolean(s?.external?.google), email: s?.external?.email !== false, signup: !s?.disable_signup, confirmEmail: !s?.mailer_autoconfirm };
+      return {
+        google: Boolean(s?.external?.google), email: s?.external?.email !== false, signup: !s?.disable_signup,
+        confirmEmail: !s?.mailer_autoconfirm,
+        passkeys: passkeyOrigin && s?.passkeys_enabled === true && Boolean(window.PublicKeyCredential) &&
+          typeof navigator.credentials?.create === "function" && typeof navigator.credentials?.get === "function",
+      };
     } catch {
-      return { google: false, email: true, signup: true, confirmEmail: true };
+      return { google: false, email: true, signup: true, confirmEmail: true, passkeys: false };
     }
   };
 
@@ -228,6 +247,24 @@ export function createAccount(config: AccountConfig): AccountApi {
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
       if (error) fail(error);
       return signedIn(data.session);
+    },
+    async signInWithPasskey(signal) {
+      const { data, error } = await sb.auth.signInWithPasskey({ options: { signal } });
+      if (error || !data?.session) return failPasskey(error);
+      return signedIn(data.session);
+    },
+    async registerPasskey(signal) {
+      const { error } = await sb.auth.registerPasskey({ options: { signal } });
+      if (error) failPasskey(error);
+    },
+    async listPasskeys() {
+      const { data, error } = await sb.auth.passkey.list();
+      if (error) fail(error);
+      return data ?? [];
+    },
+    async removePasskey(id) {
+      const { error } = await sb.auth.passkey.delete({ passkeyId: id });
+      if (error) fail(error);
     },
     async sendResetCode(email) {
       const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: config.redirectTo });
