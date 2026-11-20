@@ -26,6 +26,9 @@ const videosByStory: Record<string, StoryVideoLink[]> = {
   samaritan: [saddleback("osfQg4yKtq8", "The Good Samaritan")],
   "jesus-welcomes-children": [saddleback("VPUMDVBO7dY", "Jesus and the Children")],
   "prodigal-son": [saddleback("DJgROx4wFKM", "The Prodigal Son")],
+  joseph: [saddleback("4m6R_9KYHlY", "Joseph Forgives His Brothers")],
+  "feeding-the-crowd": [saddleback("S6rj9cAJrWE", "Jesus Feeds the 5000")],
+  resurrection: [saddleback("HL8R158Ujp4", "The Story of Easter (Jesus’ Sacrifice)")],
 };
 
 export function familyStoryVideos(storyId: string): readonly StoryVideoLink[] {

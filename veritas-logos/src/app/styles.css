@@ -872,8 +872,10 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .kids-app .kids-card:hover { background: var(--kids-tint); }
 .kids-card img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: center 58%; }
 .kids-card > div { padding: .9rem 1rem; }
-.kids-card h2, .kids-card p { margin: .15rem 0; }
-.kids-card h2 { font-size: clamp(1.22rem, 2.4vw, 1.75rem); }
+.kids-card h3, .kids-card p { margin: .15rem 0; }
+.kids-card h3 { font-size: clamp(1.22rem, 2.4vw, 1.75rem); }
+.kids-catalog-section + .kids-catalog-section { margin-top: 1.3rem; }
+.kids-catalog-section > h2 { margin: 0 0 .65rem; }
 .kids-card p:last-child, .kids-story figcaption { color: var(--kids-muted); }
 .kids-detail-grid { display: grid; grid-template-areas: "heading" "art" "body" "media"; gap: 1rem; margin-top: 1rem; }
 .kids-detail-grid > * { min-width: 0; }
@@ -907,6 +909,8 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .kids-scripture .fine { color: var(--kids-muted); }
 .kids-scene { padding: clamp(.9rem, 3vw, 1.25rem); border: 1px solid var(--kids-line); border-radius: 14px; background: var(--kids-card); }
 .kids-scene-count { margin: 0 0 .45rem; font-size: .85rem; }
+.kids-scene-title { margin: .35rem 0; font-size: 1.2rem; line-height: 1.3; }
+.kids-reading-scene .kids-story-text { margin-top: .35rem; }
 .kids-scene .kids-story-text { margin: 0 0 1rem; }
 .kids-scene-nav, .kids-answer-options { display: flex; gap: .55rem; flex-wrap: wrap; }
 .kids-control { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem .85rem; border-radius: 9px; border: 1px solid var(--kids-line); background: var(--kids-card); color: var(--kids-ink); font: inherit; font-weight: 650; text-align: left; cursor: pointer; }
