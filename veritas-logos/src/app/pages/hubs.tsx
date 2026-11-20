@@ -12,6 +12,7 @@ import { SubNav } from "./people";
 
 const PLACES: [string, string, string][] = [
   ["read", "Reader", "Read and study the Bible"],
+  ["places", "Places in a passage", "Biblical locations and maps"],
   ["compare", "Compare texts", "Hebrew, Septuagint, Greek, Vulgate and English"],
   ["synopsis", "Gospel synopsis", "Parallel accounts of the Gospels"],
   ["morph", "Search by grammar", "Find forms in Hebrew and Greek"],

@@ -675,3 +675,15 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 }
 .answer-citation { margin-inline: .1em; }
 .answer-sources li { margin-bottom: .4rem; }
+
+/* Passage geography */
+.resource-section { margin-bottom: 1rem; }
+.passage-map { display: block; width: 100%; background: #d8eaf1; color-scheme: light; border: 1px solid var(--line); border-radius: 12px; }
+.map-land { fill: #eae1c9; stroke: #a49473; stroke-width: 1.3; }
+.map-water { fill: #d8eaf1; stroke: #a49473; stroke-width: 1; }
+.map-marker { fill: #234982; stroke: #fff; stroke-width: 1.8; }
+.map-marker.selected { fill: #ad450b; stroke-width: 2.5; }
+.place-card { margin-block: .75rem; padding: .65rem .8rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.place-card h3, .place-card p { margin: .2rem 0 .4rem; }
+.place-card .link-list { margin-bottom: .3rem; }
+.place-card .btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }

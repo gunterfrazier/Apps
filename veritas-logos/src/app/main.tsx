@@ -1,6 +1,6 @@
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { connectCloud, isOwnNavigation, navigate, noteNavigation, onLeave, useData, useRoute } from "./store";
+import { connectCloud, getData, isOwnNavigation, navigate, noteNavigation, onLeave, useData, useRoute } from "./store";
 import { PassagePeek, Toast } from "./ui";
 import { hashForReference, parseReadParts, readHash } from "./routes";
 import { refOf } from "../core/bible";
@@ -16,6 +16,7 @@ import { AdvancedSearchPage, NotebookPage, NotePage, SourcesPage } from "./pages
 import { CommandPalette, HistoryHub, rememberPlace } from "./pages/hubs";
 import { PassageWritersPage, WriterExcerptPage, WriterPage, WritersPage } from "./pages/writers";
 import { parseTimelineRoute } from "../core/timeline";
+import { PlacesPage } from "./pages/study-resources";
 import { LibraryPage } from "./pages/library";
 import { getGlossary } from "../core/glossary";
 import { getWritingsIndex } from "../core/writings";
@@ -90,6 +91,11 @@ function pageFor(route: string, askDraft: { text: string } | null, consumeAskDra
       return { node: <AskPage initialQuestion={askDraft} onQuestionUsed={consumeAskDraft} contextRef={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "ask" };
     }
     case "ai": return { node: <AiWorkPage />, tab: "ask" };
+    case "places": {
+      const selection = parseReadParts(tail);
+      const r = selection ?? getData().lastRead;
+      return { node: <PlacesPage key={tail} reference={refOf(r.book, r.chapter, selection?.verse, selection?.verseEnd)} />, tab: "explore" };
+    }
     case "symbols": {
       const r = tail ? parseReadParts(tail) : null;
       return { node: <SymbolsPage key={tail} initial={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "explore" };
@@ -110,7 +116,7 @@ const TABS: { id: string; hash: string; label: string; icon: ReactNode }[] = [
 const ROOTS = new Set(["", "read", "explore", "history", "guides", "ask", "library"]);
 /** Routes that show the same page stay mounted, so opening a church event keeps the chart as it was. */
 const pageKey = (route: string) => { const head = route.split("-")[0]; return head === "event" ? "church" : head; };
-const LABELS: Record<string, string> = { church: "Church history", timeline: "Bible timeline", creeds: "Creeds", writers: "Writers", glossary: "Theological terms", notebook: "Notebook", compare: "Compare texts", synopsis: "Gospel synopsis", dc: "Deuterocanon", morph: "Search by grammar", textual: "Textual notes", originals: "Primary texts", people: "People" };
+const LABELS: Record<string, string> = { church: "Church history", timeline: "Bible timeline", creeds: "Creeds", writers: "Writers", glossary: "Theological terms", notebook: "Notebook", places: "Bible places", compare: "Compare texts", synopsis: "Gospel synopsis", dc: "Deuterocanon", morph: "Search by grammar", textual: "Textual notes", originals: "Primary texts", people: "People" };
 const labelFor = (route: string) => {
   const [head, ...rest] = route.split("-");
   if (LABELS[route]) return LABELS[route];

@@ -10,7 +10,8 @@ import { PACKED, parseData, setLoader } from "../src/core/data";
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, resolveGuide, sanitizeGuide } from "../src/core/guide";
 import { getInsights } from "../src/core/insights";
 import { decodeMorph, gematria, getConcordance, getLexEntry, getVerseWords, searchLexicon } from "../src/core/lexicon";
-import { getSectionHeadings, readingWords, readingWordTag, wordDifferences } from "../src/core/reader-text";
+import { getPassagePlaces, getTyndaleNotes } from "../src/core/study-resources";
+import { getSectionHeadings, readingWords, readingWordTag, wordDifferences, yltWordTag } from "../src/core/reader-text";
 import { parseReference } from "../src/core/references";
 import { findShortestPath, getFigure } from "../src/core/figure-graph";
 import { ensureFigures, getTimeline, peopleInPassage, versesOfPerson } from "../src/core/people";
@@ -1009,4 +1010,31 @@ test("AI study citations link to the exact writer excerpt or verified lexicon en
     { type: "lexicon", id, quote: "A fabricated meaning" },
   ], "BSB");
   assert.deepEqual(checked.map((c) => [c.ok, c.hash]), [[true, `excerpt-${loc}`], [false, undefined], [true, "word-g25"], [false, undefined]]);
+});
+
+test("biblical places are scoped to the selected verse and retain competing locations", async () => {
+  const places = await getPassagePlaces("John 3:23");
+  assert.deepEqual(places.map((place) => place.name), ["Aenon", "Salim"]);
+  assert.ok(places.every((place) => place.candidates.length > 1));
+  assert.ok(places.every((place) => place.mentions.length === 1 && place.mentions[0][2] === 23));
+  assert.deepEqual(await getPassagePlaces("John 3:16"), []);
+});
+
+test("Tyndale notes preserve source ranges and follow app versification", async () => {
+  const john = await getTyndaleNotes("John 3:16");
+  assert.ok(john.some((note) => note.sourceReference === "John.3.16" && note.paragraphs.length));
+  assert.ok(john.every((note) => note.range.book === 43));
+  const crossChapter = await getTyndaleNotes("Genesis 2:2");
+  assert.ok(crossChapter.some((note) => note.sourceReference === "Gen.1.1-2.3"));
+  const greeting = await getTyndaleNotes("3 John 1:14");
+  assert.ok(greeting.some((note) => note.sourceReference === "3Jn.1.15"));
+});
+
+test("manual YLT word tags require the bundled edition's exact normalized words", async () => {
+  const words = readingWords(await getVerse("YLT", 43, 3, 16));
+  const love = words.findIndex((word) => word.key === "love");
+  assert.equal(await yltWordTag(43, 3, 16, words, love), "G25");
+  assert.equal(await yltWordTag(43, 3, 16, readingWords(await getVerse("BSB", 43, 3, 16)), love), "");
+  const genesis = readingWords(await getVerse("YLT", 1, 1, 1));
+  assert.equal(await yltWordTag(1, 1, 1, genesis, genesis.findIndex((word) => word.key === "beginning")), "H7225");
 });

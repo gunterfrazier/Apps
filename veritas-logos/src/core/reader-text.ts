@@ -77,3 +77,11 @@ export async function getSectionHeadings(book: number, chapter: number): Promise
   const headings = await load<Record<number, ChapterHeadings>[]>("bible/BSB-headings.json");
   return headings[book - 1]?.[chapter] ?? {};
 }
+
+/** Clear Bible's manual YLT alignment, checked against the actual words before using token positions. */
+export async function yltWordTag(book: number, chapter: number, verse: number, words: ReadingWord[], index: number): Promise<string> {
+  const groups = await load<Record<number, Record<string, [string, string]>>>(`aligned/YLT-${Math.floor((book - 1) / 8)}.json`);
+  const record = groups[book]?.[`${chapter}:${verse}`];
+  if (!record || record[0] !== words.map((word) => word.key).join(" ")) return "";
+  return record[1].split(" ")[index] ?? "";
+}

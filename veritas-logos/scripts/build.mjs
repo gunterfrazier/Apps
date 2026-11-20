@@ -115,8 +115,9 @@ function writeOfflineWorker() {
   const translations = Object.fromEntries(["BSB", "NHEB", "KJV", "ASV", "YLT"].map((id) => [
     id, ["ot", "nt"].map((part) => `data/bible/${id}-${part}.json`),
   ]));
+  translations.YLT.push(...data.filter((rel) => rel.startsWith("data/aligned/YLT-")));
   const study = data.filter((rel) =>
-    rel === "data/verse-counts.json" || rel === "data/bible/BSB-headings.json" ||
+    rel === "data/verse-counts.json" || rel === "data/bible/BSB-headings.json" || rel.startsWith("data/study/") ||
     /^(?:data\/(?:lex|conc)\/|data\/scholar\/tags-)/.test(rel));
   const source = fs.readFileSync("public/sw.js", "utf8");
   const dataHash = createHash("sha256");
