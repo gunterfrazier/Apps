@@ -916,3 +916,33 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
   .kids-detail-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); grid-template-areas: "heading heading" "body art" "body media"; align-items: start; align-content: start; column-gap: 2rem; }
   .kids-teen .kids-card { border-radius: 8px; }
 }
+
+/* Story resources and worksheets */
+.family-resource-index .family-field { max-width: 18rem; }
+.family-resource-stories { margin-top: .8rem; }
+.family-resource-stories details { border-bottom: 1px solid var(--line); padding: .6rem 0; }
+.family-resource-stories summary { cursor: pointer; font-weight: 650; }
+.family-resource-stories summary .fine { margin-left: .3rem; font-weight: 400; }
+.story-resource-list { display: grid; gap: .75rem; list-style: none; padding: 0; margin: .7rem 0; }
+.story-resource-list > li { display: grid; gap: .12rem; }
+.story-resource-list > li > a { justify-self: start; font-weight: 650; }
+.story-resource-list > li > span { font-size: .85rem; color: var(--kids-muted, var(--ink-2)); }
+.kids-print-resources { margin-top: 1rem; padding: .8rem 1rem; border-radius: 14px; border: 1px solid var(--kids-line); background: var(--kids-card); }
+.kids-print-resources h2 { margin: 0; font-size: 1.17rem; }
+.worksheet-actions, .story-worksheet { max-width: 44rem; margin: 0 auto; }
+.worksheet-actions p { margin-top: .5rem; }
+.story-worksheet { background: #fff; color: #111; color-scheme: light; border-radius: 12px; padding: clamp(1rem, 4vw, 2rem); }
+.story-worksheet h1 { font-size: 1.85rem; line-height: 1.1; margin: .35rem 0 .6rem; }
+.story-worksheet h2 { font-size: 1.15rem; margin: 0 0 .15rem; }
+.story-worksheet p { margin: .2rem 0; }
+.story-worksheet section { margin-top: 1rem; }
+.worksheet-brand { font-weight: 700; }
+.worksheet-drawing { border: 1px solid #555; height: 12rem; margin-top: .5rem; }
+.worksheet-lines > div { height: 1.55rem; border-bottom: 1px solid #888; }
+@media print {
+  .kids-app:has(.story-worksheet), .kids-app:has(.story-worksheet) .kids-main { min-height: 0; padding: 0; background: #fff; }
+  .kids-app:has(.story-worksheet) .kids-header, .worksheet-actions { display: none !important; }
+  .story-worksheet { max-width: none; padding: 0; border: 0; font-size: 11pt; }
+  .story-worksheet section { break-inside: avoid; }
+  .worksheet-drawing { height: 2.35in; }
+}
