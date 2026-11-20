@@ -8,6 +8,11 @@
  */
 import { createClient, type AuthError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import type { AccountApi, AccountConfig, AccountUser, CloudCollection, SignInMethods } from "./types";
+import type { AgeGroup, FamilyProfile, FamilyTheme } from "../core/family";
+
+const FAMILY_COLUMNS = "id,nickname,age_group,theme";
+const familyProfileOf = (row: { id: string; nickname: string; age_group: AgeGroup; theme: FamilyTheme }): FamilyProfile =>
+  ({ id: row.id, nickname: row.nickname, ageGroup: row.age_group, theme: row.theme });
 
 const PAGE = 1000;
 /** Keeps each save request well under the server's limit when many guides change at once. */
@@ -105,6 +110,11 @@ export function createAccount(config: AccountConfig): AccountApi {
     return id;
   };
 
+  const familyTable = (owner: string) => {
+    if (uid() !== owner) throw new Error("Sign in again to manage these profiles.");
+    return sb.from("family_profiles");
+  };
+
   const collection: CloudCollection = {
     async get() {
       const docs: { id: string; data: () => unknown }[] = [];
@@ -157,6 +167,30 @@ export function createAccount(config: AccountConfig): AccountApi {
     user: () => userOf(session),
     methods,
     collection,
+    family: {
+      async list(owner) {
+        const { data, error } = await familyTable(owner).select(FAMILY_COLUMNS).eq("owner_id", owner).order("created_at").order("id");
+        if (error) fail(error);
+        return (data ?? []).map(familyProfileOf);
+      },
+      async get(owner, id) {
+        const { data, error } = await familyTable(owner).select(FAMILY_COLUMNS).eq("owner_id", owner).eq("id", id).maybeSingle();
+        if (error) fail(error);
+        return data ? familyProfileOf(data) : null;
+      },
+      async save(owner, settings, id) {
+        const values = { nickname: settings.nickname.trim(), age_group: settings.ageGroup, theme: settings.theme };
+        const table = familyTable(owner);
+        const change = id ? table.update(values).eq("owner_id", owner).eq("id", id) : table.insert(values);
+        const { data, error } = await change.select(FAMILY_COLUMNS).single();
+        if (error || !data) return fail(error);
+        return familyProfileOf(data);
+      },
+      async remove(owner, id) {
+        const { error } = await familyTable(owner).delete().eq("owner_id", owner).eq("id", id);
+        if (error) fail(error);
+      },
+    },
 
     async sendCode(email, create = true) {
       const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: create, emailRedirectTo: config.redirectTo } });

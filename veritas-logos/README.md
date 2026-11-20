@@ -96,6 +96,7 @@ Readers can sign in to keep their guides, notes, highlights, bookmarks and setti
 How it's built:
 
 - Sign-in and storage are a free Supabase project, "Veritas Logos" (`fxssrtexwwmqrxzlgnmy`, US East). Each reader's data is one row per document in `user_docs`: a `profile` row for settings and notes, and a `guide-<id>` row per guide. `supabase/migrations/` creates it, with row-level security so readers reach only their own rows, limits of 2 MB per row and 25 MB or 2,000 rows per reader, and `delete_my_account()`. Supabase's security check flags that function because signed-in readers can run it; that's intended, as it deletes only the caller's own account.
+- Apply `supabase/migrations/20261120083000_family_profiles.sql` to the Veritas Logos project before publishing the Family library. The migration adds adult-owned family profile rows with nickname, age group and theme. Account deletion removes these rows. Study backups cover the reader's study data, while family profiles are stored in the account. The age previews work without an account. Kids and teens have a separate reading interface with a visible link back to the family screen.
 - `src/account/` is the sign-in code, built into its own `account.js` so only the website loads it. `src/app/account.ts` connects it to the app, and `src/app/pages/account.tsx` is the Account page (`#account`, or the round button in the header).
 - `public/privacy.html` is the privacy page that Google's sign-in setup asks for.
 
