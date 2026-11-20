@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { chapterCount, getChapter, getVerse, refOf, translationInfo, TRANSLATIONS, verseCount, type TranslationId } from "../../core/bible";
 import { getCrossRefs, decodeMorph, getVerseWords, normalizeStrongs, type WordTuple } from "../../core/lexicon";
+import { getSectionHeadings, readingWords, wordDifferences } from "../../core/reader-text";
 import { newId } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
 import { BOOKS, bookName } from "../../core/references";
@@ -9,6 +10,7 @@ import { BUILT_IN, builtInSaved, canReadAloud, mb, NO_SPEECH, readAloud, usesBui
 import { readHash, type ReadRoute } from "../routes";
 import { getData, navigate, setPref, toast, update, useData, type HighlightColor } from "../store";
 import { ErrorNote, Loading, Sheet, Tag, ThemeSelect, TranslationSelect, RefLink, useAsync, Empty } from "../ui";
+import { ReaderLexicon, ReaderWords, type WordSelection } from "./reader-words";
 import { addSectionsToGuide, InsightsPanel } from "./insights";
 import { HistoryOfInterpretation, passageWritersHash } from "./writers";
 import { EditionsPanel, Interlinear, VerseColumns } from "./texts";
@@ -324,6 +326,11 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
     }
   }, [readingOptions]);
   const [sheet, setSheet] = useState<{ verse: number; end?: number } | null>(null);
+  const [wordSelection, setWordSelection] = useState<WordSelection | null>(null);
+  const closeWord = (restoreFocus = true) => {
+    setWordSelection(null);
+    if (restoreFocus) wordSelection?.trigger.focus({ preventScroll: true });
+  };
   const [speech, setSpeech] = useState<SpeechStatus>({ state: "idle" });
   const speaking = speech.state === "reading" ? speech.verse : null;
   const stopSpeak = useRef<(() => void) | null>(null);
@@ -358,9 +365,23 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
     if (verse) document.getElementById(`v${verse}`)?.scrollIntoView({ block: "center" });
   }, [route?.verse, route?.verseEnd, book, chapter]);
   useEffect(() => () => stopSpeak.current?.(), []);
+  useEffect(() => setWordSelection(null), [book, chapter, route?.verse, route?.verseEnd, translation, prefs.compare, prefs.wordStudy]);
 
-  const { data: verses, loading, error } = useAsync(() => getChapter(translation, book, chapter), [translation, book, chapter]);
-  const { data: compare } = useAsync(() => (prefs.compare ? getChapter(prefs.compare, book, chapter) : Promise.resolve(null)), [prefs.compare, book, chapter]);
+  const { data: passage, loading, error } = useAsync(async () => ({
+    book, chapter, translation, lines: await getChapter(translation, book, chapter),
+  }), [translation, book, chapter]);
+  const verses = passage?.book === book && passage.chapter === chapter && passage.translation === translation ? passage.lines : undefined;
+  const compareTranslation = prefs.compare;
+  const { data: parallel, error: compareError } = useAsync(async () => (compareTranslation
+    ? { book, chapter, translation: compareTranslation, lines: await getChapter(compareTranslation, book, chapter) }
+    : null), [compareTranslation, book, chapter]);
+  const compare = parallel?.book === book && parallel.chapter === chapter && parallel.translation === compareTranslation ? parallel.lines : undefined;
+  const showHeadings = translation === "BSB" && !prefs.hideSectionHeadings;
+  const { data: chapterHeadings } = useAsync(async () => (
+    showHeadings ? { book, chapter, byVerse: await getSectionHeadings(book, chapter) } : null
+  ), [showHeadings, book, chapter]);
+  const headings = showHeadings && chapterHeadings?.book === book && chapterHeadings.chapter === chapter ? chapterHeadings.byVerse : undefined;
+  const continuous = prefs.hideVerseNumbers && !compareTranslation;
   const { data: chapters } = useAsync(() => chapterCount(book), [book]);
 
   useEffect(() => {
@@ -396,7 +417,6 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
     : speech.state === "preparing" ? "Getting the voice ready…"
     : speech.state === "reading" ? `Reading verse ${speech.verse}`
     : null;
-  const compareInfo = useMemo(() => (prefs.compare ? translationInfo(prefs.compare) : null), [prefs.compare]);
   const selection = sheet ?? (route?.verse ? { verse: route.verse, end: route.verseEnd } : null);
   const inRange = (v: number) => Boolean(selection && v >= selection.verse && v <= (selection.end ?? selection.verse));
   const verseSheet = sheet && (
@@ -429,6 +449,11 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
         <div>
           <label className="label" htmlFor="compare-select">Compare with</label>
           <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => setPref("compare", t)} />
+          <label className="reader-check">
+            <input type="checkbox" checked={prefs.highlightDifferences} disabled={!compareTranslation}
+              onChange={(e) => setPref("highlightDifferences", e.target.checked)} />
+            Highlight differences
+          </label>
         </div>
         <div>
           <label className="label" htmlFor="reader-theme">Appearance</label>
@@ -437,6 +462,21 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
         <div>
           <label className="label" htmlFor="text-size">Text size</label>
           <input id="text-size" type="range" min="15" max="28" value={prefs.textSize} onChange={(e) => setPref("textSize", Number(e.target.value))} />
+        </div>
+        <fieldset className="reader-mode">
+          <legend className="label">Reader Mode</legend>
+          <label className="reader-check"><input type="checkbox" checked={prefs.hideVerseNumbers}
+            onChange={(e) => setPref("hideVerseNumbers", e.target.checked)} /> Hide verse numbers</label>
+          <label className="reader-check"><input type="checkbox" checked={prefs.hideSectionHeadings}
+            onChange={(e) => setPref("hideSectionHeadings", e.target.checked)} /> Hide section headings</label>
+          <label className="reader-check"><input type="checkbox" checked={prefs.hideStudyPrompt}
+            onChange={(e) => setPref("hideStudyPrompt", e.target.checked)} /> Hide study prompt</label>
+        </fieldset>
+        <div>
+          <label className="reader-check">
+            <input type="checkbox" checked={prefs.wordStudy} onChange={(e) => setPref("wordStudy", e.target.checked)} />
+            Tap words for the lexicon
+          </label>
         </div>
         <div>
           {canReadAloud()
@@ -450,31 +490,61 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
         </div>
       </section>
 
-      <div className="study-cta">
-        <button type="button" className="btn small" onClick={() => verses && setSheet({ verse: 1, end: verses.length })}>Study this chapter</button>
-        <span className="fine">or tap any verse for insights, Hebrew and Greek, its history and links</span>
-      </div>
+      {!prefs.hideStudyPrompt && (
+        <div className="study-cta">
+          <button type="button" className="btn small" onClick={() => verses && setSheet({ verse: 1, end: verses.length })}>Study this chapter</button>
+          <span className="fine">{prefs.wordStudy ? "Tap any word to look it up." : "or tap any verse for insights, Hebrew and Greek, its history and links"}</span>
+        </div>
+      )}
 
       {loading && <Loading label="Loading Scripture" />}
       <ErrorNote error={error} />
+      <ErrorNote error={compareTranslation ? compareError : undefined} />
       {verses && (
-        <div className="scripture" style={{ fontSize: `${prefs.textSize}px` }}>
+        <div className={`scripture${continuous ? " continuous" : ""}`} style={{ fontSize: `${prefs.textSize}px` }}>
           <h2 className="chapter-title"><span>{bookName(book)}</span> {chapter}</h2>
           {verses.map((v) => {
             const hl = highlights[vKey(book, chapter, v.verse)];
             const hasNote = Boolean(notes[vKey(book, chapter, v.verse)]);
+            const comparedText = compare?.[v.verse - 1]?.text;
+            const diff = prefs.highlightDifferences && comparedText !== undefined;
+            const primaryWords = prefs.wordStudy || diff ? readingWords(v.text) : [];
+            const parallelWords = comparedText && (prefs.wordStudy || diff) ? readingWords(comparedText) : [];
+            const [primaryDiff, parallelDiff] = diff ? wordDifferences(primaryWords, parallelWords) : [];
+            const onWord = (source: TranslationId, words: typeof primaryWords) => prefs.wordStudy
+              ? (index: number, trigger: HTMLButtonElement) => setWordSelection((current) =>
+                current?.trigger === trigger ? null : { verse: v.verse, translation: source, words, index, trigger })
+              : undefined;
+            const studyVerse = () => setSheet({ verse: v.verse });
+            const selected = inRange(v.verse);
+            const number = !prefs.hideVerseNumbers && (prefs.wordStudy
+              ? <button type="button" className="verse-number" aria-label={`Study verse ${v.verse}`} aria-pressed={selected} onClick={studyVerse}><sup>{v.verse}</sup></button>
+              : <sup>{v.verse}</sup>);
             return (
-              <div key={v.verse} id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${inRange(v.verse) ? "picked" : ""}`} role="button" tabIndex={0} aria-pressed={inRange(v.verse)}
-                onClick={() => setSheet({ verse: v.verse })} onKeyDown={(e) => {
-                  if (e.key !== "Enter" && e.key !== " ") return;
-                  e.preventDefault();
-                  setSheet({ verse: v.verse });
-                }}>
-                <sup>{v.verse}</sup>
-                {v.text ? <span>{v.text}</span> : <em className="missing">This verse isn't in the {translation} text. Some manuscripts include it, so it's kept as a footnote in many Bibles.</em>}
-                {hasNote && <Tag tone="note">Note</Tag>}
-                {compare && compare[v.verse - 1]?.text && <div className="compare"><strong>{compareInfo?.id}</strong> {compare[v.verse - 1].text}</div>}
-              </div>
+              <Fragment key={v.verse}>
+                {headings?.[v.verse]?.map((heading, i) => <h3 className="section-heading" key={i}>{heading}</h3>)}
+                <div id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${selected ? "picked" : ""} ${prefs.wordStudy ? "word-study" : ""}`}
+                  role={prefs.wordStudy ? undefined : "button"} tabIndex={prefs.wordStudy ? undefined : 0} aria-pressed={prefs.wordStudy ? undefined : selected}
+                  onClick={prefs.wordStudy ? undefined : studyVerse} onKeyDown={prefs.wordStudy ? undefined : (e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    studyVerse();
+                  }}>
+                  {number}
+                  {v.text
+                    ? <span className="verse-text"><ReaderWords text={v.text} words={primaryWords} differences={primaryDiff} onWord={onWord(translation, primaryWords)} /></span>
+                    : <em className="missing">This verse isn't in the {translation} text. Some manuscripts include it, so it's kept as a footnote in many Bibles.</em>}
+                  {hasNote && <Tag tone="note">Note</Tag>}
+                  {comparedText !== undefined && compareTranslation && (
+                    <div className="compare"><strong>{compareTranslation}</strong>{" "}
+                      {comparedText
+                        ? <ReaderWords text={comparedText} words={parallelWords} differences={parallelDiff} onWord={onWord(compareTranslation, parallelWords)} />
+                        : <em className="missing">Verse absent in this translation.</em>}
+                    </div>
+                  )}
+                </div>
+                {continuous && " "}
+              </Fragment>
             );
           })}
           <p className="fine notice">{translationInfo(translation).notice}</p>
@@ -488,6 +558,10 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       </div>
 
       {picker && <Picker book={book} chapter={chapter} onClose={() => setPicker(false)} onPick={(b, c) => { setPicker(false); go(b, c); }} />}
+      {wordSelection && prefs.wordStudy && (
+        <ReaderLexicon key={`${book}:${chapter}:${wordSelection.verse}:${wordSelection.translation}:${wordSelection.index}`} book={book} chapter={chapter}
+          selection={wordSelection} onClose={closeWord} onStudy={() => { setSheet({ verse: wordSelection.verse }); closeWord(false); }} />
+      )}
       {!wide && verseSheet}
     </div>
     {wide && verseSheet}
