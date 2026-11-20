@@ -10,6 +10,7 @@ import { saveGuide, setPref, toast, useData } from "../store";
 import { WritersPreview } from "./writers";
 import { ExegesisBlock, ExploreSheet, JobError, JobProgress } from "./ai-explore";
 import { PassageSearchBlock } from "./passage-search";
+import { TyndaleNotes } from "./study-resources";
 import { symbolsHash } from "./symbols-link";
 import { Empty, ErrorNote, Loading, LensSelect, OriginTag, RefLink, RefText, Tag, useAsync } from "../ui";
 
@@ -35,6 +36,15 @@ function LinkList({ items }: { items: { ref: string; shared?: string }[] }) {
 }
 
 export function InsightsPanel({ reference, translation }: { reference: string; translation: TranslationId }) {
+  return (
+    <>
+      <TyndaleNotes key={reference} reference={reference} />
+      <PassageInsights reference={reference} translation={translation} />
+    </>
+  );
+}
+
+function PassageInsights({ reference, translation }: { reference: string; translation: TranslationId }) {
   const { prefs, guides, activeGuideId } = useData();
   const lens = prefs.lens;
   const [explore, setExplore] = useState<{ heading: string; kind: string; text: string } | null>(null);

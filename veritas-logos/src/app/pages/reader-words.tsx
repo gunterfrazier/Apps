@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { decodeVerseCode, getVerse, refOf, type TranslationId } from "../../core/bible";
 import { getConcordance, getLexEntry, normalizeStrongs } from "../../core/lexicon";
-import { readingWords, readingWordTag, type ReadingWord } from "../../core/reader-text";
+import { readingWords, readingWordTag, yltWordTag, type ReadingWord } from "../../core/reader-text";
 import { taggedVerse } from "../../core/scholar";
 import { readHash } from "../routes";
 import { ErrorNote, LexText, Loading, useAsync } from "../ui";
@@ -93,6 +93,10 @@ export function ReaderLexicon({ book, chapter, selection, onClose, onStudy }: {
   close.current = onClose;
   const [picked, setPicked] = useState("");
   const { data, loading, error } = useAsync(async () => {
+    if (translation === "YLT") {
+      const id = await yltWordTag(book, chapter, verse, words, index).catch(() => "");
+      if (id) return { id, tags: [], source: "Clear Bible" };
+    }
     const [tags, bsb] = await Promise.all([
       taggedVerse(book, chapter, verse),
       translation === "BSB" ? Promise.resolve("") : getVerse("BSB", book, chapter, verse),
@@ -100,7 +104,7 @@ export function ReaderLexicon({ book, chapter, selection, onClose, onStudy }: {
     const bsbWords = readingWords(bsb);
     const sameWording = bsbWords.length === words.length && bsbWords.every((word, i) => word.key === words[i].key);
     const strong = translation === "BSB" || sameWording ? readingWordTag(words, index, tags) : "";
-    return { id: normalizeStrongs(strong), tags };
+    return { id: normalizeStrongs(strong), tags, source: "" };
   }, [book, chapter, selection]);
 
   useLayoutEffect(() => {
@@ -160,7 +164,8 @@ export function ReaderLexicon({ book, chapter, selection, onClose, onStudy }: {
       {loading && <Loading label="Looking up word" />}
       <ErrorNote error={error} />
       {id && <Lemma key={id} id={id} book={book} chapter={chapter} verse={verse} />}
-      {data && !loading && !id && <p>This word has no confirmed original-language match in the bundled BSB alignment.</p>}
+      {data?.source && <p className="fine">YLT word alignment from <a href="https://github.com/Clear-Bible/Alignments">Clear Bible</a> (CC BY 4.0).</p>}
+      {data && !loading && !id && <p>This word has no confirmed original-language match in the available alignment.</p>}
       {data && !loading && !data.id && data.tags.some((tag) => normalizeStrongs(tag.strong)) && (
         <div className="reader-tagged">
           <h4>Tagged BSB wording</h4>
