@@ -22,6 +22,11 @@ export interface SavedSearch { id: string; label: string; q: string; scopes: str
 export interface Prefs {
   translation: TranslationId;
   compare: TranslationId | "";
+  highlightDifferences: boolean;
+  wordStudy: boolean;
+  hideVerseNumbers: boolean;
+  hideSectionHeadings: boolean;
+  hideStudyPrompt: boolean;
   lens: LensId;
   theme: Theme;
   textSize: number;
@@ -51,7 +56,7 @@ export interface UserData {
 
 const KEY = "veritas.logos.v2";
 const defaults: UserData = {
-  prefs: { translation: DEFAULT_TRANSLATION, compare: "", lens: "all", theme: "system", textSize: 19, voice: "", readVoice: "device", rate: 1, apiBase: "", apiKey: "" },
+  prefs: { translation: DEFAULT_TRANSLATION, compare: "", highlightDifferences: false, wordStudy: false, hideVerseNumbers: false, hideSectionHeadings: false, hideStudyPrompt: false, lens: "all", theme: "system", textSize: 19, voice: "", readVoice: "device", rate: 1, apiBase: "", apiKey: "" },
   guides: [],
   highlights: {},
   bookmarks: [],
@@ -82,6 +87,11 @@ export function mergeData(raw: any): UserData {
     prefs: {
       translation: isTranslationId(p.translation) ? p.translation : DEFAULT_TRANSLATION,
       compare: isTranslationId(p.compare) ? p.compare : "",
+      highlightDifferences: p.highlightDifferences === true,
+      wordStudy: p.wordStudy === true,
+      hideVerseNumbers: p.hideVerseNumbers === true,
+      hideSectionHeadings: p.hideSectionHeadings === true,
+      hideStudyPrompt: p.hideStudyPrompt === true,
       lens: LENS_IDS.includes(p.lens) ? p.lens : "all",
       theme: THEMES.find(([theme]) => theme === p.theme)?.[0] ?? "system",
       textSize: typeof p.textSize === "number" ? Math.min(30, Math.max(14, p.textSize)) : 19,

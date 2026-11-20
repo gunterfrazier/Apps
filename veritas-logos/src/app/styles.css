@@ -141,7 +141,7 @@ article > .tag:first-child { margin-left: 0; }
 .chapter-title { font: 600 1.7em/1.15 var(--font-serif); margin: .5rem 0 .6rem; }
 .chapter-title span { color: var(--ink-3); font-weight: 400; }
 .verse { padding: .14rem .3rem; margin: 0 -.3rem; border-radius: 6px; cursor: pointer; }
-@media (hover: hover) { .verse:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); } }
+@media (hover: hover) { .verse:not(.word-study):hover { background: color-mix(in srgb, var(--accent) 7%, transparent); } }
 .reader .verse.picked { box-shadow: inset 3px 0 0 var(--accent); border-radius: 0; }
 .reader .scripture sup { color: var(--gold); }
 .verse.speaking { background: var(--accent-soft); }
@@ -633,3 +633,27 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .bg-ai { margin-top: .9rem; }
 .bg-notes { width: 100%; min-height: 9rem; }
 @media print { .bg-toc, .bg-ai button { display: none; } }
+
+/* Reader study controls and inline word annotations */
+.reading-options input[type="checkbox"] { width: auto; }
+.reader-check { display: flex; align-items: baseline; gap: .4rem; font-size: .85rem; margin: .3rem 0; }
+.reader-check input { accent-color: var(--accent); }
+.reader-mode { min-width: 0; border: 0; margin: 0; padding: 0; }
+.section-heading { font: 600 1.12em/1.25 var(--font-serif); margin: 1em 0 .35em; }
+.scripture.continuous .verse { display: inline; margin: 0; padding: .1em .08em; }
+.reader .verse.word-study { cursor: auto; }
+.reader-word, .verse-number { display: inline; border: 0; padding: 0; background: none; font: inherit; cursor: pointer; }
+.reader-word { text-decoration: underline dotted var(--ink-3); text-underline-offset: .16em; border-radius: 3px; }
+.reader-word:hover, .reader-word:focus-visible { background: var(--accent-soft); }
+.verse-number { min-width: 1.3em; text-align: left; }
+.word-difference { background: var(--hl-amber); color: inherit; text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: .18em; border-radius: 3px; }
+.reader-lexicon { position: fixed; z-index: 32; width: min(23rem, calc(100vw - 24px)); overflow: auto; overscroll-behavior: contain; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: .8rem; box-shadow: 0 10px 32px #0004; }
+.reader-lexicon:focus { outline: none; }
+.reader-lexicon-head { display: flex; align-items: start; justify-content: space-between; gap: .5rem; margin-bottom: .4rem; }
+.reader-lexicon h3, .reader-lexicon h4, .reader-lexicon p { margin: .2rem 0; }
+.reader-lexicon h3 { font: 600 1.25rem/1.15 var(--font-serif); }
+.reader-lemma { font-size: 1rem; }
+.reader-lemma strong { font: 600 1.45rem/1.4 var(--font-serif); }
+.reader-occurrences { display: flex; flex-wrap: wrap; gap: .3rem .8rem; list-style: none; padding: 0; margin: .4rem 0; font-size: .85rem; }
+.reader-tagged { margin: .7rem 0; }
+.reader-tagged .tag-word[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-strong); }

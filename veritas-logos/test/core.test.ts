@@ -9,6 +9,7 @@ import { PACKED, parseData, setLoader } from "../src/core/data";
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, resolveGuide, sanitizeGuide } from "../src/core/guide";
 import { getInsights } from "../src/core/insights";
 import { decodeMorph, gematria, getConcordance, getLexEntry, getVerseWords, searchLexicon } from "../src/core/lexicon";
+import { getSectionHeadings, readingWords, readingWordTag, wordDifferences } from "../src/core/reader-text";
 import { parseReference } from "../src/core/references";
 import { findShortestPath, getFigure } from "../src/core/figure-graph";
 import { ensureFigures, getTimeline, peopleInPassage, versesOfPerson } from "../src/core/people";
@@ -941,4 +942,36 @@ test("people: a nation's name and another king's reign aren't given to the wrong
   assert.ok(!fig("asa-1").facts.some((f: string) => /^Reigned/.test(f)));
   const ahab = fig("ahab-1").facts.filter((f: string) => /^Reigned/.test(f));
   assert.deepEqual(ahab, ["Reigned 22 years (1 Kings 16:29)."]);
+});
+
+test("reader word comparison preserves offsets and highlights changes on both sides", () => {
+  const leftText = "God so loved the world.";
+  const rightText = "GOD greatly loved this world!";
+  const left = readingWords(leftText);
+  const right = readingWords(rightText);
+  const [a, b] = wordDifferences(left, right);
+  assert.deepEqual([...a].map((i) => leftText.slice(left[i].start, left[i].end)), ["so", "the"]);
+  assert.deepEqual([...b].map((i) => rightText.slice(right[i].start, right[i].end)), ["greatly", "this"]);
+  assert.deepEqual(wordDifferences(readingWords("David’s son."), readingWords("David's son")), [new Set(), new Set()]);
+  assert.deepEqual(wordDifferences([], readingWords("a missing verse"))[1], new Set([0, 1, 2]));
+});
+
+test("inline lexicon returns confirmed Strong's tags and leaves ambiguous matches unresolved", async () => {
+  const john = readingWords(await getVerse("BSB", 43, 3, 16));
+  const tags = await taggedVerse(43, 3, 16);
+  assert.equal(readingWordTag(john, john.findIndex((word) => word.key === "loved"), tags), "G25");
+  const genesis = readingWords(await getVerse("BSB", 1, 1, 1));
+  assert.equal(readingWordTag(genesis, genesis.findIndex((word) => word.key === "beginning"), await taggedVerse(1, 1, 1)), "H7225");
+  const duplicates = [{ text: "that", strong: "G1" }, { text: "that", strong: "G2" }];
+  assert.equal(readingWordTag(readingWords("that"), 0, duplicates), "");
+  assert.equal(readingWordTag(readingWords("that that"), 1, duplicates), "G2");
+  assert.equal(readingWordTag(readingWords("that that"), 1, duplicates.slice(0, 1)), "");
+});
+
+test("the reader has BSB section headings at their published verses", async () => {
+  const john = await getSectionHeadings(43, 3);
+  assert.deepEqual(john[1], ["Jesus and Nicodemus"]);
+  assert.equal(john[16], undefined);
+  assert.ok(john[22].length);
+  assert.deepEqual(await getSectionHeadings(43, 30), {});
 });

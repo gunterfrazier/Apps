@@ -7,6 +7,7 @@ The published copies in `dist/data` are gzip-compressed and base64-encoded to sa
 | Data | Source | License |
 |---|---|---|
 | BSB, NHEB, KJV, ASV, YLT text | [scrollmapper/bible_databases](https://github.com/scrollmapper/bible_databases) | BSB: CC0. NHEB, ASV, YLT: public domain. KJV: public domain except in the UK, where Crown rights apply |
+| BSB section headings | [Berean Bible publisher USJ download](https://berean.bible/downloads.htm) | Public domain (CC0). Regenerate with `python3 scripts/build_reader_headings.py path/to/bsb_usj.zip` after rebuilding the Bible data |
 | Hebrew and Greek words (TAHOT, TAGNT), brief lexicons (TBESH, TBESG) | [STEP Bible data](https://github.com/STEPBible/STEPBible-Data), Tyndale House, Cambridge | CC BY 4.0 |
 | Strong's dictionaries | [openscriptures/strongs](https://github.com/openscriptures/strongs) | CC BY-SA. Changes to this data must be shared under the same license |
 | Cross-references | OpenBible.info, via scrollmapper | CC BY |
