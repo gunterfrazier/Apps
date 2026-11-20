@@ -8,11 +8,15 @@ const absolute = (path) => new URL(path, scope).href;
 const shellFiles = new Set(CONFIG.shell);
 const publicData = new Set(CONFIG.data);
 const warming = new Map();
+// Pages redirects index.html to the directory URL. Cached redirects cannot answer a navigation.
+const shellDocument = absolute("");
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL);
-    await cache.addAll(CONFIG.shell.map((path) => new Request(absolute(path), { cache: "reload" })));
+    await cache.addAll(CONFIG.shell.map((path) => new Request(
+      path === "index.html" ? shellDocument : absolute(path), { cache: "reload", redirect: "error" }
+    )));
     await self.skipWaiting();
   })());
 });
@@ -69,10 +73,12 @@ self.addEventListener("fetch", (event) => {
   const path = url.pathname.slice(scope.pathname.length);
   const navigation = request.mode === "navigate" && (path === "" || path === "index.html");
   if (navigation || (shellFiles.has(path) && !url.search)) {
-    event.respondWith(caches.open(SHELL).then(async (cache) => {
-      const cached = await cache.match(navigation ? absolute("index.html") : request);
-      return CONFIG.watch && cached ? fetch(request).catch(() => cached) : cached ?? fetch(request);
-    }));
+    event.respondWith((async () => {
+      const key = navigation || path === "index.html" ? shellDocument : request;
+      const cached = await caches.match(key, { cacheName: SHELL }).catch(() => undefined);
+      if (!cached?.ok || cached.redirected) return fetch(request);
+      return CONFIG.watch ? fetch(request).catch(() => cached) : cached;
+    })());
   } else if (publicData.has(path) && !url.search) {
     event.respondWith((async () => {
       const cache = await caches.open(DATA);
