@@ -3,6 +3,7 @@
  *   node scripts/build.mjs            full build
  *   node scripts/build.mjs --watch    rebuild the app on change and serve it at localhost:5173
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
@@ -103,13 +104,40 @@ fs.writeFileSync("src/.gen/app-entry.ts", 'import "../app/styles.css";\nimport "
 fs.writeFileSync("src/.gen/embed-entry.ts", `${cssEntry}import "../embed/embed-styles.css";\nimport "../embed/embed";\n`);
 options.entryPoints = { app: "src/.gen/app-entry.ts", embed: "src/.gen/embed-entry.ts", "voice-worker": "src/voice/worker.ts" };
 
+function writeOfflineWorker() {
+  const files = (dir) => fs.readdirSync(path.join("dist", dir), { withFileTypes: true }).flatMap((entry) => {
+    const rel = `${dir}/${entry.name}`;
+    return entry.isDirectory() ? files(rel) : [rel];
+  }).sort();
+  const shell = ["index.html", "app.js", "app.css", "manifest.webmanifest", ...files("icons")];
+  if (voice) shell.push("voice-worker.js", voice.manifest);
+  const data = files("data").filter((rel) => rel.endsWith(".json"));
+  const translations = Object.fromEntries(["BSB", "NHEB", "KJV", "ASV", "YLT"].map((id) => [
+    id, ["ot", "nt"].map((part) => `data/bible/${id}-${part}.json`),
+  ]));
+  const study = data.filter((rel) =>
+    rel === "data/verse-counts.json" || rel === "data/bible/BSB-headings.json" ||
+    /^(?:data\/(?:lex|conc)\/|data\/scholar\/tags-)/.test(rel));
+  const source = fs.readFileSync("public/sw.js", "utf8");
+  const dataHash = createHash("sha256");
+  for (const rel of data) dataHash.update(rel).update(fs.readFileSync(path.join("dist", rel)));
+  const dataVersion = dataHash.digest("hex").slice(0, 16);
+  const revision = createHash("sha256").update(source).update(dataVersion).update(String(watch));
+  for (const rel of shell) revision.update(rel).update(fs.readFileSync(path.join("dist", rel)));
+  const config = { shell, data, translations, study, dataVersion, watch, version: revision.digest("hex").slice(0, 16) };
+  fs.writeFileSync("dist/sw.js", source.replace("/* OFFLINE_CONFIG */ null", () => JSON.stringify(config)));
+}
+
 if (watch) {
   const ctx = await esbuild.context(options);
+  await ctx.rebuild();
+  writeOfflineWorker();
   await ctx.watch();
   const { port } = await ctx.serve({ servedir: "dist", port: 5173 });
   console.log(`Serving at http://localhost:${port}`);
 } else {
   await esbuild.build(options);
+  writeOfflineWorker();
   await esbuild.build({ entryPoints: ["server/server.ts"], bundle: true, platform: "node", format: "esm", target: "node22", outfile: "dist-server/server.js", external: ["node:*"], banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" }, logLevel: "warning" });
   const size = (p) => (fs.statSync(p).isDirectory() ? fs.readdirSync(p).reduce((a, f) => a + size(path.join(p, f)), 0) : fs.statSync(p).size);
   const count = (p) => (fs.statSync(p).isDirectory() ? fs.readdirSync(p).reduce((a, f) => a + count(path.join(p, f)), 0) : 1);

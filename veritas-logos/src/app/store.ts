@@ -12,6 +12,8 @@ export const THEMES = [
 ] as const;
 export type Theme = (typeof THEMES)[number][0];
 export type HighlightColor = "amber" | "green" | "blue" | "rose";
+export const HIGHLIGHT_COLORS: HighlightColor[] = ["amber", "green", "blue", "rose"];
+export interface NotebookCollection { id: string; name: string; entries: string[] }
 export interface VerseNote { key: string; ref: string; text: string; updatedAt: string; tags?: string[] }
 /** A research note, not tied to one verse. Passages, terms and writers it names become links both ways. */
 export interface NoteEntry { id: string; title: string; body: string; tags: string[]; createdAt: string; updatedAt: string }
@@ -48,6 +50,7 @@ export interface UserData {
   lastRead: { book: number; chapter: number };
   activeGuideId: string | null;
   notebook: NoteEntry[];
+  notebookCollections: NotebookCollection[];
   sources: SourceEntry[];
   savedSearches: SavedSearch[];
   /** The last few places visited, for picking up where you left off. */
@@ -65,6 +68,7 @@ const defaults: UserData = {
   lastRead: { book: 43, chapter: 3 },
   activeGuideId: null,
   notebook: [],
+  notebookCollections: [],
   sources: [],
   savedSearches: [],
   recent: [],
@@ -109,6 +113,11 @@ export function mergeData(raw: any): UserData {
     lastRead: raw?.lastRead?.book ? raw.lastRead : defaults.lastRead,
     activeGuideId: typeof raw?.activeGuideId === "string" ? raw.activeGuideId : null,
     notebook: Array.isArray(raw?.notebook) ? raw.notebook.filter((n: any) => n && typeof n.id === "string") : [],
+    notebookCollections: Array.isArray(raw?.notebookCollections) ? raw.notebookCollections.flatMap((n: any) => (
+      n && typeof n.id === "string" && typeof n.name === "string" && n.name.trim() && Array.isArray(n.entries)
+        ? [{ id: n.id, name: n.name.trim().slice(0, 80), entries: [...new Set<string>(n.entries.filter((key: unknown) => typeof key === "string"))] }]
+        : []
+    )) : [],
     sources: Array.isArray(raw?.sources) ? raw.sources.filter((n: any) => n && typeof n.id === "string" && typeof n.title === "string") : [],
     savedSearches: Array.isArray(raw?.savedSearches) ? raw.savedSearches.filter((n: any) => n && typeof n.id === "string") : [],
     recent: Array.isArray(raw?.recent) ? raw.recent.filter((n: any) => n && typeof n.hash === "string").slice(0, 8) : [],
@@ -160,7 +169,7 @@ let cloud: any = null;
 let cloudTimer: ReturnType<typeof setTimeout> | null = null;
 let lastSaved = new Map<string, string>();
 const SYNCED_FLAG = "veritas.logos.synced";
-const profileOf = (d: UserData) => ({ notebook: d.notebook, sources: d.sources, savedSearches: d.savedSearches, highlights: d.highlights, bookmarks: d.bookmarks, notes: d.notes, figures: d.figures, lastRead: d.lastRead, activeGuideId: d.activeGuideId, prefs: { ...d.prefs, apiKey: "" } });
+const profileOf = (d: UserData) => ({ notebook: d.notebook, notebookCollections: d.notebookCollections, sources: d.sources, savedSearches: d.savedSearches, highlights: d.highlights, bookmarks: d.bookmarks, notes: d.notes, figures: d.figures, lastRead: d.lastRead, activeGuideId: d.activeGuideId, prefs: { ...d.prefs, apiKey: "" } });
 const guideDocId = (id: string) => `guide-${id}`;
 
 function queueCloudSave() {
@@ -208,10 +217,27 @@ async function loadFromCloud(firstRun: boolean) {
   const guides = firstRun
     ? [...remoteGuides.map((r) => { const l = local.guides.find((x) => x.id === r.id); return l && l.updatedAt > r.updatedAt ? l : r; }), ...local.guides.filter((l) => !remoteGuides.some((r) => r.id === l.id))]
     : remoteGuides;
+  const remoteStudy = mergeData(profile ?? local);
+  const notebook = new Map(remoteStudy.notebook.map((note) => [note.id, note]));
+  const collections = new Map(remoteStudy.notebookCollections.map((collection) => [collection.id, collection]));
+  if (firstRun) {
+    for (const note of local.notebook) {
+      if (!notebook.has(note.id) || note.updatedAt > notebook.get(note.id)!.updatedAt) notebook.set(note.id, note);
+    }
+    for (const collection of local.notebookCollections) {
+      const saved = collections.get(collection.id);
+      collections.set(collection.id, saved
+        ? { ...saved, entries: [...new Set([...saved.entries, ...collection.entries])] }
+        : collection);
+    }
+  }
   const merged = mergeData({
     ...(profile ?? local),
     highlights: firstRun ? { ...local.highlights, ...(profile?.highlights ?? {}) } : profile?.highlights ?? local.highlights,
     notes: firstRun ? { ...local.notes, ...(profile?.notes ?? {}) } : profile?.notes ?? local.notes,
+    bookmarks: firstRun ? [...new Set([...remoteStudy.bookmarks, ...local.bookmarks])] : remoteStudy.bookmarks,
+    notebook: [...notebook.values()],
+    notebookCollections: profile?.notebookCollections === undefined && !firstRun ? local.notebookCollections : [...collections.values()],
     guides,
   });
   state = { ...merged, prefs: { ...merged.prefs, apiKey: local.prefs.apiKey, apiBase: local.prefs.apiBase } };
@@ -276,7 +302,10 @@ export function saveNote(n: NoteEntry) {
   const next = { ...n, updatedAt: new Date().toISOString() };
   update((d) => ({ ...d, notebook: d.notebook.some((x) => x.id === n.id) ? d.notebook.map((x) => (x.id === n.id ? next : x)) : [next, ...d.notebook] }));
 }
-export const deleteNote = (id: string) => update((d) => ({ ...d, notebook: d.notebook.filter((n) => n.id !== id) }));
+export const deleteNote = (id: string) => update((d) => ({
+  ...d, notebook: d.notebook.filter((n) => n.id !== id),
+  notebookCollections: d.notebookCollections.map((collection) => ({ ...collection, entries: collection.entries.filter((entry) => entry !== `note:${id}`) })),
+}));
 export function saveSource(r: CiteRecord | SourceEntry) {
   const now = new Date().toISOString();
   update((d) => ({ ...d, sources: d.sources.some((x) => x.id === r.id) ? d.sources.map((x) => (x.id === r.id ? { ...x, ...r } : x)) : [{ addedAt: now, ...r }, ...d.sources] }));

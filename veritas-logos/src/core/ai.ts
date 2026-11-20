@@ -119,7 +119,7 @@ export function aiTools(translation: TranslationId): AiTool[] {
         const want = writer ? String(writer).toLowerCase() : "";
         const [short, long] = await Promise.all([excerptsForPassage(String(reference)), excerptsForPassage(String(reference), "comm")]);
         const all = [...short, ...long].filter((e) => !want || e.writer.name.toLowerCase().includes(want));
-        return { total: all.length, excerpts: (want ? all : varied(all, 10)).slice(0, 10).map((e) => ({ writer: e.writer.name, year: e.writer.year, work: e.title, on: e.reference, edition: e.source, note: FLAG_NOTE[e.writer.flag], text: clip(e.text, 900) })) };
+        return { total: all.length, excerpts: (want ? all : varied(all, 10)).slice(0, 10).map((e) => ({ excerpt: e.locator, writer: e.writer.name, year: e.writer.year, work: e.title, on: e.reference, edition: e.source, note: FLAG_NOTE[e.writer.flag], text: clip(e.text, 900) })) };
       },
     },
     {

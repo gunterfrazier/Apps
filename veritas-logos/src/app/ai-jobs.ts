@@ -210,9 +210,10 @@ const RUNNERS: Record<JobKind, Runner> = {
   chat: async (job, opts) => {
     const { turns, translation, lens, contextRef, research } = job.payload as { turns: Turn[]; translation: TranslationId; lens: LensId; contextRef?: string; research: boolean };
     if (research) {
-      const { raw, answer } = await aiResearch(turns, translation, lens, contextRef, { ...opts, onText: (t) => opts.onTool?.(`Finding and checking sources (${t.length.toLocaleString()} characters)`) });
-      const shown = answer ? [answer.summary, ...answer.claims.map((c) => c.text)].filter(Boolean).join("\n\n") : raw;
-      chat = { ...chat, turns: [...turns, { role: "assistant", content: shown }], checked: answer ? { ...chat.checked, [turns.length]: answer } : chat.checked };
+      const { answer } = await aiResearch(turns, translation, lens, contextRef, { ...opts, onText: (t) => opts.onTool?.(`Finding and checking sources (${t.length.toLocaleString()} characters)`) });
+      if (!answer) throw { code: "bad_reply", userMessage: "The assistant didn't return a readable answer with citations. Try again." };
+      const shown = [answer.summary, ...answer.claims.map((c) => c.text)].filter(Boolean).join("\n\n");
+      chat = { ...chat, turns: [...turns, { role: "assistant", content: shown }], checked: { ...chat.checked, [turns.length]: answer } };
     } else {
       const answer = await aiChat(turns, translation, lens, contextRef, opts);
       chat = { ...chat, turns: [...turns, { role: "assistant", content: answer }] };

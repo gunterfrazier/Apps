@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { newId } from "../../core/guide";
 import { BOOKS, bookName, formatSegment, parseReference } from "../../core/references";
 import { timelineForPassage, timelineHash, formatYear, formatSpan } from "../../core/timeline";
-import { CATEGORIES, categoryLabel, editionNote, excerptsByWriter, excerptsForPassage, FLAG_NOTE, getWritingsIndex, searchWritings, sermonsForBook, sermonsForPassage, TRADITION_ORDER, varied, workCaution, writerById, writerTradition, writerYearLabel, type Excerpt, type SearchHit, type Writer } from "../../core/writings";
+import { excerptByLocator, CATEGORIES, categoryLabel, editionNote, excerptsByWriter, excerptsForPassage, FLAG_NOTE, getWritingsIndex, searchWritings, sermonsForBook, sermonsForPassage, TRADITION_ORDER, varied, workCaution, writerById, writerTradition, writerYearLabel, type Excerpt, type SearchHit, type Writer } from "../../core/writings";
 import { citeId, parseSourceLine, type CiteRecord } from "../../core/cite";
 import { centuryLabel, eventHash, eventsForWriter, yearToCentury } from "../../core/scholar";
 import { Actions, Backlinks, CenturyBars, CiteButton, saveQuoteToNotebook, ScholarshipLinks } from "./scholar-ui";
@@ -33,9 +33,9 @@ export const citeOfExcerpt = (e: Excerpt): CiteRecord => ({
   id: citeId(e.writer.id, e.title, e.reference), kind: "section", author: e.writer.name, title: e.title, ...parseSourceLine(e.source), pages: e.page, url: e.url || undefined,
 });
 
-export function ExcerptCard({ e, hideWriter, hit }: { e: Excerpt; hideWriter?: boolean; hit?: string }) {
+export function ExcerptCard({ e, hideWriter, hit, expanded = false }: { e: Excerpt; hideWriter?: boolean; hit?: string; expanded?: boolean }) {
   const { guides, activeGuideId, prefs } = useData();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(expanded);
   const long = e.text.length > PREVIEW + 60;
   const at = hit ? e.text.toLowerCase().indexOf(hit.toLowerCase()) : -1;
   const preview = at > PREVIEW - 80 ? `… ${clipText(e.text.slice(Math.max(0, at - 160)).replace(/^\S*\s/, ""), PREVIEW)}` : clipText(e.text, PREVIEW);
@@ -209,6 +209,21 @@ export function HistoryOfInterpretation({ reference, compact }: { reference: str
 }
 
 /** Everything on one passage: excerpts, long commentaries and sermons. */
+export function WriterExcerptPage({ locator }: { locator: string }) {
+  const { data, loading, error } = useAsync(() => excerptByLocator(locator), [locator]);
+  return (
+    <div className="page">
+      {loading ? <Loading label="Opening the cited excerpt" /> : error ? <ErrorNote error={error} /> : data ? (
+        <>
+          <h1 className="page-title">Through history</h1>
+          <ExcerptCard e={data} expanded />
+          <p><a href={`#${passageWritersHash(data.book, data.c1, data.v1 || undefined, data.c1 === data.c2 ? data.v2 || undefined : undefined)}`}>More writers on this passage</a></p>
+        </>
+      ) : <Empty>This excerpt isn't in the current library.</Empty>}
+    </div>
+  );
+}
+
 export function PassageWritersPage({ reference }: { reference: string }) {
   const [tab, setTab] = useState<"writers" | "history" | "comm" | "sermons">("writers");
   const [cat, setCat] = useState("all");

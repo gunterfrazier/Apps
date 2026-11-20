@@ -14,7 +14,7 @@ import { ApostolicPage, ComparePage, DcPage, JosephusPage, MorphPage, OriginalsP
 import { CreedPage, CreedsPage } from "./pages/creeds";
 import { AdvancedSearchPage, NotebookPage, NotePage, SourcesPage } from "./pages/notebook";
 import { CommandPalette, HistoryHub, rememberPlace } from "./pages/hubs";
-import { PassageWritersPage, WriterPage, WritersPage } from "./pages/writers";
+import { PassageWritersPage, WriterExcerptPage, WriterPage, WritersPage } from "./pages/writers";
 import { parseTimelineRoute } from "../core/timeline";
 import { LibraryPage } from "./pages/library";
 import { getGlossary } from "../core/glossary";
@@ -23,6 +23,7 @@ import { getChurchEvents, getCreedIndex } from "../core/scholar";
 import { AskPage } from "./pages/ask";
 import { AiWorkPage, AiWorkPill } from "./pages/ai-work";
 import { SymbolsPage } from "./pages/symbols";
+import { prepareOffline } from "./offline";
 import { initJobs } from "./ai-jobs";
 
 class Boundary extends Component<{ children: ReactNode; route: string }, { failed: boolean }> {
@@ -35,7 +36,7 @@ class Boundary extends Component<{ children: ReactNode; route: string }, { faile
   }
 }
 
-function pageFor(route: string): { node: ReactNode; tab: string } {
+function pageFor(route: string, askDraft: { text: string } | null, consumeAskDraft: () => void): { node: ReactNode; tab: string } {
   const [head, ...rest] = route.split("-");
   const tail = rest.join("-");
   switch (head) {
@@ -78,6 +79,7 @@ function pageFor(route: string): { node: ReactNode; tab: string } {
     case "writers": return { node: <WritersPage key={tail} initialSearch={tail.startsWith("q-") ? decodeURIComponent(tail.slice(2)).replace(/-/g, " ") : undefined} />, tab: "history" };
     case "glossary": return { node: <GlossaryPage />, tab: "explore" };
     case "term": return { node: <TermPage key={tail} id={tail} />, tab: "explore" };
+    case "excerpt": return { node: <WriterExcerptPage key={tail} locator={tail} />, tab: "history" };
     case "writer": return { node: <WriterPage key={tail} id={tail} />, tab: "history" };
     case "on": {
       const r = tail ? parseReadParts(tail) : null;
@@ -85,7 +87,7 @@ function pageFor(route: string): { node: ReactNode; tab: string } {
     }
     case "ask": {
       const r = tail ? parseReadParts(tail) : null;
-      return { node: <AskPage contextRef={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "ask" };
+      return { node: <AskPage initialQuestion={askDraft} onQuestionUsed={consumeAskDraft} contextRef={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "ask" };
     }
     case "ai": return { node: <AiWorkPage />, tab: "ask" };
     case "symbols": {
@@ -120,6 +122,7 @@ const labelFor = (route: string) => {
 function App() {
   const route = useRoute();
   const [palette, setPalette] = useState(false);
+  const [askDraft, setAskDraft] = useState<{ text: string } | null>(null);
   // Going back returns to where you were on the page. Going somewhere new starts at the top.
   const places = useRef(new Map<string, number>());
   const lastRoute = useRef(route);
@@ -166,6 +169,7 @@ function App() {
     if (label.trim()) rememberPlace(route, label);
   }, [route]);
   const { prefs } = useData();
+  useEffect(() => prepareOffline(prefs.translation), [prefs.translation]);
   useEffect(() => {
     const el = document.documentElement;
     if (prefs.theme === "system") el.removeAttribute("data-theme");
@@ -181,7 +185,7 @@ function App() {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  const { node, tab } = pageFor(route);
+  const { node, tab } = pageFor(route, askDraft, () => setAskDraft(null));
   return (
     <div className="app">
       <header ref={header} className="top">
@@ -206,7 +210,7 @@ function App() {
           </a>
         ))}
       </nav>
-      {palette && <CommandPalette onClose={() => setPalette(false)} />}
+      {palette && <CommandPalette onClose={() => setPalette(false)} onAsk={(text) => { setAskDraft({ text }); navigate("ask"); }} />}
       <PassagePeek />
       <AiWorkPill route={route} />
       <Toast />
@@ -222,7 +226,4 @@ connectCloud();
 const idle = (window as any).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 1200));
 idle(() => { getGlossary().catch(() => {}); getWritingsIndex().catch(() => {}); getChurchEvents().catch(() => {}); getCreedIndex().catch(() => {}); });
 
-if ("serviceWorker" in navigator && !(window as any).VERITAS_CONFIG?.artifact && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => { /* offline support is optional */ });
-}
 export { navigate, hashForReference, readHash };

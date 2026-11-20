@@ -26,6 +26,7 @@ export interface WritingsIndex { authors: Writer[]; sources: string[]; writings:
 export type WritingKind = "writings" | "comm";
 
 export interface Excerpt {
+  locator: string;
   writer: Writer;
   title: string;
   url: string;
@@ -125,7 +126,8 @@ export const henryNote = (book: number) => (HENRY_COMPLETED[book] ? `Henry died 
 
 async function loadPart(kind: WritingKind, book: number, part: number, index: WritingsIndex): Promise<Excerpt[]> {
   const s = await load<Shard>(`${kind}/${pad2(book)}-${part}.json`);
-  return s.q.map(([a, t, c1, v1, c2, v2, text, page]) => ({
+  return s.q.map(([a, t, c1, v1, c2, v2, text, page], row) => ({
+    locator: `${kind}-${book}-${part}-${row}`,
     writer: index.authors[a],
     title: s.t[t][0],
     url: s.t[t][1],
@@ -137,6 +139,17 @@ async function loadPart(kind: WritingKind, book: number, part: number, index: Wr
     cites: !!s.t[t][3],
     page,
   }));
+}
+
+/** Resolve a citation to the exact excerpt in the published dataset. */
+export async function excerptByLocator(locator: string): Promise<Excerpt | undefined> {
+  const match = /^(writings|comm)-(\d+)-(\d+)-(\d+)$/.exec(locator);
+  if (!match) return;
+  const kind = match[1] as WritingKind;
+  const [book, part, row] = match.slice(2).map(Number);
+  const index = await getWritingsIndex();
+  if (!(index[kind][book] ?? []).some((entry) => entry[2] === part)) return;
+  return (await loadPart(kind, book, part, index))[row];
 }
 
 const earliestFirst = (a: Excerpt, b: Excerpt) => (a.writer.year ?? 9999) - (b.writer.year ?? 9999) || a.c1 - b.c1 || a.v1 - b.v1;

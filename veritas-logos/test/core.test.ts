@@ -5,6 +5,7 @@ import path from "node:path";
 import { before, test } from "node:test";
 import { getPassage, getVerse, searchText, TRANSLATIONS } from "../src/core/bible";
 import { checkReferences, coerceDraftSections, coerceInsight } from "../src/core/ai";
+import { notebookEntries, notebookToMarkdown, resolveNotebook } from "../src/app/notebook-entries";
 import { PACKED, parseData, setLoader } from "../src/core/data";
 import { generateGuide, GuideInputError, guideToHtml, guideToMarkdown, resolveGuide, sanitizeGuide } from "../src/core/guide";
 import { getInsights } from "../src/core/insights";
@@ -27,7 +28,7 @@ import { lensName } from "../src/core/guide";
 import { LENS_IDS } from "../src/core/content";
 import { guideDocumentXml, guideToDocx } from "../src/core/docx";
 import { editionNote, excerptsAt, workCaution, writerTradition, writerById } from "../src/core/writings";
-import { excerptsByWriter, excerptsForPassage, getWritingsIndex, searchWritings, sermonsForPassage } from "../src/core/writings";
+import { excerptByLocator, excerptsByWriter, excerptsForPassage, getWritingsIndex, searchWritings, sermonsForPassage } from "../src/core/writings";
 import { ahToX, formatSpan, formatYear, getTimelineItems, parseTimelineRoute, timelineForPassage, timelineHash } from "../src/core/timeline";
 
 before(() => setLoader(async (p) => JSON.parse(await fs.promises.readFile(path.join("public/data", p), "utf8"))));
@@ -974,4 +975,38 @@ test("the reader has BSB section headings at their published verses", async () =
   assert.equal(john[16], undefined);
   assert.ok(john[22].length);
   assert.deepEqual(await getSectionHeadings(43, 30), {});
+});
+
+test("notebook combines legacy verse notes, bookmarks and multi-color highlights", async () => {
+  const entries = notebookEntries({
+    notebook: [{ id: "personal", title: "Study", body: "My note", tags: ["study"], createdAt: "", updatedAt: "" }],
+    notes: { "43:3:16-17": { key: "43:3:16-17", ref: "John 3:16–17", text: "Range note", updatedAt: "2026-11-19T00:00:00Z" } },
+    highlights: { "43:3:16": "green", "43:3:17": "rose" },
+    bookmarks: ["43:3:16-17"],
+  });
+  const range = entries.find((e) => e.id === "passage:43:3:16-17")!;
+  assert.deepEqual(range.colors, ["green", "rose"]);
+  assert.equal(range.bookmarked, true);
+  const md = notebookToMarkdown("John Study", await resolveNotebook([range], "BSB"));
+  assert.match(md, /# John Study[\s\S]+John 3:16–17[\s\S]+Green, Rose highlights · Bookmark/);
+  assert.match(md, /> For God so loved the world/);
+  assert.match(md, /Range note[\s\S]+public domain/);
+  assert.doesNotMatch(md, /My note/);
+});
+
+test("AI study citations link to the exact writer excerpt or verified lexicon entry", async () => {
+  const excerpt = (await excerptsForPassage("John 3:16")).find((e) => e.text.split(/\s+/).length > 12)!;
+  const quote = excerpt.text.split(/\s+/).slice(0, 12).join(" ");
+  const loc = excerpt.locator;
+  assert.equal((await excerptByLocator(loc))?.text, excerpt.text);
+  assert.equal(await excerptByLocator("writings-67-0-0"), undefined);
+  const lex = (await getLexEntry("G25"))!;
+  const id = "G0025";
+  const checked = await checkSources([
+    { type: "writer", excerpt: loc, writer: excerpt.writer.name, ref: excerpt.reference, quote },
+    { type: "writer", excerpt: loc, writer: excerpt.writer.name, ref: excerpt.reference, quote: "These words were never written in this work." },
+    { type: "lexicon", id, quote: lex.l },
+    { type: "lexicon", id, quote: "A fabricated meaning" },
+  ], "BSB");
+  assert.deepEqual(checked.map((c) => [c.ok, c.hash]), [[true, `excerpt-${loc}`], [false, undefined], [true, "word-g25"], [false, undefined]]);
 });

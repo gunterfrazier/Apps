@@ -34,10 +34,10 @@ const PLACES: [string, string, string][] = [
   ["library", "Library", "Settings, backups and data sources"],
 ];
 
-interface Hit { hash: string; title: string; kind: string; sub?: string }
+interface Hit { hash: string; title: string; kind: string; sub?: string; question?: string }
 
 /** Jump anywhere. Opens with the search button, or with Ctrl K or Cmd K. */
-export function CommandPalette({ onClose }: { onClose: () => void }) {
+export function CommandPalette({ onClose, onAsk }: { onClose: () => void; onAsk: (question: string) => void }) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
   const [at, setAt] = useState(0);
@@ -74,9 +74,11 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     }, 90);
     return () => { live = false; clearTimeout(t); };
   }, [q]);
-  const go = (h: Hit) => { onClose(); navigate(h.hash); };
+  const go = (h: Hit) => { onClose(); if (h.question) onAsk(h.question); else navigate(h.hash); };
   const { recent } = useData();
-  const shown: Hit[] = q.trim() ? hits : recent.map((r) => ({ hash: r.hash, title: r.label, kind: "Recent" }));
+  const question = q.trim();
+  const ask: Hit = { hash: "ask", title: `Ask AI about “${question}”`, kind: "Ask", question };
+  const shown: Hit[] = question ? [...hits.slice(0, 2), ask, ...hits.slice(2)] : recent.map((r) => ({ hash: r.hash, title: r.label, kind: "Recent" }));
   return (
     <div className="sheet-wrap palette-wrap" onClick={onClose}>
       <div className="palette" role="dialog" aria-modal="true" aria-label="Go anywhere" onClick={(e) => e.stopPropagation()}>

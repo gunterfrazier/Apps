@@ -108,6 +108,7 @@ const TOOL_LABEL: Record<string, string> = {
 /** Fewer tools means fewer rounds, so each kind of work gets only what it needs. */
 export const TOOLSETS = {
   chat: ["get_passage", "search_bible", "original_words", "word_study", "passage_insights", "historic_writers", "define_term", "lookup_dictionary", "search_creeds", "church_history", "book_background", "search_josephus", "find_topic", "find_person", "ancient_text"],
+  research: ["get_passage", "historic_writers", "word_study", "search_bible", "define_term", "search_creeds", "lookup_dictionary", "church_history", "original_words", "passage_insights", "search_josephus"],
   explore: ["lookup_dictionary", "book_background", "historic_writers", "search_josephus", "passage_insights", "define_term", "search_creeds", "church_history", "word_study"],
   overview: ["book_background", "lookup_dictionary", "search_josephus", "historic_writers"],
   verses: ["word_study", "lookup_dictionary", "historic_writers"],
@@ -201,12 +202,12 @@ export async function aiInsight(reference: string, translation: TranslationId, l
   return insight;
 }
 
-export async function aiChat(turns: Turn[], translation: TranslationId, lens: LensId, contextRef: string | undefined, opts: AskOpts = {}): Promise<string> {
+export async function aiChat(turns: Turn[], translation: TranslationId, lens: LensId, contextRef: string | undefined, opts: AskOpts = {}, toolNames = TOOLSETS.chat): Promise<string> {
   const mode = await detectAi();
   if (mode === "viewer") {
     const preamble = await chatPreamble(translation, lens, contextRef);
     const input = [{ role: "user", content: preamble }, ...turns.slice(-16)];
-    const tools = await viewerTools(translation, TOOLSETS.chat, opts);
+    const tools = await viewerTools(translation, toolNames, opts);
     try {
       const options = sampleOptions(opts, { cache: false });
       if (tools.length) options.tools = tools;
@@ -231,7 +232,7 @@ export async function aiDraft(guide: Guide, request: string, opts: AskOpts = {})
 export async function aiResearch(turns: Turn[], translation: TranslationId, lens: LensId, contextRef: string | undefined, opts: AskOpts = {}): Promise<{ raw: string; answer: ResearchAnswer | null }> {
   const last = turns[turns.length - 1];
   const asked: Turn[] = [...turns.slice(0, -1), { role: "user", content: `${RESEARCH_RULES}\n\nQuestion: ${last.content}` }];
-  const raw = await aiChat(asked, translation, lens, contextRef, opts);
+  const raw = await aiChat(asked, translation, lens, contextRef, opts, TOOLSETS.research);
   return { raw, answer: await checkResearch(parseJsonReply(raw), translation) };
 }
 

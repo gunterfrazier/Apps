@@ -4,22 +4,26 @@
  */
 import { getPassage, type TranslationId } from "./bible";
 import { getGlossary, termById } from "./glossary";
+import { getLexEntry, normalizeStrongs } from "./lexicon";
 import { parseReference } from "./references";
 import { creedText, getChurchEvents, getCreed, getCreedIndex, getJosephus, lookupDictionary } from "./scholar";
-import { excerptsForPassage } from "./writings";
+import { excerptByLocator, excerptsForPassage } from "./writings";
 
 export const RESEARCH_RULES = `Answer in research mode. Reply with only one JSON object, in this shape:
-{"summary":"one or two plain sentences","claims":[{"text":"one claim","sources":[{"type":"scripture","ref":"John 1:1"},{"type":"writer","writer":"Augustine of Hippo","ref":"John 1:1","quote":"exact words"},{"type":"creed","doc":"westminster-confession","quote":"exact words"},{"type":"term","term":"Justification","quote":"exact words"},{"type":"event","event":"nicaea-1"},{"type":"dictionary","name":"Pharisees","quote":"exact words"},{"type":"josephus","quote":"exact words"}]}],"gaps":["what the app's sources don't settle"]}
+{"summary":"one or two plain sentences","claims":[{"text":"one claim","sources":[{"type":"scripture","ref":"John 1:1"},{"type":"writer","excerpt":"locator returned by historic_writers","writer":"Augustine of Hippo","ref":"John 1:1","quote":"exact words"},{"type":"lexicon","id":"G26","quote":"exact lexicon wording"},{"type":"creed","doc":"westminster-confession","quote":"exact words"},{"type":"term","term":"Justification","quote":"exact words"},{"type":"event","event":"nicaea-1"},{"type":"dictionary","name":"Pharisees","quote":"exact words"},{"type":"josephus","quote":"exact words"}]}],"gaps":["what the app's sources don't settle"]}
 Rules:
 - Every claim needs at least one source from your tools. Don't cite anything you haven't looked up in this session.
-- A quote must be copied exactly from a tool result, and be at least six words long. Don't correct or shorten it.
+- Copy quote wording exactly from a tool result. Use at least six words except for lexicon entries, where an entire brief gloss, lemma, or a definition excerpt may be shorter.
+- Use historic_writers and word_study for questions about writers or original-language words. Copy the excerpt locator or Strong's id these tools return.
 - "ref" is the passage the excerpt is filed under, as the tool gave it. "doc" and "event" are the ids the tools give.
+- Keep the summary to a restatement of the cited claims.
 - If the app's sources don't support something you would otherwise say, put it in "gaps" and don't state it as a claim.
 - Keep claims short and separate. Report what the sources say, name the tradition, and don't declare a winner.`;
 
 export type ResearchSource =
   | { type: "scripture"; ref: string }
-  | { type: "writer"; writer: string; ref: string; quote: string }
+  | { type: "writer"; excerpt?: string; writer: string; ref: string; quote: string }
+  | { type: "lexicon"; id: string; quote: string }
   | { type: "creed"; doc: string; quote: string }
   | { type: "term"; term: string; quote: string }
   | { type: "event"; event: string }
@@ -43,12 +47,36 @@ async function checkOne(s: ResearchSource, translation: TranslationId): Promise<
       return { source: s, ok: has, why: has ? "This passage exists in the text." : "This reference isn't in the Bible text.", label: s.ref, detail: "" };
     }
     if (s.type === "writer") {
-      const [a, b] = await Promise.all([excerptsForPassage(s.ref), excerptsForPassage(s.ref, "comm")]);
       const want = squash(s.writer);
-      const hit = [...a, ...b].find((e) => squash(e.writer.name).includes(want) && holds(e.text, s.quote));
+      const matches = (e: Awaited<ReturnType<typeof excerptByLocator>>) =>
+        e && want && squash(e.writer.name).includes(want) && holds(e.text, s.quote);
+      const locator = typeof s.excerpt === "string" ? await excerptByLocator(s.excerpt) : undefined;
+      const hit = s.excerpt
+        ? (matches(locator) && locator?.reference === s.ref ? locator : undefined)
+        : (await Promise.all([excerptsForPassage(s.ref), excerptsForPassage(s.ref, "comm")])).flat().find(matches);
       return hit
-        ? { source: s, ok: true, why: `Found word for word in ${hit.source}.`, label: `${hit.writer.name}, ${hit.title}`, hash: `writer-${hit.writer.id}`, detail: s.quote }
-        : { source: s, ok: false, why: "These words weren't found in this writer's excerpts on that passage.", label: `${s.writer} on ${s.ref}`, detail: s.quote };
+        ? { source: s, ok: true, why: `Found in ${hit.source}.`, label: `${hit.writer.name}, ${hit.title}`, hash: `excerpt-${hit.locator}`, detail: s.quote }
+        : { source: s, ok: false, why: "These words weren't found in this writer's excerpt on that passage.", label: `${s.writer} on ${s.ref}`, detail: s.quote };
+    }
+    if (s.type === "lexicon") {
+      const id = normalizeStrongs(s.id);
+      const entry = id ? await getLexEntry(id) : null;
+      const quote = squash(s.quote);
+      const glossary = [entry?.l, ...entry?.m?.map((sense) => sense.g) ?? []];
+      const definitions = [entry?.s, ...entry?.m?.map((sense) => sense.t.replace(/<[^>]+>/g, "")) ?? []];
+      const ok = Boolean(quote && entry && (
+        glossary.some((text) => text && squash(text) === quote) ||
+        definitions.some((text) => {
+          if (!text) return false;
+          const normalized = squash(text);
+          return normalized === quote || (quote.split(" ").length >= 3 && ` ${normalized} `.includes(` ${quote} `));
+        })
+      ));
+      return {
+        source: s, ok, label: [id ?? s.id, entry?.l].filter(Boolean).join(" · "),
+        hash: ok && id ? `word-${id.toLowerCase()}` : undefined, detail: s.quote,
+        why: ok ? "Found in the app's lexicon." : "This wording couldn't be confirmed in the named lexicon entry.",
+      };
     }
     if (s.type === "creed") {
       const d = await getCreed(s.doc);
@@ -74,6 +102,7 @@ async function checkOne(s: ResearchSource, translation: TranslationId): Promise<
       }
       return { source: s, ok: false, why: "These words weren't found in Josephus.", label: "Josephus", detail: s.quote };
     }
+    if (s.type !== "event") return { source: s, ok: false, why: "This source type could not be checked.", label: "" };
     const e = (await getChurchEvents()).find((x) => x.id === s.event);
     return { source: s, ok: Boolean(e), why: e ? `On the church history timeline, from ${e.source}.` : "This event isn't in the app.", label: e?.title ?? s.event, hash: e ? `event-${e.id}` : undefined };
   } catch {
