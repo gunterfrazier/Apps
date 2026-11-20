@@ -579,10 +579,10 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       </div>
 
       <section id="reading-options" className="reading-options" aria-label="Reading options" ref={optionsPanel} hidden={!readingOptions}>
-        <button type="button" className="icon-btn" aria-label="Close reading options" onClick={() => closeOptions(true)}>×</button>
+        <button type="button" className="icon-btn" aria-label="Close options" onClick={() => closeOptions(true)}>×</button>
         <div>
           <label className="label" htmlFor="compare-select">Compare with</label>
-          <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => { setPref("compare", t); closeOptions(true); }} />
+          <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => setPref("compare", t)} />
           <label className="reader-check">
             <input type="checkbox" checked={prefs.highlightDifferences} disabled={!compareTranslation}
               onChange={(e) => setPref("highlightDifferences", e.target.checked)} />
