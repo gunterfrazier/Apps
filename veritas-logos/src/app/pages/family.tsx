@@ -4,9 +4,11 @@ import { AGE_GROUPS, FAMILY_THEMES, type FamilyProfile, type FamilySettings } fr
 import { FAMILY_STORIES, type FamilyStory, type StoryActivity, type StoryImage } from "../../core/family-stories";
 import { account, useAccount } from "../account";
 import { Loading, useAsync } from "../ui";
+import { FamilyResourceIndex, FamilyWorksheet, StoryResourceList } from "./family-worksheets";
 
 const previewId = (age: string) => `preview-${age}`;
 const kidsHash = (id: string, story?: string) => `#kids-${id}${story ? "/" + story : ""}`;
+const worksheetHash = (id: string, story: string) => `${kidsHash(id, story)}/worksheet`;
 const mediaPath = (file: string) => `family/${file}`;
 const defaultSettings: FamilySettings = { nickname: "", ageGroup: "young", theme: "ocean" };
 const uuid = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -45,16 +47,18 @@ export function FamilyPage() {
           ))}
         </div>
       </section>
+      <FamilyResourceIndex worksheetLink={(story, age) => worksheetHash(previewId(age), story)} />
       <details className="family-section family-media-credits">
         <summary>About the artwork and video</summary>
         <p>The first collection pairs Bible stories with paintings, book illustrations, a photograph of the Sea of Galilee, and a captioned story video. Each story includes its media credits.</p>
-        <a href="https://bibleproject.com/videos/torah-genesis-1/" target="_blank" rel="noopener noreferrer">BibleProject’s Genesis 1–11 video for further study</a>
-        <p><a href="https://bibleproject.com/" target="_blank" rel="noopener noreferrer">BibleProject</a> is the author and owner of the Genesis 1–11 video.</p>
       </details>
       <section className="family-section">
         <h2>Activities for home</h2>
-        <p>Find parent guides and coloring pages to use alongside Bible stories.</p>
-        <a href="https://bibleappforkids.com/parents" target="_blank" rel="noopener noreferrer">Bible App for Kids resources from YouVersion</a>
+        <ul className="story-resource-list">
+          <li><a href="https://bibleappforkids.com/parents" target="_blank" rel="noopener noreferrer">Bible App for Kids resources from YouVersion</a><span>Parent guides and coloring pages by story</span></li>
+          <li><a href="https://open.life.church/preschool" target="_blank" rel="noopener noreferrer">Bible App for Kids curriculum from Life.Church</a><span>Preschool ministry lessons and activities</span></li>
+          <li><a href="https://open.life.church/partners/fresh-life-church" target="_blank" rel="noopener noreferrer">Fresh Life Church kids resources</a><span>Coloring pages, prayer guides, and seasonal activities</span></li>
+        </ul>
       </section>
     </div>
   );
@@ -245,6 +249,10 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
             </section>
           </>}
           <StoryScripture reference={profile.ageGroup === "teen" ? story.teenReading ?? story.reading : story.reading} />
+          <section className="kids-print-resources" aria-labelledby="story-resources-heading">
+            <h2 id="story-resources-heading">Print & resources</h2>
+            <StoryResourceList story={story} age={profile.ageGroup} worksheet={worksheetHash(profile.id, story.id)} />
+          </section>
         </div>
         <div className="kids-story-media">
           {video && <section className="kids-video">
@@ -274,7 +282,7 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
   );
 }
 
-function KidsStories({ profile, storyId }: { profile: FamilyProfile; storyId?: string }) {
+function KidsStories({ profile, storyId, worksheet }: { profile: FamilyProfile; storyId?: string; worksheet: boolean }) {
   const group = AGE_GROUPS.find(({ id }) => id === profile.ageGroup);
   const stories = FAMILY_STORIES.filter((story) => story.editions[profile.ageGroup]);
   const story = stories.find(({ id }) => id === storyId);
@@ -284,8 +292,9 @@ function KidsStories({ profile, storyId }: { profile: FamilyProfile; storyId?: s
         <a className="kids-brand" href={kidsHash(profile.id)}>Veritas Logos</a>
         <a className="kids-finish" href="#family">Back to family</a>
       </header>
-      <main className="kids-main" key={storyId || "stories"}>
-        {story ? <StoryDetail story={story} profile={profile} /> : (
+      <main className="kids-main" key={worksheet ? `${storyId}/worksheet` : storyId || "stories"}>
+        {story && worksheet ? <FamilyWorksheet story={story} age={profile.ageGroup} back={kidsHash(profile.id, story.id)} /> :
+          story ? <StoryDetail story={story} profile={profile} /> : (
           <>
             <header className="kids-intro">
               <p className="kids-reference">{group?.label}</p>
@@ -312,9 +321,9 @@ function KidsStories({ profile, storyId }: { profile: FamilyProfile; storyId?: s
   );
 }
 
-function SavedKidsStories({ owner, id, story }: { owner: string; id: string; story?: string }) {
+function SavedKidsStories({ owner, id, story, worksheet }: { owner: string; id: string; story?: string; worksheet: boolean }) {
   const { data, loading, error } = useAsync(async () => account().family.get(owner, id), [owner, id]);
-  if (data) return <KidsStories profile={data} storyId={story} />;
+  if (data) return <KidsStories profile={data} storyId={story} worksheet={worksheet} />;
   if (loading) return <main className="page"><Loading label="Opening profile" /></main>;
   return <main className="page">
     <h1 className="page-title">Family profile unavailable</h1>
@@ -324,12 +333,13 @@ function SavedKidsStories({ owner, id, story }: { owner: string; id: string; sto
 }
 
 export function KidsPage({ route }: { route: string }) {
-  const [id, story] = route.split("/");
+  const [id, story, view] = route.split("/");
+  const worksheet = view === "worksheet";
   const { status, user } = useAccount();
   const group = AGE_GROUPS.find((age) => previewId(age.id) === id);
-  useEffect(() => { window.scrollTo(0, 0); }, [id, story]);
-  if (group) return <KidsStories profile={{ id, nickname: "", ageGroup: group.id, theme: "ocean" }} storyId={story} />;
-  if (uuid.test(id) && status === "signed-in" && user) return <SavedKidsStories key={`${user.id}/${id}`} owner={user.id} id={id} story={story} />;
+  useEffect(() => { window.scrollTo(0, 0); }, [id, story, worksheet]);
+  if (group) return <KidsStories profile={{ id, nickname: "", ageGroup: group.id, theme: "ocean" }} storyId={story} worksheet={worksheet} />;
+  if (uuid.test(id) && status === "signed-in" && user) return <SavedKidsStories key={`${user.id}/${id}`} owner={user.id} id={id} story={story} worksheet={worksheet} />;
   return <main className="page">
     {status === "loading" && uuid.test(id) ? <Loading label="Checking your account" /> : <h1 className="page-title">Family profile unavailable</h1>}
     <a className="btn" href="#family">Back to family</a>

@@ -11,6 +11,7 @@ export interface FamilyStory {
   reading: string;
   teenReading?: string;
   topic: string;
+  drawPrompt: string;
   image: StoryImage;
   illustrations?: StoryImage[];
   video?: StoryVideo;
@@ -37,6 +38,7 @@ export const FAMILY_STORIES: FamilyStory[] = [
     reading: "Genesis 8:6–12; Genesis 9:8–17",
     teenReading: "Genesis 6:11–22; Genesis 9:8–17",
     topic: "Trust and promises",
+    drawPrompt: "Draw Noah watching for the dove. Add the olive leaf in its beak.",
     activity: {
       prompt: "What did the dove bring back to Noah?",
       options: ["A feather", "An olive leaf", "A piece of wood"],
@@ -108,6 +110,7 @@ export const FAMILY_STORIES: FamilyStory[] = [
     reading: "Mark 4:35–41",
     teenReading: "Mark 4:35–41; Psalm 107:23–30",
     topic: "Fear and faith",
+    drawPrompt: "Draw the boat on the lake. Show what changed after Jesus spoke.",
     activity: {
       prompt: "What did Jesus do when his friends woke him?",
       options: ["He spoke to the wind and waves", "He asked them to swim", "He put up the sail"],
@@ -152,6 +155,7 @@ export const FAMILY_STORIES: FamilyStory[] = [
     reference: "Luke 10:25–37",
     reading: "Luke 10:25–37",
     topic: "Mercy and neighbors",
+    drawPrompt: "Draw the Samaritan helping the traveler reach a safe place.",
     activity: {
       prompt: "How did the Samaritan help the traveler?",
       options: ["He walked past", "He told him to stand up", "He cared for him and took him to an inn"],
@@ -195,6 +199,7 @@ export const FAMILY_STORIES: FamilyStory[] = [
     reference: "Mark 10:13–16",
     reading: "Mark 10:13–16",
     topic: "Welcome and belonging",
+    drawPrompt: "Draw Jesus welcoming the children. Show how their faces might look.",
     activity: {
       prompt: "How did Jesus respond when people brought children to him?",
       options: ["He welcomed and blessed them", "He told them to wait outside", "He asked them to come back when they were older"],
@@ -239,6 +244,7 @@ export const FAMILY_STORIES: FamilyStory[] = [
     reading: "Luke 15:11–24",
     teenReading: "Luke 15:11–32",
     topic: "Forgiveness and joy",
+    drawPrompt: "Draw the father seeing his son on the road. Show what he did next.",
     activity: {
       prompt: "What did the father do when he saw his son coming home?",
       options: ["He hid inside", "He ran to meet him", "He sent him away"],
