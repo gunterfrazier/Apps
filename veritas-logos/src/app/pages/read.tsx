@@ -270,7 +270,7 @@ export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, do
         <NotebookPicker entry={`passage:${rangeKey}`} title={reference} onSave={(d) =>
           d.bookmarks.includes(rangeKey) || d.notes[rangeKey] || d.highlights[rangeKey]
             ? d : { ...d, bookmarks: [rangeKey, ...d.bookmarks] }} />
-        <a className="btn small" href={`#places-${readHash({ book, chapter, verse, verseEnd: end }).slice(5)}`} onClick={onClose}>Places</a>
+        <a className="btn small" href={`#places-${readHash({ book, chapter, verse, verseEnd: end }).slice(5)}`}>Places</a>
         <a className="btn small" href={`#ask-${readHash({ book, chapter, verse, verseEnd: end }).slice(5)}`} onClick={onClose}>Ask AI</a>
       </div>
       <div className="tabs study-tabs" role="tablist" aria-label="Verse study">
