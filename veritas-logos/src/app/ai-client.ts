@@ -11,6 +11,8 @@ export interface Turn { role: "user" | "assistant"; content: string }
 export type AskOpts = { onText?: (text: string) => void; signal?: AbortSignal; onTool?: (label: string) => void };
 
 const CONFIG = (window as any).VERITAS_CONFIG ?? {};
+/** On the website, where AI isn't offered: the shared Claude version of the app, which has it (site.config.json). */
+export const CLAUDE_URL: string = CONFIG.claudeUrl ?? "";
 let sampleFn: any = null;
 let modePromise: Promise<AiMode> | null = null;
 

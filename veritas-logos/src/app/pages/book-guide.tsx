@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { getVerse, translationInfo } from "../../core/bible";
+import { getVerse, translationInfo, localTranslation } from "../../core/bible";
 import { at, guideDigest, type BookGuide, type KeyWord, type Witness } from "../../core/bookguide";
 import { blankGuide, lensName, newId, type Guide, type GuideSection } from "../../core/guide";
 import { getChronology, getDictionary, DICT_NAMES } from "../../core/scholar";
@@ -8,7 +8,7 @@ import { enqueueJob, exploreKey, markSeen, removeJob, useJob } from "../ai-jobs"
 import { BOOKS } from "../../core/references";
 import { readHash } from "../routes";
 import { getData, navigate, saveGuide, saveNote, setPref, toast, useData } from "../store";
-import { LensSelect, Loading, Paras, RefLink, useAsync } from "../ui";
+import { LensSelect, Loading, Paras, RefLink, useAsync, NoAiNote } from "../ui";
 import { ExploreResult, JobError, JobProgress, useAiMode } from "./ai-explore";
 
 type Basis = "counted" | "quoted" | "ai" | "you";
@@ -45,7 +45,7 @@ function Orig({ id, text, className = "" }: { id: string; text: string; classNam
 function VerseLine({ book, cv }: { book: number; cv: string }) {
   const { prefs } = useData();
   const [c, v] = cv.split(":").map(Number);
-  const { data } = useAsync(() => getVerse(prefs.translation, book, c, v), [prefs.translation, book, cv]);
+  const { data } = useAsync(() => getVerse(localTranslation(prefs.translation), book, c, v), [prefs.translation, book, cv]);
   return (
     <li className="bg-verse">
       <RefLink refText={at(book, cv)}>{cv}</RefLink> <span className="verse-text">{data ?? "…"}</span>
@@ -244,7 +244,7 @@ function AiDraft({ g, ask }: { g: BookGuide; ask: AskId }) {
 function AiMissing() {
   const mode = useAiMode();
   if (mode !== "none") return null;
-  return <p className="note">AI drafts need the assistant, which isn't turned on in this copy of the app. See Library for how to turn it on.</p>;
+  return <NoAiNote what="AI drafts" />;
 }
 
 // ---------- Older introductions, loaded when opened ----------
@@ -377,7 +377,7 @@ export function BookGuideView({ g, testament, greekName }: { g: BookGuide; testa
         {g.glance.chapters > 1 && <ChapterBars guide={g} />}
       </Sec>
 
-      <Sec id="own" title="In its own words" basis={["counted"]} intro={`${selfIntro(g)} Shown in the ${translationInfo(prefs.translation).name}.`}>
+      <Sec id="own" title="In its own words" basis={["counted"]} intro={`${selfIntro(g)} Shown in the ${translationInfo(localTranslation(prefs.translation)).name}.`}>
         <ul className="bg-verses">{g.self.map((cv) => <VerseLine key={cv} book={g.book} cv={cv} />)}</ul>
         {g.psalmTitles && (
           <>

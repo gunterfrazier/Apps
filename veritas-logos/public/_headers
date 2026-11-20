@@ -1,0 +1,14 @@
+# Cloudflare Pages response headers (ignored by other hosts).
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+/sw.js
+  Cache-Control: no-cache
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/data/*
+  Cache-Control: public, max-age=3600
+/voice/*
+  Cache-Control: public, max-age=86400

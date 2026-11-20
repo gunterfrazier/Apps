@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { TRANSLATIONS } from "../../core/bible";
+import { GROUP_NAMES, OFFERED, TRANSLATIONS, localTranslation, type TranslationGroup } from "../../core/bible";
+import { CONNECTOR } from "../online-bible";
 import { getFigure } from "../../core/figure-graph";
 import { ensureFigures } from "../../core/people";
 import { passageMarkReference } from "../notebook-entries";
@@ -8,8 +9,41 @@ import { detectAi, resetAiDetection, type AiMode } from "../ai-client";
 import { IS_ARTIFACT, saveFile, copyText } from "../files";
 import { offlineSupported, prepareOffline, useOfflineStatus } from "../offline";
 import { BUILT_IN, mb } from "../speech";
-import { mergeData, setPref, toast, update, useData, useSyncState, getData } from "../store";
+import { combineData, mergeData, setPref, toast, update, useData, useSyncState, useSyncTarget, getData, type SyncState, type SyncTarget, type UserData } from "../store";
+import { ACCOUNTS_ON, IN_CLAUDE, useAccount } from "../account";
 import { Empty, RefLink, TranslationSelect, ThemeSelect, LensSelect, useAsync } from "../ui";
+
+
+/** "NIV, NLT and NKJV": the licensed translations on offer, and a line for any still waiting for approval. */
+const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+const ONLINE_OFFERED = andList(OFFERED.filter((t) => t.group === "online").map((t) => t.id));
+const WAITING_NOTE = TRANSLATIONS.filter((t) => t.waiting).map((t) => ` The ${t.id} will be added once its publisher approves the key.`).join("");
+
+const SYNC_TEXT: Record<SyncTarget | "none", Record<SyncState, string>> = {
+  claude: {
+    saved: "Saved privately to your Claude account, so it follows you between devices.",
+    saving: "Saving to your Claude account…",
+    connecting: "Connecting to your Claude account…",
+    failed: "Couldn't reach your Claude account, so this is only in this browser for now. Back up anything you want to keep.",
+    local: "Stored only in this browser. Clearing browser data removes it, so back up anything you want to keep.",
+  },
+  account: {
+    saved: "Saved to your account, so it's the same on every device where you sign in.",
+    saving: "Saving to your account…",
+    connecting: "Connecting to your account…",
+    failed: "Couldn't reach your account just now. Your work is kept in this browser and saved when the connection is back.",
+    local: "Stored only in this browser. Clearing browser data removes it, so back up anything you want to keep.",
+  },
+  none: {
+    saved: "", saving: "", connecting: "", failed: "",
+    local: "Stored only in this browser. Clearing browser data removes it, so back up anything you want to keep.",
+  },
+};
+/** One line on where the reader's data is being kept right now. */
+export function SyncLine({ sync, target }: { sync: SyncState; target: SyncTarget | null }) {
+  const text = SYNC_TEXT[target ?? "none"][sync] || SYNC_TEXT.none.local;
+  return <p className={`sync-state${sync === "failed" ? " is-failed" : ""}`}>{text}</p>;
+}
 
 export function LibraryPage() {
   const { prefs, notebook, notes, highlights, bookmarks, figures, guides } = useData();
@@ -18,19 +52,30 @@ export function LibraryPage() {
   const [ai, setAi] = useState<AiMode | null>(null);
   const sync = useSyncState();
   const offline = useOfflineStatus();
+  const offlineTranslation = localTranslation(prefs.translation);
+  const target = useSyncTarget();
+  const acct = useAccount();
+  const [incoming, setIncoming] = useState<{ data: UserData; name: string } | null>(null);
   useEffect(() => { detectAi().then(setAi); }, []);
   useAsync(ensureFigures, []);
   const noteCount = notebook.length + Object.keys(notes).length;
   const hlList = Object.entries(highlights);
 
   const backup = () => saveFile("veritas-logos-backup.json", JSON.stringify({ ...getData(), prefs: { ...getData().prefs, apiKey: "" } }, null, 1), "application/json");
-  const restore = async (f: File) => {
-    try {
-      const raw = JSON.parse(await f.text());
-      const data = mergeData(raw);
-      update((d) => ({ ...data, prefs: { ...data.prefs, apiKey: d.prefs.apiKey, apiBase: d.prefs.apiBase } }));
-      toast("Backup restored");
-    } catch { toast("That file couldn't be read."); }
+  const readBackup = async (f: File) => {
+    try { setIncoming({ data: mergeData(JSON.parse(await f.text())), name: f.name }); } catch { toast("That file couldn't be read."); }
+  };
+  // Adding keeps everything here and brings in what the backup has, keeping the later version of anything in both.
+  // Replacing makes this copy exactly the backup, which is how to go back to an earlier state.
+  const restore = (how: "add" | "replace") => {
+    if (!incoming) return;
+    const data = incoming.data;
+    update((d) => {
+      const next = how === "add" ? combineData(d, data) : data;
+      return { ...next, prefs: { ...next.prefs, apiKey: d.prefs.apiKey, apiBase: d.prefs.apiBase } };
+    });
+    setIncoming(null);
+    toast(how === "add" ? "Backup added" : "Backup restored");
   };
 
   return (
@@ -57,7 +102,16 @@ export function LibraryPage() {
         <div className="form">
           <h3>Reading</h3>
           <div><label className="label" htmlFor="set-translation">Bible translation</label><TranslationSelect id="set-translation" value={prefs.translation} onChange={(t) => setPref("translation", t)} /></div>
-          <ul className="fine-list">{TRANSLATIONS.map((t) => <li key={t.id}><strong>{t.id}</strong> {t.name} ({t.year}). {t.style}.</li>)}</ul>
+          <details className="bg-key">
+            <summary>About the {OFFERED.length} translations</summary>
+            {(Object.keys(GROUP_NAMES) as TranslationGroup[]).map((g) => (
+              <div key={g}>
+                <h4>{GROUP_NAMES[g]}</h4>
+                <ul className="fine-list">{OFFERED.filter((t) => t.group === g).map((t) => <li key={t.id}><strong>{t.id}</strong> {t.name} ({t.year}). {t.style}{t.covers ? `; it has ${t.covers}` : ""}. <span className="fine">{t.notice}</span>{t.link && <> <a href={t.link.url} target="_blank" rel="noopener noreferrer">{t.link.label}</a></>}</li>)}</ul>
+              </div>
+            ))}
+            <p className="fine">The licensed translations are read a chapter at a time through your "{CONNECTOR}" connector, with your own free keys for Crossway's ESV API and API.Bible.{WAITING_NOTE} Their terms allow non-commercial use only, keep only a few hundred verses on the device at a time, and don't allow turning the text into speech, so search, AI tools and read aloud use the built-in translations.</p>
+          </details>
           <div><label className="label" htmlFor="set-lens">Theological lens</label><LensSelect id="set-lens" value={prefs.lens} onChange={(l) => setPref("lens", l)} /></div>
           <div><label className="label" htmlFor="set-theme">Appearance</label><ThemeSelect id="set-theme" /></div>
           <div><label className="label" htmlFor="set-voice">Read-aloud voice</label><select id="set-voice" value={prefs.readVoice} onChange={(e) => setPref("readVoice", e.target.value === "builtin" ? "builtin" : "device")}><option value="device">This device's voice, when it has one</option>{BUILT_IN && <option value="builtin">{BUILT_IN.name}, built into Veritas Logos</option>}</select>
@@ -66,11 +120,11 @@ export function LibraryPage() {
 
           {offlineSupported && <>
             <h3>Offline study</h3>
-            <p role="status">{offline.state === "ready" && offline.translation === prefs.translation
-              ? `${prefs.translation} and the core lexicons are ready to use offline on this device.`
+            <p role="status">{offline.state === "ready" && offline.translation === offlineTranslation
+              ? `${offlineTranslation} and the core lexicons are ready to use offline on this device.`
               : offline.state === "failed" ? "The offline download didn't finish. Reconnect and try again."
-              : `Preparing ${prefs.translation} and the core lexicons for offline use…`}</p>
-            {offline.state === "failed" && <button type="button" className="btn small" onClick={() => prepareOffline(prefs.translation, true)}>Retry offline download</button>}
+              : `Preparing ${offlineTranslation} and the core lexicons for offline use…`}</p>
+            {offline.state === "failed" && <button type="button" className="btn small" onClick={() => prepareOffline(offlineTranslation, true)}>Retry offline download</button>}
           </>}
 
           <h3>AI assistant</h3>
@@ -86,12 +140,25 @@ export function LibraryPage() {
 
           <h3>Your data</h3>
           <p>{guides.length} guides, {noteCount} notes, {hlList.length} highlights.</p>
-          <p className="sync-state">{sync === "saved" ? "Saved privately to your Claude account, so it follows you between devices." : sync === "saving" ? "Saving to your Claude account…" : sync === "connecting" ? "Connecting to your Claude account…" : sync === "failed" ? "Couldn't reach your Claude account, so this is only in this browser for now. Back up anything you want to keep." : "Stored only in this browser. Clearing browser data removes it, so back up anything you want to keep."}</p>
+          <SyncLine sync={sync} target={target} />
+          {ACCOUNTS_ON && acct.status === "signed-out" && <p><a href="#account">Sign in</a> to keep your guides, notes and settings the same on every device.</p>}
+          {ACCOUNTS_ON && acct.status === "signed-in" && <p className="fine">Signed in as {acct.user?.email}. <a href="#account">Account settings</a></p>}
           <div className="action-row">
             <button type="button" className="btn small primary" onClick={backup}>Back up</button>
             <button type="button" className="btn small" onClick={() => file.current?.click()}>Restore or import</button>
-            <input ref={file} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) restore(f); e.target.value = ""; }} />
+            <input ref={file} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) readBackup(f); e.target.value = ""; }} />
           </div>
+          {incoming && (
+            <div className="restore-choice" role="group" aria-label="Restore or import">
+              <p><strong>{incoming.name}</strong> has {incoming.data.guides.length} guides, {Object.keys(incoming.data.notes).length + incoming.data.notebook.length} notes and {Object.keys(incoming.data.highlights).length} highlights.</p>
+              <div className="action-row">
+                <button type="button" className="btn small primary" onClick={() => restore("add")}>Add to what's here</button>
+                <button type="button" className="btn small" onClick={() => restore("replace")}>Replace what's here</button>
+                <button type="button" className="btn small" onClick={() => setIncoming(null)}>Cancel</button>
+              </div>
+              <p className="fine">Adding keeps everything you have and brings in the backup, with the later version of anything in both. Replacing makes {target ? "your account" : "this browser"} match the backup exactly.</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -108,6 +175,7 @@ function About() {
     <>
       <h3>About Veritas Logos</h3>
       <p>A personal Bible study guide builder and reference tool. Everything it stores comes from a named source that you can check. It holds no hand-written commentary.</p>
+      {!IN_CLAUDE && <p className="fine"><a href="privacy.html">Privacy</a>: what the site keeps about you, and how to remove it.</p>}
       <h3>How to weigh what you read</h3>
       <dl className="facts">
         <dt>From cited sources</dt><dd>Looked up from the datasets below, chosen by rule.</dd>
@@ -116,7 +184,7 @@ function About() {
       </dl>
       <h3>Sources and licenses</h3>
       <ul className="fine-list">
-        <li><strong>Bible text:</strong> BSB (CC0), NHEB, KJV (Crown rights apply in the UK), ASV and YLT (public domain), via scrollmapper/bible_databases.</li>
+        <li><strong>Bible text:</strong> BSB (CC0), NHEB, KJV (Crown rights apply in the UK), ASV and YLT (public domain), and the LEB (© 2012 Logos Bible Software, free to share with its notice) with 17 more public-domain Bibles, via scrollmapper/bible_databases. The {ONLINE_OFFERED} aren't stored: the reader shows them a chapter at a time through the owner's connector, with each publisher's notice, under their free non-commercial terms.{WAITING_NOTE} “About the translations” below lists every notice.</li>
         <li><strong>Hebrew, Greek and lexicons:</strong> TAHOT, TAGNT, TBESH and TBESG from STEP Bible (Tyndale House, Cambridge), CC BY 4.0.</li>
         <li><strong>YLT word alignment:</strong> <a href="https://github.com/Clear-Bible/Alignments">Clear Bible</a>, CC BY 4.0.</li>
         <li><strong>Strong's dictionaries:</strong> Open Scriptures, CC BY-SA.</li>
@@ -137,11 +205,12 @@ function About() {
         <li><strong>Synopsis and editions:</strong> section order from Aland's Synopsis through aland-gospel-synopsis (MIT), and Greek edition differences from STEP Bible (CC BY 4.0).</li>
         <li><strong>Your glossary:</strong> your Theological Terms document, labeled as yours. It names no sources, so it isn't treated as a cited source. Entries tagged “Corrected” were reworded by Claude at your request and show your original wording. The rest are word for word.</li>
         <li><strong>Later teachers:</strong> Matthew Henry and Spurgeon's Treasury of David via LyteWord (CC0); Wesley's Explanatory Notes (public domain, structured by History of Methodism, CC BY 4.0); Calvin's Institutes, Luther on Galatians (Graebner's 1949 abridgment) and Edwards's sermons via Project Gutenberg. Spurgeon's sermons are an index that links out.</li>
-        <li><strong>Built-in read-aloud voice:</strong> Norman, a Piper voice by Bryce Beattie trained on LibriVox recordings (public domain), from rhasspy/piper-voices (MIT) via k2-fsa/sherpa-onnx. It's run by ONNX Runtime Web (MIT), with eSpeak NG (GPL-3.0) through phonemizer.js (Apache-2.0) turning text into phonemes.</li>
+        <li><strong>Built-in read-aloud voice:</strong> Norman, a Piper voice by Bryce Beattie trained on LibriVox recordings (public domain), from rhasspy/piper-voices (MIT) via k2-fsa/sherpa-onnx. It's run by ONNX Runtime Web (MIT), with eSpeak NG turning text into phonemes, built from rhasspy/espeak-ng. eSpeak NG is GPL-3.0-or-later, so the voice worker that carries it is too: <a href="licenses/GPL-3.0.txt" target="_blank" rel="noopener">license</a>, <a href="https://github.com/gunterfrazier/Apps/tree/claude/veritas-logos/veritas-logos" target="_blank" rel="noopener">source</a>.</li>
         <li><strong>New Testament dates:</strong> the years in Ussher's Annals of the World (1650), via BibleData. The captions are plain labels for the cited passages.</li>
       </ul>
       <p className="fine">A source can still contain errors, and its chronology and family links reflect its editors' judgment. Citations let you check them against the verses.</p>
-      <p className="fine">NIV, ESV, NASB, NLT and CJB are under copyright, so they aren't included.</p>
+      <p className="fine">Licenses named above: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>, <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>, MIT and the <a href="licenses/GPL-3.0.txt" target="_blank" rel="noopener">GNU GPL 3.0</a>. The app reformats these sources, links them to verses and filters them by rule; <a href="https://github.com/gunterfrazier/Apps/blob/claude/veritas-logos/veritas-logos/DATA-LICENSES.md" target="_blank" rel="noopener">DATA-LICENSES.md</a> says what was changed in each. Material adapted from CC BY-SA sources, such as the people data, is shared under CC BY-SA 4.0.</p>
+      <p className="fine">The NASB and CJB are under copyright and aren't offered.</p>
       <h3>Connect other apps</h3>
       {IS_ARTIFACT ? <p className="fine">Embeds and the public API are available once the app is on your own website. See the API guide in the project files.</p> : (
         <>

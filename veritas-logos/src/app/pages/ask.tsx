@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { checkReferences } from "../../core/ai";
 import { lensName, newId } from "../../core/guide";
-import { detectAi, type AiMode, type Turn } from "../ai-client";
+import { CLAUDE_URL, detectAi, type AiMode, type Turn } from "../ai-client";
 import { askChat, markSeen, newChat, stopJob, useChat, useJob } from "../ai-jobs";
 import type { CheckedSource, ResearchAnswer } from "../../core/research";
 import { saveGuide, setPref, useData, toast, navigate } from "../store";
@@ -21,7 +21,7 @@ export function AiSetupNote() {
     <div className="note">
       <p><strong>The AI assistant isn't set up in this copy of the app.</strong></p>
       <p>It works automatically when the app is opened inside Claude. Reading, word study, sourced insights, guides and people all work without it.</p>
-      <a className="btn small" href="#library">Open AI settings</a>
+      {CLAUDE_URL ? <a className="btn small" href={CLAUDE_URL} target="_blank" rel="noopener">Open the Claude version</a> : <a className="btn small" href="#library">Open AI settings</a>}
     </div>
   );
 }
@@ -80,7 +80,7 @@ export function AskPage({ contextRef, initialQuestion, onQuestionUsed }: { conte
           <div className="filters">
             <label className="field-inline" htmlFor="ask-lens">Lens <LensSelect id="ask-lens" value={prefs.lens} onChange={(l) => setPref("lens", l)} /></label>
             <label className="field-inline" htmlFor="ask-research"><input id="ask-research" type="checkbox" checked={research} onChange={(e) => setResearch(e.target.checked)} /> Cite study sources</label>
-            <label className="field-inline" htmlFor="ask-translation">Text <TranslationSelect id="ask-translation" value={prefs.translation} onChange={(t) => setPref("translation", t)} /></label>
+            <label className="field-inline" htmlFor="ask-translation">Text <TranslationSelect localOnly id="ask-translation" value={prefs.translation} onChange={(t) => setPref("translation", t)} /></label>
           </div>
           {research && <p className="fine">The app checks citations against its Scripture, writers, lexicon, and other study sources. Confirmed citations link to their entries where available.</p>}
           {context && <p className="context-chip">Looking at <RefText text={context} /> <button type="button" className="link-btn" onClick={() => setContext(undefined)}>Remove</button></p>}

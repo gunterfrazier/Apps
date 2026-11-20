@@ -1,6 +1,7 @@
 /**
  * The built-in voice, run in a worker so the page stays smooth. It downloads the voice and the ONNX Runtime engine
- * once (kept in IndexedDB), then turns text into speech: eSpeak NG gives the phonemes and the Piper model the sound.
+ * once (kept in IndexedDB), then turns text into speech: eSpeak NG gives the phonemes (src/voice/espeak.ts, bundled
+ * here, which makes this worker GPL-3.0-or-later) and the Piper model the sound.
  * It runs on one thread, because a page in Claude can't use the shared memory that threads need.
  *
  * In:  { type: "load", manifest }            the voice's manifest URL
@@ -10,7 +11,7 @@
  *      { type: "audio", id, pcm, sampleRate }, { type: "failed", id?, message }
  */
 import * as ort from "onnxruntime-web/wasm";
-import { phonemize } from "phonemizer";
+import { phonemize } from "./espeak";
 import { cacheGet, cachePut, engineKey, sha256Hex, unpackPiece, voiceKey, widen, type VoiceManifest } from "./model";
 import { clauses, phonemeIds, phonemeString } from "./text";
 
