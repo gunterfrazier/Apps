@@ -56,6 +56,7 @@ export function PlacesPage({ reference }: { reference: string }) {
   const place = places?.find(({ id }) => id === selection?.placeId) ??
     places?.find(({ candidates }) => candidates.length > 0) ?? places?.[0];
   const candidate = place?.candidates.find(({ id }) => id === selection?.candidateId) ?? place?.candidates[0];
+  const mapQuery = candidate && encodeURIComponent(`${candidate.point[1]},${candidate.point[0]}`);
   const history = candidate ? pleiades?.locations[candidate.id] : undefined;
   const dictionaryEntry = place && dictionary?.find(([, title, , , at]) =>
     at && title.toLowerCase() === place.name.toLowerCase() &&
@@ -130,10 +131,14 @@ export function PlacesPage({ reference }: { reference: string }) {
                   </>
                 )}
                 {candidate ? (
-                  <p className="place-location"><strong>{candidate.name}</strong><br />
-                    <span className="fine">OpenBible point · {candidate.point[1].toFixed(3)}°, {candidate.point[0].toFixed(3)}° (lat, lon)</span><br />
-                    <a className="fine" href={`${GEO}modern/${candidate.id}/${candidate.slug}`}>Location source</a>
-                  </p>
+                  <>
+                    <p className="place-location"><strong>{candidate.name}</strong><br />
+                      <span className="fine">OpenBible point · {candidate.point[1].toFixed(3)}°, {candidate.point[0].toFixed(3)}° (lat, lon)</span><br />
+                      <a className="fine" href={`${GEO}modern/${candidate.id}/${candidate.slug}`}>Location source</a>
+                    </p>
+                    <a className="btn" href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
+                      target="_blank" rel="noopener noreferrer">Open in Google Maps</a>
+                  </>
                 ) : <p className="fine">OpenBible has no point plotted for this place or region.</p>}
               </section>
               {pleiades && history && (
