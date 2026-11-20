@@ -1,4 +1,5 @@
 /** What the website's account file (dist/account.js) offers the app. The app imports only these types. */
+import type { FamilyProfile, FamilySettings } from "../core/family";
 
 /** A store of documents, as the page's private database in Claude and the website's accounts both provide. */
 export interface CloudCollection {
@@ -21,6 +22,12 @@ export interface AccountApi {
   user(): AccountUser | null;
   methods(): Promise<SignInMethods>;
   collection: CloudCollection;
+  family: {
+    list(owner: string): Promise<FamilyProfile[]>;
+    get(owner: string, id: string): Promise<FamilyProfile | null>;
+    save(owner: string, settings: FamilySettings, id?: string): Promise<FamilyProfile>;
+    remove(owner: string, id: string): Promise<void>;
+  };
   sendCode(email: string, create?: boolean): Promise<void>;
   verifyCode(email: string, code: string, purpose?: "signin" | "signup" | "reset"): Promise<AccountUser | null>;
   google(returnHash: string): Promise<void>;

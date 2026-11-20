@@ -15,6 +15,7 @@ import { SubNav } from "./people";
 const PLACES: [string, string, string][] = [
   ["read", "Reader", "Read and study the Bible"],
   ["study", "Study", "Passage tools and study resources"],
+  ["family", "Family library", "Bible stories and profiles for kids and teens"],
   ["dictionary", "Tyndale Open Bible Dictionary", "Articles on biblical people, places and subjects"],
   ["places", "Places in a passage", "Biblical locations and maps"],
   ["compare", "Compare texts", "Hebrew, Septuagint, Greek, Vulgate and English"],
@@ -123,6 +124,7 @@ export function StudyHome() {
         </div>
         <a className="btn primary" href={`#read-${passage}`}>Open in reader</a>
       </section>
+      <a className="tool-row family-study-link" href="#family"><strong>Family library</strong><span>Bible stories, art, and profiles for kids and teens</span></a>
       <div className="study-home-grid">
         <section>
           <h2>Study this passage</h2>

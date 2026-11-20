@@ -185,6 +185,12 @@ function Details({ email, providers }: { email: string; providers: string[] }) {
         <p className="fine">{plural(guides.length, "guide")}, {plural(Object.keys(notes).length + notebook.length, "note")} and {plural(Object.keys(highlights).length, "highlight")}. Sign in with this email on any device to see them there.</p>
       </section>
 
+      <section>
+        <h2>Family profiles</h2>
+        <p className="fine">Set a nickname, age group, and theme for each child or teen.</p>
+        <a className="btn" href="#family">Manage family profiles</a>
+      </section>
+
       <Section title="Password">
         <p className="fine">Set a password to sign in with it as well as with {providers.includes("google") ? "Google or " : ""}an email code.</p>
         <form className="form" onSubmit={(e) => { e.preventDefault(); if (pw.length >= 8) act(async () => { await account().setPassword(pw); setPw(""); toast("Password saved"); }); }}>
@@ -226,6 +232,7 @@ function PrivacyNote() {
       <ul className="fine-list">
         <li>Your settings, study guides, notes, highlights, bookmarks, saved people and searches, and the details of sources you've saved. Files you attach to sources stay only in the browser you attached them in, and so does any API key.</li>
         <li>Your email address, and how you sign in. Signing in with Google shares your name, email address and profile picture, and nothing is posted for you.</li>
+        <li>Any family profiles you create store a nickname, an age group and a color theme in your account.</li>
         <li>It's held by Supabase, the account service, on servers in the United States, and only you can open it. Veritas Logos doesn't sell it, share it or use it for ads.</li>
         <li>Deleting your account removes all of it at once. Signing out can remove it from the browser you're using too.</li>
       </ul>

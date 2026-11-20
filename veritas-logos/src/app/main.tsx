@@ -20,6 +20,7 @@ import { TyndaleDictionaryPage } from "./pages/tyndale-dictionary";
 import { PlacesPage } from "./pages/study-resources";
 import { LibraryPage } from "./pages/library";
 import { AccountPage } from "./pages/account";
+import { FamilyPage, KidsPage } from "./pages/family";
 import { ACCOUNTS_ON, initAccounts, useAccount } from "./account";
 import { getGlossary } from "../core/glossary";
 import { getWritingsIndex } from "../core/writings";
@@ -51,6 +52,7 @@ function pageFor(route: string, askDraft: { text: string } | null, consumeAskDra
     case "": case "read": return { node: <ReadPage route={tail ? parseReadParts(tail) : null} />, tab: "read" };
     case "study": return { node: <StudyHome />, tab: "study" };
     case "explore": return { node: <ExplorePage />, tab: "search" };
+    case "family": return { node: <FamilyPage />, tab: "study" };
     case "morph": return { node: <MorphPage key={tail} initial={tail || undefined} />, tab: "study" };
     case "compare": return { node: <ComparePage key={tail} tail={tail || undefined} />, tab: "study" };
     case "synopsis": return { node: <SynopsisPage key={tail} n={tail ? Number(tail) : undefined} />, tab: "study" };
@@ -153,6 +155,7 @@ function App() {
     window.addEventListener("popstate", onPop);
     document.addEventListener("click", onClick, true);
     const onKey = (e: KeyboardEvent) => {
+      if (location.hash.startsWith("#kids-")) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((p) => !p); }
       else if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement).tagName)) { e.preventDefault(); setPalette(true); }
     };
@@ -209,7 +212,8 @@ function App() {
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [route.startsWith("kids-")]);
+  if (route.startsWith("kids-")) return <Boundary route={route}><KidsPage route={route.slice(5)} /></Boundary>;
   const { node, tab } = pageFor(route, askDraft, () => setAskDraft(null));
   return (
     <div className="app">
