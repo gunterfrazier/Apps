@@ -1,6 +1,7 @@
 import type { AgeGroup } from "./family";
 
 interface StoryEdition { paragraphs: string[]; question: string }
+export interface StoryActivity { prompt: string; options: string[]; answer: number; explanation: string }
 export interface StoryImage { file: string; alt: string; credit: string; source: string; license: string; licenseUrl: string }
 interface StoryVideo { file: string; title: string; captions: string; transcript: string[] }
 export interface FamilyStory {
@@ -13,6 +14,7 @@ export interface FamilyStory {
   image: StoryImage;
   illustrations?: StoryImage[];
   video?: StoryVideo;
+  activity: StoryActivity;
   editions: Partial<Record<AgeGroup, StoryEdition>>;
 }
 
@@ -35,6 +37,12 @@ export const FAMILY_STORIES: FamilyStory[] = [
     reading: "Genesis 8:6–12; Genesis 9:8–17",
     teenReading: "Genesis 6:11–22; Genesis 9:8–17",
     topic: "Trust and promises",
+    activity: {
+      prompt: "What did the dove bring back to Noah?",
+      options: ["A feather", "An olive leaf", "A piece of wood"],
+      answer: 1,
+      explanation: "The olive leaf helped Noah see that the water was going down.",
+    },
     image: {
       ...publicDomain,
       file: "noah.webp",
@@ -100,6 +108,12 @@ export const FAMILY_STORIES: FamilyStory[] = [
     reading: "Mark 4:35–41",
     teenReading: "Mark 4:35–41; Psalm 107:23–30",
     topic: "Fear and faith",
+    activity: {
+      prompt: "What did Jesus do when his friends woke him?",
+      options: ["He spoke to the wind and waves", "He asked them to swim", "He put up the sail"],
+      answer: 0,
+      explanation: "Jesus spoke to the wind and waves, and the storm became calm.",
+    },
     image: {
       file: "galilee.webp",
       alt: "A view of the Sea of Galilee from the hills at Gamla.",
@@ -138,6 +152,12 @@ export const FAMILY_STORIES: FamilyStory[] = [
     reference: "Luke 10:25–37",
     reading: "Luke 10:25–37",
     topic: "Mercy and neighbors",
+    activity: {
+      prompt: "How did the Samaritan help the traveler?",
+      options: ["He walked past", "He told him to stand up", "He cared for him and took him to an inn"],
+      answer: 2,
+      explanation: "The Samaritan stayed with the wounded traveler and made sure someone would look after him.",
+    },
     image: {
       ...publicDomain,
       file: "samaritan.webp",
@@ -166,6 +186,93 @@ export const FAMILY_STORIES: FamilyStory[] = [
           "Jesus shifts the question. Instead of drawing a boundary around who deserves care, he asks which traveler became a neighbor to the injured man. The Samaritan’s answer is practical: time, assistance, transportation, and an ongoing commitment to the man’s care.",
         ],
         question: "How would a real situation change if you asked how to become a neighbor to someone instead of asking whether they count as one?",
+      },
+    },
+  },
+  {
+    id: "jesus-welcomes-children",
+    title: "Jesus welcomes the children",
+    reference: "Mark 10:13–16",
+    reading: "Mark 10:13–16",
+    topic: "Welcome and belonging",
+    activity: {
+      prompt: "How did Jesus respond when people brought children to him?",
+      options: ["He welcomed and blessed them", "He told them to wait outside", "He asked them to come back when they were older"],
+      answer: 0,
+      explanation: "Jesus welcomed the children, took them in his arms, and blessed them.",
+    },
+    image: {
+      ...publicDomain,
+      file: "jesus-welcomes-children.webp",
+      alt: "Jesus holds a child while other children and their families gather around him.",
+      credit: "Christ Blessing the Children, Lucas Cranach the Elder · Städel Museum",
+      source: "https://commons.wikimedia.org/wiki/File:Lucas_Cranach_the_Elder_Christ_blessing_the_Children,_Frankfurt_am_Main,_St%C3%A4del_Museum.jpg",
+    },
+    editions: {
+      young: {
+        paragraphs: [
+          "People brought their children to see Jesus. His friends tried to stop them.",
+          "Jesus told his friends to let the children come. He took the children in his arms and blessed them.",
+        ],
+        question: "How can you make someone feel welcome today?",
+      },
+      middle: {
+        paragraphs: [
+          "People hoped Jesus would touch and bless their children. The disciples scolded the people who brought them. Jesus was upset when he saw what was happening.",
+          "Jesus asked the disciples to let the children come. He said that God’s kingdom belongs to people like them. Then he took the children in his arms and blessed them.",
+        ],
+        question: "What do Jesus’ words and actions show about who matters to him?",
+      },
+      teen: {
+        paragraphs: [
+          "In Mark 10:13–16, the disciples act as gatekeepers and Jesus corrects them. The people bringing children want Jesus to touch them. Jesus goes further, taking them into his arms and blessing them.",
+          "Jesus says the kingdom belongs to people like these children and must be received like a child. Mark invites readers to notice who can receive the kingdom and what it means to receive it as a gift.",
+        ],
+        question: "Where do people your age get overlooked, and how does Jesus’ response shape what you might do?",
+      },
+    },
+  },
+  {
+    id: "prodigal-son",
+    title: "The son who came home",
+    reference: "Luke 15:11–32",
+    reading: "Luke 15:11–24",
+    teenReading: "Luke 15:11–32",
+    topic: "Forgiveness and joy",
+    activity: {
+      prompt: "What did the father do when he saw his son coming home?",
+      options: ["He hid inside", "He ran to meet him", "He sent him away"],
+      answer: 1,
+      explanation: "The father saw his son from far away, ran to him, and hugged him.",
+    },
+    image: {
+      ...publicDomain,
+      file: "prodigal-son.webp",
+      alt: "A father places both hands on his kneeling son’s shoulders as others look on.",
+      credit: "The Return of the Prodigal Son, Rembrandt · State Hermitage Museum",
+      source: "https://commons.wikimedia.org/wiki/File:Rembrandt_-_The_Return_of_the_Prodigal_Son_-_WGA19133.jpg",
+    },
+    editions: {
+      young: {
+        paragraphs: [
+          "Jesus told a story about a son who left home and spent all his money. When he had nothing left, he decided to go back and tell his father he was sorry.",
+          "His father saw him far down the road. He ran to hug him and sent for food so they could celebrate. His son had come home.",
+        ],
+        question: "How do you think the son felt when his father ran to hug him?",
+      },
+      middle: {
+        paragraphs: [
+          "Jesus told about a younger son who asked for his share of the family money and left home. When he lost it and went hungry, he decided to apologize and ask his father for work.",
+          "His father saw him coming and ran to welcome him. He gave him a robe and called for a celebration. The older brother was angry, so the father went out and invited him to share the joy.",
+        ],
+        question: "What does the father do to welcome each of his sons?",
+      },
+      teen: {
+        paragraphs: [
+          "Jesus tells this parable after people complain that he welcomes sinners. The younger son plans to return as a hired worker. The father sees him while he is still far away and restores him as a son.",
+          "The father goes out again when the older brother refuses to enter the celebration. His invitation comes with a reminder that the older son already shares what belongs to the father. Luke leaves the brother’s response unanswered.",
+        ],
+        question: "Which brother is harder for you to understand, and how does the father respond to him?",
       },
     },
   },
