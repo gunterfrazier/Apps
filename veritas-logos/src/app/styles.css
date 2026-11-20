@@ -800,6 +800,10 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .password-row { display: flex; gap: .4rem; align-items: center; }
 .password-row .input { flex: 1; min-width: 0; }
 .code-input { font: 600 1.35rem/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .3em; text-align: center; }
+.code-row { display: flex; gap: .4rem; align-items: stretch; }
+.code-row .input { flex: 1; min-width: 0; }
+.code-row .btn { flex: none; }
+@media (max-width: 420px) { .code-row .code-input { letter-spacing: .12em; } }
 .form-error { color: var(--warn); background: var(--warn-soft); border-radius: 10px; padding: .5rem .7rem; font-size: .88rem; margin: 0; }
 .check-row { display: flex; gap: .5rem; align-items: flex-start; font-size: .88rem; color: var(--ink-2); margin: .4rem 0 .6rem; cursor: pointer; }
 .check-row input { margin-top: .2rem; width: 18px; height: 18px; flex: none; accent-color: var(--accent); }
