@@ -2,27 +2,25 @@ import { useEffect, useRef, useState } from "react";
 import { TRANSLATIONS } from "../../core/bible";
 import { getFigure } from "../../core/figure-graph";
 import { ensureFigures } from "../../core/people";
-import { bookName } from "../../core/references";
+import { passageMarkReference } from "../notebook-entries";
+import { NotebookCollectionView } from "./notebook-collection";
 import { detectAi, resetAiDetection, type AiMode } from "../ai-client";
 import { IS_ARTIFACT, saveFile, copyText } from "../files";
+import { offlineSupported, prepareOffline, useOfflineStatus } from "../offline";
 import { BUILT_IN, mb } from "../speech";
 import { mergeData, setPref, toast, update, useData, useSyncState, getData } from "../store";
 import { Empty, RefLink, TranslationSelect, ThemeSelect, LensSelect, useAsync } from "../ui";
 
-const keyToRef = (k: string) => {
-  const [b, c, rest] = k.split(":");
-  return `${bookName(Number(b))} ${c}:${(rest ?? "").replace("-", "–")}`;
-};
-
 export function LibraryPage() {
-  const { prefs, notes, highlights, bookmarks, figures, guides } = useData();
+  const { prefs, notebook, notes, highlights, bookmarks, figures, guides } = useData();
   const [tab, setTab] = useState<"notes" | "marks" | "settings" | "about">("notes");
   const file = useRef<HTMLInputElement | null>(null);
   const [ai, setAi] = useState<AiMode | null>(null);
   const sync = useSyncState();
+  const offline = useOfflineStatus();
   useEffect(() => { detectAi().then(setAi); }, []);
   useAsync(ensureFigures, []);
-  const notesList = Object.values(notes).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const noteCount = notebook.length + Object.keys(notes).length;
   const hlList = Object.entries(highlights);
 
   const backup = () => saveFile("veritas-logos-backup.json", JSON.stringify({ ...getData(), prefs: { ...getData().prefs, apiKey: "" } }, null, 1), "application/json");
@@ -36,22 +34,20 @@ export function LibraryPage() {
   };
 
   return (
-    <div className="page prose">
+    <div className="page prose library-page">
       <h1 className="page-title">Library</h1>
       <div className="segmented" role="tablist">
-        {(["notes", "marks", "settings", "about"] as const).map((t) => <button type="button" key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t === "notes" ? "Notes" : t === "marks" ? "Saved" : t === "settings" ? "Settings" : "About"}</button>)}
+        {(["notes", "marks", "settings", "about"] as const).map((t) => <button type="button" key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t === "notes" ? "Notebook" : t === "marks" ? "Saved" : t === "settings" ? "Settings" : "About"}</button>)}
       </div>
 
-      {tab === "notes" && (notesList.length ? notesList.map((n) => (
-        <article key={n.key} className="note-card"><h4><RefLink refText={n.ref} /></h4><p style={{ whiteSpace: "pre-wrap" }}>{n.text}</p><p className="fine">{new Date(n.updatedAt).toLocaleDateString()}</p></article>
-      )) : <Empty>Tap any verse in the reader and choose “My note” to start. Notes stay on this device.</Empty>)}
+      {tab === "notes" && <NotebookCollectionView />}
 
       {tab === "marks" && (
         <>
           <h3>Bookmarks</h3>
-          {bookmarks.length ? <ul className="link-list">{bookmarks.map((k) => <li key={k}><RefLink refText={keyToRef(k)} /></li>)}</ul> : <Empty>No bookmarks yet.</Empty>}
+          {bookmarks.length ? <ul className="link-list">{bookmarks.map((k) => <li key={k}><RefLink refText={passageMarkReference(k) ?? k} /></li>)}</ul> : <Empty>No bookmarks yet.</Empty>}
           <h3>Highlights</h3>
-          {hlList.length ? <ul className="link-list">{hlList.map(([k, c]) => <li key={k}><span className={`swatch inline hl-${c}`} /><RefLink refText={keyToRef(k)} /></li>)}</ul> : <Empty>No highlights yet.</Empty>}
+          {hlList.length ? <ul className="link-list">{hlList.map(([k, c]) => <li key={k}><span className={`swatch inline hl-${c}`} /><RefLink refText={passageMarkReference(k) ?? k} /></li>)}</ul> : <Empty>No highlights yet.</Empty>}
           <h3>Saved people</h3>
           {figures.length ? <ul className="link-list">{figures.map((id) => <li key={id}><a href={`#person-${id}`}>{getFigure(id)?.name ?? id}</a></li>)}</ul> : <Empty>No saved people yet.</Empty>}
         </>
@@ -68,6 +64,15 @@ export function LibraryPage() {
             {BUILT_IN && <p className="fine">Where the browser has no voice, such as in the Claude app on Android, {BUILT_IN.name} reads. It downloads {mb(BUILT_IN.downloadBytes)} the first time and is kept in this browser.</p>}</div>
           <div><label className="label" htmlFor="set-rate">Read-aloud speed</label><select id="set-rate" value={prefs.rate} onChange={(e) => setPref("rate", Number(e.target.value))}>{[0.85, 1, 1.15, 1.3].map((r) => <option key={r} value={r}>{r}×</option>)}</select></div>
 
+          {offlineSupported && <>
+            <h3>Offline study</h3>
+            <p role="status">{offline.state === "ready" && offline.translation === prefs.translation
+              ? `${prefs.translation} and the core lexicons are ready to use offline on this device.`
+              : offline.state === "failed" ? "The offline download didn't finish. Reconnect and try again."
+              : `Preparing ${prefs.translation} and the core lexicons for offline use…`}</p>
+            {offline.state === "failed" && <button type="button" className="btn small" onClick={() => prepareOffline(prefs.translation, true)}>Retry offline download</button>}
+          </>}
+
           <h3>AI assistant</h3>
           <p>{ai === "viewer" ? "On. It runs through your Claude account, so there's nothing to set up or pay for separately. You'll be asked to allow it the first time." : ai === "server" ? "On. It runs through this app's API server." : "Not available in this copy of the app."}</p>
           {!IS_ARTIFACT && (
@@ -80,7 +85,7 @@ export function LibraryPage() {
           )}
 
           <h3>Your data</h3>
-          <p>{guides.length} guides, {notesList.length} notes, {hlList.length} highlights.</p>
+          <p>{guides.length} guides, {noteCount} notes, {hlList.length} highlights.</p>
           <p className="sync-state">{sync === "saved" ? "Saved privately to your Claude account, so it follows you between devices." : sync === "saving" ? "Saving to your Claude account…" : sync === "connecting" ? "Connecting to your Claude account…" : sync === "failed" ? "Couldn't reach your Claude account, so this is only in this browser for now. Back up anything you want to keep." : "Stored only in this browser. Clearing browser data removes it, so back up anything you want to keep."}</p>
           <div className="action-row">
             <button type="button" className="btn small primary" onClick={backup}>Back up</button>

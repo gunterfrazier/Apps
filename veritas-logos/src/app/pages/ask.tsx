@@ -3,10 +3,10 @@ import { checkReferences } from "../../core/ai";
 import { lensName, newId } from "../../core/guide";
 import { detectAi, type AiMode, type Turn } from "../ai-client";
 import { askChat, markSeen, newChat, stopJob, useChat, useJob } from "../ai-jobs";
-import type { CheckedClaim, ResearchAnswer } from "../../core/research";
+import type { CheckedSource, ResearchAnswer } from "../../core/research";
 import { saveGuide, setPref, useData, toast, navigate } from "../store";
 import { copyText } from "../files";
-import { Loading, LensSelect, RefText, TranslationSelect, OriginTag, useAsync } from "../ui";
+import { Loading, LensSelect, RefLink, RefText, TranslationSelect, OriginTag, useAsync } from "../ui";
 import { addSectionsToGuide } from "./insights";
 
 const STARTERS = [
@@ -28,7 +28,7 @@ export function AiSetupNote() {
 
 const research0 = (job: { payload: { research?: boolean } }) => Boolean(job.payload?.research);
 
-export function AskPage({ contextRef }: { contextRef?: string }) {
+export function AskPage({ contextRef, initialQuestion, onQuestionUsed }: { contextRef?: string; initialQuestion: { text: string } | null; onQuestionUsed: () => void }) {
   const { prefs, guides, activeGuideId } = useData();
   const [mode, setMode] = useState<AiMode | null>(null);
   const { turns, checked: checkedRaw, error: chatError } = useChat();
@@ -39,10 +39,18 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
   const error = chatError;
   const [draft, setDraft] = useState("");
   const [context, setContext] = useState(contextRef);
-  const [research, setResearch] = useState(false);
+  const [research, setResearch] = useState(true);
+  const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement | null>(null);
   useEffect(() => { let live = true; detectAi().then((m) => live && setMode(m)); return () => { live = false; }; }, []);
   useEffect(() => { setContext(contextRef); }, [contextRef]);
+  useEffect(() => {
+    if (!initialQuestion || mode === null) return;
+    setDraft(initialQuestion.text);
+    setResearch(true);
+    input.current?.focus();
+    onQuestionUsed();
+  }, [initialQuestion, mode]);
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [turns.length, streaming]);
   useEffect(() => { if (job && !working) markSeen(job.id); }, [job?.id, working]);
 
@@ -52,8 +60,15 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
     setDraft("");
     askChat(question, { translation: prefs.translation, lens: prefs.lens, contextRef: context, research });
   };
-  const addAnswer = (content: string, question: string) =>
-    addSectionsToGuide([{ id: newId(), kind: "text", heading: question.slice(0, 90), origin: "ai", body: content }], question.slice(0, 60), guides, activeGuideId, prefs.translation, prefs.lens);
+  const addAnswer = (content: string, question: string, answer?: ResearchAnswer) => {
+    const items = answer?.claims.flatMap((claim) => claim.sources.filter((source) => source.ok).map((source) => ({
+      label: source.label, text: source.detail ?? "",
+      ref: source.source.type === "scripture" ? source.source.ref : undefined,
+      wordId: source.source.type === "lexicon" ? source.source.id : undefined,
+    })));
+    addSectionsToGuide([{ id: newId(), kind: "text", heading: question.slice(0, 90), origin: "ai", body: content, items }],
+      question.slice(0, 60), guides, activeGuideId, prefs.translation, prefs.lens);
+  };
 
   if (mode === null) return <div className="page"><Loading /></div>;
   return (
@@ -64,10 +79,10 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
         <>
           <div className="filters">
             <label className="field-inline" htmlFor="ask-lens">Lens <LensSelect id="ask-lens" value={prefs.lens} onChange={(l) => setPref("lens", l)} /></label>
-            <label className="field-inline" htmlFor="ask-research"><input id="ask-research" type="checkbox" checked={research} onChange={(e) => setResearch(e.target.checked)} /> Research mode</label>
+            <label className="field-inline" htmlFor="ask-research"><input id="ask-research" type="checkbox" checked={research} onChange={(e) => setResearch(e.target.checked)} /> Cite study sources</label>
             <label className="field-inline" htmlFor="ask-translation">Text <TranslationSelect id="ask-translation" value={prefs.translation} onChange={(t) => setPref("translation", t)} /></label>
           </div>
-          {research && <p className="fine">In research mode, the assistant must tie every claim to a passage, writer, creed or term in this app. The app then checks each quote word for word, and marks anything it can't confirm as unsupported.</p>}
+          {research && <p className="fine">The app checks citations against its Scripture, writers, lexicon, and other study sources. Confirmed citations link to their entries where available.</p>}
           {context && <p className="context-chip">Looking at <RefText text={context} /> <button type="button" className="link-btn" onClick={() => setContext(undefined)}>Remove</button></p>}
           {!turns.length && streaming === null && (
             <div className="tool-list">
@@ -79,7 +94,7 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
           <div className="chat">
             {turns.map((t, i) => (
               <div key={i} className={`bubble ${t.role}`}>
-                {t.role === "assistant" ? (checked[i] ? <CheckedAnswer a={checked[i]} onAdd={() => addAnswer(t.content, turns[i - 1]?.content ?? "AI answer")} /> : <Answer text={t.content} onAdd={() => addAnswer(t.content, turns[i - 1]?.content ?? "AI answer")} />) : <p>{t.content}</p>}
+                {t.role === "assistant" ? (checked[i] ? <CheckedAnswer a={checked[i]} onAdd={() => addAnswer(t.content, turns[i - 1]?.content ?? "AI answer", checked[i])} /> : <Answer text={t.content} onAdd={() => addAnswer(t.content, turns[i - 1]?.content ?? "AI answer")} />) : <p>{t.content}</p>}
               </div>
             ))}
             {streaming !== null && <div className="bubble assistant">{streaming ? <Prose text={streaming} /> : <Loading label={job?.progress || "Thinking"} />}<button type="button" className="link-btn" onClick={() => job && stopJob(job.id)}>Stop</button></div>}
@@ -88,7 +103,7 @@ export function AskPage({ contextRef }: { contextRef?: string }) {
             <div ref={end} />
           </div>
           <form className="ask-box" onSubmit={(e) => { e.preventDefault(); send(draft); }}>
-            <textarea id="ask-input" className="input" rows={2} placeholder={`Ask about a passage, word or doctrine (${lensName(prefs.lens)})`} aria-label="Your question" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
+            <textarea ref={input} id="ask-input" className="input" rows={2} placeholder={`Ask about a passage, word or doctrine (${lensName(prefs.lens)})`} aria-label="Your question" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }} />
             <button type="submit" className="btn primary" disabled={!draft.trim() || Boolean(working)}>Send</button>
           </form>
         </>
@@ -101,30 +116,42 @@ function Prose({ text }: { text: string }) {
   return <>{text.split(/\n{2,}/).map((p, i) => <p key={i} style={{ whiteSpace: "pre-wrap" }}><RefText text={p.replace(/\*\*/g, "")} /></p>)}</>;
 }
 
-function ClaimRow({ c }: { c: CheckedClaim }) {
-  return (
-    <li className={`claim ${c.supported ? "ok" : "bad"}`}>
-      <p><strong>{c.supported ? "Supported" : "Unsupported"}.</strong> <RefText text={c.text} /></p>
-      <ul className="fine-list">
-        {c.sources.map((s, i) => (
-          <li key={i}>
-            <span className={s.ok ? "ok-mark" : "bad-mark"}>{s.ok ? "Checked" : "Not confirmed"}</span>{" "}
-            {s.hash ? <a href={`#${s.hash}`}>{s.label}</a> : <RefText text={s.label} />}{s.detail ? `: “${s.detail}”` : ""}
-            <span className="fine"> {s.why}</span>
-          </li>
-        ))}
-        {!c.sources.length && <li>No source was given.</li>}
-      </ul>
-    </li>
-  );
+function SourceLink({ source, children }: { source: CheckedSource; children?: string }) {
+  if (source.ok && source.hash) return <a href={`#${source.hash}`} aria-label={children ? `${children} ${source.label}` : undefined}>{children ?? source.label}</a>;
+  if (source.ok && source.source.type === "scripture") return <RefLink refText={source.source.ref}>{children ?? source.label}</RefLink>;
+  return <>{children ?? source.label}</>;
 }
+
 function CheckedAnswer({ a, onAdd }: { a: ResearchAnswer; onAdd: () => void }) {
   const ok = a.claims.filter((c) => c.supported).length;
+  let number = 0;
+  const claims = a.claims.map((claim) => ({ ...claim, citations: claim.sources.map((source) => ({ source, number: ++number })) }));
+  const citations = claims.flatMap((claim) => claim.citations);
   return (
     <>
       {a.summary && <p><RefText text={a.summary} /></p>}
-      <p className="fine">{ok} of {a.claims.length} claims have a source the app could confirm. A confirmed source shows the words exist, and you still need to judge whether they support the claim.</p>
-      <ul className="claims">{a.claims.map((c, i) => <ClaimRow key={i} c={c} />)}</ul>
+      <p className="fine">{ok} of {a.claims.length} claims have a source the app could confirm. Read the cited source to judge whether it supports the claim.</p>
+      <ul className="claims">
+        {claims.map((claim, i) => (
+          <li key={i} className={`claim ${claim.supported ? "ok" : "bad"}`}>
+            <p><strong>{claim.supported ? "Supported" : "Unsupported"}.</strong> <RefText text={claim.text} />
+              {claim.citations.filter(({ source }) => source.ok).map(({ source, number: n }) =>
+                <sup className="answer-citation" key={n}><SourceLink source={source}>{`[${n}]`}</SourceLink></sup>)}
+            </p>
+          </li>
+        ))}
+      </ul>
+      {citations.length > 0 && <>
+        <h4>Study sources</h4>
+        <ol className="fine-list answer-sources">
+          {citations.map(({ source, number: n }) => (
+            <li key={n} value={n}>
+              <SourceLink source={source} />{source.detail && <> “{source.detail}”</>}
+              <span className={source.ok ? "fine" : "bad-mark"}> {source.why}</span>
+            </li>
+          ))}
+        </ol>
+      </>}
       {a.gaps.length > 0 && <><h4>What the app's sources don't settle</h4><ul className="fine-list">{a.gaps.map((g, i) => <li key={i}>{g}</li>)}</ul></>}
       <div className="bubble-actions">
         <OriginTag origin="ai" />

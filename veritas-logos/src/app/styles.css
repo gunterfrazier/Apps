@@ -657,3 +657,21 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .reader-occurrences { display: flex; flex-wrap: wrap; gap: .3rem .8rem; list-style: none; padding: 0; margin: .4rem 0; font-size: .85rem; }
 .reader-tagged { margin: .7rem 0; }
 .reader-tagged .tag-word[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-strong); }
+
+/* Notebook entries and the selected export */
+.notebook-memberships { min-width: 0; margin: .35rem 0; padding: .45rem .7rem; border: 1px solid var(--line); border-radius: 8px; }
+.notebook-picker:has(.notebook-memberships) { flex-basis: 100%; }
+.notebook-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.notebook-screen .note-card h3 { margin: 0; }
+.notebook-screen .note-card > p { margin: .35rem 0; }
+.notebook-print, .guide-print { display: none; }
+@media print {
+  .notebook-page:has(.notebook-print) > :not(.notebook-print),
+  .library-page:has(.notebook-print) > :not(.notebook-print),
+  .guide:has(.guide-print) > :not(.guide-export),
+  .guide-export:has(.guide-print) > :not(.guide-print) { display: none !important; }
+  .notebook-print, .guide-print { display: block; }
+  .notebook-print .doc-section, .guide-print .doc-section { break-inside: auto; }
+}
+.answer-citation { margin-inline: .1em; }
+.answer-sources li { margin-bottom: .4rem; }

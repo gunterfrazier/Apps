@@ -8,8 +8,9 @@ import { BOOKS, bookName } from "../../core/references";
 import { copyText } from "../files";
 import { BUILT_IN, builtInSaved, canReadAloud, mb, NO_SPEECH, readAloud, usesBuiltIn, type SpeechStatus } from "../speech";
 import { readHash, type ReadRoute } from "../routes";
-import { getData, navigate, setPref, toast, update, useData, type HighlightColor } from "../store";
+import { getData, HIGHLIGHT_COLORS, navigate, setPref, toast, update, useData, type HighlightColor } from "../store";
 import { ErrorNote, Loading, Sheet, Tag, ThemeSelect, TranslationSelect, RefLink, useAsync, Empty } from "../ui";
+import { NotebookPicker } from "./notebook-collection";
 import { ReaderLexicon, ReaderWords, type WordSelection } from "./reader-words";
 import { addSectionsToGuide, InsightsPanel } from "./insights";
 import { HistoryOfInterpretation, passageWritersHash } from "./writers";
@@ -18,7 +19,6 @@ import { Backlinks, ScholarshipLinks, useMedia } from "./scholar-ui";
 import { creedsCiting } from "../../core/scholar";
 
 const vKey = (b: number, c: number, v: number) => `${b}:${c}:${v}`;
-const COLORS: HighlightColor[] = ["amber", "green", "blue", "rose"];
 
 // ---------- Book and chapter picker ----------
 function Picker({ book, chapter, onPick, onClose }: { book: number; chapter: number; onPick: (b: number, c: number) => void; onClose: () => void }) {
@@ -236,13 +236,16 @@ export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, do
     return parts.join(" ");
   }, [book, chapter, verse, end, prefs.translation]);
   const key = vKey(book, chapter, verse);
-  const marked = bookmarks.includes(key);
+  const rangeKey = end > verse ? `${key}-${end}` : key;
+  const marked = bookmarks.includes(rangeKey);
+  const rangeKeys = Array.from({ length: end - verse + 1 }, (_, i) => vKey(book, chapter, verse + i));
+  const selectedColor = HIGHLIGHT_COLORS.find((color) => rangeKeys.length > 0 && rangeKeys.every((k) => highlights[k] === color));
   const setColor = (c: HighlightColor | null) => {
     update((d) => {
       const h = { ...d.highlights };
-      for (let v = verse; v <= end; v++) {
-        if (c) h[vKey(book, chapter, v)] = c;
-        else delete h[vKey(book, chapter, v)];
+      for (const k of rangeKeys) {
+        if (c) h[k] = c;
+        else delete h[k];
       }
       return { ...d, highlights: h };
     });
@@ -257,13 +260,16 @@ export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, do
           {Array.from({ length: Math.max(0, (total ?? verse) - verse + 1) }, (_, i) => verse + i).map((v) => <option key={v} value={v}>{v}</option>)}
         </select>
         <span className="swatches" role="group" aria-label="Highlight">
-          {COLORS.map((c) => <button type="button" key={c} className={`swatch hl-${c} ${highlights[key] === c ? "on" : ""}`} aria-label={`Highlight ${c}`} onClick={() => setColor(highlights[key] === c ? null : c)} />)}
+          {HIGHLIGHT_COLORS.map((c) => <button type="button" key={c} className={`swatch hl-${c} ${selectedColor === c ? "on" : ""}`} aria-label={`Highlight ${c}`} aria-pressed={selectedColor === c} onClick={() => setColor(selectedColor === c ? null : c)} />)}
         </span>
       </div>
       <div className="action-row">
         <button type="button" className="btn small primary" onClick={add}>Add to guide</button>
         <button type="button" className="btn small" onClick={() => copyText(`${text} (${reference}, ${prefs.translation})`, "Verse copied")}>Copy</button>
-        <button type="button" className="btn small" onClick={() => update((d) => ({ ...d, bookmarks: marked ? d.bookmarks.filter((x) => x !== key) : [key, ...d.bookmarks] }))}>{marked ? "Bookmarked" : "Bookmark"}</button>
+        <button type="button" className="btn small" onClick={() => update((d) => ({ ...d, bookmarks: marked ? d.bookmarks.filter((x) => x !== rangeKey) : [rangeKey, ...d.bookmarks] }))}>{marked ? "Bookmarked" : "Bookmark"}</button>
+        <NotebookPicker entry={`passage:${rangeKey}`} title={reference} onSave={(d) =>
+          d.bookmarks.includes(rangeKey) || d.notes[rangeKey] || d.highlights[rangeKey]
+            ? d : { ...d, bookmarks: [rangeKey, ...d.bookmarks] }} />
         <a className="btn small" href={`#ask-${readHash({ book, chapter, verse, verseEnd: end }).slice(5)}`} onClick={onClose}>Ask AI</a>
       </div>
       <div className="tabs study-tabs" role="tablist" aria-label="Verse study">
@@ -276,7 +282,7 @@ export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, do
       {tab === "links" && <LinksTab book={book} chapter={chapter} verse={verse} translation={prefs.translation} />}
       {tab === "history" && <HistoryOfInterpretation reference={reference} compact />}
       {tab === "text" && <TextTab book={book} chapter={chapter} verse={verse} />}
-      {tab === "notes" && <NotesTab noteKey={end > verse ? `${key}-${end}` : key} reference={reference} />}
+      {tab === "notes" && <NotesTab noteKey={rangeKey} reference={reference} />}
     </>
   );
   if (docked) {

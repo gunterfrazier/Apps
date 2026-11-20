@@ -7,8 +7,9 @@ import { findReferences } from "../../core/references";
 import { creedText, eventHash, getChurchEvents, getCreed, getCreedIndex, TRADITIONS, yearToCentury } from "../../core/scholar";
 import { excerptsFromSearch, getWritingsIndex, writerTradition, TRADITION_ORDER, type SearchHit } from "../../core/writings";
 import { copyText, openStoredFile, removeStoredFile, saveFile, storeFile } from "../files";
-import { deleteNote, deleteSource, navigate, saveNote, saveSource, toast, update, useData, type NoteEntry, type SavedSearch, type SourceEntry } from "../store";
+import { deleteNote, deleteSource, navigate, saveNote, saveSource, toast, update, useData, type SavedSearch, type SourceEntry } from "../store";
 import { Empty, ErrorNote, Loading, RefLink, RefText, Tag, useAsync } from "../ui";
+import { NotebookCollectionView, NotebookPicker } from "./notebook-collection";
 import { addSectionsToGuide } from "./insights";
 import { ExcerptCard } from "./writers";
 
@@ -20,54 +21,14 @@ export const StudyNav = ({ active }: { active: string }) => (
   </div>
 );
 
-const hashtags = (s: string) => [...new Set((s.match(/(^|\s)#([a-z][\w-]{1,30})/gi) ?? []).map((t) => t.trim().slice(1).toLowerCase()))];
-
-// ---------- Notebook ----------
 export function NotebookPage() {
-  const { notebook, notes } = useData();
-  const [q, setQ] = useState("");
-  const [tag, setTag] = useState("");
-  const all = useMemo(() => {
-    const verse = Object.values(notes).map((n) => ({ id: n.key, title: `Note on ${n.ref}`, body: n.text, tags: n.tags ?? [], updatedAt: n.updatedAt, verse: n.ref }));
-    return [...notebook.map((n) => ({ ...n, verse: "" })), ...verse].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }, [notebook, notes]);
-  const tags = useMemo(() => [...new Set(all.flatMap((n) => [...n.tags, ...hashtags(n.body)]))].sort(), [all]);
-  const s = q.trim().toLowerCase();
-  const list = all.filter((n) => (!tag || n.tags.includes(tag) || hashtags(n.body).includes(tag)) && (!s || `${n.title} ${n.body}`.toLowerCase().includes(s)));
-  const create = () => {
-    const now = new Date().toISOString();
-    const n: NoteEntry = { id: newId("n"), title: "", body: "", tags: [], createdAt: now, updatedAt: now };
-    saveNote(n);
-    navigate(`note-${n.id}`);
-  };
-  const exportMd = () => saveFile("notebook.md", all.map((n) => `# ${n.title || "Untitled"}\n\n${n.body}\n`).join("\n"), "text/markdown");
   return (
-    <div className="page">
+    <div className="page notebook-page">
       <h1 className="page-title">Notebook</h1>
-      <p className="sub">Research notes in one place. Name a passage, term or writer and the note links to it, and shows up on its page.</p>
       <StudyNav active="notebook" />
-      <div className="action-row">
-        <button type="button" className="btn small primary" onClick={create}>New note</button>
-        {all.length > 0 && <button type="button" className="btn small" onClick={exportMd}>Export as Markdown</button>}
-      </div>
-      {all.length > 0 && <input className="input" type="search" placeholder="Search your notes" aria-label="Search your notes" value={q} onChange={(e) => setQ(e.target.value)} />}
-      {tags.length > 0 && <div className="chips">{tags.map((t) => <button type="button" key={t} className={`chip ${tag === t ? "on" : ""}`} onClick={() => setTag(tag === t ? "" : t)}>#{t}</button>)}</div>}
-      <div className="writer-list">
-        {list.map((n) => (
-          <a key={n.id} className="tool-row" href={n.verse ? `#read-${readHashFor(n.verse)}` : `#note-${n.id}`}>
-            <strong>{n.title || "Untitled note"}</strong>
-            <span>{n.body.slice(0, 140) || "Empty"}</span>
-          </a>
-        ))}
-      </div>
-      {!all.length && <Empty>Nothing yet. Save quotes from any writer or creed here, or start a note.</Empty>}
-      <p className="fine">Notes save as you type and follow you between devices when the app is open in Claude. Add a tag by typing it with a # sign, such as #atonement.</p>
+      <NotebookCollectionView />
     </div>
   );
-}
-function readHashFor(ref: string) {
-  const m = /^(.*?) (\d+):(\d+)/.exec(ref);
-  return m ? `${m[1].toLowerCase().replace(/\s+/g, "")}-${m[2]}-${m[3]}` : "";
 }
 
 export function NotePage({ id }: { id: string }) {
@@ -95,6 +56,7 @@ export function NotePage({ id }: { id: string }) {
       <textarea className="input note-body" rows={14} aria-label="Note" placeholder="Write freely. References such as Romans 8:28 become links. Tag with #atonement." value={n.body} onChange={(e) => saveNote({ ...n, body: e.target.value })} />
       <div className="action-row">
         <button type="button" className="btn small" onClick={addToGuide}>Add to guide</button>
+        <NotebookPicker entry={`note:${id}`} title={n.title || "Untitled note"} />
         <button type="button" className="btn small" onClick={() => copyText(n.body, "Note copied")}>Copy</button>
         <button type="button" className="btn small" onClick={() => { deleteNote(n.id); navigate("notebook"); }}>Delete</button>
       </div>

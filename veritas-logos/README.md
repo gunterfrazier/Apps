@@ -57,6 +57,8 @@ The app can also run on your own site. The hosted options are built and tested b
 1. **Static site only (cheapest).** Upload `dist/` to any static host. Everything works except AI and saved API guides. It's about 100 MB, because the build packs the data files.
 2. **Static site plus server (needed for AI and the API).** Run `dist-server/server.js`, or the included `Dockerfile`, on any Node host with a persistent disk for the SQLite database. Set the values in `.env.example`.
 
+On an HTTPS site, the app prepares the active translation, core lexicons and concordance for offline use. Check Library → Settings to see when the download finishes. Ask AI and data the browser hasn't downloaded need a connection. Notebook and guide PDFs use the browser's Print or Save as PDF flow.
+
 ## Turning on AI
 
 The AI key must stay on the server, because anyone can read a key placed in a web page.

@@ -1,8 +1,9 @@
+import { flushSync } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPassage, TRANSLATIONS, type TranslationId } from "../../core/bible";
 import { guideRequestPresets } from "../../core/ai";
 import type { LensId } from "../../core/content";
-import { blankGuide, generateGuide, GUIDE_FORMATS, GuideInputError, guideToHtml, guideToMarkdown, guideToText, guideToWord, lensName, newId, ORIGIN_LABEL, resolveGuide, sanitizeGuide, type Guide, type GuideFormat, type GuideSection, type SectionItem } from "../../core/guide";
+import { blankGuide, generateGuide, GUIDE_FORMATS, GuideInputError, guideToHtml, guideToMarkdown, guideToText, guideToWord, lensName, newId, ORIGIN_LABEL, resolveGuide, sanitizeGuide, type Guide, type GuideFormat, type GuideSection, type ResolvedGuide, type SectionItem } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
 import { aiDraft, detectAi, friendlyAiError, type AiMode } from "../ai-client";
 import { guideToDocx } from "../../core/docx";
@@ -399,6 +400,10 @@ export function GuideDocument({ guide }: { guide: Guide }) {
   const { data, loading, error } = useAsync(() => resolveGuide(guide), [guide]);
   if (loading && !data) return <Loading />;
   if (error || !data) return <ErrorNote error={error} />;
+  return <ResolvedGuideDocument data={data} />;
+}
+
+function ResolvedGuideDocument({ data }: { data: ResolvedGuide }) {
   return (
     <div className="doc">
       <h1>{data.title}</h1>
@@ -438,11 +443,18 @@ const GuideReader = ({ guide }: { guide: Guide }) => <GuideDocument guide={guide
 
 function GuideShare({ guide }: { guide: Guide }) {
   const [link, setLink] = useState("");
+  const [printGuide, setPrintGuide] = useState<ResolvedGuide | null>(null);
   const slug = useMemo(() => guide.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "study-guide", [guide.title]);
   useEffect(() => { let live = true; encodeForLink(guide).then((code) => live && setLink(`${appBase()}#shared-${code}`)).catch(() => live && setLink("")); return () => { live = false; }; }, [guide]);
   const embed = useMemo(() => (link ? `<iframe src="${appBase()}embed.html#${link.split("#")[1].replace("shared-", "guide-")}" title="${guide.title.replace(/"/g, "&quot;")}" style="width:100%;height:600px;border:0" loading="lazy"></iframe>` : ""), [link, guide.title]);
-  const doExport = async (kind: "md" | "html" | "txt" | "doc" | "json" | "copy") => {
-    const r = await resolveGuide(guide);
+  const doExport = async (kind: "md" | "html" | "txt" | "doc" | "json" | "copy" | "pdf") => {
+    const r = await resolveGuide(guide).catch(() => null);
+    if (!r) { toast("Couldn't prepare the guide for export."); return; }
+    if (kind === "pdf") {
+      flushSync(() => setPrintGuide(r));
+      if (document.querySelector(".guide-print")) window.print();
+      return;
+    }
     if (kind === "copy") return copyText(guideToText(r), "Guide copied");
     if (kind === "md") return saveFile(`${slug}.md`, guideToMarkdown(r), "text/markdown");
     if (kind === "html") return saveFile(`${slug}.html`, guideToHtml(r), "text/html");
@@ -451,7 +463,8 @@ function GuideShare({ guide }: { guide: Guide }) {
     return saveFile(`${slug}.json`, JSON.stringify(guide, null, 2), "application/json");
   };
   return (
-    <div className="prose">
+    <div className="prose guide-export">
+      {printGuide && <div className="guide-print"><ResolvedGuideDocument data={printGuide} /></div>}
       <h3>Export</h3>
       <div className="action-row">
         <button type="button" className="btn small primary" onClick={() => doExport("copy")}>Copy text</button>
@@ -460,7 +473,7 @@ function GuideShare({ guide }: { guide: Guide }) {
         <button type="button" className="btn small" onClick={() => doExport("md")}>Markdown</button>
         <button type="button" className="btn small" onClick={() => doExport("txt")}>Plain text</button>
         <button type="button" className="btn small" onClick={() => doExport("json")}>Guide file</button>
-        {!IS_ARTIFACT && <button type="button" className="btn small" onClick={() => window.print()}>Print or PDF</button>}
+        {!IS_ARTIFACT && <button type="button" className="btn small" onClick={() => doExport("pdf")}>Print or PDF</button>}
       </div>
       {IS_ARTIFACT && <p className="fine">Printing works once the app is on your own website.</p>}
       <h3>Share a link</h3>
