@@ -16,6 +16,7 @@ import { AdvancedSearchPage, NotebookPage, NotePage, SourcesPage } from "./pages
 import { CommandPalette, HistoryHub, rememberPlace } from "./pages/hubs";
 import { PassageWritersPage, WriterExcerptPage, WriterPage, WritersPage } from "./pages/writers";
 import { parseTimelineRoute } from "../core/timeline";
+import { TyndaleDictionaryPage } from "./pages/tyndale-dictionary";
 import { PlacesPage } from "./pages/study-resources";
 import { LibraryPage } from "./pages/library";
 import { getGlossary } from "../core/glossary";
@@ -79,6 +80,7 @@ function pageFor(route: string, askDraft: { text: string } | null, consumeAskDra
     case "timeline": return { node: <TimelinePage at={parseTimelineRoute(tail)} />, tab: "history" };
     case "writers": return { node: <WritersPage key={tail} initialSearch={tail.startsWith("q-") ? decodeURIComponent(tail.slice(2)).replace(/-/g, " ") : undefined} />, tab: "history" };
     case "glossary": return { node: <GlossaryPage />, tab: "explore" };
+    case "dictionary": return { node: <TyndaleDictionaryPage id={tail} />, tab: "explore" };
     case "term": return { node: <TermPage key={tail} id={tail} />, tab: "explore" };
     case "excerpt": return { node: <WriterExcerptPage key={tail} locator={tail} />, tab: "history" };
     case "writer": return { node: <WriterPage key={tail} id={tail} />, tab: "history" };
@@ -116,7 +118,7 @@ const TABS: { id: string; hash: string; label: string; icon: ReactNode }[] = [
 const ROOTS = new Set(["", "read", "explore", "history", "guides", "ask", "library"]);
 /** Routes that show the same page stay mounted, so opening a church event keeps the chart as it was. */
 const pageKey = (route: string) => { const head = route.split("-")[0]; return head === "event" ? "church" : head; };
-const LABELS: Record<string, string> = { church: "Church history", timeline: "Bible timeline", creeds: "Creeds", writers: "Writers", glossary: "Theological terms", notebook: "Notebook", places: "Bible places", compare: "Compare texts", synopsis: "Gospel synopsis", dc: "Deuterocanon", morph: "Search by grammar", textual: "Textual notes", originals: "Primary texts", people: "People" };
+const LABELS: Record<string, string> = { church: "Church history", timeline: "Bible timeline", creeds: "Creeds", writers: "Writers", glossary: "Theological terms", notebook: "Notebook", places: "Bible places", dictionary: "Tyndale Bible Dictionary", compare: "Compare texts", synopsis: "Gospel synopsis", dc: "Deuterocanon", morph: "Search by grammar", textual: "Textual notes", originals: "Primary texts", people: "People" };
 const labelFor = (route: string) => {
   const [head, ...rest] = route.split("-");
   if (LABELS[route]) return LABELS[route];

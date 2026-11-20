@@ -1,3 +1,4 @@
+import { getTyndaleDictionaryArticle, getTyndaleDictionaryIndex, searchTyndaleDictionary } from "../src/core/tyndale-dictionary";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import zlib from "node:zlib";
@@ -1037,4 +1038,18 @@ test("manual YLT word tags require the bundled edition's exact normalized words"
   assert.equal(await yltWordTag(43, 3, 16, readingWords(await getVerse("BSB", 43, 3, 16)), love), "");
   const genesis = readingWords(await getVerse("YLT", 1, 1, 1));
   assert.equal(await yltWordTag(1, 1, 1, genesis, genesis.findIndex((word) => word.key === "beginning")), "H7225");
+});
+
+test("Tyndale dictionary searches titles and redirects and preserves source cross-links", async () => {
+  const index = await getTyndaleDictionaryIndex();
+  assert.equal(index.length, 6010);
+  assert.equal(searchTyndaleDictionary(index, "AARON")[0][0], "aaron");
+  assert.ok(searchTyndaleDictionary(index, "Acsah").some((entry) => entry[0] === "achsaachsah"));
+  assert.equal(searchTyndaleDictionary(index, "Aaron's Rod")[0][0], "aaronsrod");
+  const aaron = await getTyndaleDictionaryArticle("aaron");
+  assert.ok(aaron?.paragraphs.flatMap((paragraph) => paragraph[2]).some((run) => run[1] === "scripture" && run[2] === "Exodus 7:7"));
+  const rod = await getTyndaleDictionaryArticle("aaronsrod");
+  assert.ok(rod?.paragraphs.flatMap((paragraph) => paragraph[2]).some((run) => run[1] === "article" && run[2] === "aaron"));
+  assert.deepEqual((await getTyndaleDictionaryArticle("aenon"))?.entry[4], [43, 3, 23]);
+  assert.equal(await getTyndaleDictionaryArticle("../outside"), null);
 });
