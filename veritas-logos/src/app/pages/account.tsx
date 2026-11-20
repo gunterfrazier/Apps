@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { ACCOUNTS_ON, IN_CLAUDE, account, currentHash, deleteAccount, signOut, useAccount } from "../account";
 import { toast, useData, useSyncState } from "../store";
+import { useAsync } from "../ui";
 import { SyncLine } from "./library";
 
 /** Sign in, or see and manage the account, on the website. */
@@ -22,7 +23,7 @@ export function AccountPage() {
       {acct.status === "loading" && <p className="fine">Checking your account…</p>}
       {acct.status === "unavailable" && <p>Sign-in couldn't load. Check your connection and reload the page. Your work is still kept in this browser.</p>}
       {acct.status === "signed-out" && <SignIn />}
-      {acct.status === "signed-in" && acct.user && <Details email={acct.user.email} providers={acct.user.providers} />}
+      {acct.status === "signed-in" && acct.user && <Details key={acct.user.id} email={acct.user.email} providers={acct.user.providers} />}
       <PrivacyNote />
     </div>
   );
@@ -32,8 +33,27 @@ type Step =
   | { kind: "start" }
   | { kind: "code"; purpose: "signin" | "signup" | "reset"; email: string };
 
+function usePasskeyPrompt() {
+  const active = useRef<AbortController | null>(null);
+  useEffect(() => () => active.current?.abort(), []);
+  return async (start: (signal: AbortSignal) => Promise<unknown>) => {
+    const prompt = new AbortController();
+    active.current = prompt;
+    try {
+      await start(prompt.signal);
+      return !prompt.signal.aborted;
+    } catch (error) {
+      if (!prompt.signal.aborted) throw error;
+      return false;
+    } finally {
+      active.current = null;
+    }
+  };
+}
+
 function SignIn() {
   const { methods } = useAccount();
+  const passkeyPrompt = usePasskeyPrompt();
   const [step, setStep] = useState<Step>({ kind: "start" });
   const [how, setHow] = useState<"code" | "password">("code");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -68,6 +88,11 @@ function SignIn() {
   return (
     <div className="form account-form">
       <p>Sign in to keep your guides, notes, highlights and settings the same on your phone, tablet and computer. Reading and studying don't need an account.</p>
+      {methods?.passkeys && (
+        <button type="button" className="btn big" disabled={busy} onClick={() => run(async () => {
+          if (await passkeyPrompt((signal) => account().signInWithPasskey(signal))) toast("Signed in");
+        })}>Sign in with a passkey</button>
+      )}
       {methods?.google && (
         <>
           <button type="button" className="btn big google-btn" disabled={busy} onClick={() => run(() => account().google(currentHash()))}>
@@ -214,6 +239,7 @@ function CodeEntry({ step, onBack }: { step: Extract<Step, { kind: "code" }>; on
 }
 
 function Details({ email, providers }: { email: string; providers: string[] }) {
+  const { methods } = useAccount();
   const { guides, notes, highlights, notebook } = useData();
   const sync = useSyncState();
   const [removeHere, setRemoveHere] = useState(true);
@@ -238,6 +264,7 @@ function Details({ email, providers }: { email: string; providers: string[] }) {
         <a className="btn" href="#family">Manage family profiles</a>
       </section>
 
+      {methods?.passkeys && <PasskeySettings />}
       <Section title="Password">
         <p className="fine">Set a password to sign in with it as well as with {providers.includes("google") ? "Google or " : ""}an email code.</p>
         <form className="form" onSubmit={(e) => { e.preventDefault(); if (pw.length >= 8) act(async () => { await account().setPassword(pw); setPw(""); toast("Password saved"); }); }}>
@@ -265,6 +292,60 @@ function Details({ email, providers }: { email: string; providers: string[] }) {
         </div>
       </Section>
     </div>
+  );
+}
+
+function PasskeySettings() {
+  const passkeyPrompt = usePasskeyPrompt();
+  const [revision, setRevision] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const { data, loading, error: listError } = useAsync(async () => account().listPasskeys(), [revision]);
+  const reload = () => setRevision((value) => value + 1);
+  const change = async (work: () => Promise<boolean>, message: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      if (await work()) {
+        reload();
+        toast(message);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Section title="Passkeys">
+      <p className="fine">Add a passkey to sign in with your device unlock or a security key. You can also sign in with an email code.</p>
+      {loading && <p role="status">Loading passkeys…</p>}
+      {listError && <div>
+        <p className="form-error" role="alert">Your passkeys couldn’t load.</p>
+        <button className="btn small" type="button" onClick={reload}>Try again</button>
+      </div>}
+      {!loading && data?.length === 0 && <p className="fine">You haven't added a passkey yet.</p>}
+      {data && data.length > 0 && <ul className="link-list">
+        {data.map((key) => {
+          const name = key.friendly_name || "Passkey";
+          const date = new Date(key.created_at).toLocaleDateString();
+          return (
+            <li key={key.id} className="action-row">
+              <span>{name} <span className="fine">· Added {date}</span></span>
+              <button className="btn small" type="button" disabled={busy || loading}
+                aria-label={`Remove ${name}, added ${date}`}
+                onClick={() => {
+                  if (!confirm(`Remove the passkey “${name}” added ${date}?`)) return;
+                  void change(async () => { await account().removePasskey(key.id); return true; }, "Passkey removed");
+                }}>Remove</button>
+            </li>
+          );
+        })}
+      </ul>}
+      <button className="btn small primary" type="button" disabled={busy || loading || Boolean(listError)}
+        onClick={() => change(() => passkeyPrompt((signal) => account().registerPasskey(signal)), "Passkey added")}>Add a passkey</button>
+      {error && <p className="form-error" role="alert">{error}</p>}
+    </Section>
   );
 }
 

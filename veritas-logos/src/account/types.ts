@@ -13,7 +13,8 @@ export interface CloudCollection {
 export interface AccountConfig { url: string; key: string; redirectTo: string }
 export interface AccountUser { id: string; email: string; providers: string[]; createdAt?: string }
 /** Which ways of signing in the site has switched on, read from the account service's public settings. */
-export interface SignInMethods { google: boolean; email: boolean; signup: boolean; confirmEmail: boolean }
+export interface SignInMethods { google: boolean; email: boolean; signup: boolean; confirmEmail: boolean; passkeys: boolean }
+export interface AccountPasskey { id: string; friendly_name?: string; created_at: string }
 
 export interface AccountApi {
   /** Settles once any sign-in the address carried back (from Google or an email link) has been handled. */
@@ -35,6 +36,10 @@ export interface AccountApi {
   resendConfirmation(email: string): Promise<void>;
   signUp(email: string, password: string): Promise<{ user: AccountUser | null; needsCode: boolean }>;
   signInWithPassword(email: string, password: string): Promise<AccountUser | null>;
+  signInWithPasskey(signal: AbortSignal): Promise<AccountUser | null>;
+  registerPasskey(signal: AbortSignal): Promise<void>;
+  listPasskeys(): Promise<AccountPasskey[]>;
+  removePasskey(id: string): Promise<void>;
   sendResetCode(email: string): Promise<void>;
   setPassword(password: string): Promise<void>;
   signOut(): Promise<void>;
