@@ -343,7 +343,7 @@ out.sort(key=lambda x: re.sub(r"^the ", "", x["term"].lower()))
 print("own glossary: matched existing", merged, "new", own_new, "see-references", len(see_pending), "total terms", len(out))
 print("no text at all:", [x["term"] for x in out if not x["defs"] and not x["own"] and not x["see"]])
 
-json.dump({"terms": out, "note": "Definitions are quoted from the works named on each entry. Most are public domain; those marked modern are short quotations from copyrighted dictionaries."}, open(os.path.join(args.out, "glossary.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+json.dump({"terms": out, "note": "Definitions are quoted from the works named on each entry. All of them are public domain."}, open(os.path.join(args.out, "glossary.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 have = [x for x in out if x["defs"]]
 print("terms", len(out), "with a quoted definition", len(have), "own text", sum(1 for x in out if x["own"]))
 print("no entry found for listed headwords:", missing_heads)

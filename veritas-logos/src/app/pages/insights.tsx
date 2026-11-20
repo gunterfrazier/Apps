@@ -1,3 +1,4 @@
+import { localTranslation } from "../../core/bible";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TranslationId } from "../../core/bible";
 import { checkReferences, type AiInsight } from "../../core/ai";
@@ -12,7 +13,7 @@ import { ExegesisBlock, ExploreSheet, JobError, JobProgress } from "./ai-explore
 import { PassageSearchBlock } from "./passage-search";
 import { TyndaleNotes } from "./study-resources";
 import { symbolsHash } from "./symbols-link";
-import { Empty, ErrorNote, Loading, LensSelect, OriginTag, RefLink, RefText, Tag, useAsync } from "../ui";
+import { Empty, ErrorNote, Loading, LensSelect, OriginTag, RefLink, RefText, Tag, useAsync, NoAiNote } from "../ui";
 
 /** Adds sections to the guide being worked on, starting one if needed. */
 export function addSectionsToGuide(sections: GuideSection[], title: string, guides: Guide[], activeId: string | null, translation: TranslationId, lens: LensId) {
@@ -22,7 +23,7 @@ export function addSectionsToGuide(sections: GuideSection[], title: string, guid
     toast(`Added to "${active.title}"`);
   } else {
     const now = new Date().toISOString();
-    saveGuide({ id: newId("g"), title, format: "inductive", lens, translation, createdAt: now, updatedAt: now, sections, subtitle: "Started from the reader" });
+    saveGuide({ id: newId("g"), title, format: "inductive", lens, translation: localTranslation(translation), createdAt: now, updatedAt: now, sections, subtitle: "Started from the reader" });
     toast("Started a new guide. Find it under Guides.");
   }
 }
@@ -124,7 +125,7 @@ function AiInsightBlock({ reference, translation, lens }: { reference: string; t
   const run = () => enqueueJob({ kind: "insight", key, title: `Culture and theology: ${reference}`, payload: { reference, translation, lens } });
 
   if (mode === null) return null;
-  if (mode === "none") return <p className="note">Culture, idioms, the first audience and theological readings come from the AI assistant, which isn't available in this copy of the app. The sections below come from cited sources.</p>;
+  if (mode === "none") return <><NoAiNote what="Culture, idioms, the first audience and theological readings" /><p className="note">The sections below come from cited sources.</p></>;
   return (
     <section className="ai-block">
       <div className="sec-head">

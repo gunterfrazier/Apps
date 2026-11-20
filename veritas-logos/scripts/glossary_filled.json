@@ -12,15 +12,12 @@
  "Dispensationalism": {
   "defs": [
    {
-    "source": "Merriam-Webster Dictionary, “dispensationalism”",
-    "short": "Merriam-Webster",
-    "head": "Dispensationalism",
-    "text": "adherence to or advocacy of a system of interpreting history in terms of a series of God's dispensations",
-    "url": "https://www.merriam-webster.com/dictionary/dispensationalism",
-    "modern": true
+    "from": "webster",
+    "word": "dispensation",
+    "text": "That which is dispensed, dealt out, or appointed; that which is enjoined or bestowed; especially (Theol.),  a system of principles, promises, and rules ordained and administered; scheme; economy; as, the Patriarchal, Mosaic, and Christian dispensations."
    }
   ],
-  "note": "This is a view held by some Protestants, particularly among conservative evangelicals. Covenant theologians and many other Christians reject it."
+  "note": "Webster's defines “dispensation,” the word this view is named for. Dispensationalism, held by some Protestants, particularly among conservative evangelicals, reads the Bible's history as a series of such dispensations. Covenant theologians and many other Christians reject it."
  },
  "Doctrine": {
   "defs": [
@@ -34,14 +31,14 @@
  "Ecclesiology": {
   "defs": [
    {
-    "source": "Merriam-Webster Dictionary, “ecclesiology”, sense 2",
-    "short": "Merriam-Webster",
-    "head": "Ecclesiology",
-    "text": "theological doctrine relating to the church",
-    "url": "https://www.merriam-webster.com/dictionary/ecclesiology",
-    "modern": true
+    "source": "Augustus H. Strong, Systematic Theology (1907), Part VII, “Ecclesiology, or the Doctrine of the Church,” ch. 1, “Definition of the Church”",
+    "short": "Strong's Systematic Theology",
+    "head": "Ecclesiology, or the Doctrine of the Church",
+    "text": "The church of Christ, in its largest signification, is the whole company of regenerate persons in all times and ages, in heaven and on earth.",
+    "url": "https://www.gutenberg.org/ebooks/45283"
    }
-  ]
+  ],
+  "note": "Ecclesiology is the doctrine of the church, so Strong's definition is of the church itself. Traditions differ on how the visible, institutional church relates to this whole company of believers."
  },
  "Guilt": {
   "defs": [
@@ -55,12 +52,11 @@
  "Kenosis": {
   "defs": [
    {
-    "source": "John A. Hardon, Modern Catholic Dictionary, “Kenosis”, on CatholicCulture.org",
-    "short": "Hardon's Modern Catholic Dictionary",
+    "source": "Burton Scott Easton, “Kenosis,” The International Standard Bible Encyclopedia (1915)",
+    "short": "International Standard Bible Encyclopedia (1915)",
     "head": "Kenosis",
-    "text": "The voluntary renunciation by Christ of his right to divine privilege in his humble acceptance of human status.",
-    "url": "https://www.catholicculture.org/culture/library/dictionary/index.cfm?id=34432",
-    "modern": true
+    "text": "“Kenosis,” then, the corresponding noun, has become a technical term for the humiliation of the Son in the incarnation, but in recent years has acquired a still more technical sense, i.e. of the Son's emptying Himself of certain attributes, especially of omniscience.",
+    "url": "https://www.biblestudytools.com/dictionary/kenosis/"
    }
   ],
   "refs": [
@@ -142,15 +138,15 @@
  "Rapture": {
   "defs": [
    {
-    "source": "Merriam-Webster Dictionary, “rapture”, sense 3",
-    "short": "Merriam-Webster",
-    "head": "Rapture",
-    "text": "the final assumption of Christians into heaven during the end-time according to some Christian theologies",
-    "url": "https://www.merriam-webster.com/dictionary/rapture",
-    "modern": true
+    "source": "George Morrish, ed., Morrish Bible Dictionary (1897), “Rapture of the Saints”",
+    "short": "Morrish Bible Dictionary (1897)",
+    "head": "Rapture of the Saints",
+    "text": "A term often applied to the 'catching up' in the clouds of the saints, including both those raised from among the dead, and those who will be alive on the earth at that time, to meet the Lord in the air at His coming, according to 1 Thessalonians 4:16,17.",
+    "url": "https://www.studylight.org/dictionaries/mbd/r/rapture-of-the-saints.html"
    }
   ],
   "refs": [
+   "1 Thessalonians 4:16",
    "1 Thessalonians 4:17"
   ],
   "note": "Christians differ on this. Dispensationalists teach a separate event before the return of Christ, while many others read 1 Thessalonians 4:17 as part of His one return."

@@ -20,7 +20,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((name) => (name === "veritas-v1" && scope.pathname === "/") || (name.startsWith(PREFIX) && name !== SHELL && name !== DATA)).map((name) => caches.delete(name)));
+    await Promise.all(keys.filter((name) => (scope.pathname === "/" && /^veritas-(?:v1|[a-f0-9]{12})$/.test(name)) || (name.startsWith(PREFIX) && name !== SHELL && name !== DATA)).map((name) => caches.delete(name)));
     await self.clients.claim();
   })());
 });
@@ -64,6 +64,8 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return;
+  // Authentication callbacks must go to the network with their query intact.
+  if (request.mode === "navigate" && url.search) return;
   const path = url.pathname.slice(scope.pathname.length);
   const navigation = request.mode === "navigate" && (path === "" || path === "index.html");
   if (navigation || (shellFiles.has(path) && !url.search)) {

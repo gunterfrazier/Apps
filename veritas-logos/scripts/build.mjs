@@ -10,7 +10,7 @@ import zlib from "node:zlib";
 import * as esbuild from "esbuild";
 
 const watch = process.argv.includes("--watch");
-const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=Noto+Serif+Hebrew:wght@400;600&family=Noto+Serif:wght@400&display=swap">`;
+const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=Noto+Serif+Hebrew:wght@400;600&family=Noto+Serif:wght@400&display=swap">`;
 const shell = (title, script, extraHead = "") => `<!doctype html>
 <html lang="en">
 <head>
@@ -18,7 +18,7 @@ const shell = (title, script, extraHead = "") => `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${title}</title>
 <meta name="description" content="Bible study guides, Hebrew and Greek tools, cultural and theological insights, and biblical people.">
-<meta name="theme-color" content="#1c1917">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0e1015" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -52,6 +52,25 @@ const packAll = (dir) => {
 };
 if (!watch) packAll("dist/data");
 
+// The host holds at most 512 files per version, so folders of small per-book files go out as one packed file each,
+// "<folder>.bundle.json", an object keyed by file name. src/core/data.ts reads a bundle where there is one and the
+// separate files where there isn't (public/data). Keep this list the same as BUNDLED_DIRS there.
+const BUNDLED_DIRS = ["links", "xref"];
+const bundleDir = (dir) => {
+  const src = path.join("public/data", dir);
+  const files = fs.readdirSync(src).filter((f) => f.endsWith(".json")).sort();
+  const all = Object.fromEntries(files.map((f) => [f, JSON.parse(fs.readFileSync(path.join(src, f), "utf8"))]));
+  const raw = Buffer.from(JSON.stringify(all));
+  const packed = Buffer.from(JSON.stringify(zlib.gzipSync(raw, { level: 9 }).toString("base64")));
+  const back = JSON.parse(zlib.gunzipSync(Buffer.from(JSON.parse(packed.toString()), "base64")).toString());
+  for (const f of files) {
+    if (JSON.stringify(back[f]) !== JSON.stringify(JSON.parse(fs.readFileSync(path.join(src, f), "utf8")))) throw new Error(`${dir}/${f} doesn't come back from its bundle`);
+  }
+  fs.rmSync(path.join("dist/data", dir), { recursive: true, force: true });
+  fs.writeFileSync(path.join("dist/data", `${dir}.bundle.json`), packed);
+};
+if (!watch) BUNDLED_DIRS.forEach(bundleDir);
+
 // The built-in read-aloud voice, for browsers without a speech engine (Android's in-app viewer). It's stored in
 // public/voice as one compact binary file (scripts/build_voice.py), which the host would turn away, so it's split
 // into pieces packed the same way as the data files, each well under the host's 16 MB limit for a text file.
@@ -83,7 +102,19 @@ const packVoice = () => {
   return { id: manifest.id, name: manifest.name, sha256: manifest.sha256, engineVersion, manifest: `voice/${VOICE}.json`, downloadBytes };
 };
 const voice = packVoice();
-fs.writeFileSync("dist/index.html", shell("Veritas Logos", "app"));
+// The website's settings (site.config.json): where the reader fetches the licensed Bibles, the Claude version to point
+// to for AI, and the account service for signing in (its address and publishable key, which are meant to be public;
+// row-level security keeps each reader's data to themselves). The page published to Claude doesn't use them (see
+// dist-artifact below).
+const site = fs.existsSync("site.config.json") ? JSON.parse(fs.readFileSync("site.config.json", "utf8")) : {};
+const accounts = site.accounts?.url && site.accounts?.key ? { url: site.accounts.url, key: site.accounts.key } : undefined;
+// Only the publishable key may go into the page. A secret key (sb_secret_…, or an old JWT key whose role isn't anon)
+// would let anyone past row-level security.
+const secretKey = (k) => k.startsWith("sb_secret_") || (k.split(".").length === 3 && (() => { try { return JSON.parse(Buffer.from(k.split(".")[1], "base64url").toString()).role !== "anon"; } catch { return true; } })());
+if (accounts && secretKey(accounts.key)) throw new Error("site.config.json: accounts.key must be the publishable key, never a secret one");
+const browserConfig = JSON.stringify({ bibleTextsUrl: site.bibleTextsUrl || undefined, claudeUrl: site.claudeUrl || undefined, accounts }).replaceAll("<", "\\u003c");
+const siteConfig = `<script>window.VERITAS_CONFIG = ${browserConfig};</script>`;
+fs.writeFileSync("dist/index.html", shell("Veritas Logos", "app", siteConfig));
 fs.writeFileSync("dist/embed.html", shell("Veritas Logos", "embed"));
 
 const options = {
@@ -96,13 +127,17 @@ const options = {
   outdir: "dist",
   inject: [],
   define: { "process.env.NODE_ENV": watch ? '"development"' : '"production"', __VOICE__: JSON.stringify(voice) },
+  // The voice's phoneme engine and its data (scripts/build_espeak.sh), bundled into voice-worker.js as bytes.
+  loader: { ".wasm": "binary", ".bin": "binary" },
+  legalComments: "inline",
   logLevel: "warning",
 };
 const cssEntry = 'import "../app/styles.css";\n';
 fs.mkdirSync("src/.gen", { recursive: true });
 fs.writeFileSync("src/.gen/app-entry.ts", 'import "../app/styles.css";\nimport "../app/main";\n');
 fs.writeFileSync("src/.gen/embed-entry.ts", `${cssEntry}import "../embed/embed-styles.css";\nimport "../embed/embed";\n`);
-options.entryPoints = { app: "src/.gen/app-entry.ts", embed: "src/.gen/embed-entry.ts", "voice-worker": "src/voice/worker.ts" };
+// account.js is the sign-in code for the website (src/account). The app loads it only where accounts are on.
+options.entryPoints = { app: "src/.gen/app-entry.ts", embed: "src/.gen/embed-entry.ts", "voice-worker": "src/voice/worker.ts", account: "src/account/account.ts" };
 
 function writeOfflineWorker() {
   const files = (dir) => fs.readdirSync(path.join("dist", dir), { withFileTypes: true }).flatMap((entry) => {
@@ -112,9 +147,11 @@ function writeOfflineWorker() {
   const shell = ["index.html", "app.js", "app.css", "manifest.webmanifest", ...files("icons")];
   if (voice) shell.push("voice-worker.js", voice.manifest);
   const data = files("data").filter((rel) => rel.endsWith(".json"));
-  const translations = Object.fromEntries(["BSB", "NHEB", "KJV", "ASV", "YLT"].map((id) => [
-    id, ["ot", "nt"].map((part) => `data/bible/${id}-${part}.json`),
-  ]));
+  const translations = {};
+  for (const file of data) {
+    const id = /^data\/bible\/([A-Z]+)-(?:ot|nt)\.json$/.exec(file)?.[1];
+    if (id) (translations[id] ??= []).push(file);
+  }
   translations.YLT.push(...data.filter((rel) => rel.startsWith("data/aligned/YLT-")));
   const study = data.filter((rel) =>
     rel === "data/verse-counts.json" || rel === "data/bible/BSB-headings.json" || rel.startsWith("data/study/") ||

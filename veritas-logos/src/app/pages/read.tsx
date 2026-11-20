@@ -1,10 +1,10 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { chapterCount, getChapter, getVerse, refOf, translationInfo, TRANSLATIONS, verseCount, type TranslationId } from "../../core/bible";
+import { chapterCount, getChapter, getVerseIn, isOnline, onlineNotice, OnlineTextError, GROUP_NAMES, OFFERED, refOf, translationInfo, verseCount, DEFAULT_TRANSLATION, type TranslationId } from "../../core/bible";
 import { getCrossRefs, decodeMorph, getVerseWords, normalizeStrongs, type WordTuple } from "../../core/lexicon";
 import { getSectionHeadings, readingWords, wordDifferences } from "../../core/reader-text";
 import { newId } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
-import { BOOKS, bookName } from "../../core/references";
+import { BOOKS, bookName, parseReference } from "../../core/references";
 import { copyText } from "../files";
 import { BUILT_IN, builtInSaved, canReadAloud, mb, NO_SPEECH, readAloud, usesBuiltIn, type SpeechStatus } from "../speech";
 import { readHash, type ReadRoute } from "../routes";
@@ -20,26 +20,50 @@ import { creedsCiting } from "../../core/scholar";
 
 const vKey = (b: number, c: number, v: number) => `${b}:${c}:${v}`;
 
-// ---------- Book and chapter picker ----------
-function Picker({ book, chapter, onPick, onClose }: { book: number; chapter: number; onPick: (b: number, c: number) => void; onClose: () => void }) {
+// ---------- Book, chapter and verse picker ----------
+// Book, then chapter, then either the whole chapter or one verse in it. Typing a reference ("John 3:16", "Ps 23")
+// in the filter goes straight there.
+function Picker({ book, chapter, verse, onPick, onClose }: { book: number; chapter: number; verse?: number; onPick: (b: number, c: number, v?: number) => void; onClose: () => void }) {
   const [b, setB] = useState<number | null>(null);
+  const [c, setC] = useState<number | null>(null);
   const [filter, setFilter] = useState("");
   const { data: count } = useAsync(() => (b ? chapterCount(b) : Promise.resolve(0)), [b]);
+  const { data: verses } = useAsync(() => (b && c ? verseCount(b, c) : Promise.resolve(0)), [b, c]);
   const list = BOOKS.filter((x) => x.name.toLowerCase().includes(filter.toLowerCase()));
+  // Only once a chapter number follows the book's name, so "1 John" still just filters the books.
+  const typed = /[a-z]\.?\s*\d/i.test(filter) ? parseReference(filter)?.[0] : undefined;
+  const title = b && c ? `${bookName(b)} ${c}` : b ? bookName(b) : "Choose a book";
   return (
-    <Sheet title={b ? bookName(b) : "Choose a book"} onClose={onClose}>
-      {b ? (
+    <Sheet title={title} onClose={onClose}>
+      {b && c ? (
+        <>
+          <button type="button" className="link-btn" onClick={() => setC(null)}>Chapters of {bookName(b)}</button>
+          <button type="button" className="btn primary whole-chapter" onClick={() => onPick(b, c)}>Read all of {bookName(b)} {c}</button>
+          <h4>Or go to a verse</h4>
+          <div className="num-grid verse-grid">
+            {Array.from({ length: verses ?? 0 }, (_, i) => i + 1).map((v) => (
+              <button type="button" key={v} className={b === book && c === chapter && v === verse ? "on" : ""} aria-label={`Verse ${v}`} onClick={() => onPick(b, c, v)}>{v}</button>
+            ))}
+          </div>
+        </>
+      ) : b ? (
         <>
           <button type="button" className="link-btn" onClick={() => setB(null)}>All books</button>
           <div className="num-grid">
-            {Array.from({ length: count ?? 0 }, (_, i) => i + 1).map((c) => (
-              <button type="button" key={c} className={b === book && c === chapter ? "on" : ""} onClick={() => onPick(b, c)}>{c}</button>
+            {Array.from({ length: count ?? 0 }, (_, i) => i + 1).map((n) => (
+              <button type="button" key={n} className={b === book && n === chapter ? "on" : ""} aria-label={`Chapter ${n}`} onClick={() => setC(n)}>{n}</button>
             ))}
           </div>
         </>
       ) : (
         <>
-          <input id="book-filter" className="input" placeholder="Filter books" aria-label="Filter books" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <input id="book-filter" className="input" placeholder="Filter books, or type John 3:16" aria-label="Filter books, or type a reference" value={filter} onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && typed) onPick(typed.book, typed.chapter, typed.verseStart || undefined); }} />
+          {typed && (
+            <button type="button" className="btn primary whole-chapter" onClick={() => onPick(typed.book, typed.chapter, typed.verseStart || undefined)}>
+              Go to {bookName(typed.book)} {typed.chapter}{typed.verseStart ? `:${typed.verseStart}` : ""}
+            </button>
+          )}
           <h4>Old Testament</h4>
           <div className="book-grid">{list.filter((x) => x.number <= 39).map((x) => <button type="button" key={x.number} className={x.number === book ? "on" : ""} onClick={() => setB(x.number)}>{x.name}</button>)}</div>
           <h4>New Testament</h4>
@@ -50,17 +74,13 @@ function Picker({ book, chapter, onPick, onClose }: { book: number; chapter: num
   );
 }
 
-const TRANSLATION_CATEGORIES: Record<TranslationId, string> = {
-  BSB: "Modern", NHEB: "Modern", KJV: "Traditional", ASV: "Literal", YLT: "Literal",
-};
-
 function ReaderTranslationPicker({ value, onChange }: { value: TranslationId; onChange: (value: TranslationId) => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const picker = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const search = useRef<HTMLInputElement>(null);
-  const matches = TRANSLATIONS.filter((t) => `${t.id} ${t.name} ${TRANSLATION_CATEGORIES[t.id]} ${t.style}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const matches = OFFERED.filter((t) => `${t.id} ${t.name} ${GROUP_NAMES[t.group]} ${t.style}`.toLowerCase().includes(query.trim().toLowerCase()));
   const choose = (id: TranslationId) => {
     setOpen(false);
     trigger.current?.focus();
@@ -99,7 +119,7 @@ function ReaderTranslationPicker({ value, onChange }: { value: TranslationId; on
           <div className="translation-results">
             {matches.map((t) => (
               <button type="button" key={t.id} aria-pressed={t.id === value} onClick={() => choose(t.id)}>
-                <strong>{t.id}</strong><span>{t.name}</span><Tag>{TRANSLATION_CATEGORIES[t.id]}</Tag>
+                <strong>{t.id}</strong><span>{t.name}</span><Tag>{GROUP_NAMES[t.group]}</Tag>
               </button>
             ))}
             {!matches.length && <p className="fine" role="status">No translations match your search.</p>}
@@ -108,6 +128,42 @@ function ReaderTranslationPicker({ value, onChange }: { value: TranslationId; on
       )}
     </div>
   );
+}
+
+/**
+ * Runs once the picker has closed. Closing it steps back past the history entry it added, and the browser then puts
+ * the page back where it was, so anything that scrolls has to wait for that.
+ */
+function afterSheetCloses(fn: () => void) {
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener("popstate", run);
+    requestAnimationFrame(() => requestAnimationFrame(fn));
+  };
+  window.addEventListener("popstate", run);
+  setTimeout(run, 400);
+}
+
+/**
+ * Scrolls so a verse sits at the top of the screen, just under the reader's toolbar. Near the end of a short chapter
+ * the page isn't tall enough for that, so room is added below the text first.
+ */
+function bringToTop(v: number) {
+  const el = document.getElementById(`v${v}`);
+  if (!el) return false;
+  const reader = el.closest<HTMLElement>(".reader");
+  const bar = reader?.querySelector<HTMLElement>(".toolbar");
+  const under = bar ? (parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight : 0;
+  const y = Math.max(0, el.getBoundingClientRect().top + window.scrollY - under - 6);
+  for (let i = 0; reader && i < 3; i++) {
+    const room = document.documentElement.scrollHeight - window.innerHeight;
+    if (y <= room) break;
+    reader.style.minHeight = `${reader.offsetHeight + Math.ceil(y - room)}px`;
+  }
+  window.scrollTo({ top: y });
+  return true;
 }
 
 // ---------- Word list for one verse ----------
@@ -230,11 +286,17 @@ export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, do
   const setTab = (t: StudyTab) => { lastTab = t; setTabState(t); };
   const { data: total } = useAsync(() => verseCount(book, chapter), [book, chapter]);
   const reference = refOf(book, chapter, verse, end);
-  const { data: text } = useAsync(async () => {
+  const { data: got } = useAsync(async () => {
     const parts: string[] = [];
-    for (let v = verse; v <= end; v++) parts.push((await getVerse(prefs.translation, book, chapter, v)) || "(not in this translation)");
-    return parts.join(" ");
+    let from: TranslationId = prefs.translation;
+    for (let v = verse; v <= end; v++) {
+      const r = await getVerseIn(prefs.translation, book, chapter, v);
+      from = r.translation;
+      parts.push(r.text || "(not in this translation)");
+    }
+    return { text: parts.join(" "), from };
   }, [book, chapter, verse, end, prefs.translation]);
+  const text = got?.text;
   const key = vKey(book, chapter, verse);
   const rangeKey = end > verse ? `${key}-${end}` : key;
   const marked = bookmarks.includes(rangeKey);
@@ -265,7 +327,7 @@ export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, do
       </div>
       <div className="action-row">
         <button type="button" className="btn small primary" onClick={add}>Add to guide</button>
-        <button type="button" className="btn small" onClick={() => copyText(`${text} (${reference}, ${prefs.translation})`, "Verse copied")}>Copy</button>
+        <button type="button" className="btn small" onClick={() => copyText(`${text} (${reference}, ${got?.from ?? prefs.translation})`, "Verse copied")}>Copy</button>
         <button type="button" className="btn small" onClick={() => update((d) => ({ ...d, bookmarks: marked ? d.bookmarks.filter((x) => x !== rangeKey) : [rangeKey, ...d.bookmarks] }))}>{marked ? "Bookmarked" : "Bookmark"}</button>
         <NotebookPicker entry={`passage:${rangeKey}`} title={reference} onSave={(d) =>
           d.bookmarks.includes(rangeKey) || d.notes[rangeKey] || d.highlights[rangeKey]
@@ -308,13 +370,15 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   const toolbar = useRef<HTMLDivElement>(null);
   const optionsScroll = useRef<{ before: number; revealed: number } | null>(null);
   const restoreScroll = useRef<number | null>(null);
-  const toggleOptions = () => {
+  const closeOptions = (focus = false) => {
     const position = optionsScroll.current;
     if (readingOptions && position && Math.abs(window.scrollY - position.revealed) < 2) {
       restoreScroll.current = position.before;
     }
-    setReadingOptions(!readingOptions);
+    setReadingOptions(false);
+    if (focus) toolbar.current?.querySelector<HTMLButtonElement>(".reading-options-toggle")?.focus({ preventScroll: true });
   };
+  const toggleOptions = () => readingOptions ? closeOptions() : setReadingOptions(true);
   useLayoutEffect(() => {
     optionsScroll.current = null;
     if (!readingOptions) {
@@ -332,6 +396,21 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       optionsScroll.current = { before, revealed: window.scrollY };
     }
   }, [readingOptions]);
+  useEffect(() => {
+    if (!readingOptions) return;
+    const onOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !optionsPanel.current?.contains(event.target) && !toolbar.current?.contains(event.target)) closeOptions();
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeOptions(true);
+    };
+    document.addEventListener("pointerdown", onOutside);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("pointerdown", onOutside);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [readingOptions]);
   const [sheet, setSheet] = useState<{ verse: number; end?: number } | null>(null);
   const [wordSelection, setWordSelection] = useState<WordSelection | null>(null);
   const closeWord = (restoreFocus = true) => {
@@ -342,6 +421,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   const speaking = speech.state === "reading" ? speech.verse : null;
   const stopSpeak = useRef<(() => void) | null>(null);
   const translation = route?.translation ?? prefs.translation;
+  const info = translationInfo(translation);
   const wide = useMedia("(min-width: 1100px)");
   // On a wide screen the study panel sits beside the text and follows the verse you pick.
   useEffect(() => {
@@ -369,7 +449,6 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   useEffect(() => {
     const verse = route?.verse;
     setSheet(verse && wide ? { verse, end: route.verseEnd } : null);
-    if (verse) document.getElementById(`v${verse}`)?.scrollIntoView({ block: "center" });
   }, [route?.verse, route?.verseEnd, book, chapter]);
   useEffect(() => () => stopSpeak.current?.(), []);
   useEffect(() => setWordSelection(null), [book, chapter, route?.verse, route?.verseEnd, translation, prefs.compare, prefs.wordStudy]);
@@ -389,13 +468,60 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   ), [showHeadings, book, chapter]);
   const headings = showHeadings && chapterHeadings?.book === book && chapterHeadings.chapter === chapter ? chapterHeadings.byVerse : undefined;
   const continuous = prefs.hideVerseNumbers && !compareTranslation;
+  const chapterKey = `${translation}:${book}:${chapter}`;
   const { data: chapters } = useAsync(() => chapterCount(book), [book]);
 
+  // A link or the picker can name a verse: the whole chapter loads, and that verse is marked and brought to the top.
+  // For a moment after that, anything that changes the text's layout (the comparison text arriving, the study panel
+  // opening beside it on a wide screen, the font loading) brings it back up, unless you've started scrolling.
+  const [arrived, setArrived] = useState<number | null>(null);
+  const target = useRef({ key: "", done: true, moved: false });
   useEffect(() => {
-    if (route?.verse && verses) document.getElementById(`v${route.verse}`)?.scrollIntoView({ block: "center" });
-  }, [verses]);
+    const v = route?.verse;
+    const key = v ? `${book}:${chapter}:${v}` : "";
+    if (key !== target.current.key) {
+      target.current = { key, done: !v, moved: false };
+      document.querySelector<HTMLElement>(".page.reader")?.style.removeProperty("min-height");
+    }
+    if (!v || target.current.done || !verses) return;
+    target.current.done = true;
+    const mine = target.current;
+    let ro: ResizeObserver | null = null;
+    requestAnimationFrame(() => {
+      if (target.current !== mine || !bringToTop(v)) return;
+      setArrived(v);
+      const text = document.querySelector(".reader .scripture");
+      if (!text || typeof ResizeObserver === "undefined") return;
+      ro = new ResizeObserver(() => { if (target.current === mine && !mine.moved) bringToTop(v); });
+      ro.observe(text);
+      setTimeout(() => ro?.disconnect(), 2500);
+    });
+  }, [route?.verse, chapterKey, verses]);
+  useEffect(() => {
+    const stop = () => { target.current.moved = true; };
+    const opts = { passive: true } as const;
+    for (const ev of ["wheel", "touchmove", "keydown"]) window.addEventListener(ev, stop, opts);
+    return () => { for (const ev of ["wheel", "touchmove", "keydown"]) window.removeEventListener(ev, stop); };
+  }, []);
+  useEffect(() => {
+    if (arrived === null) return;
+    const t = setTimeout(() => setArrived(null), 1800);
+    return () => clearTimeout(t);
+  }, [arrived]);
 
-  const go = (b: number, c: number) => { stopSpeak.current?.(); navigate(readHash({ book: b, chapter: c })); };
+  const go = (b: number, c: number, v?: number) => {
+    stopSpeak.current?.();
+    const hash = readHash({ book: b, chapter: c, verse: v });
+    // Choosing the verse you're already on (after scrolling away from it) brings it back up.
+    if (v && b === book && c === chapter && v === route?.verse && !route.verseEnd) { afterSheetCloses(() => { if (bringToTop(v)) setArrived(v); }); return; }
+    navigate(hash);
+    // A whole chapter, or the next or previous one, starts at the top.
+    if (!v) window.scrollTo(0, 0);
+  };
+  const readInBsb = () => {
+    setPref("translation", DEFAULT_TRANSLATION);
+    if (route?.translation) navigate(readHash({ book, chapter, verse: route.verse, verseEnd: route.verseEnd }));
+  };
   const prev = () => {
     if (chapter > 1) go(book, chapter - 1);
     else if (book > 1) chapterCount(book - 1).then((n) => go(book - 1, n));
@@ -406,7 +532,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   };
   const toggleSpeak = () => {
     if (speech.state !== "idle") { stopSpeak.current?.(); stopSpeak.current = null; return; }
-    if (!verses) return;
+    if (!verses || isOnline(translation)) return;
     let last = 0;
     stopSpeak.current = readAloud(verses, (s) => {
       setSpeech(s);
@@ -453,9 +579,10 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       </div>
 
       <section id="reading-options" className="reading-options" aria-label="Reading options" ref={optionsPanel} hidden={!readingOptions}>
+        <button type="button" className="icon-btn" aria-label="Close reading options" onClick={() => closeOptions(true)}>×</button>
         <div>
           <label className="label" htmlFor="compare-select">Compare with</label>
-          <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => setPref("compare", t)} />
+          <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => { setPref("compare", t); closeOptions(true); }} />
           <label className="reader-check">
             <input type="checkbox" checked={prefs.highlightDifferences} disabled={!compareTranslation}
               onChange={(e) => setPref("highlightDifferences", e.target.checked)} />
@@ -486,10 +613,12 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
           </label>
         </div>
         <div>
-          {canReadAloud()
+          {isOnline(translation)
+            ? <p className="fine read-aloud-off">Read aloud is available for built-in translations such as the BSB.</p>
+            : canReadAloud()
             ? <button type="button" className="btn small" onClick={() => { setReadingOptions(false); toggleSpeak(); }}>{speech.state !== "idle" ? "Stop reading" : "Read chapter aloud"}</button>
             : <p className="fine read-aloud-off">{NO_SPEECH}</p>}
-          {canReadAloud() && builtIn && BUILT_IN && speech.state === "idle" && (
+          {!isOnline(translation) && canReadAloud() && builtIn && BUILT_IN && speech.state === "idle" && (
             <p className="fine read-aloud-off">{saved === false
               ? `${BUILT_IN.name}, the voice built into Veritas Logos, reads here. The first time, it downloads ${mb(BUILT_IN.downloadBytes)}, which this browser keeps.`
               : `${BUILT_IN.name}, the voice built into Veritas Logos, reads here.`}</p>
@@ -505,9 +634,17 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       )}
 
       {loading && <Loading label="Loading Scripture" />}
-      <ErrorNote error={error} />
+      {error instanceof OnlineTextError
+        ? <div className="note warn" role="alert"><p>{error.message}</p><button type="button" className="btn small" onClick={readInBsb}>Read in the BSB instead</button></div>
+        : <ErrorNote error={error} />}
       <ErrorNote error={compareTranslation ? compareError : undefined} />
-      {verses && (
+      {verses && verses.every((v) => !v.text) && (
+        <div className="note" role="status">
+          <p>{info.covers ? `The ${info.name} has only ${info.covers}, so it doesn't include ${bookName(book)}.` : `The ${info.name} doesn't include ${bookName(book)} ${chapter}.`}</p>
+          <button type="button" className="btn small" onClick={readInBsb}>Read in the BSB</button>
+        </div>
+      )}
+      {verses && verses.some((v) => v.text) && (
         <div className={`scripture${continuous ? " continuous" : ""}`} style={{ fontSize: `${prefs.textSize}px` }}>
           <h2 className="chapter-title"><span>{bookName(book)}</span> {chapter}</h2>
           {verses.map((v) => {
@@ -530,7 +667,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
             return (
               <Fragment key={v.verse}>
                 {headings?.[v.verse]?.map((heading, i) => <h3 className="section-heading" key={i}>{heading}</h3>)}
-                <div id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${selected ? "picked" : ""} ${prefs.wordStudy ? "word-study" : ""}`}
+                <div id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${selected ? "picked" : ""} ${route?.verse === v.verse ? "target" : ""} ${arrived === v.verse ? "arrive" : ""} ${prefs.wordStudy ? "word-study" : ""}`}
                   role={prefs.wordStudy ? undefined : "button"} tabIndex={prefs.wordStudy ? undefined : 0} aria-pressed={prefs.wordStudy ? undefined : selected}
                   onClick={prefs.wordStudy ? undefined : studyVerse} onKeyDown={prefs.wordStudy ? undefined : (e) => {
                     if (e.key !== "Enter" && e.key !== " ") return;
@@ -554,7 +691,10 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
               </Fragment>
             );
           })}
-          <p className="fine notice">{translationInfo(translation).notice}</p>
+          <p className="fine notice">
+            {isOnline(translation) ? onlineNotice(translation, book, chapter) : info.notice}
+            {info.link && <> <a href={info.link.url} target="_blank" rel="noopener noreferrer">{info.link.label}</a></>}
+          </p>
         </div>
       )}
 
@@ -564,7 +704,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
         <button type="button" className="btn" onClick={next} disabled={book === 66 && chapter === (chapters ?? 22)}>Next chapter</button>
       </div>
 
-      {picker && <Picker book={book} chapter={chapter} onClose={() => setPicker(false)} onPick={(b, c) => { setPicker(false); go(b, c); }} />}
+      {picker && <Picker book={book} chapter={chapter} verse={route?.verse} onClose={() => setPicker(false)} onPick={(b, c, v) => { setPicker(false); go(b, c, v); }} />}
       {wordSelection && prefs.wordStudy && (
         <ReaderLexicon key={`${book}:${chapter}:${wordSelection.verse}:${wordSelection.translation}:${wordSelection.index}`} book={book} chapter={chapter}
           selection={wordSelection} onClose={closeWord} onStudy={() => { setSheet({ verse: wordSelection.verse }); closeWord(false); }} />

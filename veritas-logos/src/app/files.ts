@@ -48,6 +48,15 @@ function idb(): Promise<IDBDatabase> {
     r.onerror = () => no(r.error);
   });
 }
+/** Removes every file kept in this browser, for signing out on a shared device. */
+export function clearStoredFiles(): Promise<void> {
+  return new Promise((ok, no) => {
+    const r = indexedDB.deleteDatabase("veritas-files");
+    r.onsuccess = () => ok();
+    r.onblocked = () => ok();
+    r.onerror = () => no(r.error);
+  });
+}
 export interface StoredFile { id: string; name: string; size: number; assetId?: string; url?: string; local?: boolean }
 export async function storeFile(file: File): Promise<StoredFile> {
   if (file.size > MAX_FILE) throw new Error("That file is over 20 MB.");

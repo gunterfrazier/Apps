@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from "react";
-import { DEFAULT_TRANSLATION, isTranslationId, type TranslationId } from "../core/bible";
+import { DEFAULT_TRANSLATION, isOffered, type TranslationId } from "../core/bible";
 import { LENS_IDS, type LensId } from "../core/content";
 import { sanitizeGuide, type Guide } from "../core/guide";
 import type { CiteRecord } from "../core/cite";
+import type { CloudCollection } from "../account/types";
 
 export const THEMES = [
   ["system", "Match this device"],
@@ -89,8 +90,8 @@ export function mergeData(raw: any): UserData {
   const p = raw?.prefs ?? {};
   return {
     prefs: {
-      translation: isTranslationId(p.translation) ? p.translation : DEFAULT_TRANSLATION,
-      compare: isTranslationId(p.compare) ? p.compare : "",
+      translation: isOffered(p.translation) ? p.translation : DEFAULT_TRANSLATION,
+      compare: isOffered(p.compare) ? p.compare : "",
       highlightDifferences: p.highlightDifferences === true,
       wordStudy: p.wordStudy === true,
       hideVerseNumbers: p.hideVerseNumbers === true,
@@ -156,21 +157,65 @@ export function update(fn: (d: UserData) => UserData) {
 }
 export const getData = () => state;
 
-// ---------- Saving to the owner's Claude account ----------
+// ---------- Saving to an account ----------
 // Inside Claude, browser storage alone can come back empty, so everything is also kept in the page's private database,
-// which follows the owner between devices. Each guide is its own document; everything else shares one profile document.
+// which follows the owner between devices. On the website, a reader who signs in gets the same from their Veritas Logos
+// account (src/account). Either way each guide is its own document and everything else shares one profile document.
 export type SyncState = "local" | "connecting" | "saved" | "saving" | "failed";
+/** Where the data is being saved besides this browser: the owner's Claude account, or a Veritas Logos account. */
+export type SyncTarget = "claude" | "account";
 let syncState: SyncState = "local";
+let syncTarget: SyncTarget | null = null;
 const syncListeners = new Set<() => void>();
 const setSync = (s: SyncState) => { syncState = s; syncListeners.forEach((l) => l()); };
-export const useSyncState = () => useSyncExternalStore((cb) => { syncListeners.add(cb); return () => { syncListeners.delete(cb); }; }, () => syncState);
+const subscribeSync = (cb: () => void) => { syncListeners.add(cb); return () => { syncListeners.delete(cb); }; };
+export const useSyncState = () => useSyncExternalStore(subscribeSync, () => syncState);
+export const useSyncTarget = () => useSyncExternalStore(subscribeSync, () => syncTarget);
 
-let cloud: any = null;
+let cloud: CloudCollection | null = null;
 let cloudTimer: ReturnType<typeof setTimeout> | null = null;
+let saving = false;
 let lastSaved = new Map<string, string>();
+/** Waiting to connect after a failed first try: retried when the page comes back into view or the network returns. */
+let pending: { collection: CloudCollection; target: SyncTarget; owner: string } | null = null;
+// Which account this browser's copy belongs to: "1" inside Claude, the reader's account id on the website, and
+// "left:<id>" once that reader has signed out and kept their data here.
 const SYNCED_FLAG = "veritas.logos.synced";
 const profileOf = (d: UserData) => ({ notebook: d.notebook, notebookCollections: d.notebookCollections, sources: d.sources, savedSearches: d.savedSearches, highlights: d.highlights, bookmarks: d.bookmarks, notes: d.notes, figures: d.figures, lastRead: d.lastRead, activeGuideId: d.activeGuideId, prefs: { ...d.prefs, apiKey: "" } });
 const guideDocId = (id: string) => `guide-${id}`;
+
+/** The later of two versions of the same item. On a tie, or with no dates, the first one stays. */
+const later = <T extends { updatedAt?: string }>(a: T, b: T): T => ((b.updatedAt ?? "") > (a.updatedAt ?? "") ? b : a);
+function byId<T extends { id: string; updatedAt?: string }>(first: T[], second: T[]): T[] {
+  const out = first.map((f) => { const s = second.find((x) => x.id === f.id); return s ? later(f, s) : f; });
+  return [...out, ...second.filter((s) => !first.some((f) => f.id === s.id))];
+}
+const union = (a: string[], b: string[]) => [...a, ...b.filter((x) => !a.includes(x))];
+
+/**
+ * Everything in either copy, with the later version of anything both have. Settings, the last place read and the open
+ * guide come from the first copy, and so do highlight colors both copies set.
+ */
+export function combineData(first: UserData, second: UserData): UserData {
+  const notes = { ...first.notes };
+  for (const [k, n] of Object.entries(second.notes)) notes[k] = notes[k] ? later(notes[k], n) : n;
+  return {
+    ...first,
+    guides: byId(first.guides, second.guides),
+    highlights: { ...second.highlights, ...first.highlights },
+    bookmarks: union(first.bookmarks, second.bookmarks),
+    notes,
+    figures: union(first.figures, second.figures),
+    notebook: byId(first.notebook, second.notebook),
+    notebookCollections: byId(first.notebookCollections, second.notebookCollections).map((collection) => {
+      const other = second.notebookCollections.find((item) => item.id === collection.id);
+      return other ? { ...collection, entries: union(collection.entries, other.entries) } : collection;
+    }),
+    sources: byId(first.sources, second.sources),
+    savedSearches: byId(first.savedSearches, second.savedSearches),
+    recent: [...first.recent, ...second.recent.filter((r) => !first.recent.some((x) => x.hash === r.hash))].slice(0, 8),
+  };
+}
 
 function queueCloudSave() {
   if (!cloud) return;
@@ -178,74 +223,159 @@ function queueCloudSave() {
   cloudTimer = setTimeout(() => { cloudTimer = null; saveToCloud(); }, 800);
 }
 
-async function saveToCloud() {
-  if (!cloud) return;
+/** Sends whatever changed since the last save. Resolves true once the account has everything. */
+async function saveToCloud(): Promise<boolean> {
+  const target = cloud;
+  if (!target) return false;
   const wanted = new Map<string, string>([["profile", JSON.stringify(profileOf(state))]]);
   for (const g of state.guides) wanted.set(guideDocId(g.id), JSON.stringify({ guide: g }));
   const writes = [...wanted].filter(([k, v]) => lastSaved.get(k) !== v);
   const removals = [...lastSaved.keys()].filter((k) => !wanted.has(k));
-  if (!writes.length && !removals.length) return;
+  if (!writes.length && !removals.length) return true;
   setSync("saving");
+  saving = true;
   try {
-    // One write at a time per document.
-    for (const [k, v] of writes) {
-      await cloud.doc(k).set(JSON.parse(v));
-      lastSaved.set(k, v);
+    if (target.setMany) {
+      if (writes.length) await target.setMany(writes.map(([k, v]) => [k, JSON.parse(v)]));
+      writes.forEach(([k, v]) => lastSaved.set(k, v));
+    } else {
+      // One write at a time per document.
+      for (const [k, v] of writes) {
+        await target.doc(k).set(JSON.parse(v));
+        lastSaved.set(k, v);
+      }
     }
-    for (const k of removals) {
-      await cloud.doc(k).delete();
-      lastSaved.delete(k);
+    if (target.deleteMany) {
+      if (removals.length) await target.deleteMany(removals);
+      removals.forEach((k) => lastSaved.delete(k));
+    } else {
+      for (const k of removals) {
+        await target.doc(k).delete();
+        lastSaved.delete(k);
+      }
     }
-    setSync("saved");
-  } catch {
+    if (cloud === target) setSync("saved");
+    return true;
+  } catch (e: any) {
+    if (cloud !== target) return false;
     setSync("failed");
-    toast("Couldn't save to your Claude account. Your work is still in this browser.");
+    // The account's own limits come with a message worth showing as it is.
+    const own = typeof e?.message === "string" && e.message.startsWith("Your account") ? e.message : "";
+    toast(syncTarget === "account" ? own || "Couldn't save to your account. Your work is still in this browser." : "Couldn't save to your Claude account. Your work is still in this browser.");
+    return false;
+  } finally {
+    saving = false;
   }
 }
 
-async function loadFromCloud(firstRun: boolean) {
-  const snap = await cloud.get();
-  const remote = new Map<string, any>(snap.docs.map((d: any) => [d.id, d.data()]));
+/**
+ * Reads the account and decides what this browser shows.
+ *   merge    the first time this browser meets the account: keep what's in both
+ *   record   after that the account is the record, so a guide deleted on the phone doesn't come back from the laptop
+ *   replace  this browser's copy belongs to another account, so it's set aside for this one
+ */
+async function loadFromCloud(mode: "merge" | "record" | "replace") {
+  const target = cloud;
+  if (!target) return;
+  const snap = await target.get();
+  if (cloud !== target) return;
+  const remote = new Map<string, any>(snap.docs.map((d) => [d.id, d.data()]));
   lastSaved = new Map([...remote].map(([k, v]) => [k, JSON.stringify(v)]));
-  const remoteGuides = [...remote.entries()].filter(([k]) => k.startsWith("guide-")).map(([, v]) => sanitizeGuide(v.guide)).filter(Boolean) as Guide[];
+  const remoteGuides = [...remote.entries()].filter(([k]) => k.startsWith("guide-")).map(([, v]) => sanitizeGuide(v?.guide)).filter(Boolean) as Guide[];
   const profile = remote.get("profile");
   const local = state;
+  const fromAccount = mergeData({ ...(profile ?? {}), guides: remoteGuides });
+  let next: UserData;
+  if (mode === "replace") next = fromAccount;
   // An account with no profile has never been saved to, so nothing it lacks counts as deleted.
-  if (!profile) firstRun = true;
-  // The first time on a device, anything saved only here is kept. After that the account is the record, so a guide
-  // deleted on the phone doesn't come back from the laptop.
-  const guides = firstRun
-    ? [...remoteGuides.map((r) => { const l = local.guides.find((x) => x.id === r.id); return l && l.updatedAt > r.updatedAt ? l : r; }), ...local.guides.filter((l) => !remoteGuides.some((r) => r.id === l.id))]
-    : remoteGuides;
-  const remoteStudy = mergeData(profile ?? local);
-  const notebook = new Map(remoteStudy.notebook.map((note) => [note.id, note]));
-  const collections = new Map(remoteStudy.notebookCollections.map((collection) => [collection.id, collection]));
-  if (firstRun) {
-    for (const note of local.notebook) {
-      if (!notebook.has(note.id) || note.updatedAt > notebook.get(note.id)!.updatedAt) notebook.set(note.id, note);
-    }
-    for (const collection of local.notebookCollections) {
-      const saved = collections.get(collection.id);
-      collections.set(collection.id, saved
-        ? { ...saved, entries: [...new Set([...saved.entries, ...collection.entries])] }
-        : collection);
-    }
-  }
-  const merged = mergeData({
-    ...(profile ?? local),
-    highlights: firstRun ? { ...local.highlights, ...(profile?.highlights ?? {}) } : profile?.highlights ?? local.highlights,
-    notes: firstRun ? { ...local.notes, ...(profile?.notes ?? {}) } : profile?.notes ?? local.notes,
-    bookmarks: firstRun ? [...new Set([...remoteStudy.bookmarks, ...local.bookmarks])] : remoteStudy.bookmarks,
-    notebook: [...notebook.values()],
-    notebookCollections: profile?.notebookCollections === undefined && !firstRun ? local.notebookCollections : [...collections.values()],
-    guides,
-  });
-  state = { ...merged, prefs: { ...merged.prefs, apiKey: local.prefs.apiKey, apiBase: local.prefs.apiBase } };
+  else if (!profile) next = combineData(local, fromAccount);
+  else if (mode === "merge") next = combineData(fromAccount, local);
+  else next = profile.notebookCollections === undefined
+    ? { ...fromAccount, notebookCollections: local.notebookCollections } : fromAccount;
+  state = { ...next, recent: mode === "replace" ? [] : local.recent, prefs: { ...next.prefs, apiKey: local.prefs.apiKey, apiBase: local.prefs.apiBase } };
   persist();
   listeners.forEach((l) => l());
 }
 
-/** Connects to the owner's private storage inside Claude. Elsewhere the app just uses the browser. */
+let hooked = false;
+function hookPageEvents() {
+  if (hooked) return;
+  hooked = true;
+  const retry = () => { if (pending && !cloud) { const p = pending; attachCloud(p.collection, p.target, p.owner); } };
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      if (!cloud) retry();
+      else if (!cloudTimer && !saving) loadFromCloud("record").catch(() => {});
+    }
+    if (document.visibilityState === "hidden" && cloud && cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; saveToCloud(); }
+  });
+  window.addEventListener("online", retry);
+}
+
+/**
+ * Starts saving this browser's data to an account and keeping it in step. owner names the account, so a browser that
+ * held someone else's data doesn't pour it into this one.
+ */
+export async function attachCloud(collection: CloudCollection, target: SyncTarget, owner: string): Promise<boolean> {
+  hookPageEvents();
+  if (cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; }
+  cloud = collection;
+  syncTarget = target;
+  pending = null;
+  lastSaved = new Map();
+  setSync("connecting");
+  let flag: string | null = null;
+  try { flag = localStorage.getItem(SYNCED_FLAG); } catch { /* treat as never synced */ }
+  const mode = !flag || flag === `left:${owner}` ? "merge" : flag === owner ? "record" : "replace";
+  try {
+    await loadFromCloud(mode);
+    if (cloud !== collection) return false;
+    try { localStorage.setItem(SYNCED_FLAG, owner); } catch { /* fine */ }
+    setSync("saved");
+    await saveToCloud();
+    return true;
+  } catch {
+    if (cloud === collection) {
+      cloud = null;
+      pending = { collection, target, owner };
+      setSync("failed");
+    }
+    return false;
+  }
+}
+
+/** Stops saving to the account. With keptBy, this browser keeps its copy and remembers whose it was. */
+export function detachCloud(keptBy?: string) {
+  if (cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; }
+  cloud = null;
+  pending = null;
+  syncTarget = null;
+  lastSaved = new Map();
+  if (keptBy) try { localStorage.setItem(SYNCED_FLAG, `left:${keptBy}`); } catch { /* fine */ }
+  setSync("local");
+}
+
+/** Saves anything waiting. Resolves false if the account couldn't be reached. */
+export async function flushCloud(): Promise<boolean> {
+  if (!cloud) return syncState !== "failed";
+  if (cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; }
+  return saveToCloud();
+}
+
+/** Lets this browser's copy count as nobody's, so the next account to sign in here keeps it. */
+export function releaseDeviceData() {
+  try { localStorage.removeItem(SYNCED_FLAG); } catch { /* fine */ }
+}
+
+/** Removes the reader's data from this browser, for signing out on a shared device. The page reloads after this. */
+export function clearDeviceData() {
+  detachCloud();
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  state = defaults;
+  for (const k of [KEY, SYNCED_FLAG, "veritas.ai.jobs.v1"]) try { localStorage.removeItem(k); } catch { /* fine */ }
+}
+
+/** Connects to the owner's private storage inside Claude. On the website, accounts connect from src/app/account.ts. */
 export async function connectCloud() {
   const claude = (window as any).claude;
   if (!claude?.use) return;
@@ -254,17 +384,7 @@ export async function connectCloud() {
     const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
     const id = db && user ? await user.id() : null;
     if (!id) { setSync("local"); return; }
-    cloud = db.collection(`data/users/${id}`);
-    let firstRun = true;
-    try { firstRun = localStorage.getItem(SYNCED_FLAG) !== "1"; } catch { /* treat as first run */ }
-    await loadFromCloud(firstRun);
-    try { localStorage.setItem(SYNCED_FLAG, "1"); } catch { /* fine */ }
-    setSync("saved");
-    await saveToCloud();
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && !cloudTimer) loadFromCloud(false).catch(() => {});
-      if (document.visibilityState === "hidden" && cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; saveToCloud(); }
-    });
+    await attachCloud(db.collection(`data/users/${id}`), "claude", "1");
   } catch {
     cloud = null;
     setSync("failed");

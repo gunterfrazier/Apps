@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getPassage, TRANSLATIONS, type TranslationId } from "../../core/bible";
 import { guideRequestPresets } from "../../core/ai";
 import type { LensId } from "../../core/content";
+import { ACCOUNTS_ON, IN_CLAUDE } from "../account";
 import { blankGuide, generateGuide, GUIDE_FORMATS, GuideInputError, guideToHtml, guideToMarkdown, guideToText, guideToWord, lensName, newId, ORIGIN_LABEL, resolveGuide, sanitizeGuide, type Guide, type GuideFormat, type GuideSection, type ResolvedGuide, type SectionItem } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
 import { aiDraft, detectAi, friendlyAiError, type AiMode } from "../ai-client";
@@ -15,7 +16,7 @@ import { symbolsHash } from "./symbols-link";
 import { draftKey, enqueueJob, exploreKey, markSeen, removeJob, useJob } from "../ai-jobs";
 import { appBase, copyText, decodeFromLink, encodeForLink, IS_ARTIFACT, saveFile } from "../files";
 import { deleteGuide, navigate, saveGuide, toast, update, useData } from "../store";
-import { Empty, ErrorNote, LensSelect, Loading, OriginTag, Paras, RefLink, RefText, Sheet, TranslationSelect, useAsync } from "../ui";
+import { Empty, ErrorNote, LensSelect, Loading, OriginTag, Paras, RefLink, RefText, Sheet, TranslationSelect, useAsync, NoAiNote } from "../ui";
 
 const STARTERS = ["Forgiveness", "Psalm 23", "Romans 8:28-39", "Prayer", "John 1:1-18", "Grace", "Matthew 5:1-12", "Covenant"];
 
@@ -44,7 +45,7 @@ export function GuidesPage() {
         <button type="button" className="link-btn" onClick={() => fileInput.current?.click()}>Import a guide</button>
         <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ""; }} />
       </div>
-      {guides.length === 0 && <Empty>Your guides will appear here. They save on this device, and you can back them up from Library.</Empty>}
+      {guides.length === 0 && <Empty>Your guides will appear here. {IN_CLAUDE ? "They're saved to your Claude account" : ACCOUNTS_ON ? "They're kept in this browser, and in your account when you're signed in" : "They save on this device"}, and you can back them up from Library.</Empty>}
       <div className="tool-list">
         {guides.map((g) => (
           <a key={g.id} className="tool-row" href={`#guide-${g.id}`}>
@@ -147,7 +148,7 @@ export function NewGuidePage({ initial }: { initial?: string }) {
         </div>
         <div className="two-col">
           <div><label className="label" htmlFor="guide-lens">Theological lens</label><LensSelect id="guide-lens" value={lens} onChange={setLens} /></div>
-          <div><label className="label" htmlFor="guide-translation">Translation</label><TranslationSelect id="guide-translation" value={translation} onChange={setTranslation} /></div>
+          <div><label className="label" htmlFor="guide-translation">Translation</label><TranslationSelect localOnly id="guide-translation" value={translation} onChange={setTranslation} /></div>
         </div>
         <div><label className="label" htmlFor="guide-title">Title (optional)</label><input id="guide-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
         <fieldset className="checks">
@@ -300,7 +301,7 @@ export function GuidePage({ id }: { id: string }) {
       <input id="guide-title-edit" aria-label="Guide title" className="title-input" value={guide.title} onChange={(e) => set({ ...guide, title: e.target.value })} />
       {guide.subtitle && <p className="sub">{guide.subtitle}</p>}
       <div className="two-col">
-        <div><label className="label" htmlFor="gt">Translation</label><TranslationSelect id="gt" value={guide.translation} onChange={(t) => set({ ...guide, translation: t })} /></div>
+        <div><label className="label" htmlFor="gt">Translation</label><TranslationSelect localOnly id="gt" value={guide.translation} onChange={(t) => set({ ...guide, translation: t })} /></div>
         <div><label className="label" htmlFor="gl">Lens</label><LensSelect id="gl" value={guide.lens} onChange={(l) => set({ ...guide, lens: l, subtitle: `${GUIDE_FORMATS.find((f) => f.id === guide.format)?.name} · ${lensName(l)}` })} /></div>
       </div>
       <div className="segmented" role="tablist">
@@ -371,7 +372,7 @@ function AiDraftSheet({ guide, onClose, onAccept }: { guide: Guide; onClose: () 
   return (
     <Sheet title="Draft with AI" onClose={onClose}>
       {mode === null && <Loading />}
-      {mode === "none" && <p className="note">The AI assistant isn't set up in this copy of the app. See Library for how to turn it on.</p>}
+      {mode === "none" && <NoAiNote what="Drafted guides" />}
       {mode && mode !== "none" && !job && (
         <>
           <p className="fine">The AI sees this guide's passages and the app's reference data. Anything it writes is labeled as an AI draft until you mark it checked.</p>

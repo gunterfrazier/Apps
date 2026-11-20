@@ -5,6 +5,7 @@ import zlib from "node:zlib";
 import { test } from "node:test";
 import { cleanVerse, clauses, phonemeIds, phonemeString, speechUnits } from "../src/voice/text";
 import { unpackPiece, widen, type VoiceManifest } from "../src/voice/model";
+import { phonemize } from "../src/voice/espeak";
 
 test("verse text is cleaned for speaking", () => {
   assert.equal(cleanVerse("The LORD is my shepherd; I shall not want."), "The Lord is my shepherd; I shall not want.");
@@ -35,6 +36,22 @@ test("clauses keep their closing punctuation, as Piper's phonemizer does", () =>
   assert.equal(phonemeString([{ ipa: "(en)ɐ sˈɑːm(fr)", end: "" }]), "ɐ sˈɑːm");
   const map = { "^": [1], "_": [0], "$": [2], " ": [3], "a": [14], ";": [12] };
   assert.deepEqual(phonemeIds("a; a?", map), [1, 0, 14, 0, 12, 0, 3, 0, 14, 0, 2]);
+});
+
+test("eSpeak NG, built from the fork Piper was trained with, gives the phonemes phonemizer.js gave", async () => {
+  // Each expected line is phonemizer.js 1.2.1's output, which the bundled engine matched on 2,828 sampled BSB verses.
+  assert.deepEqual(await phonemize("In the beginning God created the heavens and the earth."), ["ɪnðə bɪɡˈɪnɪŋ ɡˈɑːd kɹiːˈeɪɾᵻd ðə hˈɛvənz ænd ðɪ ˈɜːθ"]);
+  assert.deepEqual(await phonemize("And Rachel’s servant Bilhah conceived again and bore Jacob a second son."),
+    ["ænd ɹˈeɪtʃəlz sˈɜːvənt bˈɪlhə kənsˈiːvd ɐɡˈɛn ænd bˈoːɹ dʒˈeɪkəb ɐ sˈɛkənd sˈʌn"]);
+  assert.deepEqual(await phonemize("And there was evening, and there was morning—the fifth day."),
+    ["ænd ðɛɹwˌʌz ˈiːvnɪŋ", "ænd ðɛɹwˌʌz mˈɔːɹnɪŋ ðə fˈɪfθ dˈeɪ"]);
+  assert.deepEqual(await phonemize(""), []);
+  // Norman was trained with eSpeak NG's "en" voice, which the bundled data also holds.
+  assert.deepEqual(await phonemize("The Lord is my shepherd; I shall not want.", "en"), ["ðə lˈɔːd ɪz maɪ ʃˈɛpəd", "aɪʃˌal nˌɒt wˈɒnt"]);
+  assert.deepEqual(await phonemize("And Rachel’s servant Bilhah conceived again and bore Jacob a second son.", "en"),
+    ["and ɹˈeɪtʃəlz sˈɜːvənt bˈɪlhə kənsˈiːvd ɐɡˈɛn and bˈɔː dʒˈeɪkəb ɐ sˈɛkənd sˈʌn"]);
+  const manifest = JSON.parse(fs.readFileSync("public/voice/norman.json", "utf8")) as VoiceManifest;
+  assert.ok((await phonemize("Amen.", manifest.espeakVoice)).length);
 });
 
 test("the voice's weights widen from 16-bit floats exactly", () => {

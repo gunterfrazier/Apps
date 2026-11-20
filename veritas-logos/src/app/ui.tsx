@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { getPassage, translationInfo, TRANSLATIONS, type TranslationId } from "../core/bible";
+import { getPassage, GROUP_NAMES, OFFERED, translationInfo, type TranslationGroup, type TranslationId } from "../core/bible";
 import { LENS_IDS, type LensId } from "../core/content";
 import { lensName, ORIGIN_LABEL, type Origin } from "../core/guide";
 import { findReferences } from "../core/references";
 import { hashForReference } from "./routes";
 import { navigate, openPeek, setPref, THEMES, useData, useUi } from "./store";
+import { CLAUDE_URL } from "./ai-client";
 
 export function useAsync<T>(fn: () => Promise<T>, deps: readonly unknown[]): { data?: T; error?: Error; loading: boolean } {
   const [s, setS] = useState<{ data?: T; error?: Error; loading: boolean }>({ loading: true });
@@ -76,11 +77,18 @@ export function Sheet({ title, onClose, children, wide }: { title: ReactNode; on
   );
 }
 
-export function TranslationSelect({ value, onChange, id = "translation", allowNone, short }: { value: TranslationId | ""; onChange: (v: any) => void; id?: string; allowNone?: boolean; short?: boolean }) {
+/** Picks a translation, grouped. `localOnly` leaves out the licensed ones, for features that work on the built-in
+ * text (search, AI, guides). */
+export function TranslationSelect({ value, onChange, id = "translation", allowNone, short, localOnly }: { value: TranslationId | ""; onChange: (v: any) => void; id?: string; allowNone?: boolean; short?: boolean; localOnly?: boolean }) {
+  const groups = (Object.keys(GROUP_NAMES) as TranslationGroup[]).filter((g) => !(localOnly && g === "online"));
   return (
     <select id={id} aria-label="Bible translation" value={value} onChange={(e) => onChange(e.target.value)}>
       {allowNone && <option value="">None</option>}
-      {TRANSLATIONS.map((t) => <option key={t.id} value={t.id}>{short ? t.id : `${t.id} · ${t.name}`}</option>)}
+      {groups.map((g) => (
+        <optgroup key={g} label={GROUP_NAMES[g]}>
+          {OFFERED.filter((t) => t.group === g).map((t) => <option key={t.id} value={t.id}>{short ? t.id : `${t.id} · ${t.name}`}</option>)}
+        </optgroup>
+      ))}
     </select>
   );
 }
@@ -123,7 +131,7 @@ export function PassagePeek() {
               <p key={i}>{data.parts.length > 1 && <strong>{p.label} </strong>}{p.verses.map((v) => <span key={v.verse}><sup>{v.verse}</sup>{v.text || "(not in this translation)"} </span>)}</p>
             ))}
           </div>
-          <p className="fine">{translationInfo(prefs.translation).name}</p>
+          <p className="fine">{translationInfo(data?.translation ?? prefs.translation).name}</p>
           {hash && <button type="button" className="btn" onClick={() => { openPeek(null); navigate(hash); }}>Open in reader</button>}
         </>
       )}
@@ -156,4 +164,10 @@ export function LexText({ text }: { text: string }) {
   }
   pushPlain(text.slice(last));
   return <>{nodes}</>;
+}
+
+/** Where AI isn't available. On the website it points to the Claude version, which has the AI tools. */
+export function NoAiNote({ what }: { what: string }) {
+  if (CLAUDE_URL) return <p className="note">{what} come from the AI assistant, which isn't on this website. It's in the <a href={CLAUDE_URL} target="_blank" rel="noopener">Claude version of Veritas Logos</a>, for anyone with a Claude account.</p>;
+  return <p className="note">{what} come from the AI assistant, which isn't available in this copy of the app. See Library for how to turn it on.</p>;
 }

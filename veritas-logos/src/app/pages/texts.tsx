@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getChapter, getPassage, getVerse, refOf, translationInfo, verseCount } from "../../core/bible";
+import { getChapter, getPassage, getVerse, refOf, translationInfo, verseCount, localTranslation } from "../../core/bible";
 import { getInsights } from "../../core/insights";
 import { decodeMorph, getVerseWords, normalizeStrongs, type WordTuple } from "../../core/lexicon";
 import { load, pad2 } from "../../core/data";
@@ -171,7 +171,7 @@ export function MorphPage({ initial }: { initial?: string }) {
           ))}
         </ul>
       )}
-      <p className="fine">Reading in {prefs.translation}. Grammar from STEP Bible (Tyndale House), CC BY 4.0, following the Nestle-Aland text for Greek and ETCBC's analysis for Hebrew.</p>
+      <p className="fine">Reading in {localTranslation(prefs.translation)}. Grammar from STEP Bible (Tyndale House), CC BY 4.0, following the Nestle-Aland text for Greek and ETCBC's analysis for Hebrew.</p>
     </div>
   );
 }
@@ -227,17 +227,17 @@ const wordsText = (w: WordTuple[]) => w.map((x) => x[0]).join(" ");
 export function VerseColumns({ book, chapter, verse, compact }: { book: number; chapter: number; verse: number; compact?: boolean }) {
   const { prefs } = useData();
   const { data, loading } = useAsync(async () => {
-    const [orig, lxx, vul, eng] = await Promise.all([getVerseWords(book, chapter, verse), lxxChapters(book, chapter), vulgateChapters(book, chapter), getVerse(prefs.translation, book, chapter, verse)]);
+    const [orig, lxx, vul, eng] = await Promise.all([getVerseWords(book, chapter, verse), lxxChapters(book, chapter), vulgateChapters(book, chapter), getVerse(localTranslation(prefs.translation), book, chapter, verse)]);
     const find = (list: { chapter: number; verses: [number, string][] }[]) => list.flatMap((c) => c.verses.filter(([v]) => v === verse).map(([, t]) => t)).join(" ");
     return { orig: wordsText(orig), lxx: find(lxx), vul: find(vul), eng };
-  }, [book, chapter, verse, prefs.translation]);
+  }, [book, chapter, verse, localTranslation(prefs.translation)]);
   if (loading || !data) return <Loading />;
   return (
     <div className="anc-grid">
       <AncientLine label={book <= 39 ? "Hebrew" : "Greek"} lang={book <= 39 ? "he" : "grc"} dir={book <= 39 ? "rtl" : "ltr"} text={data.orig || "(none)"} />
       {book <= 39 && <AncientLine label="Septuagint" lang="grc" text={data.lxx || (book === 21 ? "(Ecclesiastes is missing from this digital Swete.)" : "(no verse with this number)")} />}
       <AncientLine label="Vulgate" lang="la" text={data.vul || "(no verse with this number)"} />
-      {!compact && <AncientLine label={prefs.translation} lang="en" text={data.eng || "(not in this translation)"} />}
+      {!compact && <AncientLine label={localTranslation(prefs.translation)} lang="en" text={data.eng || "(not in this translation)"} />}
     </div>
   );
 }
@@ -338,11 +338,11 @@ export function SynopsisPage({ n }: { n?: number }) {
       const e = p[k as "Matt"];
       if (!e) return { name, ref: "", text: "", primary: false };
       const ref = `${name} ${e[0]}`;
-      const got = await getPassage(prefs.translation, ref).catch(() => null);
+      const got = await getPassage(localTranslation(prefs.translation), ref).catch(() => null);
       const text = got ? got.parts.flatMap((x) => x.verses).map((v) => `${v.verse} ${v.text}`).join(" ") : "";
       return { name, ref, text, primary: Boolean(e[1]) };
     }));
-  }, [p?.n, prefs.translation]);
+  }, [p?.n, localTranslation(prefs.translation)]);
   if (error) return <div className="page"><ErrorNote error={error} /></div>;
   if (!data) return <div className="page"><Loading /></div>;
   if (p) {
@@ -368,7 +368,7 @@ export function SynopsisPage({ n }: { n?: number }) {
           {n! > 1 && <a className="btn small" href={`#synopsis-${n! - 1}`}>Previous</a>}
           <a className="btn small" href={`#synopsis-${n! + 1}`}>Next</a>
         </div>
-        <p className="fine">Showing {translationInfo(prefs.translation).name}. Change the translation in the reader. Section order and parallels follow Kurt Aland's Synopsis Quattuor Evangeliorum, from the aland-gospel-synopsis project (MIT). Aland's own Greek synopsis text isn't included.</p>
+        <p className="fine">Showing {translationInfo(localTranslation(prefs.translation)).name}. Change the translation in the reader. Section order and parallels follow Kurt Aland's Synopsis Quattuor Evangeliorum, from the aland-gospel-synopsis project (MIT). Aland's own Greek synopsis text isn't included.</p>
       </div>
     );
   }
