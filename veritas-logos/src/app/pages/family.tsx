@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { getPassage } from "../../core/bible";
 import { AGE_GROUPS, FAMILY_THEMES, type FamilyProfile, type FamilySettings } from "../../core/family";
 import { FAMILY_STORIES, type FamilyStory, type StoryActivity, type StoryImage } from "../../core/family-stories";
+import { FAMILY_VIDEO_CHANNELS, familyStoryVideos } from "../../core/family-videos";
 import { account, useAccount } from "../account";
 import { Loading, useAsync } from "../ui";
 import { FamilyResourceIndex, FamilyWorksheet, StoryResourceList } from "./family-worksheets";
@@ -48,6 +49,15 @@ export function FamilyPage() {
         </div>
       </section>
       <FamilyResourceIndex worksheetLink={(story, age) => worksheetHash(previewId(age), story)} />
+      <details className="family-section family-media-credits">
+        <summary>Video creators for families</summary>
+        <p>Browse the official channels and playlist on YouTube.</p>
+        <ul className="link-list">
+          {FAMILY_VIDEO_CHANNELS.map((channel) => <li key={channel.url}>
+            <a href={channel.url} target="_blank" rel="noopener noreferrer">{channel.name}</a>
+          </li>)}
+        </ul>
+      </details>
       <details className="family-section family-media-credits">
         <summary>About the artwork and video</summary>
         <p>The first collection pairs Bible stories with paintings, book illustrations, a photograph of the Sea of Galilee, and a captioned story video. Each story includes its media credits.</p>
@@ -203,6 +213,25 @@ function StoryCheck({ activity }: { activity: StoryActivity }) {
   );
 }
 
+function StoryWatch({ storyId }: { storyId: string }) {
+  const videos = familyStoryVideos(storyId);
+  if (!videos.length) return null;
+  return (
+    <section className="kids-watch" aria-labelledby="story-watch-title">
+      <h2 id="story-watch-title">Watch the story</h2>
+      <p>Videos open on YouTube. Younger children can watch with an adult.</p>
+      <ul className="kids-watch-list">
+        {videos.map((video) => <li key={video.id}>
+          <a className="kids-watch-link" href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer">
+            <span className="kids-watch-icon" aria-hidden="true">▶</span>
+            <span><strong>{video.title}</strong><small>{video.creator} · {video.format}</small></span>
+          </a>
+        </li>)}
+      </ul>
+    </section>
+  );
+}
+
 function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyProfile }) {
   const [scene, setScene] = useState(0);
   const [showAll, setShowAll] = useState(false);
@@ -221,10 +250,13 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
           <p className="kids-reference">{story.reference}</p>
           <h1>{story.title}</h1>
         </header>
-        <figure className={`kids-feature-art${paged ? " kids-paged-art" : ""}`}>
-          <img src={mediaPath(art.file)} alt={art.alt} />
-          <figcaption>{art.credit}</figcaption>
-        </figure>
+        <div className="kids-feature-art">
+          <figure className={paged ? "kids-paged-art" : undefined}>
+            <img src={mediaPath(art.file)} alt={art.alt} />
+            <figcaption>{art.credit}</figcaption>
+          </figure>
+          <StoryWatch storyId={story.id} />
+        </div>
         <div className="kids-story-body">
           {paged ? (
             <section className="kids-scene" aria-label="Story pages">
@@ -255,14 +287,14 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
           </section>
         </div>
         <div className="kids-story-media">
-          {video && <section className="kids-video">
-            <h2>{video.title}</h2>
-            <video controls preload="metadata" playsInline poster={mediaPath(image.file)} aria-label={video.title}>
+          {video && <details className="kids-video">
+            <summary>Veritas Logos video recap and transcript</summary>
+            <video controls preload="none" playsInline poster={mediaPath(image.file)} aria-label={video.title}>
               <source src={mediaPath(video.file)} type="video/mp4" />
               <track kind="captions" src={mediaPath(video.captions)} label="English" srcLang="en" default />
             </video>
             <details><summary>Read the transcript</summary>{video.transcript.map((line) => <p key={line}>{line}</p>)}</details>
-          </section>}
+          </details>}
           {illustrations && <details className="kids-illustrations">
             <summary>More illustrations</summary>
             {illustrations.map((item) => <figure key={item.file}>
