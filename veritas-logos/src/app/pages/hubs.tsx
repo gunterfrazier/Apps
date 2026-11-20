@@ -6,13 +6,15 @@ import { parseReference } from "../../core/references";
 import { eventHash, getChurchEvents, getCreedIndex } from "../../core/scholar";
 import { getWritingsIndex } from "../../core/writings";
 import { searchTopics } from "../../core/content";
-import { hashForReference } from "../routes";
+import { refOf } from "../../core/bible";
+import { hashForReference, readHash } from "../routes";
 import { navigate, useData, update } from "../store";
 import { ACCOUNTS_ON } from "../account";
 import { SubNav } from "./people";
 
 const PLACES: [string, string, string][] = [
   ["read", "Reader", "Read and study the Bible"],
+  ["study", "Study", "Passage tools and study resources"],
   ["dictionary", "Tyndale Open Bible Dictionary", "Articles on biblical people, places and subjects"],
   ["places", "Places in a passage", "Biblical locations and maps"],
   ["compare", "Compare texts", "Hebrew, Septuagint, Greek, Vulgate and English"],
@@ -102,6 +104,44 @@ export function CommandPalette({ onClose, onAsk }: { onClose: () => void; onAsk:
           {q.trim() && !hits.length && <li className="fine p-empty">Searching…</li>}
           {!q.trim() && !recent.length && <li className="fine p-empty">Type a reference such as Romans 8:28, or a term such as justification.</li>}
         </ul>
+      </div>
+    </div>
+  );
+}
+
+export function StudyHome() {
+  const { lastRead: { book, chapter } } = useData();
+  const reference = refOf(book, chapter);
+  const passage = readHash({ book, chapter }).slice(5);
+  return (
+    <div className="page study-home">
+      <h1 className="page-title">Study</h1>
+      <section className="study-current" aria-labelledby="current-passage">
+        <div>
+          <p className="fine">Current passage</p>
+          <h2 id="current-passage">{reference}</h2>
+        </div>
+        <a className="btn primary" href={`#read-${passage}`}>Open in reader</a>
+      </section>
+      <div className="study-home-grid">
+        <section>
+          <h2>Study this passage</h2>
+          <div className="tool-list">
+            <a className="tool-row" href={`#places-${passage}`}><strong>Places in {reference}</strong><span>Explore the passage map</span></a>
+            <a className="tool-row" href={`#on-${passage}`}><strong>Historical commentary</strong><span>See how writers interpreted this passage</span></a>
+            <a className="tool-row" href={`#compare-${passage}`}><strong>Compare texts</strong><span>Read the passage in its original languages</span></a>
+            <a className="tool-row" href={`#ask-${passage}`}><strong>Ask about this passage</strong><span>Open the study assistant</span></a>
+          </div>
+        </section>
+        <section>
+          <h2>Reference tools</h2>
+          <div className="tool-list">
+            <a className="tool-row" href="#dictionary"><strong>Tyndale Open Bible Dictionary</strong><span>People, places, and topics</span></a>
+            <a className="tool-row" href="#lexicon"><strong>Hebrew and Greek lexicon</strong><span>Look up original-language words</span></a>
+            <a className="tool-row" href="#history"><strong>Bible and church history</strong><span>Timelines, people, creeds, and writers</span></a>
+            <a className="tool-row" href="#explore"><strong>Browse all tools</strong><span>Search Scripture and reference material</span></a>
+          </div>
+        </section>
       </div>
     </div>
   );

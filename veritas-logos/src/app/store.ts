@@ -7,9 +7,9 @@ import type { CloudCollection } from "../account/types";
 
 export const THEMES = [
   ["system", "Match this device"],
-  ["light", "Paper"],
+  ["light", "Light"],
   ["sepia", "Sepia"],
-  ["dark", "Evening Charcoal"],
+  ["dark", "Dark"],
 ] as const;
 export type Theme = (typeof THEMES)[number][0];
 export type HighlightColor = "amber" | "green" | "blue" | "rose";
