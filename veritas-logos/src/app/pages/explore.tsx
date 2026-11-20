@@ -64,8 +64,7 @@ export function ExplorePage() {
 
   return (
     <div className="page">
-      <h1 className="page-title">Explore</h1>
-      <ExploreNav active="explore" />
+      <h1 className="page-title">Search</h1>
       <input id="search" className="input big" type="search" placeholder="Search a verse, word, topic, person or G26" aria-label="Search" value={q} onChange={(e) => setQ(e.target.value)} />
       {query.length >= 2 && !parsedRef && !strongs && (
         <div className="filters">

@@ -81,6 +81,10 @@ export function LibraryPage() {
   return (
     <div className="page prose library-page">
       <h1 className="page-title">Library</h1>
+      <div className="library-shortcuts" aria-label="Your study work">
+        <a className="btn" href="#guides">Study guides</a>
+        <a className="btn" href="#sources-list">My sources</a>
+      </div>
       <div className="segmented" role="tablist">
         {(["notes", "marks", "settings", "about"] as const).map((t) => <button type="button" key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t === "notes" ? "Notebook" : t === "marks" ? "Saved" : t === "settings" ? "Settings" : "About"}</button>)}
       </div>

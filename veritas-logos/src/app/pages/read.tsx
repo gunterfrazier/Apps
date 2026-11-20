@@ -19,6 +19,15 @@ import { Backlinks, ScholarshipLinks, useMedia } from "./scholar-ui";
 import { creedsCiting } from "../../core/scholar";
 
 const vKey = (b: number, c: number, v: number) => `${b}:${c}:${v}`;
+const passageKey = (book: number, chapter: number, verse: number, end = verse) =>
+  `${vKey(book, chapter, verse)}${end > verse ? `-${end}` : ""}`;
+
+function toggleBookmark(key: string) {
+  update((d) => ({
+    ...d,
+    bookmarks: d.bookmarks.includes(key) ? d.bookmarks.filter((saved) => saved !== key) : [key, ...d.bookmarks],
+  }));
+}
 
 // ---------- Book, chapter and verse picker ----------
 // Book, then chapter, then either the whole chapter or one verse in it. Typing a reference ("John 3:16", "Ps 23")
@@ -261,7 +270,7 @@ function NoteEditor({ noteKey, reference }: { noteKey: string; reference: string
     setText(value);
     update((d) => {
       const next = { ...d.notes };
-      if (value.trim()) next[noteKey] = { key: noteKey, ref: reference, text: value, updatedAt: new Date().toISOString() };
+      if (value.trim()) next[noteKey] = { ...next[noteKey], key: noteKey, ref: reference, text: value, updatedAt: new Date().toISOString() };
       else delete next[noteKey];
       return { ...d, notes: next };
     });
@@ -276,14 +285,62 @@ function NoteEditor({ noteKey, reference }: { noteKey: string; reference: string
 }
 
 // ---------- The sheet for a verse or passage ----------
-const STUDY_TABS = [["insights", "Insights"], ["words", "Hebrew & Greek"], ["history", "Through history"], ["text", "Text"], ["links", "Links"], ["notes", "Notes"]] as const;
+const STUDY_TABS = [["context", "Context"], ["words", "Words"], ["sources", "Sources"]] as const;
 type StudyTab = (typeof STUDY_TABS)[number][0];
-let lastTab: StudyTab = "insights";
 
-export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, docked }: { book: number; chapter: number; verse: number; end: number; onEndChange: (end: number) => void; onClose: () => void; docked?: boolean }) {
+function VerseCompare({ compact = false }: { compact?: boolean }) {
+  const { prefs } = useData();
+  const [comparing, setComparing] = useState(false);
+  const compareButton = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <button type="button" className={compact ? "btn small" : "btn"} ref={compareButton} aria-expanded={comparing}
+        aria-controls={comparing ? "verse-comparison" : undefined} onClick={() => setComparing(!comparing)}>Compare</button>
+      {comparing && (
+        <div id="verse-comparison" className="verse-comparison">
+          <label className="label" htmlFor="verse-compare-select">Compare with</label>
+          <TranslationSelect id="verse-compare-select" label="Compare with" value={prefs.compare} allowNone onChange={(value) => {
+            setPref("compare", value);
+            setComparing(false);
+            compareButton.current?.focus();
+          }} />
+        </div>
+      )}
+    </>
+  );
+}
+
+function VerseActions({ book, chapter, verse, end, onStudy, onNote, onClose }: {
+  book: number; chapter: number; verse: number; end?: number;
+  onStudy: () => void; onNote: () => void; onClose: () => void;
+}) {
+  const { bookmarks } = useData();
+  const key = passageKey(book, chapter, verse, end);
+  const saved = bookmarks.includes(key);
+  const reference = refOf(book, chapter, verse, end);
+  return (
+    <section className="verse-actions" aria-label="Verse actions">
+      <div className="verse-actions-heading">
+        <h2>{reference}</h2>
+        <button type="button" className="icon-btn" aria-label="Close verse actions" onClick={onClose}>×</button>
+      </div>
+      <button type="button" className="btn primary verse-study-action" onClick={onStudy}>Study verse</button>
+      <div className="verse-quick-actions">
+        <button type="button" className="btn" aria-pressed={saved} onClick={() => toggleBookmark(key)}>{saved ? "Saved" : "Save"}</button>
+        <button type="button" className="btn" onClick={onNote}>Note</button>
+        <VerseCompare />
+      </div>
+    </section>
+  );
+}
+
+function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, docked, initialNotes }: {
+  book: number; chapter: number; verse: number; end: number;
+  onEndChange: (end: number) => void; onClose: () => void; docked: boolean; initialNotes: boolean;
+}) {
   const { prefs, highlights, bookmarks, guides, activeGuideId } = useData();
-  const [tab, setTabState] = useState<StudyTab>(lastTab);
-  const setTab = (t: StudyTab) => { lastTab = t; setTabState(t); };
+  const [tab, setTab] = useState<StudyTab>("context");
+  const [showNote, setShowNote] = useState(initialNotes);
   const { data: total } = useAsync(() => verseCount(book, chapter), [book, chapter]);
   const reference = refOf(book, chapter, verse, end);
   const { data: got } = useAsync(async () => {
@@ -297,8 +354,7 @@ export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, do
     return { text: parts.join(" "), from };
   }, [book, chapter, verse, end, prefs.translation]);
   const text = got?.text;
-  const key = vKey(book, chapter, verse);
-  const rangeKey = end > verse ? `${key}-${end}` : key;
+  const rangeKey = passageKey(book, chapter, verse, end);
   const marked = bookmarks.includes(rangeKey);
   const rangeKeys = Array.from({ length: end - verse + 1 }, (_, i) => vKey(book, chapter, verse + i));
   const selectedColor = HIGHLIGHT_COLORS.find((color) => rangeKeys.length > 0 && rangeKeys.every((k) => highlights[k] === color));
@@ -313,39 +369,72 @@ export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, do
     });
   };
   const add = () => addSectionsToGuide([{ id: newId(), kind: "passage", heading: reference, origin: "assembled", ref: reference }], reference, guides, activeGuideId, prefs.translation, prefs.lens);
-  const body = (
+  const passage = readHash({ book, chapter, verse, verseEnd: end }).slice(5);
+  const body = showNote ? (
     <>
+      <button type="button" className="link-btn study-back" onClick={() => setShowNote(false)}>Back to passage study</button>
+      <NotesTab key={rangeKey} noteKey={rangeKey} reference={reference} />
+    </>
+  ) : (
+    <>
+      <h2 className="study-heading">Study the passage</h2>
       <p className="verse-quote">{text ?? "…"}</p>
-      <div className="range-row">
-        <label htmlFor="range-end">Through verse</label>
-        <select id="range-end" value={end} onChange={(e) => onEndChange(Number(e.target.value))}>
-          {Array.from({ length: Math.max(0, (total ?? verse) - verse + 1) }, (_, i) => verse + i).map((v) => <option key={v} value={v}>{v}</option>)}
-        </select>
-        <span className="swatches" role="group" aria-label="Highlight">
-          {HIGHLIGHT_COLORS.map((c) => <button type="button" key={c} className={`swatch hl-${c} ${selectedColor === c ? "on" : ""}`} aria-label={`Highlight ${c}`} aria-pressed={selectedColor === c} onClick={() => setColor(selectedColor === c ? null : c)} />)}
-        </span>
+      <div className="study-toolbar">
+        <div className="range-row">
+          <label htmlFor="range-end">Through verse</label>
+          <select id="range-end" value={end} onChange={(e) => onEndChange(Number(e.target.value))}>
+            {Array.from({ length: Math.max(0, (total ?? end) - verse + 1) }, (_, i) => verse + i).map((v) => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </div>
+        <button type="button" className="btn small" aria-pressed={marked} onClick={() => toggleBookmark(rangeKey)}>{marked ? "Saved" : "Save"}</button>
+        <button type="button" className="btn small" onClick={() => setShowNote(true)}>Note</button>
+        {docked && <VerseCompare compact />}
       </div>
-      <div className="action-row">
-        <button type="button" className="btn small primary" onClick={add}>Add to guide</button>
-        <button type="button" className="btn small" onClick={() => copyText(`${text} (${reference}, ${got?.from ?? prefs.translation})`, "Verse copied")}>Copy</button>
-        <button type="button" className="btn small" onClick={() => update((d) => ({ ...d, bookmarks: marked ? d.bookmarks.filter((x) => x !== rangeKey) : [rangeKey, ...d.bookmarks] }))}>{marked ? "Bookmarked" : "Bookmark"}</button>
-        <NotebookPicker entry={`passage:${rangeKey}`} title={reference} onSave={(d) =>
-          d.bookmarks.includes(rangeKey) || d.notes[rangeKey] || d.highlights[rangeKey]
-            ? d : { ...d, bookmarks: [rangeKey, ...d.bookmarks] }} />
-        <a className="btn small" href={`#places-${readHash({ book, chapter, verse, verseEnd: end }).slice(5)}`}>Places</a>
-        <a className="btn small" href={`#ask-${readHash({ book, chapter, verse, verseEnd: end }).slice(5)}`} onClick={onClose}>Ask AI</a>
-      </div>
-      <div className="tabs study-tabs" role="tablist" aria-label="Verse study">
-        {STUDY_TABS.map(([t, label]) => (
-          <button type="button" key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{label}</button>
+      <div className="tabs study-tabs" role="tablist" aria-label="Verse study" onKeyDown={(event) => {
+        const direction = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+        if (!direction) return;
+        event.preventDefault();
+        const index = STUDY_TABS.findIndex(([id]) => id === tab);
+        const next = STUDY_TABS[(index + direction + STUDY_TABS.length) % STUDY_TABS.length][0];
+        setTab(next);
+        event.currentTarget.querySelector<HTMLButtonElement>(`#study-tab-${next}`)?.focus();
+      }}>
+        {STUDY_TABS.map(([id, label]) => (
+          <button type="button" key={id} id={`study-tab-${id}`} role="tab" aria-controls="study-tab-content"
+            aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
-      {tab === "insights" && <InsightsPanel reference={reference} translation={prefs.translation} />}
-      {tab === "words" && <WordsTab book={book} chapter={chapter} verse={verse} verseEnd={end} />}
-      {tab === "links" && <LinksTab book={book} chapter={chapter} verse={verse} translation={prefs.translation} />}
-      {tab === "history" && <HistoryOfInterpretation reference={reference} compact />}
-      {tab === "text" && <TextTab book={book} chapter={chapter} verse={verse} />}
-      {tab === "notes" && <NotesTab noteKey={rangeKey} reference={reference} />}
+      <div id="study-tab-content" role="tabpanel" aria-labelledby={`study-tab-${tab}`}>
+        {tab === "context" && (
+          <>
+            <InsightsPanel reference={reference} translation={prefs.translation} />
+            <details className="study-detail"><summary>Cross-references and people</summary><LinksTab book={book} chapter={chapter} verse={verse} translation={prefs.translation} /></details>
+            <a className="btn small" href={`#places-${passage}`}>Places</a>
+          </>
+        )}
+        {tab === "words" && (
+          <>
+            <WordsTab book={book} chapter={chapter} verse={verse} verseEnd={end} />
+            <details className="study-detail"><summary>Text comparison and editions</summary><TextTab book={book} chapter={chapter} verse={verse} /></details>
+          </>
+        )}
+        {tab === "sources" && <HistoryOfInterpretation reference={reference} compact />}
+      </div>
+      <details className="study-detail">
+        <summary>More verse actions</summary>
+        <div className="range-row swatches" role="group" aria-label="Highlight">
+          {HIGHLIGHT_COLORS.map((color) => <button type="button" key={color} className={`swatch hl-${color} ${selectedColor === color ? "on" : ""}`}
+            aria-label={`Highlight ${color}`} aria-pressed={selectedColor === color} onClick={() => setColor(selectedColor === color ? null : color)} />)}
+        </div>
+        <div className="action-row">
+          <button type="button" className="btn small" onClick={add}>Add to guide</button>
+          <button type="button" className="btn small" disabled={!text} onClick={() => copyText(`${text} (${reference}, ${got?.from ?? prefs.translation})`, "Verse copied")}>Copy</button>
+          <NotebookPicker entry={`passage:${rangeKey}`} title={reference} onSave={(d) =>
+            d.bookmarks.includes(rangeKey) || d.notes[rangeKey] || d.highlights[rangeKey]
+              ? d : { ...d, bookmarks: [rangeKey, ...d.bookmarks] }} />
+          <a className="btn small" href={`#ask-${passage}`} onClick={onClose}>Ask AI</a>
+        </div>
+      </details>
     </>
   );
   if (docked) {
@@ -356,7 +445,7 @@ export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, do
       </aside>
     );
   }
-  return <Sheet wide title={reference} onClose={onClose}>{body}</Sheet>;
+  return <Sheet wide title={reference} onClose={onClose} manageFocus>{body}</Sheet>;
 }
 
 // ---------- Reader ----------
@@ -365,6 +454,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   const book = route?.book ?? lastRead.book;
   const chapter = route?.chapter ?? lastRead.chapter;
   const [picker, setPicker] = useState(false);
+  const readerWrap = useRef<HTMLDivElement>(null);
   const [readingOptions, setReadingOptions] = useState(false);
   const optionsPanel = useRef<HTMLElement>(null);
   const toolbar = useRef<HTMLDivElement>(null);
@@ -411,7 +501,8 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       document.removeEventListener("keydown", onEscape);
     };
   }, [readingOptions]);
-  const [sheet, setSheet] = useState<{ verse: number; end?: number } | null>(null);
+  const [sheet, setSheet] = useState<{ verse: number; end?: number; panel?: "study" | "note" } | null>(null);
+  const verseTrigger = useRef<HTMLElement>(null);
   const [wordSelection, setWordSelection] = useState<WordSelection | null>(null);
   const closeWord = (restoreFocus = true) => {
     setWordSelection(null);
@@ -552,16 +643,47 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
     : null;
   const selection = sheet ?? (route?.verse ? { verse: route.verse, end: route.verseEnd } : null);
   const inRange = (v: number) => Boolean(selection && v >= selection.verse && v <= (selection.end ?? selection.verse));
-  const verseSheet = sheet && (
-    <VerseSheet book={book} chapter={chapter} verse={sheet.verse} end={sheet.end ?? sheet.verse} docked={wide}
-      onEndChange={(end) => setSheet({ verse: sheet.verse, end })} onClose={() => setSheet(null)} />
+  const showTray = Boolean(sheet && !wide && !sheet.panel && !picker);
+  useLayoutEffect(() => {
+    const wrap = readerWrap.current;
+    const tray = wrap?.querySelector<HTMLElement>(".verse-actions");
+    if (!wrap || !tray) return;
+    const measure = () => wrap.style.setProperty("--verse-tray-height", `${tray.offsetHeight}px`);
+    measure();
+    const selectedVerse = document.getElementById(`v${sheet?.verse}`);
+    const overlap = selectedVerse ? selectedVerse.getBoundingClientRect().bottom - tray.getBoundingClientRect().top + 12 : 0;
+    if (overlap > 0) window.scrollBy(0, overlap);
+    const observer = new ResizeObserver(measure);
+    observer.observe(tray);
+    return () => observer.disconnect();
+  }, [showTray, sheet?.verse]);
+  const closeTray = () => {
+    setSheet(null);
+    verseTrigger.current?.focus({ preventScroll: true });
+  };
+  useEffect(() => {
+    if (!showTray || wordSelection || readingOptions) return;
+    const onEscape = (event: KeyboardEvent) => { if (event.key === "Escape") closeTray(); };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [showTray, sheet?.verse, wordSelection, readingOptions]);
+  const verseSheet = sheet && (wide || sheet.panel) && (
+    <VerseSheet key={sheet.panel} book={book} chapter={chapter} verse={sheet.verse} end={sheet.end ?? sheet.verse} docked={wide}
+      initialNotes={sheet.panel === "note"} onEndChange={(end) => setSheet({ ...sheet, end })}
+      onClose={() => {
+        setSheet(wide ? null : { ...sheet, panel: undefined });
+        requestAnimationFrame(() => {
+          if (wide) verseTrigger.current?.focus({ preventScroll: true });
+          else readerWrap.current?.querySelector<HTMLButtonElement>(".verse-study-action")?.focus({ preventScroll: true });
+        });
+      }} />
   );
 
   return (
-    <div className={`reader-wrap ${wide && sheet ? "with-dock" : ""}`}>
+    <div ref={readerWrap} className={`reader-wrap ${wide && sheet ? "with-dock" : showTray ? "with-verse-actions" : ""}`}>
     <div className="page reader">
       <div className="toolbar" ref={toolbar}>
-        <button type="button" className="pick-btn" onClick={() => setPicker(true)}>{bookName(book)} {chapter} <span aria-hidden="true">▾</span></button>
+        <button type="button" className="reader-control pick-btn" onClick={() => setPicker(true)}>{bookName(book)} {chapter} <span aria-hidden="true">▾</span></button>
         <div className="toolbar-right">
           <ReaderTranslationPicker value={translation} onChange={(t) => {
             setPref("translation", t);
@@ -628,7 +750,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
 
       {!prefs.hideStudyPrompt && (
         <div className="study-cta">
-          <button type="button" className="btn small" onClick={() => verses && setSheet({ verse: 1, end: verses.length })}>Study this chapter</button>
+          <button type="button" className="btn small" onClick={() => verses && setSheet({ verse: 1, end: verses.length, panel: "study" })}>Study this chapter</button>
           <span className="fine">{prefs.wordStudy ? "Tap any word to look it up." : "or tap any verse for insights, Hebrew and Greek, its history and links"}</span>
         </div>
       )}
@@ -659,20 +781,27 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
               ? (index: number, trigger: HTMLButtonElement) => setWordSelection((current) =>
                 current?.trigger === trigger ? null : { verse: v.verse, translation: source, words, index, trigger })
               : undefined;
-            const studyVerse = () => setSheet({ verse: v.verse });
+            const studyVerse = (trigger: HTMLElement) => {
+              verseTrigger.current = trigger;
+              setSheet({ verse: v.verse });
+            };
+            const focusVerseActions = (trigger: HTMLElement) => {
+              studyVerse(trigger);
+              if (!wide) requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".verse-study-action")?.focus({ preventScroll: true }));
+            };
             const selected = inRange(v.verse);
             const number = !prefs.hideVerseNumbers && (prefs.wordStudy
-              ? <button type="button" className="verse-number" aria-label={`Study verse ${v.verse}`} aria-pressed={selected} onClick={studyVerse}><sup>{v.verse}</sup></button>
+              ? <button type="button" className="verse-number" aria-label={`Study verse ${v.verse}`} aria-pressed={selected} onClick={(event) => focusVerseActions(event.currentTarget)}><sup>{v.verse}</sup></button>
               : <sup>{v.verse}</sup>);
             return (
               <Fragment key={v.verse}>
                 {headings?.[v.verse]?.map((heading, i) => <h3 className="section-heading" key={i}>{heading}</h3>)}
-                <div id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${selected ? "picked" : ""} ${route?.verse === v.verse ? "target" : ""} ${arrived === v.verse ? "arrive" : ""} ${prefs.wordStudy ? "word-study" : ""}`}
+                <div id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${selected ? "picked" : ""} ${route?.verse === v.verse && selected ? "target" : ""} ${arrived === v.verse ? "arrive" : ""} ${prefs.wordStudy ? "word-study" : ""}`}
                   role={prefs.wordStudy ? undefined : "button"} tabIndex={prefs.wordStudy ? undefined : 0} aria-pressed={prefs.wordStudy ? undefined : selected}
-                  onClick={prefs.wordStudy ? undefined : studyVerse} onKeyDown={prefs.wordStudy ? undefined : (e) => {
+                  onClick={prefs.wordStudy ? undefined : (event) => studyVerse(event.currentTarget)} onKeyDown={prefs.wordStudy ? undefined : (e) => {
                     if (e.key !== "Enter" && e.key !== " ") return;
                     e.preventDefault();
-                    studyVerse();
+                    focusVerseActions(e.currentTarget);
                   }}>
                   {number}
                   {v.text
@@ -707,8 +836,10 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       {picker && <Picker book={book} chapter={chapter} verse={route?.verse} onClose={() => setPicker(false)} onPick={(b, c, v) => { setPicker(false); go(b, c, v); }} />}
       {wordSelection && prefs.wordStudy && (
         <ReaderLexicon key={`${book}:${chapter}:${wordSelection.verse}:${wordSelection.translation}:${wordSelection.index}`} book={book} chapter={chapter}
-          selection={wordSelection} onClose={closeWord} onStudy={() => { setSheet({ verse: wordSelection.verse }); closeWord(false); }} />
+          selection={wordSelection} onClose={closeWord} onStudy={() => { setSheet({ verse: wordSelection.verse, panel: "study" }); closeWord(false); }} />
       )}
+      {showTray && sheet && <VerseActions key={sheet.verse} book={book} chapter={chapter} verse={sheet.verse} end={sheet.end}
+        onStudy={() => setSheet({ ...sheet, panel: "study" })} onNote={() => setSheet({ ...sheet, panel: "note" })} onClose={closeTray} />}
       {!wide && verseSheet}
     </div>
     {wide && verseSheet}

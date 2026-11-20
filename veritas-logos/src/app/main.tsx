@@ -13,7 +13,7 @@ import { ChurchHistoryPage, DatingPage, TimelinePage } from "./pages/timeline";
 import { ApostolicPage, ComparePage, DcPage, JosephusPage, MorphPage, OriginalsPage, SynopsisPage, TextualPage } from "./pages/texts";
 import { CreedPage, CreedsPage } from "./pages/creeds";
 import { AdvancedSearchPage, NotebookPage, NotePage, SourcesPage } from "./pages/notebook";
-import { CommandPalette, HistoryHub, rememberPlace } from "./pages/hubs";
+import { CommandPalette, HistoryHub, StudyHome, rememberPlace } from "./pages/hubs";
 import { PassageWritersPage, WriterExcerptPage, WriterPage, WritersPage } from "./pages/writers";
 import { parseTimelineRoute } from "../core/timeline";
 import { TyndaleDictionaryPage } from "./pages/tyndale-dictionary";
@@ -42,69 +42,72 @@ class Boundary extends Component<{ children: ReactNode; route: string }, { faile
   }
 }
 
-function pageFor(route: string, askDraft: { text: string } | null, consumeAskDraft: () => void): { node: ReactNode; tab: string } {
+type MainTab = "read" | "study" | "search" | "library";
+
+function pageFor(route: string, askDraft: { text: string } | null, consumeAskDraft: () => void): { node: ReactNode; tab: MainTab } {
   const [head, ...rest] = route.split("-");
   const tail = rest.join("-");
   switch (head) {
     case "": case "read": return { node: <ReadPage route={tail ? parseReadParts(tail) : null} />, tab: "read" };
-    case "explore": return { node: <ExplorePage />, tab: "explore" };
-    case "morph": return { node: <MorphPage key={tail} initial={tail || undefined} />, tab: "explore" };
-    case "compare": return { node: <ComparePage key={tail} tail={tail || undefined} />, tab: "explore" };
-    case "synopsis": return { node: <SynopsisPage key={tail} n={tail ? Number(tail) : undefined} />, tab: "explore" };
-    case "textual": return { node: <TextualPage />, tab: "explore" };
-    case "dc": return { node: <DcPage key={tail} tail={tail || undefined} />, tab: "explore" };
-    case "originals": return { node: <OriginalsPage />, tab: "explore" };
-    case "af": return { node: <ApostolicPage key={tail} tail={tail} />, tab: "explore" };
-    case "josephus": return { node: <JosephusPage key={tail} tail={tail} />, tab: "explore" };
-    case "history": return { node: <HistoryHub />, tab: "history" };
-    case "church": return { node: <ChurchHistoryPage />, tab: "history" };
-    case "event": return { node: <ChurchHistoryPage eventId={tail} />, tab: "history" };
-    case "dating": return { node: <DatingPage />, tab: "history" };
-    case "creeds": return { node: <CreedsPage />, tab: "history" };
-    case "creed": return { node: <CreedPage key={tail} id={tail} />, tab: "history" };
-    case "notebook": return { node: <NotebookPage />, tab: "guides" };
-    case "note": return { node: <NotePage key={tail} id={tail} />, tab: "guides" };
-    case "sources": return { node: <SourcesPage />, tab: "guides" };
-    case "search": return { node: <AdvancedSearchPage key={tail} initial={tail ? decodeURIComponent(tail).replace(/-/g, " ") : undefined} />, tab: "guides" };
-    case "lexicon": return { node: <LexiconPage />, tab: "explore" };
-    case "word": return { node: <WordPage key={tail} id={tail} />, tab: "explore" };
-    case "books": return { node: <BooksPage />, tab: "explore" };
-    case "book": return { node: <BookPage slug={tail} />, tab: "explore" };
-    case "topics": return { node: <TopicsPage />, tab: "explore" };
-    case "topic": return { node: <TopicPage slug={tail} />, tab: "explore" };
-    case "letters": return { node: <LettersPage />, tab: "explore" };
-    case "guides": return { node: <GuidesPage />, tab: "guides" };
-    case "new": return { node: <NewGuidePage key={tail} initial={tail ? decodeTopic(tail) : undefined} />, tab: "guides" };
-    case "guide": return { node: <GuidePage key={tail} id={tail} />, tab: "guides" };
-    case "shared": return { node: <SharedGuidePage code={tail} />, tab: "guides" };
-    case "people": return { node: tail === "data" ? <PeopleDataPage /> : <PeoplePage />, tab: "history" };
-    case "person": return { node: <PersonPage key={tail} id={tail} />, tab: "history" };
-    case "tree": return { node: <TreePage id={tail || undefined} />, tab: "history" };
-    case "paths": return { node: <PathsPage />, tab: "history" };
-    case "timeline": return { node: <TimelinePage at={parseTimelineRoute(tail)} />, tab: "history" };
-    case "writers": return { node: <WritersPage key={tail} initialSearch={tail.startsWith("q-") ? decodeURIComponent(tail.slice(2)).replace(/-/g, " ") : undefined} />, tab: "history" };
-    case "glossary": return { node: <GlossaryPage />, tab: "explore" };
-    case "dictionary": return { node: <TyndaleDictionaryPage id={tail} />, tab: "explore" };
-    case "term": return { node: <TermPage key={tail} id={tail} />, tab: "explore" };
-    case "excerpt": return { node: <WriterExcerptPage key={tail} locator={tail} />, tab: "history" };
-    case "writer": return { node: <WriterPage key={tail} id={tail} />, tab: "history" };
+    case "study": return { node: <StudyHome />, tab: "study" };
+    case "explore": return { node: <ExplorePage />, tab: "search" };
+    case "morph": return { node: <MorphPage key={tail} initial={tail || undefined} />, tab: "study" };
+    case "compare": return { node: <ComparePage key={tail} tail={tail || undefined} />, tab: "study" };
+    case "synopsis": return { node: <SynopsisPage key={tail} n={tail ? Number(tail) : undefined} />, tab: "study" };
+    case "textual": return { node: <TextualPage />, tab: "study" };
+    case "dc": return { node: <DcPage key={tail} tail={tail || undefined} />, tab: "study" };
+    case "originals": return { node: <OriginalsPage />, tab: "study" };
+    case "af": return { node: <ApostolicPage key={tail} tail={tail} />, tab: "study" };
+    case "josephus": return { node: <JosephusPage key={tail} tail={tail} />, tab: "study" };
+    case "history": return { node: <HistoryHub />, tab: "study" };
+    case "church": return { node: <ChurchHistoryPage />, tab: "study" };
+    case "event": return { node: <ChurchHistoryPage eventId={tail} />, tab: "study" };
+    case "dating": return { node: <DatingPage />, tab: "study" };
+    case "creeds": return { node: <CreedsPage />, tab: "study" };
+    case "creed": return { node: <CreedPage key={tail} id={tail} />, tab: "study" };
+    case "notebook": return { node: <NotebookPage />, tab: "library" };
+    case "note": return { node: <NotePage key={tail} id={tail} />, tab: "library" };
+    case "sources": return { node: <SourcesPage />, tab: "library" };
+    case "search": return { node: <AdvancedSearchPage key={tail} initial={tail ? decodeURIComponent(tail).replace(/-/g, " ") : undefined} />, tab: "search" };
+    case "lexicon": return { node: <LexiconPage />, tab: "study" };
+    case "word": return { node: <WordPage key={tail} id={tail} />, tab: "study" };
+    case "books": return { node: <BooksPage />, tab: "study" };
+    case "book": return { node: <BookPage slug={tail} />, tab: "study" };
+    case "topics": return { node: <TopicsPage />, tab: "study" };
+    case "topic": return { node: <TopicPage slug={tail} />, tab: "study" };
+    case "letters": return { node: <LettersPage />, tab: "study" };
+    case "guides": return { node: <GuidesPage />, tab: "library" };
+    case "new": return { node: <NewGuidePage key={tail} initial={tail ? decodeTopic(tail) : undefined} />, tab: "library" };
+    case "guide": return { node: <GuidePage key={tail} id={tail} />, tab: "library" };
+    case "shared": return { node: <SharedGuidePage code={tail} />, tab: "library" };
+    case "people": return { node: tail === "data" ? <PeopleDataPage /> : <PeoplePage />, tab: "study" };
+    case "person": return { node: <PersonPage key={tail} id={tail} />, tab: "study" };
+    case "tree": return { node: <TreePage id={tail || undefined} />, tab: "study" };
+    case "paths": return { node: <PathsPage />, tab: "study" };
+    case "timeline": return { node: <TimelinePage at={parseTimelineRoute(tail)} />, tab: "study" };
+    case "writers": return { node: <WritersPage key={tail} initialSearch={tail.startsWith("q-") ? decodeURIComponent(tail.slice(2)).replace(/-/g, " ") : undefined} />, tab: "study" };
+    case "glossary": return { node: <GlossaryPage />, tab: "study" };
+    case "dictionary": return { node: <TyndaleDictionaryPage id={tail} />, tab: "study" };
+    case "term": return { node: <TermPage key={tail} id={tail} />, tab: "study" };
+    case "excerpt": return { node: <WriterExcerptPage key={tail} locator={tail} />, tab: "study" };
+    case "writer": return { node: <WriterPage key={tail} id={tail} />, tab: "study" };
     case "on": {
       const r = tail ? parseReadParts(tail) : null;
-      return r ? { node: <PassageWritersPage key={tail} reference={refOf(r.book, r.chapter, r.verse, r.verseEnd)} />, tab: "history" } : { node: <WritersPage />, tab: "history" };
+      return r ? { node: <PassageWritersPage key={tail} reference={refOf(r.book, r.chapter, r.verse, r.verseEnd)} />, tab: "study" } : { node: <WritersPage />, tab: "study" };
     }
     case "ask": {
       const r = tail ? parseReadParts(tail) : null;
-      return { node: <AskPage initialQuestion={askDraft} onQuestionUsed={consumeAskDraft} contextRef={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "ask" };
+      return { node: <AskPage initialQuestion={askDraft} onQuestionUsed={consumeAskDraft} contextRef={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "study" };
     }
-    case "ai": return { node: <AiWorkPage />, tab: "ask" };
+    case "ai": return { node: <AiWorkPage />, tab: "study" };
     case "places": {
       const selection = parseReadParts(tail);
       const r = selection ?? getData().lastRead;
-      return { node: <PlacesPage key={tail} reference={refOf(r.book, r.chapter, selection?.verse, selection?.verseEnd)} />, tab: "explore" };
+      return { node: <PlacesPage key={tail} reference={refOf(r.book, r.chapter, selection?.verse, selection?.verseEnd)} />, tab: "study" };
     }
     case "symbols": {
       const r = tail ? parseReadParts(tail) : null;
-      return { node: <SymbolsPage key={tail} initial={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "explore" };
+      return { node: <SymbolsPage key={tail} initial={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "study" };
     }
     case "library": return { node: <LibraryPage />, tab: "library" };
     case "account": return { node: <AccountPage />, tab: "library" };
@@ -112,15 +115,14 @@ function pageFor(route: string, askDraft: { text: string } | null, consumeAskDra
   }
 }
 
-const TABS: { id: string; hash: string; label: string; icon: ReactNode }[] = [
+const TABS: { id: MainTab; hash: string; label: string; icon: ReactNode }[] = [
   { id: "read", hash: "read", label: "Read", icon: <path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5V5.5ZM12 6v13.5" /> },
-  { id: "explore", hash: "explore", label: "Explore", icon: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></> },
-  { id: "history", hash: "history", label: "History", icon: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3.5 2" /></> },
-  { id: "guides", hash: "guides", label: "Study", icon: <path d="M6 3h9l4 4v14H6V3Zm9 0v4h4M9 12h7M9 16h7" /> },
-  { id: "ask", hash: "ask", label: "Ask", icon: <path d="M4 5h16v11H9l-5 4V5Zm6 6h.01M14 11h.01" /> },
+  { id: "study", hash: "study", label: "Study", icon: <path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5" /> },
+  { id: "search", hash: "explore", label: "Search", icon: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></> },
+  { id: "library", hash: "library", label: "Library", icon: <path d="M4 4h4v16H4zM9 4h4v16H9zM15 5l3-1 4 15-4 1z" /> },
 ];
 
-const ROOTS = new Set(["", "read", "explore", "history", "guides", "ask", "library"]);
+const ROOTS = new Set(["", "read", "study", "explore", "library"]);
 /** Routes that show the same page stay mounted, so opening a church event keeps the chart as it was. */
 const pageKey = (route: string) => { const head = route.split("-")[0]; return head === "event" ? "church" : head; };
 const LABELS: Record<string, string> = { church: "Church history", timeline: "Bible timeline", creeds: "Creeds", writers: "Writers", glossary: "Theological terms", notebook: "Notebook", places: "Bible places", dictionary: "Tyndale Bible Dictionary", compare: "Compare texts", synopsis: "Gospel synopsis", dc: "Deuterocanon", morph: "Search by grammar", textual: "Textual notes", originals: "Primary texts", people: "People" };
@@ -187,6 +189,16 @@ function App() {
     const el = document.documentElement;
     if (prefs.theme === "system") el.removeAttribute("data-theme");
     else el.setAttribute("data-theme", prefs.theme);
+    const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const deviceScheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateThemeColor = () => {
+      if (themeColor) themeColor.content = prefs.theme === "dark" || (prefs.theme === "system" && deviceScheme.matches)
+        ? "#000000" : prefs.theme === "sepia" ? "#f4ead7" : "#ffffff";
+    };
+    updateThemeColor();
+    if (prefs.theme !== "system") return;
+    deviceScheme.addEventListener("change", updateThemeColor);
+    return () => deviceScheme.removeEventListener("change", updateThemeColor);
   }, [prefs.theme]);
   const header = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -204,14 +216,19 @@ function App() {
       <header ref={header} className="top">
         <div className="top-left">
           {!ROOTS.has(route.split("-")[0]) && <button type="button" className="back-btn" aria-label="Back" onClick={() => history.back()}>‹</button>}
-          <a href="#read" className="brand"><span className="mark" aria-hidden="true">Λ</span><span className="brand-name">Veritas Logos</span></a>
+          <a href="#read" className="brand" aria-label="Veritas Logos">
+            <svg className="brand-mark" viewBox="0 0 48 52" aria-hidden="true">
+              <path className="leaf-blue" d="M2 51 14 12 38 1 31 24Z" />
+              <path className="leaf-silver" d="M4 51 30 31 47 27 42 42Z" />
+            </svg>
+            <span className="brand-name" aria-hidden="true"><strong>Veritas</strong><span>Logos</span></span>
+          </a>
         </div>
         <div className="top-right">
           <button type="button" className="find-btn" aria-label="Go anywhere" onClick={() => setPalette(true)}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <span className="find-label">Go anywhere</span><kbd className="find-kbd">Ctrl K</kbd>
           </button>
-          <a href="#library" className={`lib-link ${tab === "library" ? "on" : ""}`}>Library</a>
           {ACCOUNTS_ON && <AccountButton on={route === "account"} />}
         </div>
       </header>

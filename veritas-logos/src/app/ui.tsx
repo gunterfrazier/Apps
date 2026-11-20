@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { getPassage, GROUP_NAMES, OFFERED, translationInfo, type TranslationGroup, type TranslationId } from "../core/bible";
 import { LENS_IDS, type LensId } from "../core/content";
 import { lensName, ORIGIN_LABEL, type Origin } from "../core/guide";
@@ -44,11 +44,25 @@ export function Tag({ children, tone }: { children: ReactNode; tone?: string }) 
   return <span className={`tag ${tone ? `tag-${tone}` : ""}`}>{children}</span>;
 }
 
-export function Sheet({ title, onClose, children, wide }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Sheet({ title, onClose, children, wide, manageFocus }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; manageFocus?: boolean }) {
+  const titleId = useId();
+  const dialog = useRef<HTMLDivElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close.current(); };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close.current();
+      if (event.key !== "Tab" || !manageFocus || !dialog.current) return;
+      const controls = Array.from(dialog.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex="0"]'
+      )).filter((element) => element.tabIndex >= 0 && element.getClientRects().length > 0);
+      if (!dialog.current.contains(document.activeElement) || document.activeElement === (event.shiftKey ? controls[0] : controls.at(-1))) {
+        event.preventDefault();
+        (event.shiftKey ? controls.at(-1) : controls[0])?.focus();
+      }
+    };
+    if (manageFocus) closeButton.current?.focus({ preventScroll: true });
     window.addEventListener("keydown", onKey);
     document.body.classList.add("sheet-open");
     // The phone's Back button closes the sheet instead of leaving the page.
@@ -66,10 +80,10 @@ export function Sheet({ title, onClose, children, wide }: { title: ReactNode; on
   }, []);
   return (
     <div className="sheet-wrap" onClick={onClose}>
-      <div className={`sheet ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+      <div className={`sheet ${wide ? "wide" : ""}`} ref={dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head">
-          <div className="sheet-title">{title}</div>
-          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>×</button>
+          <div id={titleId} className="sheet-title">{title}</div>
+          <button ref={closeButton} type="button" className="icon-btn" aria-label="Close" onClick={onClose}>×</button>
         </div>
         <div className="sheet-body">{children}</div>
       </div>
@@ -79,10 +93,10 @@ export function Sheet({ title, onClose, children, wide }: { title: ReactNode; on
 
 /** Picks a translation, grouped. `localOnly` leaves out the licensed ones, for features that work on the built-in
  * text (search, AI, guides). */
-export function TranslationSelect({ value, onChange, id = "translation", allowNone, short, localOnly }: { value: TranslationId | ""; onChange: (v: any) => void; id?: string; allowNone?: boolean; short?: boolean; localOnly?: boolean }) {
+export function TranslationSelect({ value, onChange, id = "translation", label = "Bible translation", allowNone, short, localOnly }: { value: TranslationId | ""; onChange: (v: any) => void; id?: string; label?: string; allowNone?: boolean; short?: boolean; localOnly?: boolean }) {
   const groups = (Object.keys(GROUP_NAMES) as TranslationGroup[]).filter((g) => !(localOnly && g === "online"));
   return (
-    <select id={id} aria-label="Bible translation" value={value} onChange={(e) => onChange(e.target.value)}>
+    <select id={id} aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
       {allowNone && <option value="">None</option>}
       {groups.map((g) => (
         <optgroup key={g} label={GROUP_NAMES[g]}>
