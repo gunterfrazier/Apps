@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { ACCOUNTS_ON, IN_CLAUDE, account, currentHash, deleteAccount, signOut, useAccount } from "../account";
 import { toast, useData, useSyncState } from "../store";
 import { SyncLine } from "./library";
@@ -116,50 +116,97 @@ function PasswordInput({ id, value, onChange, isNew }: { id: string; value: stri
 }
 
 const WAIT = 60;
+const MAX_CODE_LENGTH = 12;
+function pastedCode(text: string) {
+  const digits = text.replace(/[\s-]/g, "");
+  return digits.length >= 6 && digits.length <= MAX_CODE_LENGTH && /^\d+$/.test(digits) ? digits : "";
+}
+
 function CodeEntry({ step, onBack }: { step: Extract<Step, { kind: "code" }>; onBack: () => void }) {
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [action, setAction] = useState<"verify" | "resend" | null>(null);
   const [error, setError] = useState("");
+  const [pasteNote, setPasteNote] = useState("");
+  const [pasting, setPasting] = useState(false);
+  const codeInput = useRef<HTMLInputElement>(null);
   const [wait, setWait] = useState(WAIT);
   useEffect(() => { if (wait <= 0) return; const t = setTimeout(() => setWait(wait - 1), 1000); return () => clearTimeout(t); }, [wait]);
-  const digits = code.replace(/\D/g, "");
   const reset = step.purpose === "reset";
+  const updateCode = (value: string) => {
+    setCode(value.replace(/\D/g, "").slice(0, MAX_CODE_LENGTH));
+    setError("");
+    setPasteNote("");
+  };
+  const acceptPaste = (text: string) => {
+    const value = pastedCode(text);
+    if (value) updateCode(value);
+    setPasteNote(value ? "Code pasted." : "Copy just the one-time code from the email and try again.");
+  };
+  const paste = async () => {
+    const field = codeInput.current;
+    if (!field || action || pasting) return;
+    const before = field.value;
+    setPasting(true);
+    setPasteNote("");
+    try {
+      const text = await navigator.clipboard.readText();
+      if (field.isConnected && !field.disabled && field.value === before) acceptPaste(text);
+    } catch {
+      setPasteNote("You can paste directly into the Code field or type the code.");
+    } finally {
+      setPasting(false);
+    }
+    if (field.isConnected) field.focus();
+  };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (digits.length < 6 || (reset && password.length < 8)) return;
-    setBusy(true);
+    if (action || pasting || code.length < 6 || (reset && password.length < 8)) return;
+    setAction("verify");
     setError("");
+    setPasteNote("");
     try {
-      await account().verifyCode(step.email, digits, step.purpose);
+      await account().verifyCode(step.email, code, step.purpose);
       if (reset) { await account().setPassword(password); toast("Password changed. You're signed in."); }
       else toast(step.purpose === "signup" ? "Email confirmed. You're signed in." : "Signed in");
     } catch (err: any) {
       setError(err?.message ?? "That code didn't work. Try again.");
     } finally {
-      setBusy(false);
+      setAction(null);
     }
   };
   const resend = async () => {
+    if (action || pasting || wait > 0) return;
+    setAction("resend");
     setError("");
     try {
       if (reset) await account().sendResetCode(step.email);
       else if (step.purpose === "signup") await account().resendConfirmation(step.email);
       else await account().sendCode(step.email);
+      updateCode("");
       setWait(WAIT);
       toast("A new code is on its way");
-    } catch (err: any) { setError(err?.message ?? "Couldn't send a new code."); }
+    } catch (err: any) { setError(err?.message ?? "Couldn't send a new code."); } finally { setAction(null); }
   };
   return (
     <form className="form account-form" onSubmit={submit}>
       <p>{reset ? "To set a new password, enter" : step.purpose === "signup" ? "To confirm your email, enter" : "Enter"} the code we sent to <strong>{step.email}</strong>. It can take a minute to arrive, so check your spam folder too.</p>
       <div><label className="label" htmlFor="acct-code">Code</label>
-        <input id="acct-code" className="input big code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={12} value={code} onChange={(e) => setCode(e.target.value)} autoFocus /></div>
+        <div className="code-row">
+          <input ref={codeInput} id="acct-code" className="input big code-input" inputMode="numeric" autoComplete="one-time-code"
+            maxLength={MAX_CODE_LENGTH} value={code} disabled={Boolean(action)} onChange={(e) => updateCode(e.target.value)} onPaste={(e) => {
+              e.preventDefault();
+              acceptPaste(e.clipboardData.getData("text"));
+            }} autoFocus />
+          <button type="button" className="btn" disabled={Boolean(action) || pasting} onClick={paste}>Paste code</button>
+        </div>
+        <div role="status" className="fine">{pasteNote}</div>
+      </div>
       {reset && <div><label className="label" htmlFor="acct-newpw">New password</label><PasswordInput id="acct-newpw" value={password} onChange={setPassword} isNew /><p className="fine">At least 8 characters.</p></div>}
-      <button type="submit" className="btn big primary" disabled={busy || digits.length < 6 || (reset && password.length < 8)}>{busy ? "Checking…" : reset ? "Set password and sign in" : "Sign in"}</button>
+      <button type="submit" className="btn big primary" disabled={Boolean(action) || pasting || code.length < 6 || (reset && password.length < 8)}>{action === "verify" ? "Checking…" : reset ? "Set password and sign in" : "Sign in"}</button>
       <div className="action-row">
-        <button type="button" className="btn small" disabled={wait > 0} onClick={resend}>{wait > 0 ? `Send a new code in ${wait}s` : "Send a new code"}</button>
-        <button type="button" className="btn small" onClick={onBack}>Use a different email</button>
+        <button type="button" className="btn small" disabled={Boolean(action) || pasting || wait > 0} onClick={resend}>{action === "resend" ? "Sending…" : wait > 0 ? `Send a new code in ${wait}s` : "Send a new code"}</button>
+        <button type="button" className="btn small" disabled={Boolean(action)} onClick={onBack}>Use a different email</button>
       </div>
       {error && <p className="form-error" role="alert">{error}</p>}
     </form>
