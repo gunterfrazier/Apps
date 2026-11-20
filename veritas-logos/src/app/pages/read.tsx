@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { chapterCount, getChapter, getVerse, refOf, translationInfo, verseCount, type TranslationId } from "../../core/bible";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { chapterCount, getChapter, getVerse, refOf, translationInfo, TRANSLATIONS, verseCount, type TranslationId } from "../../core/bible";
 import { getCrossRefs, decodeMorph, getVerseWords, normalizeStrongs, type WordTuple } from "../../core/lexicon";
 import { newId } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
@@ -8,7 +8,7 @@ import { copyText } from "../files";
 import { BUILT_IN, builtInSaved, canReadAloud, mb, NO_SPEECH, readAloud, usesBuiltIn, type SpeechStatus } from "../speech";
 import { readHash, type ReadRoute } from "../routes";
 import { getData, navigate, setPref, toast, update, useData, type HighlightColor } from "../store";
-import { ErrorNote, Loading, Sheet, Tag, TranslationSelect, RefLink, useAsync, Empty } from "../ui";
+import { ErrorNote, Loading, Sheet, Tag, ThemeSelect, TranslationSelect, RefLink, useAsync, Empty } from "../ui";
 import { addSectionsToGuide, InsightsPanel } from "./insights";
 import { HistoryOfInterpretation, passageWritersHash } from "./writers";
 import { EditionsPanel, Interlinear, VerseColumns } from "./texts";
@@ -45,6 +45,66 @@ function Picker({ book, chapter, onPick, onClose }: { book: number; chapter: num
         </>
       )}
     </Sheet>
+  );
+}
+
+const TRANSLATION_CATEGORIES: Record<TranslationId, string> = {
+  BSB: "Modern", NHEB: "Modern", KJV: "Traditional", ASV: "Literal", YLT: "Literal",
+};
+
+function ReaderTranslationPicker({ value, onChange }: { value: TranslationId; onChange: (value: TranslationId) => void }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const picker = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const search = useRef<HTMLInputElement>(null);
+  const matches = TRANSLATIONS.filter((t) => `${t.id} ${t.name} ${TRANSLATION_CATEGORIES[t.id]} ${t.style}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const choose = (id: TranslationId) => {
+    setOpen(false);
+    trigger.current?.focus();
+    if (id !== value) onChange(id);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    search.current?.focus();
+    const dismiss = (e: PointerEvent) => {
+      if (!picker.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [open]);
+
+  return (
+    <div className="reader-translation" ref={picker}
+      onBlur={(e) => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
+      onKeyDown={(e) => {
+        if (e.key !== "Escape" || !open) return;
+        e.stopPropagation();
+        setOpen(false);
+        trigger.current?.focus();
+      }}>
+      <button type="button" className="reader-control" ref={trigger} aria-label={`Bible translation, ${value}`}
+        aria-expanded={open} aria-controls={open ? "reader-translation-options" : undefined}
+        onClick={() => { setQuery(""); setOpen(!open); }}>
+        {value} <span aria-hidden="true">▾</span>
+      </button>
+      {open && (
+        <div id="reader-translation-options" className="translation-popover" role="group" aria-label="Choose a Bible translation">
+          <input className="input" ref={search} type="search" placeholder="Search translations" aria-label="Search translations"
+            value={query} onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && matches.length === 1) choose(matches[0].id); }} />
+          <div className="translation-results">
+            {matches.map((t) => (
+              <button type="button" key={t.id} aria-pressed={t.id === value} onClick={() => choose(t.id)}>
+                <strong>{t.id}</strong><span>{t.name}</span><Tag>{TRANSLATION_CATEGORIES[t.id]}</Tag>
+              </button>
+            ))}
+            {!matches.length && <p className="fine" role="status">No translations match your search.</p>}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -158,16 +218,14 @@ function NoteEditor({ noteKey, reference }: { noteKey: string; reference: string
 }
 
 // ---------- The sheet for a verse or passage ----------
-const STUDY_TABS = [["insights", "Insights"], ["words", "Hebrew & Greek"], ["history", "Through history"], ["text", "Text"], ["links", "Links"], ["notes", "My note"]] as const;
+const STUDY_TABS = [["insights", "Insights"], ["words", "Hebrew & Greek"], ["history", "Through history"], ["text", "Text"], ["links", "Links"], ["notes", "Notes"]] as const;
 type StudyTab = (typeof STUDY_TABS)[number][0];
 let lastTab: StudyTab = "insights";
 
-export function VerseSheet({ book, chapter, verse, initialEnd, onClose, docked }: { book: number; chapter: number; verse: number; initialEnd?: number; onClose: () => void; docked?: boolean }) {
+export function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, docked }: { book: number; chapter: number; verse: number; end: number; onEndChange: (end: number) => void; onClose: () => void; docked?: boolean }) {
   const { prefs, highlights, bookmarks, guides, activeGuideId } = useData();
-  const [end, setEnd] = useState(initialEnd ?? verse);
   const [tab, setTabState] = useState<StudyTab>(lastTab);
   const setTab = (t: StudyTab) => { lastTab = t; setTabState(t); };
-  useEffect(() => setEnd(initialEnd ?? verse), [book, chapter, verse, initialEnd]);
   const { data: total } = useAsync(() => verseCount(book, chapter), [book, chapter]);
   const reference = refOf(book, chapter, verse, end);
   const { data: text } = useAsync(async () => {
@@ -193,7 +251,7 @@ export function VerseSheet({ book, chapter, verse, initialEnd, onClose, docked }
       <p className="verse-quote">{text ?? "…"}</p>
       <div className="range-row">
         <label htmlFor="range-end">Through verse</label>
-        <select id="range-end" value={end} onChange={(e) => setEnd(Number(e.target.value))}>
+        <select id="range-end" value={end} onChange={(e) => onEndChange(Number(e.target.value))}>
           {Array.from({ length: Math.max(0, (total ?? verse) - verse + 1) }, (_, i) => verse + i).map((v) => <option key={v} value={v}>{v}</option>)}
         </select>
         <span className="swatches" role="group" aria-label="Highlight">
@@ -206,7 +264,7 @@ export function VerseSheet({ book, chapter, verse, initialEnd, onClose, docked }
         <button type="button" className="btn small" onClick={() => update((d) => ({ ...d, bookmarks: marked ? d.bookmarks.filter((x) => x !== key) : [key, ...d.bookmarks] }))}>{marked ? "Bookmarked" : "Bookmark"}</button>
         <a className="btn small" href={`#ask-${readHash({ book, chapter, verse, verseEnd: end }).slice(5)}`} onClick={onClose}>Ask AI</a>
       </div>
-      <div className="tabs" role="tablist">
+      <div className="tabs study-tabs" role="tablist" aria-label="Verse study">
         {STUDY_TABS.map(([t, label]) => (
           <button type="button" key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{label}</button>
         ))}
@@ -236,6 +294,35 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   const book = route?.book ?? lastRead.book;
   const chapter = route?.chapter ?? lastRead.chapter;
   const [picker, setPicker] = useState(false);
+  const [readingOptions, setReadingOptions] = useState(false);
+  const optionsPanel = useRef<HTMLElement>(null);
+  const toolbar = useRef<HTMLDivElement>(null);
+  const optionsScroll = useRef<{ before: number; revealed: number } | null>(null);
+  const restoreScroll = useRef<number | null>(null);
+  const toggleOptions = () => {
+    const position = optionsScroll.current;
+    if (readingOptions && position && Math.abs(window.scrollY - position.revealed) < 2) {
+      restoreScroll.current = position.before;
+    }
+    setReadingOptions(!readingOptions);
+  };
+  useLayoutEffect(() => {
+    optionsScroll.current = null;
+    if (!readingOptions) {
+      const position = restoreScroll.current;
+      restoreScroll.current = null;
+      if (position === null) return;
+      const frame = requestAnimationFrame(() => window.scrollTo(0, position));
+      return () => cancelAnimationFrame(frame);
+    }
+    if (!optionsPanel.current || !toolbar.current) return;
+    const offset = optionsPanel.current.getBoundingClientRect().top - toolbar.current.getBoundingClientRect().bottom;
+    if (offset < 0) {
+      const before = window.scrollY;
+      window.scrollBy(0, offset - 8);
+      optionsScroll.current = { before, revealed: window.scrollY };
+    }
+  }, [readingOptions]);
   const [sheet, setSheet] = useState<{ verse: number; end?: number } | null>(null);
   const [speech, setSpeech] = useState<SpeechStatus>({ state: "idle" });
   const speaking = speech.state === "reading" ? speech.verse : null;
@@ -266,12 +353,10 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   }, [route?.translation]);
   useEffect(() => { update((d) => (d.lastRead.book === book && d.lastRead.chapter === chapter ? d : { ...d, lastRead: { book, chapter } })); }, [book, chapter]);
   useEffect(() => {
-    if (route?.verse) {
-      setSheet(wide ? { verse: route.verse, end: route.verseEnd } : null);
-      const el = document.getElementById(`v${route.verse}`);
-      el?.scrollIntoView({ block: "center" });
-    }
-  }, [route?.verse, book, chapter]);
+    const verse = route?.verse;
+    setSheet(verse && wide ? { verse, end: route.verseEnd } : null);
+    if (verse) document.getElementById(`v${verse}`)?.scrollIntoView({ block: "center" });
+  }, [route?.verse, route?.verseEnd, book, chapter]);
   useEffect(() => () => stopSpeak.current?.(), []);
 
   const { data: verses, loading, error } = useAsync(() => getChapter(translation, book, chapter), [translation, book, chapter]);
@@ -312,32 +397,25 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
     : speech.state === "reading" ? `Reading verse ${speech.verse}`
     : null;
   const compareInfo = useMemo(() => (prefs.compare ? translationInfo(prefs.compare) : null), [prefs.compare]);
-  const inRange = (v: number) => route?.verse && v >= route.verse && v <= (route.verseEnd ?? route.verse);
+  const selection = sheet ?? (route?.verse ? { verse: route.verse, end: route.verseEnd } : null);
+  const inRange = (v: number) => Boolean(selection && v >= selection.verse && v <= (selection.end ?? selection.verse));
+  const verseSheet = sheet && (
+    <VerseSheet book={book} chapter={chapter} verse={sheet.verse} end={sheet.end ?? sheet.verse} docked={wide}
+      onEndChange={(end) => setSheet({ verse: sheet.verse, end })} onClose={() => setSheet(null)} />
+  );
 
   return (
     <div className={`reader-wrap ${wide && sheet ? "with-dock" : ""}`}>
     <div className="page reader">
-      <div className="toolbar">
+      <div className="toolbar" ref={toolbar}>
         <button type="button" className="pick-btn" onClick={() => setPicker(true)}>{bookName(book)} {chapter} <span aria-hidden="true">▾</span></button>
         <div className="toolbar-right">
-          <TranslationSelect short id="reader-translation" value={translation} onChange={(t) => { setPref("translation", t); if (route?.translation) navigate(readHash({ book, chapter, verse: route.verse, verseEnd: route.verseEnd })); }} />
-          <details className="menu">
-            <summary aria-label="Reading options">Aa</summary>
-            <div className="menu-body">
-              <label className="label" htmlFor="compare-select">Compare with</label>
-              <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => setPref("compare", t)} />
-              <label className="label" htmlFor="text-size">Text size</label>
-              <input id="text-size" type="range" min="15" max="28" value={prefs.textSize} onChange={(e) => setPref("textSize", Number(e.target.value))} />
-              {canReadAloud()
-                ? <button type="button" className="btn small" onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); toggleSpeak(); }}>{speech.state !== "idle" ? "Stop reading" : "Read chapter aloud"}</button>
-                : <p className="fine read-aloud-off">{NO_SPEECH}</p>}
-              {canReadAloud() && builtIn && BUILT_IN && speech.state === "idle" && (
-                <p className="fine read-aloud-off">{saved === false
-                  ? `${BUILT_IN.name}, the voice built into Veritas Logos, reads here. The first time, it downloads ${mb(BUILT_IN.downloadBytes)}, which this browser keeps.`
-                  : `${BUILT_IN.name}, the voice built into Veritas Logos, reads here.`}</p>
-              )}
-            </div>
-          </details>
+          <ReaderTranslationPicker value={translation} onChange={(t) => {
+            setPref("translation", t);
+            if (route?.translation) navigate(readHash({ book, chapter, verse: route.verse, verseEnd: route.verseEnd }));
+          }} />
+          <button type="button" className="reader-control reading-options-toggle" aria-label="Reading options"
+            aria-expanded={readingOptions} aria-controls="reading-options" onClick={toggleOptions}>Aa</button>
         </div>
         {speech.state !== "idle" && (
           <div className="read-aloud-bar" role="status">
@@ -346,6 +424,31 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
           </div>
         )}
       </div>
+
+      <section id="reading-options" className="reading-options" aria-label="Reading options" ref={optionsPanel} hidden={!readingOptions}>
+        <div>
+          <label className="label" htmlFor="compare-select">Compare with</label>
+          <TranslationSelect id="compare-select" value={prefs.compare} allowNone onChange={(t) => setPref("compare", t)} />
+        </div>
+        <div>
+          <label className="label" htmlFor="reader-theme">Appearance</label>
+          <ThemeSelect id="reader-theme" />
+        </div>
+        <div>
+          <label className="label" htmlFor="text-size">Text size</label>
+          <input id="text-size" type="range" min="15" max="28" value={prefs.textSize} onChange={(e) => setPref("textSize", Number(e.target.value))} />
+        </div>
+        <div>
+          {canReadAloud()
+            ? <button type="button" className="btn small" onClick={() => { setReadingOptions(false); toggleSpeak(); }}>{speech.state !== "idle" ? "Stop reading" : "Read chapter aloud"}</button>
+            : <p className="fine read-aloud-off">{NO_SPEECH}</p>}
+          {canReadAloud() && builtIn && BUILT_IN && speech.state === "idle" && (
+            <p className="fine read-aloud-off">{saved === false
+              ? `${BUILT_IN.name}, the voice built into Veritas Logos, reads here. The first time, it downloads ${mb(BUILT_IN.downloadBytes)}, which this browser keeps.`
+              : `${BUILT_IN.name}, the voice built into Veritas Logos, reads here.`}</p>
+          )}
+        </div>
+      </section>
 
       <div className="study-cta">
         <button type="button" className="btn small" onClick={() => verses && setSheet({ verse: 1, end: verses.length })}>Study this chapter</button>
@@ -361,8 +464,12 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
             const hl = highlights[vKey(book, chapter, v.verse)];
             const hasNote = Boolean(notes[vKey(book, chapter, v.verse)]);
             return (
-              <div key={v.verse} id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${inRange(v.verse) ? "target" : ""} ${wide && sheet && v.verse >= sheet.verse && v.verse <= (sheet.end ?? sheet.verse) ? "picked" : ""}`} role="button" tabIndex={0}
-                onClick={() => setSheet({ verse: v.verse })} onKeyDown={(e) => { if (e.key === "Enter") setSheet({ verse: v.verse }); }}>
+              <div key={v.verse} id={`v${v.verse}`} className={`verse ${hl ? `hl-${hl}` : ""} ${speaking === v.verse ? "speaking" : ""} ${inRange(v.verse) ? "picked" : ""}`} role="button" tabIndex={0} aria-pressed={inRange(v.verse)}
+                onClick={() => setSheet({ verse: v.verse })} onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  setSheet({ verse: v.verse });
+                }}>
                 <sup>{v.verse}</sup>
                 {v.text ? <span>{v.text}</span> : <em className="missing">This verse isn't in the {translation} text. Some manuscripts include it, so it's kept as a footnote in many Bibles.</em>}
                 {hasNote && <Tag tone="note">Note</Tag>}
@@ -381,9 +488,9 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       </div>
 
       {picker && <Picker book={book} chapter={chapter} onClose={() => setPicker(false)} onPick={(b, c) => { setPicker(false); go(b, c); }} />}
-      {sheet && !wide && <VerseSheet book={book} chapter={chapter} verse={sheet.verse} initialEnd={sheet.end} onClose={() => setSheet(null)} />}
+      {!wide && verseSheet}
     </div>
-    {sheet && wide && <VerseSheet docked book={book} chapter={chapter} verse={sheet.verse} initialEnd={sheet.end} onClose={() => setSheet(null)} />}
+    {wide && verseSheet}
     </div>
   );
 }

@@ -171,10 +171,20 @@ function App() {
     if (prefs.theme === "system") el.removeAttribute("data-theme");
     else el.setAttribute("data-theme", prefs.theme);
   }, [prefs.theme]);
+  const header = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = header.current;
+    if (!el) return;
+    const measure = () => el.parentElement?.style.setProperty("--header-height", `${el.offsetHeight}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const { node, tab } = pageFor(route);
   return (
     <div className="app">
-      <header className="top">
+      <header ref={header} className="top">
         <div className="top-left">
           {!ROOTS.has(route.split("-")[0]) && <button type="button" className="back-btn" aria-label="Back" onClick={() => history.back()}>‹</button>}
           <a href="#read" className="brand"><span className="mark" aria-hidden="true">Λ</span><span className="brand-name">Veritas Logos</span></a>
