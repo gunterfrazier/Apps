@@ -890,12 +890,25 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .kids-story-media { grid-area: media; display: grid; gap: .9rem; align-content: start; }
 .kids-story figure { margin: 0; }
 .kids-story img, .kids-story video { display: block; width: 100%; max-height: 32rem; object-fit: contain; background: var(--kids-card); border-radius: 12px; }
+.kids-paged-art img { aspect-ratio: 16 / 10; }
 .kids-story figcaption { padding: .35rem 0 0; font-size: .85rem; }
 .kids-scripture { margin-top: .8rem; padding: .8rem 1rem; border: 1px solid var(--kids-line); border-radius: 14px; background: var(--kids-card); }
 .kids-story summary { cursor: pointer; }
 .kids-scripture h2 { font-size: 1.05rem; }
 .kids-scripture sup { color: var(--kids-accent); }
 .kids-scripture .fine { color: var(--kids-muted); }
+.kids-scene { padding: clamp(.9rem, 3vw, 1.25rem); border: 1px solid var(--kids-line); border-radius: 14px; background: var(--kids-card); }
+.kids-scene-count { margin: 0 0 .45rem; font-size: .85rem; }
+.kids-scene .kids-story-text { margin: 0 0 1rem; }
+.kids-scene-nav, .kids-answer-options { display: flex; gap: .55rem; flex-wrap: wrap; }
+.kids-control { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem .85rem; border-radius: 9px; border: 1px solid var(--kids-line); background: var(--kids-card); color: var(--kids-ink); font: inherit; font-weight: 650; text-align: left; cursor: pointer; }
+.kids-control[aria-pressed="true"] { background: var(--kids-tint); border-color: var(--kids-accent); }
+.kids-control.next { background: var(--kids-accent); border-color: var(--kids-accent); color: var(--kids-card); }
+.kids-control:disabled { opacity: .55; cursor: default; }
+.kids-reading-mode { display: block; min-height: 44px; padding: .35rem 0; border: 0; background: none; color: var(--kids-accent); text-decoration: underline; font: inherit; cursor: pointer; }
+.kids-story-body .kids-question + .kids-question { margin-top: .8rem; }
+.kids-answer-options { margin-block: .6rem; }
+.kids-activity [role="status"]:empty { margin: 0; }
 .kids-video { border: 1px solid var(--kids-line); background: var(--kids-card); padding: .65rem; border-radius: 14px; }
 .kids-video details { margin-top: .5rem; }
 .kids-illustrations figure { margin-top: .75rem; }

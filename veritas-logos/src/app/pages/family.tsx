@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { getPassage } from "../../core/bible";
 import { AGE_GROUPS, FAMILY_THEMES, type FamilyProfile, type FamilySettings } from "../../core/family";
-import { FAMILY_STORIES, type FamilyStory, type StoryImage } from "../../core/family-stories";
+import { FAMILY_STORIES, type FamilyStory, type StoryActivity, type StoryImage } from "../../core/family-stories";
 import { account, useAccount } from "../account";
 import { Loading, useAsync } from "../ui";
 
@@ -51,6 +51,11 @@ export function FamilyPage() {
         <a href="https://bibleproject.com/videos/torah-genesis-1/" target="_blank" rel="noopener noreferrer">BibleProject’s Genesis 1–11 video for further study</a>
         <p><a href="https://bibleproject.com/" target="_blank" rel="noopener noreferrer">BibleProject</a> is the author and owner of the Genesis 1–11 video.</p>
       </details>
+      <section className="family-section">
+        <h2>Activities for home</h2>
+        <p>Find parent guides and coloring pages to use alongside Bible stories.</p>
+        <a href="https://bibleappforkids.com/parents" target="_blank" rel="noopener noreferrer">Bible App for Kids resources from YouVersion</a>
+      </section>
     </div>
   );
 }
@@ -75,7 +80,9 @@ function FamilyProfiles({ owner }: { owner: string }) {
     }
   }
   if (error) return <div role="alert">
-    <p>Family profiles couldn’t load. You can still browse by age.</p>
+    <p>{error.cause && (error.cause as { code?: string }).code === "PGRST205"
+      ? "Saved family profiles aren’t available on this site yet. You can still browse by age."
+      : "Family profiles couldn’t load. You can still browse by age."}</p>
     <button type="button" className="btn" onClick={() => setRefresh((value) => value + 1)}>Try again</button>
   </div>;
   if (!data) return <Loading label="Loading family profiles" />;
@@ -176,10 +183,32 @@ function StoryScripture({ reference }: { reference: string }) {
   );
 }
 
+function StoryCheck({ activity }: { activity: StoryActivity }) {
+  const [choice, setChoice] = useState<number | null>(null);
+  return (
+    <section className="kids-question kids-activity" aria-labelledby="story-activity-heading">
+      <h2 id="story-activity-heading">Try the activity</h2>
+      <p id="story-activity-prompt">{activity.prompt}</p>
+      <div className="kids-answer-options" role="group" aria-labelledby="story-activity-prompt">
+        {activity.options.map((label, index) => (
+          <button key={label} type="button" className="kids-control" aria-pressed={choice === index} onClick={() => setChoice(index)}>{label}</button>
+        ))}
+      </div>
+      <p role="status">{choice === null ? "" : choice === activity.answer ? activity.explanation : "Try another answer. You can go back to the story for a clue."}</p>
+    </section>
+  );
+}
+
 function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyProfile }) {
+  const [scene, setScene] = useState(0);
+  const [showAll, setShowAll] = useState(false);
   const edition = story.editions[profile.ageGroup];
   if (!edition) return null;
   const { image, illustrations, video } = story;
+  const storybook = profile.ageGroup !== "teen";
+  const paged = storybook && !showAll;
+  const last = edition.paragraphs.length - 1;
+  const art = paged ? illustrations?.[scene - 1] ?? image : image;
   return (
     <article className="kids-story">
       <a className="kids-back" href={kidsHash(profile.id)}>← All stories</a>
@@ -188,16 +217,33 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
           <p className="kids-reference">{story.reference}</p>
           <h1>{story.title}</h1>
         </header>
-        <figure className="kids-feature-art">
-          <img src={mediaPath(image.file)} alt={image.alt} />
-          <figcaption>{image.credit}</figcaption>
+        <figure className={`kids-feature-art${paged ? " kids-paged-art" : ""}`}>
+          <img src={mediaPath(art.file)} alt={art.alt} />
+          <figcaption>{art.credit}</figcaption>
         </figure>
         <div className="kids-story-body">
-          {edition.paragraphs.map((paragraph) => <p className="kids-story-text" key={paragraph}>{paragraph}</p>)}
-          <section className="kids-question">
-            <h2>{profile.ageGroup === "young" ? "Talk about it" : "Think it through"}</h2>
-            <p>{edition.question}</p>
-          </section>
+          {paged ? (
+            <section className="kids-scene" aria-label="Story pages">
+              <div aria-live="polite" aria-atomic="true">
+                <p className="kids-reference kids-scene-count">Page {scene + 1} of {last + 1}</p>
+                <p className="kids-story-text">{edition.paragraphs[scene]}</p>
+              </div>
+              <div className="kids-scene-nav" role="group" aria-label="Story page controls">
+                <button type="button" className="kids-control" disabled={scene === 0} onClick={() => setScene(scene - 1)}>Previous page</button>
+                <button type="button" className="kids-control next" disabled={scene === last} onClick={() => setScene(scene + 1)}>Next page</button>
+              </div>
+            </section>
+          ) : edition.paragraphs.map((paragraph) => <p className="kids-story-text" key={paragraph}>{paragraph}</p>)}
+          {storybook && <button type="button" className="kids-reading-mode" onClick={() => setShowAll(!showAll)}>
+            {showAll ? "Read page by page" : "Read the whole story"}
+          </button>}
+          {(!paged || scene === last) && <>
+            {storybook && <StoryCheck activity={story.activity} />}
+            <section className="kids-question">
+              <h2>{profile.ageGroup === "young" ? "Talk about it" : "Think it through"}</h2>
+              <p>{edition.question}</p>
+            </section>
+          </>}
           <StoryScripture reference={profile.ageGroup === "teen" ? story.teenReading ?? story.reading : story.reading} />
         </div>
         <div className="kids-story-media">
