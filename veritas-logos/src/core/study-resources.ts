@@ -13,21 +13,29 @@ interface PlaceRecord {
   candidates: PlaceCandidate[];
 }
 export interface Basemap { land: MapPoint[][]; lakes: MapPoint[][] }
+export interface PleiadesIndex {
+  locations: Record<string, string[]>;
+  records: Record<string, { title: string; description: string; authors: string }>;
+}
+export type PassagePlace = PlaceRecord & { otherMentions: PlaceRecord["mentions"] };
 type NoteRow = [number, number, number, number, string, string[]];
 
 export const getBasemap = () => load<Basemap>("study/basemap.json");
+export const getPleiadesIndex = () => load<PleiadesIndex>("study/pleiades.json");
 
 function matches(segments: RefSegment[], book: number, chapter: number, verse: number) {
   return segments.some((segment) => segmentsOverlap(segment, { book, chapter, chapterEnd: chapter, verseStart: verse }));
 }
 
-export async function getPassagePlaces(reference: string): Promise<PlaceRecord[]> {
+export async function getPassagePlaces(reference: string): Promise<PassagePlace[]> {
   const segments = parseReference(reference);
   if (!segments) return [];
   const places = await load<PlaceRecord[]>("study/places.json");
   return places.flatMap((place) => {
     const mentions = place.mentions.filter(([book, chapter, verse]) => matches(segments, book, chapter, verse));
-    return mentions.length ? [{ ...place, mentions }] : [];
+    if (!mentions.length) return [];
+    const included = new Set(mentions);
+    return [{ ...place, mentions, otherMentions: place.mentions.filter((mention) => !included.has(mention)) }];
   });
 }
 
