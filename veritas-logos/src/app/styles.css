@@ -892,6 +892,14 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .kids-story img, .kids-story video { display: block; width: 100%; max-height: 32rem; object-fit: contain; background: var(--kids-card); border-radius: 12px; }
 .kids-paged-art img { aspect-ratio: 16 / 10; }
 .kids-story figcaption { padding: .35rem 0 0; font-size: .85rem; }
+.kids-watch { margin-top: .9rem; padding: .8rem; border: 1px solid var(--kids-line); border-radius: 14px; background: var(--kids-card); }
+.kids-watch h2 { margin: 0 0 .25rem; font-size: 1.2rem; }
+.kids-watch p { margin: 0 0 .5rem; color: var(--kids-muted); font-size: .88rem; }
+.kids-watch-list { display: grid; gap: .35rem; list-style: none; padding: 0; margin: 0; }
+.kids-app .kids-watch-link { display: flex; gap: .55rem; align-items: center; min-height: 44px; padding: .35rem .45rem; border-radius: 8px; text-decoration: none; }
+.kids-watch-link:hover { background: var(--kids-tint); }
+.kids-watch-link small { display: block; color: var(--kids-muted); }
+.kids-watch-icon { display: grid; place-items: center; flex: 0 0 2rem; height: 2rem; border-radius: 50%; background: var(--kids-tint); }
 .kids-scripture { margin-top: .8rem; padding: .8rem 1rem; border: 1px solid var(--kids-line); border-radius: 14px; background: var(--kids-card); }
 .kids-story summary { cursor: pointer; }
 .kids-scripture h2 { font-size: 1.05rem; }
@@ -911,6 +919,7 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .kids-activity [role="status"]:empty { margin: 0; }
 .kids-video { border: 1px solid var(--kids-line); background: var(--kids-card); padding: .65rem; border-radius: 14px; }
 .kids-video details { margin-top: .5rem; }
+.kids-video[open] > video { margin-top: .5rem; }
 .kids-illustrations figure { margin-top: .75rem; }
 @media (min-width: 760px) {
   .kids-detail-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); grid-template-areas: "heading heading" "body art" "body media"; align-items: start; align-content: start; column-gap: 2rem; }
