@@ -3,7 +3,7 @@ import type { AgeGroup } from "./family";
 interface FamilyResource {
   title: string;
   provider: string;
-  format: "PDF lesson" | "Coloring page" | "Group activities" | "Video";
+  format: "PDF lesson" | "Coloring page" | "Group activities" | "Video" | "Illustrated PDF" | "Read online";
   url: string;
   audience: ReadonlyArray<AgeGroup>;
   detail?: string;
@@ -20,6 +20,59 @@ const markVideo: FamilyResource = {
 };
 
 const storyResources: Record<string, FamilyResource[]> = {
+  creation: [
+    trueway("Creation printable lesson", "creation-bible-lesson-for-children-5-10-years-old", "young", "Publisher age range 5–10"),
+    trueway("Creation study for preteens", "creation-genesis-1-teen", "middle"),
+    trueway("Creation study for teens", "creation-genesis-1-teen", "teen"),
+    {
+      title: "When God Made Everything", provider: "Bible for Children", format: "Illustrated PDF",
+      url: "https://bibleforchildren.org/PDFs/english/01_When_God_Made_Everything_English.pdf", audience: ["young", "middle"],
+    },
+  ],
+  joseph: [
+    trueway("Joseph printable lesson", "joseph-5-10-year-old-bible-lesson-pack", "young", "Publisher age range 5–10"),
+    trueway("Joseph study for preteens", "joseph-teens", "middle"),
+    trueway("Joseph study for teens", "joseph-teens", "teen"),
+    {
+      title: "Joseph and His Brothers", provider: "Childhood Bible Stories", format: "Read online",
+      url: "https://childhoodbiblestories.com/stories/joseph-and-his-brothers", audience: ["young", "middle"], detail: "Publisher age range 5–9",
+    },
+    {
+      title: "God Honors Joseph the Slave", provider: "Bible for Children", format: "Illustrated PDF",
+      url: "https://bibleforchildren.org/PDFs/english/08_God_Honors_Joseph_the_Slave_English.pdf", audience: ["young", "middle"],
+    },
+  ],
+  ruth: [
+    trueway("Ruth printable lesson", "ruth-5", "young", "Publisher age range 5–10"),
+    trueway("Ruth study for preteens", "ruth-teen", "middle"),
+    trueway("Ruth study for teens", "ruth-teen", "teen"),
+    {
+      title: "Ruth, Naomi and Boaz Are Blessed", provider: "Life, Hope & Truth", format: "Read online",
+      url: "https://lifehopeandtruth.com/bible/bible-study/bible-stories/ruth/", audience: ["middle", "teen"],
+      adultOnly: true, detail: "Publisher retelling for family discussion",
+    },
+  ],
+  "feeding-the-crowd": [
+    trueway("Feeding the Five Thousand printable lesson", "feeding5000", "young", "Choose the age 5+ edition"),
+    trueway("Feeding the 5,000 preteen study", "feeding-the-5000-preteens", "middle"),
+    trueway("Feeding the Five Thousand teen study", "feeding-the-5000-teen", "teen"),
+    {
+      title: "Jesus Feeds 5000 People", provider: "Bible for Children", format: "Illustrated PDF",
+      url: "https://bibleforchildren.org/PDFs/english/51_Jesus_Feeds_5000_People_English.pdf", audience: ["young", "middle"],
+    },
+  ],
+  resurrection: [
+    trueway("Easter printable lesson", "easter-lesson", "young", "Includes the crucifixion and resurrection"),
+    trueway("Easter activities and worksheets", "easter-resources", "middle", "Includes ages 5–10 worksheets"),
+    {
+      title: "The Easter Story", provider: "Childhood Bible Stories", format: "Read online",
+      url: "https://childhoodbiblestories.com/stories/easter-resurrection", audience: ["young"], detail: "Includes the crucifixion and resurrection",
+    },
+    {
+      title: "The Resurrection of Jesus", provider: "BibleProject", format: "Video",
+      url: "https://bibleproject.com/videos/gospel-luke-5/", audience: ["teen"], detail: "A companion reading of Luke 24",
+    },
+  ],
   noah: [
     trueway("Noah’s Ark printable lesson", "noah-5", "young", "Publisher age range 5–10"),
     trueway("God keeps his promises", "god-keeps-his-promises-bible-lesson-for-5-10-year-old", "middle", "Publisher age range 5–10"),

@@ -241,7 +241,7 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
   const storybook = profile.ageGroup !== "teen";
   const paged = storybook && !showAll;
   const last = edition.paragraphs.length - 1;
-  const art = paged ? illustrations?.[scene - 1] ?? image : image;
+  const art = paged ? illustrations?.find((item) => item.scene === scene) ?? image : image;
   return (
     <article className="kids-story">
       <a className="kids-back" href={kidsHash(profile.id)}>← All stories</a>
@@ -262,6 +262,7 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
             <section className="kids-scene" aria-label="Story pages">
               <div aria-live="polite" aria-atomic="true">
                 <p className="kids-reference kids-scene-count">Page {scene + 1} of {last + 1}</p>
+                <h2 className="kids-scene-title">{story.sceneTitles[scene]}</h2>
                 <p className="kids-story-text">{edition.paragraphs[scene]}</p>
               </div>
               <div className="kids-scene-nav" role="group" aria-label="Story page controls">
@@ -269,7 +270,10 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
                 <button type="button" className="kids-control next" disabled={scene === last} onClick={() => setScene(scene + 1)}>Next page</button>
               </div>
             </section>
-          ) : edition.paragraphs.map((paragraph) => <p className="kids-story-text" key={paragraph}>{paragraph}</p>)}
+          ) : edition.paragraphs.map((paragraph, index) => <section className="kids-reading-scene" key={story.sceneTitles[index]}>
+            <h2 className="kids-scene-title">{story.sceneTitles[index]}</h2>
+            <p className="kids-story-text">{paragraph}</p>
+          </section>)}
           {storybook && <button type="button" className="kids-reading-mode" onClick={() => setShowAll(!showAll)}>
             {showAll ? "Read page by page" : "Read the whole story"}
           </button>}
@@ -334,18 +338,27 @@ function KidsStories({ profile, storyId, worksheet }: { profile: FamilyProfile; 
               <p>{group?.description}</p>
             </header>
             {storyId && <p role="status">That story is unavailable in this age group. Choose a story below.</p>}
-            <div className="kids-grid">
-              {stories.map((entry) => (
-                <a className="kids-card" key={entry.id} href={kidsHash(profile.id, entry.id)}>
-                  <img src={mediaPath(entry.image.file)} alt="" />
-                  <div>
-                    <p className="kids-reference">{entry.reference}</p>
-                    <h2>{entry.title}</h2>
-                    <p>{entry.topic}</p>
+            {(["old", "new"] as const).map((testament) => {
+              const matches = stories.filter((entry) => entry.testament === testament);
+              if (!matches.length) return null;
+              return (
+                <section className="kids-catalog-section" key={testament} aria-labelledby={`kids-${testament}-testament`}>
+                  <h2 id={`kids-${testament}-testament`}>{testament === "old" ? "Old Testament" : "New Testament"}</h2>
+                  <div className="kids-grid">
+                    {matches.map((entry) => (
+                      <a className="kids-card" key={entry.id} href={kidsHash(profile.id, entry.id)}>
+                        <img src={mediaPath(entry.image.file)} alt="" loading="lazy" />
+                        <div>
+                          <p className="kids-reference">{entry.reference}</p>
+                          <h3>{entry.title}</h3>
+                          <p>{entry.topic}</p>
+                        </div>
+                      </a>
+                    ))}
                   </div>
-                </a>
-              ))}
-            </div>
+                </section>
+              );
+            })}
           </>
         )}
       </main>
