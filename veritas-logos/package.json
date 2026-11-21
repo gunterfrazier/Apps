@@ -18,6 +18,7 @@
     "data:translations": "python3 -I scripts/build_translations.py --out public/data",
     "data:voice": "python3 -I scripts/build_voice.py --out public/voice",
     "data:espeak": "bash scripts/build_espeak.sh",
+    "family:check-links": "node scripts/check-family-resources.mjs",
     "data:check": "node --no-warnings scripts/check-data.mjs",
     "api": "node --no-warnings dist-server/server.js"
   },

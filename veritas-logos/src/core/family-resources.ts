@@ -10,6 +10,15 @@ interface FamilyResource {
   adultOnly?: boolean;
 }
 
+export const FAMILY_HOME_RESOURCES = [
+  { title: "Bible App for Kids resources from YouVersion", provider: "YouVersion",
+    url: "https://bibleappforkids.com/parents", detail: "Parent guides and coloring pages by story" },
+  { title: "Bible App for Kids curriculum from Life.Church", provider: "Life.Church",
+    url: "https://open.life.church/preschool", detail: "Preschool ministry lessons and activities" },
+  { title: "Fresh Life Church kids resources", provider: "Fresh Life Church",
+    url: "https://open.life.church/partners/fresh-life-church", detail: "Coloring pages, prayer guides, and seasonal activities" },
+];
+
 const trueway = (title: string, path: string, age: AgeGroup, detail?: string): FamilyResource => ({
   title, provider: "Trueway Kids", format: "PDF lesson", url: `https://truewaykids.com/${path}/`, audience: [age], detail,
 });
@@ -30,6 +39,36 @@ const purple = (lesson: number): FamilyResource => ({
 });
 
 const storyResources: Record<string, FamilyResource[]> = {
+  "jesus-is-born": [
+    trueway("Jesus Is Born printable lesson", "jesus-is-born", "young", "Choose the age 5+ Christmas pack"),
+    trueway("The Shepherds preteen study", "shepherds-teen", "middle", "Luke 2:8–20"),
+    trueway("Jesus Is Born teen study", "jesus-is-born-teen", "teen"),
+  ],
+  "jesus-baptism": [
+    trueway("The Baptism of Jesus printable lesson", "the-baptism-of-jesus", "young", "Choose the age 5+ pack"),
+    trueway("The Baptism of Jesus preteen study", "the-baptism-of-jesus-teen", "middle"),
+    trueway("The Baptism of Jesus teen study", "the-baptism-of-jesus-teen", "teen"),
+  ],
+  "first-disciples": [
+    trueway("Fishers of Men printable lesson", "fishers-of-men", "young", "Parallel account in Luke 5"),
+    trueway("Fishers of Men preteen study", "fishers-of-men-luke-5-preteen", "middle", "Parallel account in Luke 5"),
+    trueway("Fishers of Men teen study", "fishers-of-men-teen-2", "teen", "Parallel account in Luke 5"),
+  ],
+  "road-to-emmaus": [
+    trueway("The Road to Emmaus printable lesson", "road-to-emmaus", "young", "Choose the age 5+ pack"),
+    trueway("The Road to Emmaus preteen study", "road-to-emmaus", "middle", "Choose the Preteens and Teens pack"),
+    trueway("The Road to Emmaus teen study", "road-to-emmaus", "teen", "Choose the Preteens and Teens pack"),
+  ],
+  pentecost: [
+    trueway("Pentecost printable lesson", "pentecost", "young", "Choose the age 5+ pack"),
+    trueway("Pentecost preteen study", "pentecost-teen", "middle"),
+    trueway("Pentecost teen study", "pentecost-teen", "teen"),
+  ],
+  "philip-and-the-traveler": [
+    trueway("Philip and the Ethiopian printable lesson", "philip-and-the-ethiopian", "young", "Choose the age 5+ pack"),
+    trueway("Philip and the Ethiopian preteen study", "philip-and-the-ethiopian-bible-lesson-preteens", "middle"),
+    trueway("Philip and the Ethiopian teen study", "philip-ethiopian-teen", "teen"),
+  ],
   "adam-and-eve": [
     trueway("Adam and Eve in Genesis 2 printable lesson", "adam-and-eve-5", "young", "Publisher ages 5–10"),
     trueway("Adam and Eve study", "adam-eve-teen", "middle", "Publisher preteen and teen pack"),

@@ -1,10 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { getPassage } from "../../core/bible";
 import { AGE_GROUPS, FAMILY_THEMES, type AgeGroup, type FamilyProfile, type FamilySettings } from "../../core/family";
+import { EARLY_CHURCH_FAMILY_STORIES } from "../../core/family-story-early-church";
 import { BEGINNINGS_FAMILY_STORIES } from "../../core/family-story-beginnings";
 import { FAMILY_STORIES, type FamilyStory, type StoryActivity } from "../../core/family-stories";
+import { FAMILY_HOME_RESOURCES } from "../../core/family-resources";
 import { STORY_COLLECTIONS } from "../../core/family-collections";
-import { FAMILY_VIDEO_CHANNELS, familyStoryAnimation, familyStoryVideos } from "../../core/family-videos";
+import { FAMILY_VIDEO_CHANNELS, familyStoryAnimation, familyStoryVideos, familyVideoUrl } from "../../core/family-videos";
 import { account, useAccount } from "../account";
 import { Loading, useAsync } from "../ui";
 import { CraftArt, FamilyArt, FAMILY_SPACES } from "./family-art";
@@ -22,6 +24,11 @@ const featuredStories: Record<AgeGroup, string[]> = {
   middle: ["joseph", "burning-bush", "red-sea", "samuel-hears-god", "zacchaeus", "wise-builders", "ruth", "jonah", "esther", "daniel", "samaritan", "prodigal-son", "feeding-the-crowd"],
   teen: ["creation", "burning-bush", "red-sea", "samuel-hears-god", "zacchaeus", "lost-sheep", "wise-builders", "ruth", "esther", "daniel", "samaritan", "prodigal-son", "resurrection"],
 };
+const storyShelves = [
+  { id: "early-church", title: "Jesus’ Life and the Early Church", stories: EARLY_CHURCH_FAMILY_STORIES },
+  { id: "beginnings", title: "Beginnings and Belonging", stories: BEGINNINGS_FAMILY_STORIES },
+];
+const shelvedStories = new Set(storyShelves.flatMap((shelf) => shelf.stories));
 const welcomeStory = FAMILY_STORIES.find((story) => story.id === "noah")!;
 
 function focusHeading(id: string) {
@@ -82,9 +89,10 @@ export function FamilyPage() {
       <section className="family-section">
         <h2>Activities for home</h2>
         <ul className="story-resource-list">
-          <li><a href="https://bibleappforkids.com/parents" target="_blank" rel="noopener noreferrer">Bible App for Kids resources from YouVersion</a><span>Parent guides and coloring pages by story</span></li>
-          <li><a href="https://open.life.church/preschool" target="_blank" rel="noopener noreferrer">Bible App for Kids curriculum from Life.Church</a><span>Preschool ministry lessons and activities</span></li>
-          <li><a href="https://open.life.church/partners/fresh-life-church" target="_blank" rel="noopener noreferrer">Fresh Life Church kids resources</a><span>Coloring pages, prayer guides, and seasonal activities</span></li>
+          {FAMILY_HOME_RESOURCES.map((resource) => <li key={resource.url}>
+            <a href={resource.url} target="_blank" rel="noopener noreferrer">{resource.title}</a>
+            <span>{resource.detail}</span>
+          </li>)}
         </ul>
       </section>
     </div>
@@ -250,7 +258,7 @@ function StoryWatch({ storyId }: { storyId: string }) {
     <p>Creator links open on an external video site. Younger children can watch with an adult.</p>
     <ul className="kids-watch-list">
       {videos.map((video) => <li key={video.id}>
-        <a className="kids-watch-link" href={video.url ?? `https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer">
+        <a className="kids-watch-link" href={familyVideoUrl(video)} target="_blank" rel="noopener noreferrer">
           <span className="kids-watch-icon" aria-hidden="true">▶</span>
           <span>
             <strong>{video.title}</strong>
@@ -379,8 +387,7 @@ function KidsStories({ profile, storyId, view }: { profile: FamilyProfile; story
   const story = stories.find(({ id }) => id === storyId);
   const featuredIds = featuredStories[profile.ageGroup];
   const featured = featuredIds.map((id) => stories.find((entry) => entry.id === id)).filter((entry) => entry !== undefined);
-  const beginnings = BEGINNINGS_FAMILY_STORIES.filter((entry) => entry.editions[profile.ageGroup]);
-  const more = stories.filter((entry) => !featuredIds.includes(entry.id) && !beginnings.includes(entry));
+  const more = stories.filter((entry) => !featuredIds.includes(entry.id) && !shelvedStories.has(entry));
   const space = FAMILY_SPACES[profile.ageGroup];
   return (
     <div className={`kids-app kids-${profile.ageGroup}`} data-kids-theme={profile.theme}>
@@ -401,10 +408,14 @@ function KidsStories({ profile, storyId, view }: { profile: FamilyProfile; story
               </div>
             </header>
             {storyId && <p role="status">That story is unavailable in this age group. Choose a story below.</p>}
-            {beginnings.length > 0 && <section className="kids-catalog-section" aria-labelledby="kids-beginnings">
-              <h2 id="kids-beginnings">Beginnings and Belonging</h2>
-              <StoryCards stories={beginnings} profile={profile} />
-            </section>}
+            {storyShelves.map((shelf) => {
+              const matches = shelf.stories.filter((entry) => entry.editions[profile.ageGroup]);
+              if (!matches.length) return null;
+              return <section className="kids-catalog-section" key={shelf.id} aria-labelledby={`kids-${shelf.id}`}>
+                <h2 id={`kids-${shelf.id}`}>{shelf.title}</h2>
+                <StoryCards stories={matches} profile={profile} />
+              </section>;
+            })}
             {(["old", "new"] as const).map((testament) => {
               const matches = featured.filter((entry) => entry.testament === testament);
               if (!matches.length) return null;
