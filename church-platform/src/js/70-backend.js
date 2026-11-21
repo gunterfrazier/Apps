@@ -162,14 +162,18 @@ const Backend = {
     });
     counts.forEach((c) => { const x = st[c.kind]?.find((r) => r.id === c.parent); if (x) x._count = c.n; });
     for (const [kind, spec] of Object.entries(SPLIT)) st[kind].forEach((x) => { x[spec.field] ||= []; });
-    // A notification can be opened while this refresh is already fetching records.
+    // Keep items opened while the refresh was fetching the older read state.
     const readIds = new Set(S.state.notifications.filter((n) => n.userId === uid && n.read).map((n) => n.id));
+    const localSeen = S.state.me.id === uid ? S.state.seen : [];
+    const serverSeen = new Set(st.seen);
+    const seenDuringPull = localSeen.filter((id) => !serverSeen.has(id));
     S.state = st;
     this.snap = new Map(this.rows().map((r) => [r.key, r.json])); this.synced = true;
     const opened = st.notifications.filter((n) => n.userId === uid && !n.read && readIds.has(n.id));
     opened.forEach((n) => { n.read = true; });
+    st.seen.push(...seenDuringPull);
     S.flush(true);
-    if (opened.length) S.save();
+    if (opened.length || seenDuringPull.length) S.save();
   },
   /** Sends local changes now, waiting for a send already under way. */
   async push() {

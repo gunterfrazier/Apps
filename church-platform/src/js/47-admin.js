@@ -23,7 +23,8 @@ const ADMIN = {
     after: (n, d) => {
       if (!d.push) return;
       const people = S.members().filter((m) => !n.locationId || S.role(m.churchId, m.userId)?.id === "admin" || S.isPrimary(m.churchId, m.userId) || m.locations === "all" || S.location(n.locationId)?.visibility !== "private" || (Array.isArray(m.locations) && m.locations.includes(n.locationId)));
-      people.forEach((m) => notify(m.userId, { kind: "news", title: n.title, body: n.body.slice(0, 140), link: "#alerts" }));
+      people.forEach((m) => notify(m.userId, { kind: "news", title: n.title, body: n.body.slice(0, 140),
+        announcementId: n.id, link: `#news-${n.id}` }));
       toast(`Sent to ${plural(people.length, "person", "people")}`);
     },
   },
