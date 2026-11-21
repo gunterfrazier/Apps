@@ -26,7 +26,22 @@ const genesisBeginnings: StoryVideoLink = {
   title: "Genesis 1–11 overview", creator: "BibleProject", format: "Companion lesson",
 };
 
+const bibleProject = (path: string, title: string): StoryVideoLink => ({
+  id: `bibleproject-${path}`, url: `https://bibleproject.com/videos/${path}/`,
+  title, creator: "BibleProject", format: "Companion lesson",
+});
+
 const videosByStory: Record<string, StoryVideoLink[]> = {
+  "jesus-is-born": [saddleback("v3656G6tWuI", "The Story of Christmas (Jesus Is Born)"), bibleProject("gospel-luke-1", "The Birth of Jesus in Luke 1–2")],
+  "jesus-baptism": [saddleback("T0XT4lNJasg", "The Baptism of Jesus"), bibleProject("gospel-luke-2", "The Baptism of Jesus and His Early Ministry in Luke")],
+  "first-disciples": [saddleback("EhIwTU9RbxY", "Jesus Calls Peter (Luke’s Account)"), bibleProject("mark", "Gospel of Mark Overview")],
+  "road-to-emmaus": [
+    { id: "saddleback-emmaus", url: "https://www.youtube.com/watch?v=fZCY4xmRR1U&t=5070s",
+      title: "The Road to Emmaus (Chapter from The Story of Jesus)", creator: "Saddleback Kids", format: "Short excerpt" },
+    bibleProject("gospel-luke-5", "The Resurrection of Jesus in Luke 24"),
+  ],
+  pentecost: [crossroads("vuUK6REOWuE", "Kid Bible Story: Pentecost"), bibleProject("gospel-acts-1", "Pentecost in Acts 1–7")],
+  "philip-and-the-traveler": [saddleback("TGEqn7_teFo", "Philip and the Ethiopian"), bibleProject("gospel-acts-2", "The Good News Spreads in Acts 8–12")],
   "adam-and-eve": [saddleback("l7TDvJrjjz0", "Adam and Eve Sin"), genesisBeginnings],
   "tower-of-babel": [
     { id: "servus-dei-babel", url: "https://www.servus-dei.com/post/tower-of-babel-higher-and-higher",
@@ -101,13 +116,12 @@ const videosByStory: Record<string, StoryVideoLink[]> = {
   ],
   galilee: [
     saddleback("uYLHqdSO9OY", "Jesus Calms the Storm"),
-    { id: "crossroads-storm", url: "https://www.crossroads.net/media/videos/jesus-calms-storm-or-kids-club-for-older-kids",
-      title: "Jesus Calms the Storm! · Kids’ Club lesson", creator: "Crossroads Kids’ Club", format: "Companion lesson" },
+    { id: "forchildren-storm", url: "https://vimeo.com/130594052",
+      title: "Jesus Calms the Storm (Clay Animation)", creator: "ForChildren.com", format: "Animated retelling" },
   ],
   samaritan: [
     saddleback("osfQg4yKtq8", "The Good Samaritan"),
-    { id: "crossroads-helpers", url: "https://www.crossroads.net/media/videos/lets-be-helpers-or-good-samaritan-or-kids-club-older",
-      title: "Let’s Be Helpers", creator: "Crossroads Kids’ Club", format: "Companion lesson" },
+    { ...crossroads("crossroads-samaritan", "God’s Story: The Good Samaritan"), url: "https://vimeo.com/210808541" },
   ],
   "jesus-welcomes-children": [saddleback("VPUMDVBO7dY", "Jesus and the Children")],
   "prodigal-son": [
@@ -128,11 +142,21 @@ const videosByStory: Record<string, StoryVideoLink[]> = {
   ],
 };
 
+export function familyVideoUrl(video: StoryVideoLink): string {
+  return video.url ?? `https://www.youtube.com/watch?v=${video.id}`;
+}
+
 export function familyStoryVideos(storyId: string): readonly StoryVideoLink[] {
   return videosByStory[storyId] ?? [];
 }
 
 const animations: Partial<Record<string, { file: string; title: string; format: string; note: string }>> = {
+  pentecost: {
+    file: "heard-at-pentecost-short.mp4",
+    title: "Heard at Pentecost",
+    format: "animated short",
+    note: "A silent animation with on-screen story text. Wind and flame shapes lead into a scene of people hearing in their own languages.",
+  },
   "baby-moses": {
     file: "basket-among-reeds-short.mp4",
     title: "A Basket Among the Reeds",
