@@ -51,18 +51,20 @@ export function FamilyArt({ story, age, variant, grayscale = false, decorative =
   const [index, description] = scene;
   // The color atlas stacks the Story Club grid above the Bible Explorers grid.
   const row = Math.floor(index / 4) + (age !== "young" && variant !== "ink" ? storyArtRows : 0);
+  const atlasRows = variant === "ink" ? storyArtRows : storyArtRows * 2;
+  // Give the lazy image its full aspect ratio before layout clips it to its visible tile.
   const alt = variant === "ink" && story.id === "feeding-the-crowd"
     ? "A basket holds loaves of bread and fish."
     : description;
   return <span className={grayscale ? "family-art-tile family-art-grayscale" : "family-art-tile"}>
     <img src={`family/story-${variant === "ink" ? "ink" : "color"}.webp`} alt={decorative ? "" : alt}
       loading={decorative ? "lazy" : "eager"}
-      style={{ left: `-${(index % 4) * 100}%`, top: `-${row * 100}%` }} />
+      style={{ aspectRatio: `4 / ${atlasRows}`, left: `-${(index % 4) * 100}%`, top: `-${row * 100}%` }} />
   </span>;
 }
 
 export function CraftArt({ tile, alt }: { tile: number; alt: string }) {
   return <span className="family-art-tile kids-craft-art">
-    <img src="family/crafts.webp" alt={alt} loading="lazy" style={{ left: `-${(tile % 4) * 100}%`, top: `-${Math.floor(tile / 4) * 100}%` }} />
+    <img src="family/crafts.webp" alt={alt} loading="lazy" style={{ aspectRatio: `4 / ${storyArtRows}`, left: `-${(tile % 4) * 100}%`, top: `-${Math.floor(tile / 4) * 100}%` }} />
   </span>;
 }
