@@ -162,8 +162,14 @@ const Backend = {
     });
     counts.forEach((c) => { const x = st[c.kind]?.find((r) => r.id === c.parent); if (x) x._count = c.n; });
     for (const [kind, spec] of Object.entries(SPLIT)) st[kind].forEach((x) => { x[spec.field] ||= []; });
-    S.state = st; S.flush(true);
+    // A notification can be opened while this refresh is already fetching records.
+    const readIds = new Set(S.state.notifications.filter((n) => n.userId === uid && n.read).map((n) => n.id));
+    S.state = st;
     this.snap = new Map(this.rows().map((r) => [r.key, r.json])); this.synced = true;
+    const opened = st.notifications.filter((n) => n.userId === uid && !n.read && readIds.has(n.id));
+    opened.forEach((n) => { n.read = true; });
+    S.flush(true);
+    if (opened.length) S.save();
   },
   /** Sends local changes now, waiting for a send already under way. */
   async push() {
@@ -260,10 +266,14 @@ const Backend = {
   applyChange({ eventType, new: n, old }) {
     const r = n?.kind ? n : old; if (!r?.kind) return;
     const key = `records:${r.kind}|${r.id}`;
-    if (eventType !== "DELETE" && this.snap.get(key) === JSON.stringify({ kind: n.kind, id: n.id, church_id: n.church_id, location_id: n.location_id, owner: n.owner, data: n.data })) return; // our own write
+    const row = eventType === "DELETE" ? null : JSON.stringify({ kind: r.kind, id: r.id, church_id: r.church_id, location_id: r.location_id, owner: r.owner, data: r.data });
+    if (row && this.snap.get(key) === row) return; // our own write
     if (eventType === "INSERT" && r.kind === "notifications" && r.owner === this.user?.id &&
         r.church_id === S.state.current && !r.data?.read && !S.state.notifications.some((item) => item.id === r.id)) {
-      ForegroundAlerts.show({ ...r.data, id: r.id });
+      const notification = { ...r.data, id: r.id, churchId: r.church_id, userId: r.owner };
+      S.state.notifications.unshift(notification);
+      this.snap.set(key, row);
+      ForegroundAlerts.show(notification);
     }
     clearTimeout(this.refetch); this.refetch = setTimeout(() => this.pull().then(() => { trainingRemote = true; this.rerender(); }), 600);
   },
