@@ -334,7 +334,7 @@ function defaultDrillPlannerConfig(cid) {
   if (typeof QUIET_KINDS !== "undefined" && !QUIET_KINDS.includes("securityIncidents")) {
     QUIET_KINDS.push("securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications");
   }
-  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments", "securityIncidentEvents"]) st[k] ||= []; };
+  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments", "securityIncidentEvents", "securityIncidentFormTemplates", "securityIncidentReports"]) st[k] ||= []; };
   const prevLoad = S.load.bind(S);
   S.load = function () { prevLoad(); lists(this.state); };
   if (S.state) lists(S.state);
@@ -1354,6 +1354,38 @@ const INCIDENT_UPDATE = {
   note: "Staff note", assistance: "Need further assistance", dispatched: "Emergency services dispatched",
   available: "Call all available responders", clear: "Resolved / All clear",
 };
+const INCIDENT_REPORT_FIELDS = [
+  { id: "summary", label: "Accident / incident summary", type: "long", required: true },
+  { id: "people", label: "People involved", type: "long", required: true },
+  { id: "injuries", label: "Injuries, medical care, or property damage", type: "long" },
+  { id: "witnesses", label: "Witnesses and contact information", type: "long" },
+  { id: "actions", label: "Steps taken to resolve the incident", type: "long", required: true },
+  { id: "services", label: "Emergency services involvement", type: "choice", options: ["None", "Police", "Fire", "EMS", "Multiple services"] },
+  { id: "procedures", label: "Policies or procedures followed", type: "long" },
+  { id: "prevention", label: "Corrective or preventive action", type: "long" },
+  { id: "followup", label: "Follow-up required", type: "long" },
+];
+
+function defaultIncidentReportTemplate() {
+  return { id: "standard", name: "Standard accident / incident report", fields: INCIDENT_REPORT_FIELDS, isDefault: true };
+}
+
+function incidentReportTemplates() {
+  const saved = S.list("securityIncidentFormTemplates");
+  return [{ ...defaultIncidentReportTemplate(), isDefault: !saved.some((t) => t.isDefault) }, ...saved];
+}
+
+function incidentReports() {
+  const actor = S.me().id, lead = canLeadSecurity();
+  return S.list("securityIncidentReports").filter((report) => lead || report.assignedTo === actor || report.createdBy === actor)
+    .sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt));
+}
+
+function incidentSections(active) {
+  return seg([["security-incidents", "Active queue"], ["security-incidents-history", "Cleared history"],
+    ["security-incidents-reports", "Report queue"], ["security-incidents-dashboard", "Dashboard"],
+    ["security-incidents-forms", "Report forms", canLeadSecurity()]], active);
+}
 
 function securityIncidentRows() {
   const timeline = new Map();
@@ -1369,7 +1401,8 @@ function securityIncidentRows() {
     return {
       inc, events, priority: priorityOrder.includes(severity) ? severity : "medium",
       cleared: inc.status === "resolved" || !!clear,
-      clearedAt: clear?.at,
+      clearedAt: clear?.at || inc.resolvedAt,
+      firstArrivalAt: events.findLast((e) => e.type === "arrive")?.at,
       legacyCleared: inc.status === "resolved" && !clear,
       acknowledged: events.some((e) => e.type === "ack" && e.by === S.me().id),
     };
@@ -1378,27 +1411,30 @@ function securityIncidentRows() {
 }
 
 function renderSecurityIncidents(c, selection) {
+  if (selection === "forms") return renderIncidentReportTemplates();
+  if (selection === "reports") return renderIncidentReportQueue();
+  if (selection === "dashboard") return renderIncidentDashboard();
   const all = securityIncidentRows(), history = selection === "history";
   const selected = selection && !history ? all.find(({ inc }) => inc.id === selection) : null;
   const list = history ? all.filter((row) => row.cleared)
     .sort((a, b) => Date.parse(b.clearedAt || b.inc.at) - Date.parse(a.clearedAt || a.inc.at))
     : selection ? (selected ? [selected] : []) : all.filter((row) => !row.legacyCleared && !row.acknowledged);
-  const protos = c.securityProtocols || defaultSecurityProtocols();
+  const protos = c.securityProtocols || defaultSecurityProtocols(), reports = incidentReports();
   return html`
     <section class="sec">
       <div class="sec-head">
         <h2>${selected ? "Incident details" : "Incident triage"}</h2>
         <button type="button" class="btn ghost sm" data-act="sos-open">${icon("plus")}Log incident</button>
       </div>
-      ${seg([["security-incidents", "Active queue"], ["security-incidents-history", "Cleared history"]], history ? "security-incidents-history" : "security-incidents")}
+      ${incidentSections(history ? "security-incidents-history" : "security-incidents")}
       <div class="rows">
-        ${list.length ? list.map((row) => renderSecurityIncident(row, protos)) : empty(history ? "No cleared incidents." : selection ? "This incident is unavailable." : "No incidents in your active queue.")}
+        ${list.length ? list.map((row) => renderSecurityIncident(row, protos, reports.filter((report) => report.incidentId === row.inc.id), !!selected)) : empty(history ? "No cleared incidents." : selection ? "This incident is unavailable." : "No incidents in your active queue.")}
       </div>
     </section>
   `;
 }
 
-function renderSecurityIncident({ inc, events, priority, cleared, acknowledged, legacyCleared }, protos) {
+function renderSecurityIncident({ inc, events, priority, cleared, clearedAt, firstArrivalAt, acknowledged, legacyCleared }, protos, reports, showTimes) {
   const responders = events.filter((e) => e.type === "respond");
   const assignments = events.filter((e) => e.type === "assign");
   const arrivals = new Set(events.filter((e) => e.type === "arrive").map((e) => e.by));
@@ -1413,8 +1449,13 @@ function renderSecurityIncident({ inc, events, priority, cleared, acknowledged, 
       <span class="tag ${priority === "critical" || priority === "high" ? "warn" : ""}">${INCIDENT_PRIORITY[priority]} priority</span>
       <span class="tag ${cleared ? "ok" : latest ? "warn" : "brand"}">${state}</span>
     </div>
-    <p class="faint">${inc.room || "On campus"} · Reported <time datetime="${inc.at}">${fmtShort(inc.at.slice(0, 10))} at ${fmtTime(inc.at)}</time>${inc.reporterName ? ` by ${inc.reporterName}` : ""}
+    <p class="faint">${inc.room || (inc.locationId ? locName(inc.locationId) : "On campus")} · Reported <time datetime="${inc.at}">${incidentTimestamp(inc.at)}</time>${inc.reporterName ? ` by ${inc.reporterName}` : ""}
       ${inc.reporterPhone ? html`<a href="tel:${inc.reporterPhone}">${inc.reporterPhone}</a>` : ""}</p>
+    ${showTimes ? html`<dl class="sec-report-context">
+      <div><dt>First arrival</dt><dd>${incidentTimestamp(firstArrivalAt)}</dd></div>
+      <div><dt>Cleared</dt><dd>${incidentTimestamp(clearedAt)}</dd></div>
+      <div><dt>Total time</dt><dd>${incidentDuration(incidentElapsed(inc.at, clearedAt))}</dd></div>
+    </dl>` : ""}
     <p class="sec-incident-note">${inc.details}</p>
     ${inc.voiceUrl ? html`<audio controls src="${inc.voiceUrl}" aria-label="Recorded incident report"></audio>` : ""}
     ${inc.mediaUrl && inc.mediaKind === "image" ? html`<img class="sec-incident-media" src="${inc.mediaUrl}" alt="Incident photo">` : ""}
@@ -1427,10 +1468,13 @@ function renderSecurityIncident({ inc, events, priority, cleared, acknowledged, 
         ${responding ? arrivals.has(S.me().id) ? html`<span class="tag ok">You’re on site</span>` : button("arrive", "I’ve arrived") : button("respond", "I’m responding")}
         ${button("triage", "Set priority")}${button("assign", "Assign responder")}${button("update", "Add update")}
       `}
+      ${inc.kind !== "DRILL_INJECT" ? html`<button type="button" class="btn ghost sm" data-act="sec-report-new" data-id="${inc.id}">${reports.length ? "Add report" : "Create incident report"}</button>` : ""}
     </div>
-    ${events.some((e) => e.type !== "ack") ? html`<details class="sec-incident-details"><summary>Response timeline</summary><ol>
+    ${reports.length ? html`<div class="sec-report-list"><b>Accident / incident reports</b>${reports.map((report) => incidentReportRow(report))}
+    </div>` : ""}
+    ${events.some((e) => e.type !== "ack") ? html`<details class="sec-incident-details" ${attr(showTimes, "open")}><summary>Response timeline</summary><ol>
       ${events.filter((e) => e.type !== "ack").map((e) => html`<li><b>${incidentEventLabel(e)}</b>
-        <span class="faint"> · ${e.actorName || S.userName(e.by)} · ${longDay(e.at.slice(0, 10))} ${fmtTime(e.at)}</span>
+        <span class="faint"> · ${e.actorName || S.userName(e.by)} · ${incidentTimestamp(e.at)}</span>
         ${e.note ? html`<p class="sec-incident-note">${e.note}</p>` : ""}</li>`)}
     </ol></details>` : ""}
     ${cleared ? "" : html`<details class="sec-incident-details"><summary>Protocol escalation</summary><div class="btns">
@@ -1438,6 +1482,279 @@ function renderSecurityIncident({ inc, events, priority, cleared, acknowledged, 
     </div></details>`}
   </article>`;
 }
+
+function incidentReportRow(report, incident) {
+  return html`<button type="button" class="row" data-act="sec-report-open" data-id="${report.id}">
+    <span class="body"><span class="t">${report.templateName}</span>
+      <span class="s">${incident ? `${incident.category} · ${incident.room || "On campus"} · ` : ""}Assigned to ${report.assignedName || S.userName(report.assignedTo)}</span></span>
+    <span class="tag ${report.status === "reviewed" ? "ok" : report.status === "submitted" ? "brand" : ""}">${report.status === "reviewed" ? "Reviewed" : report.status === "submitted" ? "Submitted" : "Draft"}</span>
+  </button>`;
+}
+
+function renderIncidentReportQueue() {
+  const reports = incidentReports(), incidents = new Map(S.list("securityIncidents").map((inc) => [inc.id, inc]));
+  const groups = [["submitted", "Awaiting review"], ["draft", "Drafts"], ["reviewed", "Reviewed"]];
+  return html`<section class="sec">
+    <h2>Incident report queue</h2>
+    ${incidentSections("security-incidents-reports")}
+    ${reports.length ? groups.map(([status, label]) => {
+      const group = reports.filter((report) => report.status === status);
+      return group.length ? html`<h3>${label}</h3><div class="rows sec-report-queue">${group.map((report) => incidentReportRow(report, incidents.get(report.incidentId)))}</div>` : "";
+    }) : empty("No accident or incident reports to show.")}
+  </section>`;
+}
+
+function renderIncidentReportTemplates() {
+  if (!canLeadSecurity()) return empty("Report forms are managed by the head of security and church administrators.");
+  return html`<section class="sec">
+    <div class="sec-head"><div><h2>Incident report forms</h2><p class="muted">Choose the questions staff complete after an accident or incident.</p></div>
+      <button type="button" class="btn sm" data-act="sec-report-template" data-id="new">${icon("plus")}New form</button></div>
+    ${incidentSections("security-incidents-forms")}
+    <div class="rows">${incidentReportTemplates().map((template) => html`
+      <div class="row"><span class="body"><span class="t">${template.name}</span><span class="s">${template.fields.length} fields${template.isDefault ? " · Default" : ""}${template.id === "standard" ? " · Built in" : ""}</span></span>
+        <button type="button" class="btn ghost sm" data-act="sec-report-template" data-id="${template.id}">${template.id === "standard" ? "Customize" : "Edit"}</button></div>`)}
+    </div>
+  </section>`;
+}
+
+function incidentReportField(field, value = "") {
+  const name = `field_${field.id}`;
+  if (field.type === "long") return html`<label class="field"><span>${field.label}${field.required ? " *" : ""}</span><textarea name="${name}" rows="4" maxlength="5000">${value}</textarea></label>`;
+  if (field.type === "choice") return html`<label class="field"><span>${field.label}${field.required ? " *" : ""}</span><select name="${name}"><option value="">Choose one</option>${(field.options || []).map((option) => html`<option value="${option}" ${attr(value === option, "selected")}>${option}</option>`)}</select></label>`;
+  const type = ["date", "time", "number"].includes(field.type) ? field.type : "text";
+  return html`<label class="field"><span>${field.label}${field.required ? " *" : ""}</span><input type="${type}" name="${name}" value="${value}" maxlength="500"></label>`;
+}
+
+async function incidentRosterForSheet(button) {
+  if (!Backend.on) return incidentResponders().map((id) => ({ id, name: S.userName(id) }));
+  const scope = incidentReportScope();
+  button.disabled = true;
+  try {
+    const { data, error } = await Backend.client.rpc("security_incident_roster", { c: S.state.current });
+    if (error) throw error;
+    return scope === incidentReportScope() && button.isConnected ? data : null;
+  } finally { button.disabled = false; }
+}
+
+const incidentReportScope = () => JSON.stringify([S.state.current, S.me().id, location.hash]);
+
+// Keep the same key on a retry after a connection failure. Store the server's confirmed record in the current view.
+function incidentFormKey(form, payload) {
+  const signature = JSON.stringify(payload);
+  if (form.dataset.signature !== signature) {
+    form.dataset.signature = signature;
+    form.dataset.requestId = uid();
+  }
+  return form.dataset.requestId;
+}
+
+async function persistIncidentForm(form, kind, rpc, args, local, afterSave) {
+  if (form.dataset.saving) return;
+  const scope = incidentReportScope();
+  const cid = S.state.current, actor = S.me().id;
+  const buttons = $$("button", form).filter((button) => !button.disabled);
+  form.dataset.saving = "true";
+  buttons.forEach((button) => { button.disabled = true; });
+  try {
+    let record;
+    if (Backend.on) {
+      const { data, error } = await Backend.client.rpc(rpc, { c: cid, ...args });
+      if (error) throw error;
+      record = data;
+    } else record = local();
+    if (cid !== S.state.current || actor !== S.me().id) return;
+    if (kind === "securityIncidentFormTemplates" && record.isDefault) {
+      S.list(kind).forEach((template) => { template.isDefault = false; });
+    }
+    const existing = S.get(kind, record.id);
+    if (!existing) S.add(kind, record);
+    else if (Date.parse(existing.updatedAt) <= Date.parse(record.updatedAt)) Object.assign(existing, record);
+    S.save();
+    if (scope !== incidentReportScope() || !form.isConnected) return;
+    closeSheet(true);
+    render();
+    afterSave?.(record);
+  } catch (error) {
+    if (form.isConnected) formError(form, error.message || "Could not save. Try again.");
+  } finally {
+    delete form.dataset.saving;
+    buttons.forEach((button) => { button.disabled = false; });
+  }
+}
+
+Actions["sec-report-new"] = async (el) => {
+  if (!canSuperviseSecurity()) return;
+  const row = securityIncidentRows().find(({ inc }) => inc.id === el.dataset.id);
+  if (!row || row.inc.kind === "DRILL_INJECT") return;
+  let people;
+  try { people = await incidentRosterForSheet(el); } catch { return toast("Could not load report assignees. Try again."); }
+  if (!people?.length || $("#scrim")) return;
+  const templates = incidentReportTemplates();
+  openSheet("Create incident report", html`<form data-form="sec-report-create">
+    <input type="hidden" name="incidentId" value="${row.inc.id}">
+    <label class="field"><span>Report form</span><select name="templateId">${templates.map((template) => html`<option value="${template.id}" ${attr(template.isDefault, "selected")}>${template.name}</option>`)}</select></label>
+    <label class="field"><span>Assign to</span><select name="assignedTo">${people.map((person) => html`<option value="${person.id}" ${attr(person.id === S.me().id, "selected")}>${person.name}</option>`)}</select></label>
+    <p class="muted">The assignee will receive an alert and can save a draft before submitting it for review.</p>
+    <div class="btns"><button class="btn" type="submit">Create report</button></div>
+  </form>`);
+};
+
+Forms["sec-report-create"] = (d, f) => {
+  if (!canSuperviseSecurity()) return;
+  const template = incidentReportTemplates().find((item) => item.id === d.templateId);
+  const assignee = Backend.on || incidentResponders().includes(d.assignedTo) ? d.assignedTo : "";
+  if (!template || !assignee) return formError(f, "Choose a report form and assignee.");
+  const payload = { incidentId: d.incidentId, templateId: template.id, assignedTo: assignee };
+  const id = incidentFormKey(f, payload);
+  const now = new Date().toISOString(), report = {
+    id, incidentId: d.incidentId, templateId: template.id, templateName: template.name,
+    fields: template.fields.map((field) => ({ ...field })), values: {}, assignedTo: assignee,
+    assignedName: S.userName(assignee), status: "draft", createdBy: S.me().id, createdAt: now,
+    updatedBy: S.me().id, updatedAt: now,
+  };
+  return persistIncidentForm(f, "securityIncidentReports", "security_incident_report", { report_id: id, action: "create", payload }, () => {
+    notifyReportAssignee(report);
+    return report;
+  }, () => openIncidentReport(id));
+};
+
+function notifyReportAssignee(report) {
+  if (report.assignedTo !== S.me().id) notify(report.assignedTo, { kind: "security", title: "Incident report assigned to you",
+    body: "Open Security Command to complete the report.", link: `#security-incidents-${report.incidentId}` });
+}
+
+Actions["sec-report-open"] = (el) => openIncidentReport(el.dataset.id);
+
+function openIncidentReport(id) {
+  const report = incidentReports().find((item) => item.id === id);
+  if (!report || !canSuperviseSecurity()) return;
+  const canEdit = report.status === "draft" && (canLeadSecurity() || report.assignedTo === S.me().id);
+  const row = securityIncidentRows().find(({ inc }) => inc.id === report.incidentId);
+  openSheet("Accident / incident report", html`<form data-form="sec-report-save" class="sec-report-form">
+    <input type="hidden" name="id" value="${report.id}">
+    <input type="hidden" name="expectedAt" value="${report.updatedAt}">
+    <input type="hidden" name="intent" value="draft">
+    <div class="sec-incident-tags"><span class="tag">${report.templateName}</span><span class="tag ${report.status === "reviewed" ? "ok" : report.status === "submitted" ? "brand" : ""}">${report.status}</span></div>
+    <p class="muted">Assigned to ${report.assignedName || S.userName(report.assignedTo)}</p>
+    ${row ? html`<dl class="sec-report-context">
+      <div><dt>Location</dt><dd>${row.inc.room || (row.inc.locationId ? locName(row.inc.locationId) : "On campus")}</dd></div>
+      <div><dt>Reported</dt><dd>${incidentTimestamp(row.inc.at)}</dd></div>
+      <div><dt>First arrival</dt><dd>${incidentTimestamp(row.firstArrivalAt)}</dd></div>
+      <div><dt>Cleared</dt><dd>${incidentTimestamp(row.clearedAt)}</dd></div>
+      <div><dt>Total time</dt><dd>${incidentDuration(incidentElapsed(row.inc.at, row.clearedAt))}</dd></div>
+    </dl><p><a href="#security-incidents-${row.inc.id}" data-act="go" data-to="security-incidents-${row.inc.id}">Open incident and response timeline</a></p>` : ""}
+    ${canEdit ? report.fields.map((field) => incidentReportField(field, report.values?.[field.id] || "")) : html`<dl class="sec-report-answers">
+      ${report.fields.map((field) => html`<div><dt>${field.label}</dt><dd>${report.values?.[field.id] || "—"}</dd></div>`)}
+    </dl>`}
+    <div class="btns">
+      ${canEdit ? html`<button class="btn ghost" type="button" data-act="sec-report-intent" data-intent="draft">Save draft</button><button class="btn" type="button" data-act="sec-report-intent" data-intent="submit">Submit report</button>` : ""}
+      ${canLeadSecurity() && report.status === "draft" ? html`<button class="btn ghost" type="button" data-act="sec-report-reassign" data-id="${report.id}">Reassign draft</button>` : ""}
+      ${canLeadSecurity() && report.status === "submitted" ? html`<button class="btn" type="button" data-act="sec-report-intent" data-intent="review">Mark reviewed</button>` : ""}
+    </div>
+  </form>`);
+}
+
+Actions["sec-report-intent"] = (el) => {
+  const form = el.closest("form");
+  form.elements.intent.value = el.dataset.intent;
+  form.requestSubmit();
+};
+
+Forms["sec-report-save"] = (d, f) => {
+  const report = S.get("securityIncidentReports", d.id);
+  if (!report || (!canLeadSecurity() && report.assignedTo !== S.me().id) || report.status === "reviewed") return formError(f, "You cannot edit this report.");
+  if (d.expectedAt !== report.updatedAt) return formError(f, "This report changed. Close and reopen it before editing again.");
+  const intent = d.intent || "draft";
+  const values = Object.fromEntries(report.fields.map((field) => [field.id, d[`field_${field.id}`] || ""]));
+  if (intent === "submit") {
+    const missing = report.fields.find((field) => field.required && !values[field.id]);
+    if (missing) return formError(f, `Complete ${missing.label} before submitting.`);
+  }
+  if (intent === "review" ? (!canLeadSecurity() || report.status !== "submitted") : report.status !== "draft") return;
+  return saveIncidentReportChange(f, report, intent, { expectedAt: d.expectedAt, values });
+};
+
+Actions["sec-report-reassign"] = async (el) => {
+  const report = S.get("securityIncidentReports", el.dataset.id);
+  if (!canLeadSecurity() || report?.status !== "draft") return;
+  let people;
+  try { people = await incidentRosterForSheet(el); } catch { return formError(el.closest("form"), "Could not load assignees. Try again."); }
+  if (!people?.length) return;
+  closeSheet(true);
+  openSheet("Reassign draft", html`<form data-form="sec-report-reassign">
+    <input type="hidden" name="id" value="${report.id}">
+    <input type="hidden" name="expectedAt" value="${report.updatedAt}">
+    <label class="field"><span>Assign to</span><select name="assignedTo">${people.map((person) => html`<option value="${person.id}" ${attr(person.id === report.assignedTo, "selected")}>${person.name}</option>`)}</select></label>
+    <button class="btn" type="submit">Save assignment</button>
+  </form>`);
+};
+
+Forms["sec-report-reassign"] = (d, f) => {
+  const report = S.get("securityIncidentReports", d.id);
+  if (!canLeadSecurity() || report?.status !== "draft") return;
+  if (d.expectedAt !== report.updatedAt) return formError(f, "This report changed. Close and reopen it before editing again.");
+  if (!Backend.on && !incidentResponders().includes(d.assignedTo)) return formError(f, "Choose an assignee with incident access.");
+  return saveIncidentReportChange(f, report, "reassign", { expectedAt: d.expectedAt, assignedTo: d.assignedTo });
+};
+
+function saveIncidentReportChange(form, report, action, payload) {
+  payload.requestId = incidentFormKey(form, [action, payload]);
+  return persistIncidentForm(form, "securityIncidentReports", "security_incident_report", { report_id: report.id, action, payload }, () => {
+    const now = new Date().toISOString(), actor = S.me().id;
+    const result = { ...report, updatedBy: actor, updatedAt: now };
+    if (action === "review") return { ...result, status: "reviewed", reviewedAt: now, reviewedBy: actor };
+    if (action === "reassign") {
+      if (report.assignedTo === payload.assignedTo) return report;
+      result.assignedTo = payload.assignedTo;
+      result.assignedName = S.userName(payload.assignedTo);
+      notifyReportAssignee(result);
+      return result;
+    }
+    result.values = payload.values;
+    return action === "submit" ? { ...result, status: "submitted", submittedAt: now, submittedBy: actor } : result;
+  });
+}
+
+Actions["sec-report-template"] = (el) => {
+  if (!canLeadSecurity()) return;
+  const existing = el.dataset.id === "new" ? null : S.get("securityIncidentFormTemplates", el.dataset.id);
+  const template = existing || defaultIncidentReportTemplate();
+  openSheet(existing ? "Edit incident report form" : "New incident report form", html`<form data-form="sec-report-template">
+    <input type="hidden" name="id" value="${existing?.id || ""}">
+    <input type="hidden" name="expectedAt" value="${existing?.updatedAt || ""}">
+    <label class="field"><span>Form name</span><input name="name" value="${existing?.name || ""}" required maxlength="100"></label>
+    <fieldset class="sec-template-fields"><legend>Included questions</legend>${template.fields.map((field) => html`<div class="sec-template-field">
+      <label><input type="checkbox" name="include_${field.id}" checked> Include</label>
+      <input name="label_${field.id}" value="${field.label}" maxlength="150" aria-label="Question label">
+      <label><input type="checkbox" name="required_${field.id}" ${attr(field.required, "checked")}> Required</label>
+    </div>`)}</fieldset>
+    <fieldset><legend>Add a custom question</legend><label class="field"><span>Question (optional)</span><input name="customLabel" maxlength="150"></label>
+      <label class="field"><span>Answer style</span><select name="customType"><option value="long">Paragraph</option><option value="short">Short answer</option><option value="date">Date</option><option value="time">Time</option><option value="number">Number</option></select></label>
+      <label><input type="checkbox" name="customRequired"> Required</label></fieldset>
+    <label><input type="checkbox" name="isDefault" ${attr(template.isDefault, "checked")}> Use as the default report form</label>
+    <div class="btns"><button class="btn" type="submit">Save form</button></div>
+  </form>`);
+};
+
+Forms["sec-report-template"] = (d, f, fd) => {
+  if (!canLeadSecurity()) return;
+  const source = d.id ? S.get("securityIncidentFormTemplates", d.id) : defaultIncidentReportTemplate();
+  if (!source) return formError(f, "This form is unavailable.");
+  if (d.expectedAt !== (source.updatedAt || "")) return formError(f, "This form changed. Close and reopen it before editing again.");
+  const fields = (source.fields || []).filter((field) => fd.has(`include_${field.id}`)).map((field) => ({
+    ...field, label: d[`label_${field.id}`], required: fd.has(`required_${field.id}`),
+  }));
+  if (d.customLabel) {
+    f.dataset.customId ||= `custom-${uid()}`;
+    fields.push({ id: f.dataset.customId, label: d.customLabel, type: d.customType, required: fd.has("customRequired") });
+  }
+  if (!d.name || !fields.length || fields.some((field) => !field.label)) return formError(f, "Enter a form name and a label for each included question.");
+  if (fields.length > 30) return formError(f, "Include up to 30 questions.");
+  const id = d.id || (f.dataset.newId ||= uid()), isDefault = fd.has("isDefault");
+  return persistIncidentForm(f, "securityIncidentFormTemplates", "security_incident_template", {
+    template_id: id, name: d.name, fields, make_default: isDefault, expected_at: d.expectedAt || null,
+  }, () => ({ id, name: d.name, fields, isDefault, updatedAt: new Date().toISOString(), updatedBy: S.me().id }));
+};
 
 function incidentEventLabel(event) {
   if (event.type === "triage") return `Priority set to ${INCIDENT_PRIORITY[event.value]}`;

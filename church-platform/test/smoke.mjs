@@ -376,6 +376,107 @@ await step("incident response queue", async () => {
     await sheetGone();
   }
 });
+await step("custom incident report workflow", async () => {
+  await goTo("me");
+  await page.click("[data-act=demo-role]");
+  await page.click('#scrim [data-act=demo-role-set][data-id="admin"]');
+  await sheetGone();
+  const before = await page.evaluate(() => {
+    const { S } = __app;
+    const snapshot = structuredClone(S.state);
+    S.add("securityIncidents", { id: "report-test-incident", category: "Fellowship hall accident", room: "Fellowship hall",
+      at: new Date().toISOString(), reporterName: "Test reporter", details: "A guest slipped near the entrance", status: "open", severity: "medium" });
+    S.add("securityAccessAssignments", { userId: "u-marcus", role: "supervisor", maxLevel: 2 });
+    return snapshot;
+  });
+  const switchUser = (id) => page.evaluate((id) => {
+    const { S } = __app;
+    S.state.me = { ...S.me(), id, name: S.userName(id) };
+    __app.render();
+  }, id);
+  try {
+    await goTo("security-incidents-forms");
+    await page.getByRole("button", { name: "Customize", exact: true }).click();
+    const template = page.locator('#scrim form[data-form="sec-report-template"]');
+    await template.locator('input[name="name"]').fill("Safety follow-up report");
+    await template.locator('input[name="customLabel"]').fill("Was camera footage preserved?");
+    await template.getByRole("button", { name: "Save form" }).click();
+    await sheetGone();
+    await expectText("Safety follow-up report");
+
+    await goTo("security-incidents-report-test-incident");
+    const incident = page.locator('[data-incident="report-test-incident"]');
+    await incident.getByRole("button", { name: "Create incident report" }).click();
+    const create = page.locator('#scrim form[data-form="sec-report-create"]');
+    await create.locator('select[name="assignedTo"]').selectOption("u-dana");
+    await create.getByRole("button", { name: "Create report" }).click();
+    let report = page.locator('#scrim form[data-form="sec-report-save"]');
+    await report.getByRole("button", { name: "Save draft" }).click();
+    await sheetGone();
+    await incident.getByText("Draft", { exact: true }).waitFor();
+    await incident.getByRole("button", { name: /Safety follow-up report/ }).click();
+    await report.getByRole("button", { name: "Reassign draft" }).click();
+    await page.locator('#scrim select[name="assignedTo"]').selectOption("u-marcus");
+    await page.getByRole("button", { name: "Save assignment" }).click();
+    await sheetGone();
+    await switchUser("u-marcus");
+    await goTo("security-incidents-reports");
+    await page.getByRole("button", { name: /Safety follow-up report.*Fellowship hall/ }).click();
+    report = page.locator('#scrim form[data-form="sec-report-save"]');
+    await report.getByRole("button", { name: "Submit report" }).click();
+    await report.getByRole("alert").getByText(/before submitting/).waitFor();
+    await report.locator('[name="field_summary"]').fill("Guest slipped on water near the entrance.");
+    await report.locator('[name="field_people"]').fill("Guest and two responding ushers.");
+    await report.locator('[name="field_actions"]').fill("Area isolated, assessed, and cleaned.");
+    await report.locator('[name^="field_custom-"]').fill("Yes, footage was preserved.");
+    await report.getByRole("button", { name: "Submit report" }).click();
+    await sheetGone();
+    await switchUser("u-dana");
+    await goTo("security-incidents-report-test-incident");
+    await incident.getByText("Submitted", { exact: true }).waitFor();
+    await incident.getByRole("button", { name: /Safety follow-up report/ }).click();
+    await page.locator('#scrim').getByRole("button", { name: "Mark reviewed" }).click();
+    await sheetGone();
+    await incident.getByText("Reviewed", { exact: true }).waitFor();
+    await page.evaluate(() => {
+      const { S } = __app;
+      const incident = S.get("securityIncidents", "report-test-incident");
+      const at = new Date(incident.at);
+      at.setHours(9, 0, 0, 0);
+      S.update("securityIncidents", incident.id, { at: at.toISOString() });
+      const later = (minutes) => new Date(+at + minutes * 60000).toISOString();
+      S.add("securityIncidentEvents", { incidentId: incident.id, type: "arrive", actorName: "Marcus Bell", by: "u-marcus", at: later(5) });
+      S.add("securityIncidentEvents", { incidentId: incident.id, type: "clear", actorName: "Dana Whitfield", by: "u-dana", at: later(20), note: "Floor dried and inspected." });
+      S.add("securityIncidents", { category: "Training drill", kind: "DRILL_INJECT", room: "Lobby", at: at.toISOString() });
+      S.add("securityIncidents", { category: "Parking concern", room: "Parking lot", at: later(180) });
+    });
+    await goTo("security-incidents-dashboard");
+    await expectText("Incident dashboard");
+    const period = page.getByRole("combobox", { name: "Period", exact: true });
+    for (const mode of ["month", "year", "week", "day"]) {
+      await period.selectOption(mode);
+      await page.getByRole("link", { name: /Fellowship hall accident/ }).waitFor();
+    }
+    if (await page.getByText("Training drill", { exact: true }).count()) throw new Error("drill was counted in incident reporting");
+    const stats = page.locator(".stat-tiles");
+    await stats.getByText("5 min", { exact: true }).waitFor();
+    await stats.getByText("20 min", { exact: true }).waitFor();
+    await page.locator('[data-kind="time"]').last().click();
+    await page.getByRole("link", { name: /Parking concern/ }).waitFor();
+    if (await page.getByRole("link", { name: /Fellowship hall accident/ }).count()) throw new Error("time drill-down did not filter the incident list");
+    await page.locator('[data-kind="category"][data-key="Fellowship hall accident"]').click();
+    await page.getByRole("link", { name: /Fellowship hall accident/ }).click();
+    await page.getByText("Floor dried and inspected.", { exact: true }).waitFor();
+    await page.getByText("Total time", { exact: true }).waitFor();
+    await page.getByText("Reviewed", { exact: true }).waitFor();
+  } finally {
+    await page.evaluate((state) => { __app.S.state = state; __app.S.flush(); }, before);
+    await goTo("me");
+    await page.click("[data-act=demo-role]");
+    await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
+    await sheetGone();
+  }
+});
 await step("campus filter", async () => {
   await goTo("home"); await page.click(".home-top [data-act=pick-campus]");
   await page.click('#scrim [data-id="riverside-east"]');
