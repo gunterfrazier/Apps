@@ -59,6 +59,7 @@ function churchForRoute(head, tail) {
   return kind ? S.get(kind, tail)?.churchId || null : null;
 }
 function render() {
+  OpeningSummary.eligible = false;
   const app = $("#app");
   let { route, head, tail } = splitRoute();
   document.documentElement.classList.toggle("overlay-page", head === "overlay");
@@ -116,6 +117,9 @@ function render() {
   view.after?.();
   if (typeof Player !== "undefined") Player.syncUI(head, view);
   sandboxAfterRender(head);
+  OpeningSummary.eligible = !view.page && !view.kiosk && !view.present &&
+    !["signin", "setup", "deactivated", "security", "safety-status", "station", "register", "ticket", "thanks", ...OPEN_ROUTES].includes(head);
+  OpeningSummary.show();
 }
 let pendingRoute = null;
 
@@ -243,7 +247,10 @@ function openSheet(title, body, opts = {}) {
 function closeSheet(silent) {
   const s = $("#scrim"); if (!s) return;
   s.remove(); document.body.classList.remove("sheet-open");
-  if (!silent) sheetReturn?.focus?.();
+  if (!silent) {
+    sheetReturn?.focus?.();
+    queueMicrotask(() => OpeningSummary.show());
+  }
 }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
 
