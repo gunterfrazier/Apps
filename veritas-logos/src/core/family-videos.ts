@@ -22,6 +22,25 @@ export const FAMILY_VIDEO_CHANNELS = [
 ];
 
 const videosByStory: Record<string, StoryVideoLink[]> = {
+  "red-sea": [
+    saddleback("h5Sj-ZotsXw", "Moses and the Red Sea"),
+    { id: "bibleproject-exodus", url: "https://bibleproject.com/videos/exodus-1-18/",
+      title: "Exodus 1–18 overview", creator: "BibleProject", format: "Companion lesson" },
+  ],
+  "samuel-hears-god": [
+    saddleback("g9aIbNjFjWk", "Samuel and Eli"),
+    { id: "bibleproject-samuel", url: "https://bibleproject.com/videos/1-samuel/",
+      title: "1 Samuel overview", creator: "BibleProject", format: "Companion lesson" },
+  ],
+  zacchaeus: [
+    saddleback("5BjtbJFz2ug", "Zacchaeus"),
+    { ...crossroads("crossroads-zacchaeus", "God’s Story: Zacchaeus"), url: "https://vimeo.com/57088533" },
+  ],
+  "lost-sheep": [
+    saddleback("ad7eUq5rQIw", "The Parable of the Lost Sheep"),
+    crossroads("smvcsgMv6Dw", "God’s Story: One Lost Sheep"),
+  ],
+  "wise-builders": [saddleback("I6S3cRVLMFQ", "The Parable of the Two Builders")],
   creation: [
     crossroads("fJnj_SAlh8Y", "God’s Story: Creation"),
     saddleback("teu7BCZTgDs", "Creation (Genesis 1–2)"),
@@ -87,6 +106,12 @@ export function familyStoryVideos(storyId: string): readonly StoryVideoLink[] {
 }
 
 const animations: Partial<Record<string, { file: string; title: string; format: string; note: string }>> = {
+  "wise-builders": {
+    file: "two-builders-short.mp4",
+    title: "Two houses, one storm",
+    format: "animated short",
+    note: "A silent animation with on-screen story text. Rain falls on both houses. The house on sand tumbles while the one on rock stands.",
+  },
   "burning-bush": {
     file: "burning-bush-short.mp4",
     title: "The bush that kept burning",

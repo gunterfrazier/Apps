@@ -17,6 +17,11 @@ const scenes = {
   esther: [12, "Queen Esther approaches the king as he holds out a scepter."],
   daniel: [13, "Daniel sits with lions in the den."],
   "burning-bush": [14, "Moses kneels beside a bush whose leaves glow with fire."],
+  "red-sea": [15, "Families follow Moses on a dry path between walls of seawater."],
+  "samuel-hears-god": [16, "Samuel sits up in bed beside a lamp at night."],
+  zacchaeus: [17, "Zacchaeus looks down from a tree as Jesus greets him."],
+  "lost-sheep": [18, "A shepherd carries a small sheep across a green hillside."],
+  "wise-builders": [19, "Two houses sit on rocky and sandy ground as water rushes nearby."],
 } as const;
 
 type Scene = (typeof scenes)[keyof typeof scenes];
@@ -38,7 +43,7 @@ export function FamilyArt({ story, age, variant, grayscale = false, decorative =
   if (!scene) return null;
   const [index, description] = scene;
   // The color atlas stacks the Story Club grid above the Bible Explorers grid.
-  const row = Math.floor(index / 4) + (age !== "young" && variant !== "ink" ? 4 : 0);
+  const row = Math.floor(index / 4) + (age !== "young" && variant !== "ink" ? 5 : 0);
   const alt = variant === "ink" && story.id === "feeding-the-crowd"
     ? "A basket holds loaves of bread and fish."
     : description;

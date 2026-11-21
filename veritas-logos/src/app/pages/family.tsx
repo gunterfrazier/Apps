@@ -7,7 +7,7 @@ import { FAMILY_VIDEO_CHANNELS, familyStoryAnimation, familyStoryVideos } from "
 import { account, useAccount } from "../account";
 import { Loading, useAsync } from "../ui";
 import { CraftArt, FamilyArt, FAMILY_SPACES } from "./family-art";
-import { FamilyResourceIndex, FamilyWorksheet, StoryResourceList } from "./family-worksheets";
+import { FamilyResourceIndex, FamilyWorksheet, StoryResourceList, type FamilyResourceView } from "./family-worksheets";
 
 const previewId = (age: string) => `preview-${age}`;
 const kidsHash = (id: string, story?: string) => `#kids-${id}${story ? "/" + story : ""}`;
@@ -17,11 +17,17 @@ const uuid = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 const themeIcons = { ocean: "≈", orchard: "✿", grove: "❧" };
 const featuredStories: Record<AgeGroup, string[]> = {
-  young: ["creation", "noah", "burning-bush", "david", "jonah", "galilee", "jesus-welcomes-children", "feeding-the-crowd", "resurrection"],
-  middle: ["joseph", "burning-bush", "ruth", "jonah", "esther", "daniel", "samaritan", "prodigal-son", "feeding-the-crowd"],
-  teen: ["creation", "burning-bush", "ruth", "esther", "daniel", "samaritan", "prodigal-son", "resurrection"],
+  young: ["creation", "noah", "burning-bush", "red-sea", "samuel-hears-god", "lost-sheep", "wise-builders", "david", "jonah", "galilee", "jesus-welcomes-children", "feeding-the-crowd", "resurrection"],
+  middle: ["joseph", "burning-bush", "red-sea", "samuel-hears-god", "zacchaeus", "wise-builders", "ruth", "jonah", "esther", "daniel", "samaritan", "prodigal-son", "feeding-the-crowd"],
+  teen: ["creation", "burning-bush", "red-sea", "samuel-hears-god", "zacchaeus", "lost-sheep", "wise-builders", "ruth", "esther", "daniel", "samaritan", "prodigal-son", "resurrection"],
 };
 const welcomeStory = FAMILY_STORIES.find((story) => story.id === "noah")!;
+
+function focusHeading(id: string) {
+  const heading = document.getElementById(id);
+  heading?.focus({ preventScroll: true });
+  heading?.scrollIntoView({ block: "start" });
+}
 
 export function FamilyPage() {
   const { status, user } = useAccount();
@@ -32,11 +38,10 @@ export function FamilyPage() {
         <div>
           <h1 className="page-title">Family library</h1>
           <p>Bible stories, art, and questions for kids and teens. Set up a space for each reader or browse by age.</p>
-          <button className="btn primary" type="button" onClick={() => {
-            const heading = document.getElementById("family-age-title");
-            heading?.focus({ preventScroll: true });
-            heading?.scrollIntoView({ block: "start" });
-          }}>Browse by age</button>
+          <div className="family-welcome-actions">
+            <button className="btn primary" type="button" onClick={() => focusHeading("family-age-title")}>Browse by age</button>
+            <button className="btn" type="button" onClick={() => focusHeading("family-print-resources")}>Browse resources</button>
+          </div>
         </div>
         <div className="family-welcome-art"><FamilyArt story={welcomeStory} age="young" /></div>
       </section>
@@ -59,7 +64,7 @@ export function FamilyPage() {
           ))}
         </div>
       </section>
-      <FamilyResourceIndex worksheetLink={(story, age) => worksheetHash(previewId(age), story)} />
+      <FamilyResourceIndex resourceLink={(story, age, view) => `${kidsHash(previewId(age), story)}/${view}`} />
       <details className="family-section family-media-credits">
         <summary>Video creators for families</summary>
         <p>Browse the official channels and playlist on YouTube.</p>
@@ -241,7 +246,7 @@ function StoryWatch({ storyId }: { storyId: string }) {
       </video>}
       <p className="fine">{animation.note}</p>
     </details>}
-    <p>Creator links open on the publisher’s site or YouTube. Younger children can watch with an adult.</p>
+    <p>Creator links open on an external video site. Younger children can watch with an adult.</p>
     <ul className="kids-watch-list">
       {videos.map((video) => <li key={video.id}>
         <a className="kids-watch-link" href={video.url ?? `https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer">
@@ -257,9 +262,16 @@ function StoryWatch({ storyId }: { storyId: string }) {
   </>;
 }
 
-function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyProfile }) {
+type StoryLanding = Exclude<FamilyResourceView, "worksheet">;
+
+function StoryDetail({ story, profile, landing }: { story: FamilyStory; profile: FamilyProfile; landing?: StoryLanding }) {
   const [scene, setScene] = useState(0);
   const [showAll, setShowAll] = useState(false);
+  useEffect(() => {
+    if (!landing) return;
+    const frame = requestAnimationFrame(() => focusHeading(`story-${landing}`));
+    return () => cancelAnimationFrame(frame);
+  }, [story.id, landing]);
   const edition = story.editions[profile.ageGroup];
   if (!edition) return null;
   const collection = STORY_COLLECTIONS[story.id];
@@ -278,11 +290,8 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
         <h1>{story.title}</h1>
       </header>
       <nav className="kids-story-jump" aria-label="Story sections">
-        {sections.map((section) => <button key={section} className="kids-control" type="button" onClick={() => {
-          const heading = document.getElementById(`story-${section.toLowerCase()}`);
-          heading?.focus({ preventScroll: true });
-          heading?.scrollIntoView({ block: "start" });
-        }}>{section}</button>)}
+        {sections.map((section) => <button key={section} className="kids-control" type="button"
+          onClick={() => focusHeading(`story-${section.toLowerCase()}`)}>{section}</button>)}
       </nav>
       <section className="kids-story-section" aria-labelledby="story-read">
         <h2 id="story-read" tabIndex={-1}>Read</h2>
@@ -362,7 +371,8 @@ function StoryCards({ stories, profile }: { stories: FamilyStory[]; profile: Fam
   </div>;
 }
 
-function KidsStories({ profile, storyId, worksheet }: { profile: FamilyProfile; storyId?: string; worksheet: boolean }) {
+function KidsStories({ profile, storyId, view }: { profile: FamilyProfile; storyId?: string; view?: FamilyResourceView }) {
+  const worksheet = view === "worksheet";
   const group = AGE_GROUPS.find(({ id }) => id === profile.ageGroup);
   const stories = FAMILY_STORIES.filter((story) => story.editions[profile.ageGroup]);
   const story = stories.find(({ id }) => id === storyId);
@@ -378,7 +388,7 @@ function KidsStories({ profile, storyId, worksheet }: { profile: FamilyProfile; 
       </header>
       <main className="kids-main" key={worksheet ? `${storyId}/worksheet` : storyId || "stories"}>
         {story && worksheet ? <FamilyWorksheet story={story} age={profile.ageGroup} back={kidsHash(profile.id, story.id)} /> :
-          story ? <StoryDetail story={story} profile={profile} /> : (
+          story ? <StoryDetail story={story} profile={profile} landing={worksheet ? undefined : view} /> : (
           <>
             <header className="kids-intro" data-profile-theme={profile.nickname ? profile.theme : undefined}>
               <span className="kids-space-icon" aria-hidden="true">{profile.nickname ? themeIcons[profile.theme] : space.icon}</span>
@@ -410,9 +420,9 @@ function KidsStories({ profile, storyId, worksheet }: { profile: FamilyProfile; 
   );
 }
 
-function SavedKidsStories({ owner, id, story, worksheet }: { owner: string; id: string; story?: string; worksheet: boolean }) {
+function SavedKidsStories({ owner, id, story, view }: { owner: string; id: string; story?: string; view?: FamilyResourceView }) {
   const { data, loading, error } = useAsync(async () => account().family.get(owner, id), [owner, id]);
-  if (data) return <KidsStories profile={data} storyId={story} worksheet={worksheet} />;
+  if (data) return <KidsStories profile={data} storyId={story} view={view} />;
   if (loading) return <main className="page"><Loading label="Opening profile" /></main>;
   return <main className="page">
     <h1 className="page-title">Family profile unavailable</h1>
@@ -422,13 +432,13 @@ function SavedKidsStories({ owner, id, story, worksheet }: { owner: string; id: 
 }
 
 export function KidsPage({ route }: { route: string }) {
-  const [id, story, view] = route.split("/");
-  const worksheet = view === "worksheet";
+  const [id, story, section] = route.split("/");
+  const view = section === "worksheet" || section === "make" || section === "play" || section === "watch" ? section : undefined;
   const { status, user } = useAccount();
   const group = AGE_GROUPS.find((age) => previewId(age.id) === id);
-  useEffect(() => { window.scrollTo(0, 0); }, [id, story, worksheet]);
-  if (group) return <KidsStories profile={{ id, nickname: "", ageGroup: group.id, theme: "ocean" }} storyId={story} worksheet={worksheet} />;
-  if (uuid.test(id) && status === "signed-in" && user) return <SavedKidsStories key={`${user.id}/${id}`} owner={user.id} id={id} story={story} worksheet={worksheet} />;
+  useEffect(() => { window.scrollTo(0, 0); }, [id, story, view]);
+  if (group) return <KidsStories profile={{ id, nickname: "", ageGroup: group.id, theme: "ocean" }} storyId={story} view={view} />;
+  if (uuid.test(id) && status === "signed-in" && user) return <SavedKidsStories key={`${user.id}/${id}`} owner={user.id} id={id} story={story} view={view} />;
   return <main className="page">
     {status === "loading" && uuid.test(id) ? <Loading label="Checking your account" /> : <h1 className="page-title">Family profile unavailable</h1>}
     <a className="btn" href="#family">Back to family</a>

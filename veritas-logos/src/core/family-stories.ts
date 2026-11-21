@@ -1,4 +1,5 @@
 import type { AgeGroup } from "./family";
+import { BATCH_FAMILY_STORIES } from "./family-story-batch";
 import { MORE_FAMILY_STORIES } from "./family-story-more";
 import { NEW_FAMILY_STORIES } from "./family-story-expansion";
 
@@ -252,4 +253,4 @@ const existingStories: FamilyStory[] = [
   },
 ];
 
-export const FAMILY_STORIES: FamilyStory[] = [...NEW_FAMILY_STORIES, ...existingStories, ...MORE_FAMILY_STORIES];
+export const FAMILY_STORIES: FamilyStory[] = [...NEW_FAMILY_STORIES, ...existingStories, ...MORE_FAMILY_STORIES, ...BATCH_FAMILY_STORIES];
