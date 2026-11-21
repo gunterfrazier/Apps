@@ -1776,3 +1776,20 @@ body.has-mini-player #app:has(.sec-chat-form) { padding-bottom: calc(var(--tab-h
 .sec-chat-form .voice-chip { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .sec-chat-form .voice-chip audio { width: min(220px, 100%); height: 32px; }
 .sec-chat-form .voice-chip img, .sec-chat-form .voice-chip video { max-height: 56px; max-width: 120px; }
+
+/* Incident triage and response */
+.sec-incident { border-inline-start: 4px solid var(--line); }
+.sec-incident[data-priority="critical"] { border-inline-start-color: var(--danger, #b91c1c); }
+.sec-incident[data-priority="high"] { border-inline-start-color: var(--warn); }
+.sec-incident[data-priority="medium"] { border-inline-start-color: var(--brand); }
+.sec-incident-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sec-incident-category[data-category-tone="emergency"] { background: #991b1b; color: #fff; }
+.sec-incident-category[data-category-tone="medical"] { background: #115e59; color: #fff; }
+.sec-incident-category[data-category-tone="reunification"] { background: #6b21a8; color: #fff; }
+.sec-incident-note { white-space: pre-wrap; overflow-wrap: anywhere; }
+.sec-incident-media { display: block; max-width: 100%; max-height: 180px; border-radius: 10px; }
+.sec-incident audio { max-width: 100%; }
+.sec-incident-details { margin-top: 10px; }
+.sec-incident-details summary { cursor: pointer; font-weight: 600; }
+.sec-incident-details ol { padding-inline-start: 24px; }
+.sec-incident-details li + li { margin-top: 8px; }
