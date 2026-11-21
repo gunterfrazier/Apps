@@ -32,6 +32,23 @@ const bibleProject = (path: string, title: string): StoryVideoLink => ({
 });
 
 const videosByStory: Record<string, StoryVideoLink[]> = {
+  deborah: [
+    { id: "Jxwhdb-WdgU", title: "Deborah and Barak’s Duet", creator: "CartoonWorks", format: "Animated retelling" },
+    { id: "bibleproject-judges", url: "https://www.bible.com/videos/25455-judges",
+      title: "Book of Judges Overview", creator: "BibleProject", format: "Companion lesson" },
+  ],
+  naaman: [
+    saddleback("aKrhH-sJ03g", "Naaman Is Healed"),
+    bibleProject("kings", "Books of 1 and 2 Kings Overview"),
+  ],
+  "friends-through-the-roof": [
+    saddleback("8cmppSIQUX4", "Jesus Heals a Paralyzed Man (Luke’s Account)"),
+    bibleProject("mark", "Gospel of Mark Overview"),
+  ],
+  tabitha: [
+    saddleback("NxwLZCfQSq0", "Peter Raises Tabitha"),
+    { id: "QhlRTne06es", title: "Tabitha", creator: "LifeKids", format: "Animated retelling" },
+  ],
   "jesus-is-born": [saddleback("v3656G6tWuI", "The Story of Christmas (Jesus Is Born)"), bibleProject("gospel-luke-1", "The Birth of Jesus in Luke 1–2")],
   "jesus-baptism": [saddleback("T0XT4lNJasg", "The Baptism of Jesus"), bibleProject("gospel-luke-2", "The Baptism of Jesus and His Early Ministry in Luke")],
   "first-disciples": [saddleback("EhIwTU9RbxY", "Jesus Calls Peter (Luke’s Account)"), bibleProject("mark", "Gospel of Mark Overview")],
@@ -148,41 +165,4 @@ export function familyVideoUrl(video: StoryVideoLink): string {
 
 export function familyStoryVideos(storyId: string): readonly StoryVideoLink[] {
   return videosByStory[storyId] ?? [];
-}
-
-const animations: Partial<Record<string, { file: string; title: string; format: string; note: string }>> = {
-  pentecost: {
-    file: "heard-at-pentecost-short.mp4",
-    title: "Heard at Pentecost",
-    format: "animated short",
-    note: "A silent animation with on-screen story text. Wind and flame shapes lead into a scene of people hearing in their own languages.",
-  },
-  "baby-moses": {
-    file: "basket-among-reeds-short.mp4",
-    title: "A Basket Among the Reeds",
-    format: "animated short",
-    note: "A silent animation with on-screen story text. Moses’s sister watches by the Nile as a princess comes toward the basket.",
-  },
-  "wise-builders": {
-    file: "two-builders-short.mp4",
-    title: "Two houses, one storm",
-    format: "animated short",
-    note: "A silent animation with on-screen story text. Rain falls on both houses. The house on sand tumbles while the one on rock stands.",
-  },
-  "burning-bush": {
-    file: "burning-bush-short.mp4",
-    title: "The bush that kept burning",
-    format: "animated short",
-    note: "A short, silent animation with on-screen story text.",
-  },
-  "jesus-welcomes-children": {
-    file: "welcome-circle-short.mp4",
-    title: "Make a welcome circle",
-    format: "animated craft demo",
-    note: "A silent demo with on-screen instructions. Colored paper hands move into a circle around a heart.",
-  },
-};
-
-export function familyStoryAnimation(storyId: string) {
-  return animations[storyId];
 }

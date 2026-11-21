@@ -39,6 +39,28 @@ const purple = (lesson: number): FamilyResource => ({
 });
 
 const storyResources: Record<string, FamilyResource[]> = {
+  deborah: [
+    trueway("Deborah printable lesson", "deborah-bible-lesson", "young", "Choose the age 5+ pack"),
+    trueway("Deborah preteen study", "deborah-teen", "middle"),
+    trueway("Deborah teen study", "deborah-teen", "teen"),
+  ],
+  naaman: [
+    trueway("Naaman printable activities", "naaman-5-10-year-old-lesson-pack", "young"),
+    trueway("Naaman preteen study", "naaman-teen", "middle"),
+    trueway("Naaman teen study", "naaman-teen", "teen"),
+  ],
+  "friends-through-the-roof": [
+    trueway("Jesus Heals and Forgives printable lesson", "jesus-heals-and-forgives", "young", "Choose the age 5+ pack"),
+    trueway("Jesus Heals and Forgives preteen study", "jesus-heals-and-forgives-mark-2-preteen-bible-lesson", "middle"),
+    trueway("Jesus Heals and Forgives teen study", "jesus-heals-and-forgives-teen", "teen"),
+  ],
+  tabitha: [
+    trueway("Tabitha (Dorcas) printable lesson", "tabitha", "young", "Choose the age 5+ pack"),
+    { title: "Peter and Tabitha lesson for ages 6–12", provider: "ResourceWell", format: "Group activities",
+      url: "https://www.resourcewell.org/children-ministry/lesson/2lesson_8_peter_and_tabitha_dorcas_6-12", audience: ["middle"] },
+    { title: "Acts study guide", provider: "BibleProject", format: "Read online",
+      url: "https://bibleproject.com/guides/book-of-acts/", audience: ["teen"], detail: "Context for Acts 9" },
+  ],
   "jesus-is-born": [
     trueway("Jesus Is Born printable lesson", "jesus-is-born", "young", "Choose the age 5+ Christmas pack"),
     trueway("The Shepherds preteen study", "shepherds-teen", "middle", "Luke 2:8–20"),

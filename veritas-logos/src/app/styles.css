@@ -1042,10 +1042,6 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .kids-craft p { margin: .4rem 0; }
 .kids-craft ol { padding-inline-start: 1.4rem; }
 .kids-craft li + li { margin-top: .5rem; }
-.kids-original-short { border: 1px solid var(--kids-line); background: var(--kids-tint); padding: .75rem; margin-bottom: .75rem; border-radius: 12px; }
-.kids-original-short summary { font-weight: 700; color: var(--kids-accent); }
-.kids-original-short video { margin: .6rem 0; max-width: 32rem; }
-.kids-original-short p { margin-top: .4rem; }
 @media (min-width: 580px) {
   .kids-craft { grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); }
 }
