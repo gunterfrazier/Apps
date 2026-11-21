@@ -1102,7 +1102,8 @@ await step("sermon playback across screens", async () => {
     recorder.ondataavailable = (event) => chunks.push(event.data);
     const done = new Promise((resolve) => { recorder.onstop = resolve; });
     recorder.start();
-    for (let index = 0; index < 15; index++) {
+    // Leave enough recording after the route change to observe it playing in a loaded test browser.
+    for (let index = 0; index < 50; index++) {
       frame.fillStyle = index % 2 ? "#123" : "#569";
       frame.fillRect(0, 0, 96, 54);
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1113,7 +1114,7 @@ await step("sermon playback across screens", async () => {
     await audio.close();
     return Array.from(new Uint8Array(await new Blob(chunks).arrayBuffer()));
   });
-  const audio = Buffer.alloc(44 + 8000 * 2 * 12);
+  const audio = Buffer.alloc(44 + 8000 * 2 * 30);
   audio.write("RIFF", 0); audio.writeUInt32LE(audio.length - 8, 4); audio.write("WAVEfmt ", 8);
   audio.writeUInt32LE(16, 16); audio.writeUInt16LE(1, 20); audio.writeUInt16LE(1, 22);
   audio.writeUInt32LE(8000, 24); audio.writeUInt32LE(16000, 28); audio.writeUInt16LE(2, 32);
@@ -1136,7 +1137,7 @@ await step("sermon playback across screens", async () => {
     await page.getByRole("button", { name: "Sermon audio", exact: true }).click();
     await player.waitFor();
     await source("Pause").waitFor();
-    await player.locator("[data-sac-rem]").getByText("0:12", { exact: true }).waitFor();
+    await player.locator("[data-sac-rem]").getByText("0:30", { exact: true }).waitFor();
     notificationId = await page.evaluate(() => {
       const { S } = __app;
       const n = S.add("notifications", { userId: S.me().id, kind: "security", title: "Test notification",
@@ -1160,7 +1161,7 @@ await step("sermon playback across screens", async () => {
     await source("Pause").click();
     await source("Play").waitFor();
     await player.getByRole("slider", { name: "Seek recording" }).press("End");
-    await player.locator("[data-sac-cur]").getByText("0:12", { exact: true }).waitFor();
+    await player.locator("[data-sac-cur]").getByText("0:30", { exact: true }).waitFor();
 
     // Restart on the other source after closing, so the very short video fixture starts at zero.
     await source("Close player").click();
@@ -1174,7 +1175,10 @@ await step("sermon playback across screens", async () => {
     await mini.getByText(/Listen to video/).waitFor();
     const at = await page.locator("#now-playing video").evaluate((element) => element.currentTime);
     await goTo("home");
-    await page.waitForFunction((time) => document.querySelector("#now-playing video").currentTime > time, at);
+    await page.waitForFunction((time) => {
+      const video = document.querySelector("#now-playing video");
+      return !video.paused && video.currentTime > time;
+    }, at);
     await mini.getByRole("button", { name: "Close mini-player" }).click();
     await mini.waitFor({ state: "hidden" });
 
@@ -1194,8 +1198,8 @@ await step("sermon playback across screens", async () => {
     const status = await player.locator(".np-status").textContent();
     throw new Error(`#${new URL(page.url()).hash.slice(1)} (${status || "no playback message"}): ${error.message}`);
   } finally {
-    await page.locator("#now-playing[open] [data-act=audio-close], #mini-player:visible [data-act=audio-close]").first().click({ timeout: 500 }).catch(() => {});
     await page.evaluate(({ sermon, notificationId }) => {
+      document.querySelector("#now-playing[open] [data-act=audio-close], #mini-player:not([hidden]) [data-act=audio-close]")?.click();
       __app.S.update("sermons", sermon.id, sermon);
       if (notificationId) __app.S.remove("notifications", notificationId);
     }, { sermon: saved, notificationId });
