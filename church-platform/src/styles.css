@@ -295,6 +295,7 @@ input[type=range] { width: 100%; accent-color: var(--brand); }
 @keyframes rise { from { transform: translateY(36px); opacity: .6; } }
 @keyframes fade { from { opacity: 0; } }
 #toast { position: fixed; left: 50%; bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 30px); transform: translateX(-50%); z-index: 50; background: var(--ink); color: var(--surface); padding: 12px 20px; border-radius: 999px; font: 600 .95rem var(--display); box-shadow: var(--sh-2); max-width: calc(100% - 32px); display: none; text-align: center; }
+#foreground-alert a { position: fixed; z-index: 51; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); padding: 12px 20px; border-radius: 14px; background: var(--ink); color: var(--surface); box-shadow: var(--sh-2); overflow-wrap: anywhere; }
 #toast.on { display: block; animation: rise .2s ease-out; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 

@@ -261,6 +261,10 @@ const Backend = {
     const r = n?.kind ? n : old; if (!r?.kind) return;
     const key = `records:${r.kind}|${r.id}`;
     if (eventType !== "DELETE" && this.snap.get(key) === JSON.stringify({ kind: n.kind, id: n.id, church_id: n.church_id, location_id: n.location_id, owner: n.owner, data: n.data })) return; // our own write
+    if (eventType === "INSERT" && r.kind === "notifications" && r.owner === this.user?.id &&
+        r.church_id === S.state.current && !r.data?.read && !S.state.notifications.some((item) => item.id === r.id)) {
+      ForegroundAlerts.show({ ...r.data, id: r.id });
+    }
     clearTimeout(this.refetch); this.refetch = setTimeout(() => this.pull().then(() => { trainingRemote = true; this.rerender(); }), 600);
   },
   rerender() {
