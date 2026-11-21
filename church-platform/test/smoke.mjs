@@ -213,6 +213,57 @@ await step("targeted recipient picker", async () => {
   await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
   await sheetGone();
 });
+await step("security communications dock", async () => {
+  await goTo("me");
+  await page.click("[data-act=demo-role]");
+  await page.click('#scrim [data-act=demo-role-set][data-id="admin"]');
+  await sheetGone();
+  await goTo("security");
+  const dock = page.locator(".sec-chat-form");
+  const protocol = page.locator(".sec-protocol-options");
+  const initial = await dock.boundingBox();
+  if (!initial || initial.y + initial.height > 844) throw new Error("communication controls are below the fold");
+  if (await protocol.getAttribute("open") !== null) throw new Error("protocol escalation started expanded");
+  await protocol.locator("summary").click();
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const scrolled = await dock.boundingBox();
+  if (!scrolled || Math.abs(scrolled.y - initial.y) > 2) throw new Error("communications dock moved during scrolling");
+
+  // Use a real MediaRecorder with an in-browser audio stream in place of a physical mic.
+  await page.evaluate(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      const audio = new AudioContext();
+      await audio.resume();
+      const destination = audio.createMediaStreamDestination();
+      const oscillator = audio.createOscillator();
+      oscillator.connect(destination);
+      oscillator.start();
+      return destination.stream;
+    };
+  });
+  await dock.getByRole("textbox", { name: "Security message" }).fill("Check the lobby");
+  await dock.getByRole("button", { name: "Record voice", exact: true }).click();
+  const stop = dock.getByRole("button", { name: "Stop recording", exact: true });
+  await stop.waitFor();
+  await page.evaluate(() => __app.render());
+  if (await dock.getByRole("textbox", { name: "Security message" }).inputValue() !== "Check the lobby") throw new Error("redraw erased the message draft");
+  if (!(await dock.getByRole("button", { name: "Send", exact: true }).isDisabled())) throw new Error("Send was enabled during recording");
+  await page.waitForTimeout(250);
+  await stop.click();
+  await dock.locator("audio").waitFor();
+  await dock.getByRole("button", { name: "Send", exact: true }).click();
+  await page.locator("#sec-chat-feed .sec-msg").filter({ hasText: "Check the lobby" }).locator("audio").waitFor();
+  if (await dock.locator("audio").count()) throw new Error("voice attachment remained after sending");
+  await page.evaluate(() => {
+    const { S } = __app;
+    const sent = S.list("securityMessages").find((m) => m.by === S.me().id && m.text === "Check the lobby");
+    if (sent) S.remove("securityMessages", sent.id);
+  });
+  await goTo("me");
+  await page.click("[data-act=demo-role]");
+  await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
+  await sheetGone();
+});
 await step("campus filter", async () => {
   await goTo("home"); await page.click(".home-top [data-act=pick-campus]");
   await page.click('#scrim [data-id="riverside-east"]');

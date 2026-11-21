@@ -956,7 +956,12 @@ Screens.security = (tail = "") => {
   const c = S.church(), alert = c.activeAlert, drill = c.activeDrill;
 
   let bodyContent = "";
-  if (!sub) bodyContent = renderSecurityComms(c);
+  if (!sub) {
+    const scope = `${c.id}:${S.me().id}`;
+    if (scope !== secCommsScope) clearSecurityDraft();
+    secCommsScope = scope;
+    bodyContent = renderSecurityComms(c);
+  }
   else if (sub === "drill") bodyContent = renderSecurityDrillSimulator(c);
   else if (sub === "incidents") bodyContent = renderSecurityIncidents(c);
   else if (sub === "doors") bodyContent = renderSecurityDoors(c);
@@ -968,16 +973,17 @@ Screens.security = (tail = "") => {
   return {
     title: "Security Command", back: hasAdminTools() ? "admin" : "home",
     body: html`
+      ${!sub ? renderSecurityChannelHeader() : ""}
       ${securitySeg(activeHash)}
       ${drill?.active ? renderActiveDrillTelemetryBar(c, drill) : ""}
-      ${alert?.active ? renderActiveProtocolBanner(alert) : html`
+      ${alert?.active ? renderActiveProtocolBanner(alert) : sub ? html`
         <div class="panel" style="margin-top:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
           <div><span class="tag ok">STATUS: NORMAL OPERATIONS</span> <span class="faint" style="margin-left:6px">${plural(securityTeamUserIds().length, "security member")} on roster</span></div>
           <div class="btns" style="margin:0">
             <a class="btn ghost sm" href="#security-drill">🧪 Launch Safety Drill Simulator</a>
             <button type="button" class="btn danger sm" data-act="sec-trigger-modal">${icon("shield")}Activate Live Protocol</button>
           </div>
-        </div>`}
+        </div>` : ""}
       ${bodyContent}
     `,
   };
@@ -1010,32 +1016,35 @@ function renderActiveProtocolBanner(alert) {
   </div>`;
 }
 
-// Tab 1: Multimodal Tactical Comms Channel
+// Tab 1: Security communications
+function renderSecurityChannelHeader() {
+  return html`<section class="sec sec-channel-header">
+    <div class="sec-head"><h2>Security channel</h2></div>
+    <div class="btns">
+      <button type="button" class="btn ghost sm" data-act="sec-earpiece-toggle" aria-pressed="${secEarpieceMode}">Earpiece: ${secEarpieceMode ? "On" : "Off"}</button>
+      <button type="button" class="btn ghost sm" data-act="sec-drop-gps">${icon("pin")}Share location</button>
+    </div>
+  </section>`;
+}
+
 function renderSecurityComms(c) {
-  const msgs = S.list("securityMessages").sort((a, b) => a.at.localeCompare(b.at)).slice(-40);
+  const msgs = S.list("securityMessages").sort((a, b) => b.at.localeCompare(a.at)).slice(0, 40);
   const protos = c.securityProtocols || defaultSecurityProtocols();
   return html`
-    <section class="sec">
-      <div class="sec-head">
-        <h2>Quick Protocol Escalation</h2>
-        <a class="btn ghost sm" href="#security-protocols">${icon("edit")}Customize protocols</a>
+    <details class="sec sec-protocol-options">
+      <summary>Protocol escalation</summary>
+      <div class="btns">
+        <button type="button" class="btn danger sm" data-act="sec-trigger-modal">${icon("shield")}Activate live protocol</button>
+        <a class="btn ghost sm" href="#security-protocols">Customize protocols</a>
       </div>
       <div class="sec-level-strip">
         ${protos.map((p) => html`<button type="button" class="sec-level-btn ${c.activeAlert?.level === p.level ? "is-active" : ""}" style="--lvl-col:${p.color}" data-act="sec-activate-level" data-level="${p.level}">
-          <b>${p.code}</b>
-          <span>${p.name}</span>
+          <b>${p.code}</b><span>${p.name}</span>
         </button>`)}
       </div>
-    </section>
+    </details>
 
-    <section class="sec">
-      <div class="sec-head">
-        <h2>Security Tactical Channel (Text, Voice, Photo/Video &amp; GPS)</h2>
-        <div class="btns" style="margin:0">
-          <button type="button" class="btn ${secEarpieceMode ? "" : "ghost"} sm" data-act="sec-earpiece-toggle" aria-pressed="${secEarpieceMode}">🎧 Earpiece Auto-Play: ${secEarpieceMode ? "ON" : "OFF"}</button>
-          <button type="button" class="btn ghost sm" data-act="sec-drop-gps">${icon("pin")}Share my GPS</button>
-        </div>
-      </div>
+    <section class="sec" aria-label="Security messages">
       <div class="panel sec-chat-box">
         <div class="sec-chat-feed" id="sec-chat-feed">
           ${msgs.length ? msgs.map((m) => html`
@@ -1054,42 +1063,138 @@ function renderSecurityComms(c) {
           `) : empty("No tactical messages yet. Use the bar below to message, record voice audio, or upload photos/video to all security staff.")}
         </div>
 
-        <form data-form="sec-chat-send" class="sec-chat-form" novalidate>
-          <div id="sec-chat-voice-prev"></div>
-          <div id="sec-chat-media-prev"></div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <select name="priority" aria-label="Message priority" style="width:auto;padding:8px 10px;border-radius:10px">
-              <option value="routine">Routine</option>
-              <option value="urgent">🚨 Urgent</option>
-            </select>
-            <input type="text" name="text" placeholder="Message all security staff..." maxlength="800" style="flex:1;min-width:160px">
-            <button type="button" class="btn ghost sm" data-act="sec-chat-voice" title="Record Push-to-Talk voice clip">🎙️ Voice</button>
-            <label class="btn ghost sm" style="cursor:pointer" title="Upload or take photo/video">📷 Media<input type="file" accept="image/*,video/*" capture="environment" data-change="sec-chat-media" class="sr"></label>
-            <button class="btn sm">${icon("send")}Send</button>
-          </div>
-        </form>
       </div>
     </section>
+
+    <form data-form="sec-chat-send" class="sec-chat-form" novalidate aria-label="Security communications">
+      <div id="sec-chat-voice-prev">${securityVoicePreview()}</div>
+      <div id="sec-chat-media-prev">${securityMediaPreview()}</div>
+      <div class="sec-chat-controls">
+        <button type="button" class="btn sm" data-act="sec-chat-voice" ${attr(secVoiceRecording && secVoiceRecording.recorder?.state !== "recording", "disabled")}>${securityVoiceLabel()}</button>
+        <label class="btn ghost sm sec-chat-media">Media<input type="file" aria-label="Attach photo or video" accept="image/*,video/*" capture="environment" data-change="sec-chat-media" class="sr"></label>
+        <select name="priority" data-change="sec-chat-priority" aria-label="Message priority"><option value="routine">Routine</option><option value="urgent" ${attr(secChatPriority === "urgent", "selected")}>Urgent</option></select>
+      </div>
+      <div class="sec-chat-text">
+        <input type="text" name="text" data-input="sec-chat-text" value="${secChatText}" aria-label="Security message" placeholder="Message security staff…" maxlength="800">
+        <button type="submit" class="btn sm" ${attr(secVoiceRecording, "disabled")}>${icon("send")}Send</button>
+      </div>
+    </form>
   `;
 }
 
-Actions["sec-chat-voice"] = (el) => {
-  toggleVoiceRecorder(el, "#sec-chat-voice-prev", (url) => { secVoiceClip = url; });
+let secCommsScope = "";
+let secChatText = "";
+let secChatPriority = "routine";
+let secVoiceRecording = null;
+function clearSecurityDraft() {
+  const recording = secVoiceRecording;
+  secVoiceRecording = null;
+  if (recording?.recorder?.state === "recording") recording.recorder.stop();
+  secVoiceClip = ""; secMediaClip = ""; secMediaKind = "";
+  secChatText = ""; secChatPriority = "routine";
+}
+window.addEventListener("hashchange", () => {
+  if (location.hash !== "#security") {
+    clearSecurityDraft();
+    secCommsScope = "";
+  }
+});
+
+const securityVoiceLabel = () => {
+  if (!secVoiceRecording) return secVoiceClip ? "Re-record voice" : "Record voice";
+  if (!secVoiceRecording.recorder) return "Opening mic…";
+  return secVoiceRecording.recorder.state === "recording" ? "Stop recording" : "Preparing clip…";
+};
+const securityVoicePreview = () => secVoiceClip && !secVoiceRecording ? html`<div class="voice-chip">
+  <audio controls src="${secVoiceClip}" aria-label="Recorded voice preview"></audio>
+  <button type="button" class="btn ghost sm" data-act="sec-chat-remove-voice">Remove</button>
+</div>` : "";
+const securityMediaPreview = () => !secMediaClip ? "" : html`<div class="voice-chip">
+  ${secMediaKind === "image" ? html`<img src="${secMediaClip}" alt="Attachment preview">` : html`<video src="${secMediaClip}" controls aria-label="Attachment preview"></video>`}
+  <button type="button" class="btn ghost sm" data-act="sec-chat-remove-media">Remove</button>
+</div>`;
+
+function refreshSecurityVoice() {
+  const form = $('[data-form="sec-chat-send"]');
+  if (!form) return;
+  const button = $('[data-act="sec-chat-voice"]', form);
+  button.textContent = securityVoiceLabel();
+  button.disabled = !!secVoiceRecording && secVoiceRecording.recorder?.state !== "recording";
+  $("#sec-chat-voice-prev").innerHTML = flat(securityVoicePreview());
+  $('button[type="submit"]', form).disabled = !!secVoiceRecording;
+}
+
+Actions["sec-chat-voice"] = async () => {
+  if (secVoiceRecording) {
+    if (secVoiceRecording.recorder?.state === "recording") secVoiceRecording.recorder.stop();
+    refreshSecurityVoice();
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+    return toast("Microphone recording is unavailable on this device.");
+  }
+  const recording = {};
+  secVoiceRecording = recording;
+  refreshSecurityVoice();
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (secVoiceRecording !== recording) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    const recorder = recording.recorder = new MediaRecorder(stream);
+    const chunks = [];
+    recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((track) => track.stop());
+      if (secVoiceRecording !== recording) return;
+      try {
+        const url = chunks.length ? await readAsDataUrl(new Blob(chunks, { type: recorder.mimeType })) : "";
+        if (secVoiceRecording === recording && url) secVoiceClip = url;
+      } catch {
+        toast("Could not prepare the voice clip.");
+      } finally {
+        if (secVoiceRecording === recording) {
+          secVoiceRecording = null;
+          refreshSecurityVoice();
+        }
+      }
+    };
+    recorder.start();
+    refreshSecurityVoice();
+  } catch {
+    stream?.getTracks().forEach((track) => track.stop());
+    if (secVoiceRecording === recording) {
+      secVoiceRecording = null;
+      refreshSecurityVoice();
+      toast("Could not start recording. Check microphone permission.");
+    }
+  }
+};
+Actions["sec-chat-remove-voice"] = () => { secVoiceClip = ""; refreshSecurityVoice(); };
+Actions["sec-chat-remove-media"] = () => {
+  secMediaClip = ""; secMediaKind = "";
+  $("#sec-chat-media-prev").textContent = "";
+  $('[data-change="sec-chat-media"]').value = "";
 };
 Inputs["sec-chat-media"] = async (el) => {
   const file = el.files?.[0]; if (!file) return;
-  const box = $("#sec-chat-media-prev");
-  if (file.type.startsWith("image/")) {
-    secMediaClip = await readImage(file, 1280);
-    secMediaKind = "image";
-    if (box) box.innerHTML = flat(html`<div style="margin:6px 0"><img src="${secMediaClip}" alt="Preview" style="max-height:90px;border-radius:8px"></div>`);
-  } else if (file.type.startsWith("video/")) {
-    secMediaClip = await readAsDataUrl(file);
-    secMediaKind = "video";
-    if (box) box.innerHTML = flat(html`<div style="margin:6px 0"><video src="${secMediaClip}" controls style="max-height:90px;border-radius:8px"></video></div>`);
-  }
+  const scope = secCommsScope;
+  const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "";
+  if (!kind) return;
+  try {
+    const url = kind === "image" ? await readImage(file, 1280) : await readAsDataUrl(file);
+    if (scope !== secCommsScope || !$('[data-form="sec-chat-send"]')) return;
+    secMediaClip = url;
+    secMediaKind = kind;
+    $("#sec-chat-media-prev").innerHTML = flat(securityMediaPreview());
+  } catch { toast("Could not open that attachment."); }
 };
+Inputs["sec-chat-text"] = (el) => { secChatText = el.value; };
+Inputs["sec-chat-priority"] = (el) => { secChatPriority = el.value; };
 Forms["sec-chat-send"] = (d, f) => {
+  if (secVoiceRecording) return;
   const text = String(d.text || "").trim();
   if (!text && !secVoiceClip && !secMediaClip) return;
   S.add("securityMessages", {
@@ -1110,7 +1215,7 @@ Forms["sec-chat-send"] = (d, f) => {
       link: "#security",
     }));
   }
-  secVoiceClip = ""; secMediaClip = ""; secMediaKind = "";
+  clearSecurityDraft();
   S.save(); f.reset(); broadcastSafetyUpdate(); render();
 };
 Actions["sec-drop-gps"] = async () => {
@@ -1550,11 +1655,12 @@ Screens["safety-status"] = () => {
 };
 
 
-Actions["sec-earpiece-toggle"] = () => {
+Actions["sec-earpiece-toggle"] = (el) => {
   secEarpieceMode = !secEarpieceMode;
   toast(secEarpieceMode ? "🎧 Hands-Free Earpiece Mode ON: Incoming PTT audio and urgent alerts will auto-play." : "Hands-Free Earpiece Mode OFF");
   if (secEarpieceMode) playEarpieceCallout("Hands-free earpiece audio active.");
-  render();
+  el.textContent = `Earpiece: ${secEarpieceMode ? "On" : "Off"}`;
+  el.setAttribute("aria-pressed", String(secEarpieceMode));
 };
 
 // ============================================================================
