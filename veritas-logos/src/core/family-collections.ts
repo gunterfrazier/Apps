@@ -501,4 +501,118 @@ export const STORY_COLLECTIONS: Partial<Record<string, StoryCollection>> = {
       teen: { title: "The river in two scenes", instructions: "Compare Exodus 1:22 with 2:1–10. Mark how Pharaoh uses the river and how the women use it. Discuss who has power at each turning point." },
     },
   },
+  "jesus-is-born": {
+    craft: {
+      title: "Make a paper manger card",
+      minutes: 15,
+      supplies: ["Blue card", "Brown and yellow paper", "White paper", "Glue stick", "Scissors", "Markers"],
+      steps: {
+        young: ["Ask an adult to help cut out a trough and some paper straw.", "Glue them to a card and fold white paper into a little blanket for Jesus.", "Tell someone what the angel said the shepherds should look for."],
+        middle: ["Make a pop-up manger from folded brown paper and slip a folded white blanket inside.", "On the left, draw what the shepherds hear. On the right, draw what they find.", "Label both sides using details from Luke 2:8–20."],
+        teen: ["Build a small paper manger and place it at the center of a card.", "Add strips for the decree, the angel’s announcement, the shepherds’ report, and Mary’s response.", "Connect each strip to a verse and discuss how the manger works as a sign."],
+      },
+      artTile: 26,
+      artAlt: "A paper manger with straw and a white folded paper swaddle on blue card.",
+    },
+    play: {
+      young: { title: "Find the sign", instructions: "Have someone hide a small drawing of a manger in an easy-to-reach place. Ask for the clue the angel gave and look for the sign together." },
+      middle: { title: "Deliver the news", instructions: "Summarize the angel’s message in one sentence. Have a partner play a shepherd and repeat it after finding the manger. Compare what the shepherd can add from experience." },
+      teen: { title: "How people respond to the news", instructions: "Read Luke 2:15–20. Track the shepherds, their listeners, and Mary. In pairs, discuss what each reaction contributes to the account." },
+    },
+  },
+  "jesus-baptism": {
+    craft: {
+      title: "Fold a paper dove over the Jordan",
+      minutes: 15,
+      supplies: ["White paper", "Blue card or paper", "Tape", "Markers", "Scissors"],
+      steps: {
+        young: ["Draw blue ripples on a card to show the river.", "Ask an adult to cut a simple bird shape and help you fold its wings upward.", "Tape the dove above the river and tell what happened when Jesus came out of the water."],
+        middle: ["Fold a paper dove and attach it above a river scene.", "Add three labels for Jesus rising, the Spirit descending, and the voice speaking.", "Match each label with Matthew 3:16–17."],
+        teen: ["Make a folded dove card with space below it for the conversation and above it for the heavenly declaration.", "Add a reference beside each part and underline words that describe Jesus’s identity.", "Explain why Matthew places this scene before the wilderness."],
+      },
+      artTile: 27,
+      artAlt: "A white folded paper dove above blue paper ripples.",
+    },
+    play: {
+      young: { title: "Listen for the key words", instructions: "As someone reads the story, make a wave motion for the river and a wing motion for the dove. Listen quietly for what the voice says." },
+      middle: { title: "Name the voices and actions", instructions: "Take turns reading the voices of John, Jesus, and the narrator in Matthew 3:13–17. Then point out what someone sees and what someone hears." },
+      teen: { title: "Read what comes before and after", instructions: "Compare Matthew 3:13–17 and 4:1–4. Discuss what each scene says about Jesus as God’s Son." },
+    },
+  },
+  "first-disciples": {
+    craft: {
+      title: "Make a paper boat and net",
+      minutes: 20,
+      supplies: ["Brown paper", "Blue card", "White marker or pencil", "Tape", "Scissors"],
+      steps: {
+        young: ["Fold a brown paper strip into a simple boat and tape it to a blue lake scene.", "Draw a net with white crisscross lines and add the shore.", "Move two paper figures from the lake to the shore as you tell how Jesus called them."],
+        middle: ["Make a folded boat scene with an area for casting nets and an area for mending nets.", "Add a paper figure and one line of the story to each side.", "Draw a path away from the boat and mark how each pair responds in Mark 1:16–20."],
+        teen: ["Build a paper boat with two flaps for the two pairs of brothers.", "On each flap, map what they are doing, what they leave, and what Jesus asks.", "Use the model to distinguish what repeats from what changes in the two scenes."],
+      },
+      artTile: 28,
+      artAlt: "A folded brown paper fishing boat on a blue card with a net and shoreline.",
+    },
+    play: {
+      young: { title: "Follow by the shore", instructions: "Take turns making a gentle motion like casting a net or taking a step. Have a partner copy it as you retell what the fishermen were doing when Jesus called them." },
+      middle: { title: "Match the two pairs", instructions: "Make cards for Simon and Andrew, James and John, casting, and mending. Match them while someone reads Mark 1:16–20 and explain what the two responses have in common." },
+      teen: { title: "The invitation and the cost", instructions: "Read both calls in Mark 1:16–20. One person tracks what Jesus offers and the other traces what the disciples leave. Compare the concrete details in each scene." },
+    },
+  },
+  "road-to-emmaus": {
+    craft: {
+      title: "Make a road-to-table foldout",
+      minutes: 20,
+      supplies: ["Card or thick paper", "Tan paper", "Tape", "Markers", "Scissors"],
+      steps: {
+        young: ["Draw the road across a folded card.", "Ask an adult to help make a paper loaf flap at the end of the road.", "Lift the loaf to show the table as you tell when the travelers recognized Jesus."],
+        middle: ["Draw the road on two panels and a table on the third. Tape a paper bread flap over the table.", "Put a question about the news on the road, and the moment of recognition under the bread.", "Draw an arrow back toward Jerusalem to show what the travelers did next."],
+        teen: ["Create a three-panel card with the road, the table, and the return.", "Annotate each panel with its turning point and a verse from Luke 24:13–35.", "Use the opening bread flap to explain how the account brings understanding and recognition together."],
+      },
+      artTile: 29,
+      artAlt: "A paper loaf flap opens over a folded card with a winding road.",
+    },
+    play: {
+      young: { title: "Walk, welcome, tell", instructions: "Act out walking, inviting someone to sit, and sharing good news. Tell which part of the story each motion belongs to." },
+      middle: { title: "Place the clues along the road", instructions: "Write one clue from before the meal and one from after it. Swap clues with a partner and explain what the travelers learn at each point." },
+      teen: { title: "Retell from two moments", instructions: "In pairs, summarize what the travelers would say before they recognize Jesus and after they return to Jerusalem. Use Luke 24:19–24 and 32–35 for details." },
+    },
+  },
+  pentecost: {
+    craft: {
+      title: "Make a Pentecost paper mobile",
+      minutes: 20,
+      supplies: ["Blue card", "Red, yellow, and orange paper", "Paper strips", "Tape", "Markers", "Scissors"],
+      steps: {
+        young: ["Cut out colorful paper flame shapes with an adult.", "Tape each shape to a paper strip and tape the strips to a card across the top.", "Draw people below and tell what surprised them when they heard their own languages."],
+        middle: ["Make a mobile with paper flame shapes on a card crossbar.", "Add separate speech bubbles for what the crowd heard and what the crowd asked.", "At the bottom, add one way the new community cared for people."],
+        teen: ["Make a paper mobile with three tags for the sign, the explanation, and the community’s response.", "Use Acts 2:1–12, 14–21, and 42–47 to put a point and reference on each tag.", "Connect the tags to show how the story moves from an event to a shared way of life."],
+      },
+      artTile: 30,
+      artAlt: "Red, yellow, and orange paper flames hang from a taped paper bar above a blue card.",
+    },
+    play: {
+      young: { title: "Welcome in many ways", instructions: "Take turns using a greeting you already know, a wave, or a picture to welcome a partner. Talk about how it feels when someone helps you understand." },
+      middle: { title: "From hearing to helping", instructions: "Sort details from Acts 2 into What they heard and What they did together. Point out which actions helped people feel included or cared for." },
+      teen: { title: "Trace who can understand", instructions: "Read Acts 2:5–12 and 42–47. Have one person chart the crowd’s origins and another chart what the believers share. Connect the two scenes in a short discussion." },
+    },
+  },
+  "philip-and-the-traveler": {
+    craft: {
+      title: "Roll a question-and-answer scroll",
+      minutes: 15,
+      supplies: ["Paper", "Tape", "Markers", "Paper strip or ribbon"],
+      steps: {
+        young: ["Draw a chariot and a scroll on a piece of paper.", "Draw the two people talking and ask someone to write the traveler’s question beside them.", "Roll the paper from both ends and tie it with a paper strip or ribbon."],
+        middle: ["Roll both ends of a paper strip to make a scroll.", "Draw three scenes in the middle for reading, asking, and stopping by the water.", "Put a short phrase from Acts 8:30–36 beside each scene or draw a symbol to represent it."],
+        teen: ["Make a scroll with one side for questions and the other for what changes afterward.", "Cite Acts 8:30–38 and mark who takes the initiative at each point.", "Use the scroll to explain how reading together changes the course of the journey."],
+      },
+      artTile: 31,
+      artAlt: "A rolled paper scroll tied with blue ribbon on a paper path.",
+    },
+    play: {
+      young: { title: "Take turns asking and helping", instructions: "Look at a picture together. Take turns asking one thing about it and helping your partner look for an answer. Retell how Philip helped the traveler with his question." },
+      middle: { title: "Who asked the question?", instructions: "Read Acts 8:30–36 with a partner. Write each question on a slip, then assign it to the person who asked it. Discuss what each question makes possible." },
+      teen: { title: "Explain a passage together", instructions: "Read Acts 8:30–35 and track the moves from asking to inviting to explaining. In pairs, discuss how a listener can make space for someone to think through a difficult text." },
+    },
+  },
 };

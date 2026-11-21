@@ -28,6 +28,12 @@ const scenes = {
   "sarah-laughs": [23, "Sarah smiles as she holds baby Isaac by a tent."],
   "jacob-and-esau": [24, "Jacob and Esau embrace on a path in the hills."],
   "baby-moses": [25, "A princess kneels by the basket while Moses’s sister watches from the reeds."],
+  "jesus-is-born": [26, "Mary and Joseph look at baby Jesus wrapped in cloth and resting in a manger."],
+  "jesus-baptism": [27, "Jesus and John stand in the Jordan River as a dove descends."],
+  "first-disciples": [28, "Jesus greets two fishermen with a boat and nets beside the lake."],
+  "road-to-emmaus": [29, "Jesus shares bread with his two traveling companions at Emmaus."],
+  pentecost: [30, "People are gathered with small flame shapes above their heads."],
+  "philip-and-the-traveler": [31, "Philip and the Ethiopian traveler read a scroll together beside a chariot."],
 } as const;
 
 type Scene = (typeof scenes)[keyof typeof scenes];

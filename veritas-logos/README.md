@@ -29,7 +29,7 @@ Every section of a guide says where it came from: cited sources, AI draft or you
 
 ## How it's used today
 
-It runs as a private page in Claude. AI goes through your Claude account, and notes and guides are saved privately to that account, so no server, API key or separate bill is needed. To update it, run `npm run build` and publish `dist-artifact/index.html` with the files in `dist/`, including `voice-worker.js` and `voice/`. Use the artifact index in place of the website index. When publishing the artifact, you can omit the website files `_headers`, `account.js`, `privacy.html`, `embed.html`, `embed.js`, `embed.css`, `veritas-embed.js`, `manifest.webmanifest`, `sw.js` and the two files in `icons/`.
+It runs as a private page in Claude. AI goes through your Claude account, and notes and guides are saved privately to that account, so no server, API key or separate bill is needed. To update it, run `npm run build` and publish `dist-artifact/index.html` with the files in `dist/`, including `voice-worker.js` and `voice/`. Use the artifact index in place of the website index. To fit the artifact host’s file limit, omit the website files `_headers`, `account.js`, `privacy.html`, `embed.html`, `embed.js`, `embed.css`, `veritas-embed.js`, `manifest.webmanifest`, `sw.js` and the two files in `icons/`.
 
 ## Run it
 
