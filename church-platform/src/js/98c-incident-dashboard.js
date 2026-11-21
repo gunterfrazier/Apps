@@ -121,7 +121,7 @@ function renderIncidentDashboard() {
 
 Inputs["sec-dashboard-period"] = (el) => el.form.requestSubmit();
 Forms["sec-dashboard-period"] = (d, f) => {
-  if (!Object.hasOwn(INCIDENT_PERIODS, d.period) || !Number.isFinite(Date.parse(d.date))) return;
+  if (!Object.prototype.hasOwnProperty.call(INCIDENT_PERIODS, d.period) || !Number.isFinite(Date.parse(d.date))) return;
   const focus = f.contains(document.activeElement) ? document.activeElement.name : "";
   Object.assign(incidentDashboard, { period: d.period, date: d.date, filter: null });
   render();

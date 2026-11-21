@@ -384,7 +384,7 @@ async function heardOnChurchChannel(m) {
     const key = `churches:${c.id}`;
     const saved = JSON.parse(Backend.snap.get(key) || "null");
     for (const field of ["activeAlert", "activeDrill"]) {
-      if (Object.hasOwn(data.data, field)) {
+      if (Object.prototype.hasOwnProperty.call(data.data, field)) {
         c[field] = data.data[field];
         if (saved) saved.data[field] = c[field];
       } else {
@@ -552,7 +552,7 @@ Actions["sos-open"] = () => {
 
         <div class="btns" style="margin-top:12px">
           <button class="btn block">${icon("shield")}Send Alert to Security Team</button>
-          ${isSecurityMember() ? html`<a class="btn ghost block" href="#security" data-act="close-sheet">Open Security Command Center</a>` : ""}
+          ${isSecurityMember() ? html`<a class="btn ghost block" href="#security" data-act="go" data-to="security">Open Security Command Center</a>` : ""}
         </div>
       </form>
     </div>
@@ -1043,9 +1043,10 @@ let secMediaKind = "";
 let rollCallGroupFilter = "ALL";
 
 function securitySeg(active) {
-  const openInc = securityIncidentRows().filter(({ cleared }) => !cleared).length;
-  const unacc = S.list("securityRollCall").filter((r) => r.status !== "safe").length;
   const drillOn = !!S.church()?.activeDrill?.active, access = securitySections();
+  const cleared = new Set(access.incidents ? S.list("securityIncidentEvents").filter((event) => event.type === "clear").map((event) => event.incidentId) : []);
+  const openInc = access.incidents ? S.list("securityIncidents").filter((inc) => inc.status !== "resolved" && !cleared.has(inc.id)).length : 0;
+  const unacc = S.list("securityRollCall").filter((r) => r.status !== "safe").length;
   return seg([
     ["security", "Tactical Comms", isSecurityMember()],
     ["security-drill", `Drill Simulator${drillOn ? " (LIVE)" : ""}`, access.drill],
@@ -1056,7 +1057,7 @@ function securitySeg(active) {
     ["security-medical", "Medical & AED", access.medical],
     ["security-protocols", "5-Level Protocols", access.protocols],
     ["security-access", "Access & approvals", access.access],
-  ], active);
+  ], active, { label: "Security Command sections", className: "sec-nav" });
 }
 
 Screens.security = (tail = "") => {
@@ -1384,7 +1385,7 @@ function incidentReports() {
 function incidentSections(active) {
   return seg([["security-incidents", "Active queue"], ["security-incidents-history", "Cleared history"],
     ["security-incidents-reports", "Report queue"], ["security-incidents-dashboard", "Dashboard"],
-    ["security-incidents-forms", "Report forms", canLeadSecurity()]], active);
+    ["security-incidents-forms", "Report forms", canLeadSecurity()]], active, { label: "Incident sections", className: "sec-nav" });
 }
 
 function securityIncidentRows() {
@@ -1398,11 +1399,13 @@ function securityIncidentRows() {
     const events = (timeline.get(inc.id) || []).sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || b.id.localeCompare(a.id));
     const severity = events.find((e) => e.type === "triage")?.value || inc.severity;
     const clear = events.find((e) => e.type === "clear");
+    let firstArrivalAt;
+    for (const event of events) if (event.type === "arrive") firstArrivalAt = event.at;
     return {
       inc, events, priority: priorityOrder.includes(severity) ? severity : "medium",
       cleared: inc.status === "resolved" || !!clear,
       clearedAt: clear?.at || inc.resolvedAt,
-      firstArrivalAt: events.findLast((e) => e.type === "arrive")?.at,
+      firstArrivalAt,
       legacyCleared: inc.status === "resolved" && !clear,
       acknowledged: events.some((e) => e.type === "ack" && e.by === S.me().id),
     };
