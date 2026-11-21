@@ -324,6 +324,58 @@ await step("security roles and approvals", async () => {
     await sheetGone();
   }
 });
+await step("incident response queue", async () => {
+  await goTo("me");
+  await page.click("[data-act=demo-role]");
+  await page.click('#scrim [data-act=demo-role-set][data-id="admin"]');
+  await sheetGone();
+  const before = await page.evaluate(() => {
+    const { S } = __app;
+    const snapshot = structuredClone(S.state);
+    const at = new Date().toISOString();
+    S.add("securityIncidents", { id: "test-incident", category: "Lobby medical report", room: "Lobby", at,
+      reporterName: "Test reporter", details: "Staff requested at the lobby", status: "open", severity: "low" });
+    return snapshot;
+  });
+  const incident = page.locator('[data-incident="test-incident"]');
+  const button = (name) => incident.getByRole("button", { name, exact: true });
+  const submit = async (mode, value, note) => {
+    await button(mode).click();
+    const form = page.locator('#scrim form[data-form="sec-incident-update"]');
+    await form.locator('select').selectOption(value);
+    if (note) await form.locator('textarea').fill(note);
+    await form.getByRole("button", { name: "Save update" }).click();
+    await sheetGone();
+  };
+  try {
+    await goTo("security-incidents");
+    await submit("Set priority", "critical");
+    if (await incident.getAttribute("data-priority") !== "critical") throw new Error("incident priority did not update");
+    await submit("Assign responder", "u-dana");
+    await incident.getByText("Assigned:", { exact: true }).waitFor();
+    await button("I’m responding").click();
+    await button("I’ve arrived").click();
+    await incident.getByText("You’re on site", { exact: true }).waitFor();
+    await submit("Add update", "dispatched", "Dispatcher confirmed.");
+    await incident.locator(".sec-incident-tags").getByText("Emergency services dispatched", { exact: true }).waitFor();
+    await goTo("security-incidents-test-incident");
+    if (await page.locator(".sec-incident").count() !== 1) throw new Error("incident link did not open the requested incident");
+    await submit("Add update", "clear", "Staff completed the handoff.");
+    await button("Confirm clear").click();
+    await incident.waitFor({ state: "detached" });
+    await goTo("security-incidents-history");
+    await incident.getByText("You confirmed clear", { exact: true }).waitFor();
+    await incident.getByText("Response timeline", { exact: true }).click();
+    await incident.getByText("Staff completed the handoff.", { exact: true }).waitFor();
+    await incident.getByText("Dispatcher confirmed.", { exact: true }).waitFor();
+  } finally {
+    await page.evaluate((state) => { __app.S.state = state; __app.S.flush(); }, before);
+    await goTo("me");
+    await page.click("[data-act=demo-role]");
+    await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
+    await sheetGone();
+  }
+});
 await step("campus filter", async () => {
   await goTo("home"); await page.click(".home-top [data-act=pick-campus]");
   await page.click('#scrim [data-id="riverside-east"]');

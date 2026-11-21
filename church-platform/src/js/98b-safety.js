@@ -334,7 +334,7 @@ function defaultDrillPlannerConfig(cid) {
   if (typeof QUIET_KINDS !== "undefined" && !QUIET_KINDS.includes("securityIncidents")) {
     QUIET_KINDS.push("securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications");
   }
-  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments"]) st[k] ||= []; };
+  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments", "securityIncidentEvents"]) st[k] ||= []; };
   const prevLoad = S.load.bind(S);
   S.load = function () { prevLoad(); lists(this.state); };
   if (S.state) lists(S.state);
@@ -1043,7 +1043,7 @@ let secMediaKind = "";
 let rollCallGroupFilter = "ALL";
 
 function securitySeg(active) {
-  const openInc = S.list("securityIncidents").filter((i) => i.status === "open").length;
+  const openInc = securityIncidentRows().filter(({ cleared }) => !cleared).length;
   const unacc = S.list("securityRollCall").filter((r) => r.status !== "safe").length;
   const drillOn = !!S.church()?.activeDrill?.active, access = securitySections();
   return seg([
@@ -1061,7 +1061,8 @@ function securitySeg(active) {
 
 Screens.security = (tail = "") => {
   if (!S.church()) return { redirect: "churches" };
-  const sub = ["drill", "incidents", "doors", "rollcall", "reunify", "medical", "protocols", "access"].includes(tail) ? tail : "";
+  const incidentRoute = tail.startsWith("incidents-") ? tail.slice("incidents-".length) : "";
+  const sub = incidentRoute ? "incidents" : ["drill", "incidents", "doors", "rollcall", "reunify", "medical", "protocols", "access"].includes(tail) ? tail : "";
   if (!sub && !isSecurityMember()) return { redirect: "safety-status" };
   if (sub && !securitySections()[sub]) return { redirect: isSecurityMember() ? "security" : "home" };
   const activeHash = sub ? `security-${sub}` : "security";
@@ -1075,7 +1076,7 @@ Screens.security = (tail = "") => {
     bodyContent = renderSecurityComms(c);
   }
   else if (sub === "drill") bodyContent = renderSecurityDrillSimulator(c);
-  else if (sub === "incidents") bodyContent = renderSecurityIncidents(c);
+  else if (sub === "incidents") bodyContent = renderSecurityIncidents(c, incidentRoute);
   else if (sub === "doors") bodyContent = renderSecurityDoors(c);
   else if (sub === "rollcall") bodyContent = renderSecurityRollCall(c);
   else if (sub === "reunify") bodyContent = renderSecurityReunification(c);
@@ -1348,45 +1349,193 @@ Actions["sec-drop-gps"] = async () => {
 };
 
 // Tab 2: Active Incidents & Triage
-function renderSecurityIncidents(c) {
-  const list = S.list("securityIncidents").sort((a, b) => b.at.localeCompare(a.at));
+const INCIDENT_PRIORITY = { critical: "Critical", high: "High", medium: "Medium", low: "Low" };
+const INCIDENT_UPDATE = {
+  note: "Staff note", assistance: "Need further assistance", dispatched: "Emergency services dispatched",
+  available: "Call all available responders", clear: "Resolved / All clear",
+};
+
+function securityIncidentRows() {
+  const timeline = new Map();
+  for (const event of S.list("securityIncidentEvents")) {
+    if (!timeline.has(event.incidentId)) timeline.set(event.incidentId, []);
+    timeline.get(event.incidentId).push(event);
+  }
+  const priorityOrder = Object.keys(INCIDENT_PRIORITY);
+  return S.list("securityIncidents").map((inc) => {
+    const events = (timeline.get(inc.id) || []).sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || b.id.localeCompare(a.id));
+    const severity = events.find((e) => e.type === "triage")?.value || inc.severity;
+    const clear = events.find((e) => e.type === "clear");
+    return {
+      inc, events, priority: priorityOrder.includes(severity) ? severity : "medium",
+      cleared: inc.status === "resolved" || !!clear,
+      clearedAt: clear?.at,
+      legacyCleared: inc.status === "resolved" && !clear,
+      acknowledged: events.some((e) => e.type === "ack" && e.by === S.me().id),
+    };
+  }).sort((a, b) => Number(a.cleared) - Number(b.cleared) ||
+    priorityOrder.indexOf(a.priority) - priorityOrder.indexOf(b.priority) || Date.parse(b.inc.at) - Date.parse(a.inc.at));
+}
+
+function renderSecurityIncidents(c, selection) {
+  const all = securityIncidentRows(), history = selection === "history";
+  const selected = selection && !history ? all.find(({ inc }) => inc.id === selection) : null;
+  const list = history ? all.filter((row) => row.cleared)
+    .sort((a, b) => Date.parse(b.clearedAt || b.inc.at) - Date.parse(a.clearedAt || a.inc.at))
+    : selection ? (selected ? [selected] : []) : all.filter((row) => !row.legacyCleared && !row.acknowledged);
   const protos = c.securityProtocols || defaultSecurityProtocols();
   return html`
     <section class="sec">
       <div class="sec-head">
-        <h2>Reported Incidents &amp; 911 Triggers</h2>
-        <button type="button" class="btn ghost sm" data-act="sos-open">${icon("plus")}Log new incident</button>
+        <h2>${selected ? "Incident details" : "Incident triage"}</h2>
+        <button type="button" class="btn ghost sm" data-act="sos-open">${icon("plus")}Log incident</button>
       </div>
+      ${seg([["security-incidents", "Active queue"], ["security-incidents-history", "Cleared history"]], history ? "security-incidents-history" : "security-incidents")}
       <div class="rows">
-        ${list.length ? list.map((inc) => html`<article class="board-card ${inc.kind === "911_CALL" ? "is-pinned" : ""}">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-            <div>
-              <span class="tag ${inc.kind === "911_CALL" || inc.severity === "critical" ? "warn" : "brand"}">${inc.category}</span>
-              <b style="margin-left:6px">${inc.reporterName}</b>
-              ${inc.reporterPhone ? html` <a href="tel:${inc.reporterPhone}" class="faint">(${inc.reporterPhone})</a>` : ""}
-              <span class="faint"> · ${ago(inc.at)} · ${inc.room || "On Campus"}</span>
-            </div>
-            <span class="tag ${inc.status === "resolved" ? "ok" : "warn"}">${inc.status}</span>
-          </div>
-          <p style="margin:8px 0">${inc.details}</p>
-          ${inc.voiceUrl ? html`<div style="margin:6px 0"><audio controls src="${inc.voiceUrl}" style="height:34px"></audio></div>` : ""}
-          ${inc.mediaUrl && inc.mediaKind === "image" ? html`<div style="margin:6px 0"><img src="${inc.mediaUrl}" alt="Incident photo" style="max-height:180px;border-radius:10px"></div>` : ""}
-          ${inc.mediaUrl && inc.mediaKind === "video" ? html`<div style="margin:6px 0"><video src="${inc.mediaUrl}" controls style="max-height:180px;border-radius:10px"></video></div>` : ""}
-          <div class="btns" style="margin-top:10px">
-            ${inc.mapUrl ? html`<a class="btn ghost sm" href="${inc.mapUrl}" target="_blank" rel="noopener">${icon("pin")}View Reporter GPS</a>` : ""}
-            ${protos.map((p) => html`<button type="button" class="btn ${p.level === inc.suggestedLevel ? "" : "ghost"} sm" data-act="sec-activate-level" data-level="${p.level}" data-inc="${inc.id}">Trigger ${p.code}</button>`)}
-            ${inc.status !== "resolved" ? html`<button type="button" class="btn ghost sm" data-act="sec-inc-resolve" data-id="${inc.id}">${icon("check")}Mark Resolved</button>` : ""}
-          </div>
-        </article>`) : empty("No security incidents reported.")}
+        ${list.length ? list.map((row) => renderSecurityIncident(row, protos)) : empty(history ? "No cleared incidents." : selection ? "This incident is unavailable." : "No incidents in your active queue.")}
       </div>
     </section>
   `;
 }
 
-Actions["sec-inc-resolve"] = (el) => {
-  const inc = S.get("securityIncidents", el.dataset.id);
-  if (inc) { inc.status = "resolved"; S.save(); toast("Incident marked resolved"); render(); }
+function renderSecurityIncident({ inc, events, priority, cleared, acknowledged, legacyCleared }, protos) {
+  const responders = events.filter((e) => e.type === "respond");
+  const assignments = events.filter((e) => e.type === "assign");
+  const arrivals = new Set(events.filter((e) => e.type === "arrive").map((e) => e.by));
+  const responding = responders.some((e) => e.by === S.me().id);
+  const latest = events.find((e) => ["assistance", "dispatched", "available"].includes(e.type));
+  const state = cleared ? "Cleared" : latest ? INCIDENT_UPDATE[latest.type] : responders.length ? "Responding" : "Awaiting response";
+  const categoryTone = inc.kind === "911_CALL" ? "emergency" : inc.kind === "MEDICAL_ALERT" || inc.rawCategory === "medical" ? "medical" : inc.rawCategory === "missing_child" ? "reunification" : "general";
+  const button = (type, label) => html`<button type="button" class="btn ghost sm" data-act="sec-incident-action" data-type="${type}" data-id="${inc.id}">${label}</button>`;
+  return html`<article class="board-card sec-incident" data-priority="${priority}" data-incident="${inc.id}">
+    <div class="sec-incident-tags">
+      <span class="tag sec-incident-category" data-category-tone="${categoryTone}">${inc.category}</span>
+      <span class="tag ${priority === "critical" || priority === "high" ? "warn" : ""}">${INCIDENT_PRIORITY[priority]} priority</span>
+      <span class="tag ${cleared ? "ok" : latest ? "warn" : "brand"}">${state}</span>
+    </div>
+    <p class="faint">${inc.room || "On campus"} · Reported <time datetime="${inc.at}">${fmtShort(inc.at.slice(0, 10))} at ${fmtTime(inc.at)}</time>${inc.reporterName ? ` by ${inc.reporterName}` : ""}
+      ${inc.reporterPhone ? html`<a href="tel:${inc.reporterPhone}">${inc.reporterPhone}</a>` : ""}</p>
+    <p class="sec-incident-note">${inc.details}</p>
+    ${inc.voiceUrl ? html`<audio controls src="${inc.voiceUrl}" aria-label="Recorded incident report"></audio>` : ""}
+    ${inc.mediaUrl && inc.mediaKind === "image" ? html`<img class="sec-incident-media" src="${inc.mediaUrl}" alt="Incident photo">` : ""}
+    ${inc.mediaUrl && inc.mediaKind === "video" ? html`<video class="sec-incident-media" src="${inc.mediaUrl}" controls aria-label="Incident video"></video>` : ""}
+    ${inc.mapUrl ? html`<p><a href="${inc.mapUrl}" target="_blank" rel="noopener">View reporter location</a></p>` : ""}
+    ${assignments.length ? html`<p><b>Assigned:</b> ${assignments.map((e) => e.targetName || S.userName(e.value)).join(", ")}</p>` : ""}
+    ${responders.length ? html`<p><b>Responders:</b> ${responders.map((e) => `${e.actorName || S.userName(e.by)}${arrivals.has(e.by) ? " (on site)" : ""}`).join(", ")}</p>` : ""}
+    <div class="btns">
+      ${cleared ? (acknowledged ? html`<span class="tag ok">You confirmed clear</span>` : legacyCleared ? "" : button("ack", "Confirm clear")) : html`
+        ${responding ? arrivals.has(S.me().id) ? html`<span class="tag ok">You’re on site</span>` : button("arrive", "I’ve arrived") : button("respond", "I’m responding")}
+        ${button("triage", "Set priority")}${button("assign", "Assign responder")}${button("update", "Add update")}
+      `}
+    </div>
+    ${events.some((e) => e.type !== "ack") ? html`<details class="sec-incident-details"><summary>Response timeline</summary><ol>
+      ${events.filter((e) => e.type !== "ack").map((e) => html`<li><b>${incidentEventLabel(e)}</b>
+        <span class="faint"> · ${e.actorName || S.userName(e.by)} · ${longDay(e.at.slice(0, 10))} ${fmtTime(e.at)}</span>
+        ${e.note ? html`<p class="sec-incident-note">${e.note}</p>` : ""}</li>`)}
+    </ol></details>` : ""}
+    ${cleared ? "" : html`<details class="sec-incident-details"><summary>Protocol escalation</summary><div class="btns">
+      ${protos.map((p) => html`<button type="button" class="btn ghost sm" data-act="sec-activate-level" data-level="${p.level}" data-inc="${inc.id}">${p.code}</button>`)}
+    </div></details>`}
+  </article>`;
+}
+
+function incidentEventLabel(event) {
+  if (event.type === "triage") return `Priority set to ${INCIDENT_PRIORITY[event.value]}`;
+  if (event.type === "assign") return `Assigned ${event.targetName || S.userName(event.value)}`;
+  return { respond: "Joined response", arrive: "Arrived on site", ...INCIDENT_UPDATE }[event.type] || "Update";
+}
+
+function incidentResponders() {
+  const ids = new Set([S.church().ownerId, ...S.members().map((m) => m.userId)]);
+  return [...ids].filter((id) => id && securityLevel(id) >= 2).sort((a, b) => S.userName(a).localeCompare(S.userName(b)));
+}
+
+Actions["sec-incident-action"] = async (el) => {
+  if (!canSuperviseSecurity()) return;
+  const { id, type } = el.dataset;
+  const row = securityIncidentRows().find(({ inc }) => inc.id === id);
+  if (!row) return;
+  if (["respond", "arrive", "ack"].includes(type)) return saveIncidentEvent(el, id, type);
+  const title = { triage: "Set priority", assign: "Assign responder", update: "Add incident update" }[type];
+  if (!title || row.cleared) return;
+  const assigned = new Set(row.events.filter((e) => e.type === "assign").map((e) => e.value));
+  let people = [];
+  if (type === "assign") {
+    if (Backend.on) {
+      const cid = S.state.current, actor = S.me().id, route = location.hash;
+      el.disabled = true;
+      try {
+        const { data, error } = await Backend.client.rpc("security_incident_roster", { c: cid });
+        if (error) throw error;
+        if (S.state.current !== cid || S.me().id !== actor || location.hash !== route || $("#scrim")) return;
+        people = data;
+      } catch {
+        return toast("Could not load responders. Try again.");
+      } finally { el.disabled = false; }
+    } else people = incidentResponders().map((person) => ({ id: person, name: S.userName(person) }));
+    people = people.filter(({ id }) => !assigned.has(id));
+    if (!people.length) return toast("All eligible responders are already assigned.");
+  }
+  openSheet(title, html`<form data-form="sec-incident-update">
+    <input type="hidden" name="id" value="${id}">
+    <input type="hidden" name="mode" value="${type}">
+    ${type === "triage" ? html`<label class="field"><span>Priority</span><select name="value">
+      ${Object.entries(INCIDENT_PRIORITY).map(([value, label]) => html`<option value="${value}" ${attr(row.priority === value, "selected")}>${label}</option>`)}
+    </select></label>` : type === "assign" ? html`<label class="field"><span>Responder</span><select name="value">
+      ${people.map((person) => html`<option value="${person.id}">${person.name}</option>`)}
+    </select></label>` : html`<label class="field"><span>Update</span><select name="type">
+      ${Object.entries(INCIDENT_UPDATE).map(([value, label]) => html`<option value="${value}">${label}</option>`)}
+    </select></label>`}
+    <label class="field"><span>Staff note</span><textarea name="note" rows="3" maxlength="2000"></textarea></label>
+    <div class="btns"><button class="btn" type="submit">Save update</button></div>
+  </form>`);
 };
+
+Forms["sec-incident-update"] = (d, f) => {
+  const type = d.mode === "update" ? d.type : d.mode;
+  if (type === "note" && !d.note) return formError(f, "Enter a staff note.");
+  return saveIncidentEvent($('button[type="submit"]', f), d.id, type, d.value || null, d.note);
+};
+
+async function saveIncidentEvent(button, incidentId, type, value = null, note = "") {
+  if (!canSuperviseSecurity() || button.disabled) return;
+  const row = securityIncidentRows().find(({ inc }) => inc.id === incidentId);
+  if (!row || (row.cleared !== (type === "ack"))) return;
+  const cid = S.state.current, user = S.me().id, route = location.hash;
+  // Reuse the key after an ambiguous network failure when the submission is unchanged.
+  const payload = JSON.stringify([incidentId, type, value, note]);
+  if (button.dataset.eventPayload !== payload) {
+    button.dataset.eventPayload = payload;
+    button.dataset.eventId = uid();
+  }
+  button.disabled = true;
+  try {
+    let event = { id: button.dataset.eventId, incidentId, type, value, note, by: user,
+      actorName: S.me().name, at: new Date().toISOString(), targetName: type === "assign" ? S.userName(value) : "" };
+    if (Backend.on) {
+      const { data, error } = await Backend.client.rpc("security_incident_event", {
+        c: cid, incident_id: incidentId, event_id: event.id, event_type: type, event_value: value, detail: note,
+      });
+      if (error) throw error;
+      event = data;
+    } else {
+      const title = { assign: "Incident assigned to you", assistance: INCIDENT_UPDATE.assistance, available: "All available responders requested" }[type];
+      if (title) (type === "assign" ? [value] : incidentResponders()).filter((id) => id !== user).forEach((id) =>
+        notify(id, { kind: "security", title, body: row.inc.category, link: `#security-incidents-${incidentId}` }));
+    }
+    if (S.state.current !== cid || S.me().id !== user) return;
+    if (!S.get("securityIncidentEvents", event.id)) S.add("securityIncidentEvents", event);
+    S.save();
+    if (location.hash !== route) return;
+    if (button.isConnected && button.closest("#scrim")) closeSheet(true);
+    if (type === "ack" && location.hash === `#security-incidents-${incidentId}`) go("security-incidents");
+    else render();
+  } catch (error) {
+    const form = button.closest("form");
+    if (form?.isConnected) formError(form, error.message || "Could not save the incident update.");
+    else toast(error.message || "Could not save the incident update.");
+  } finally { button.disabled = false; }
+}
 
 Actions["sec-trigger-modal"] = () => {
   if (!canSuperviseSecurity()) return;
@@ -3068,7 +3217,7 @@ ${base}`;
   if (typeof DASH !== "undefined") {
     DASH.security = ["Campus safety & security", () => isSecurityMember() || S.can("view.reports"), () => {
       const c = S.church(), alert = c?.activeAlert;
-      const openInc = S.list("securityIncidents").filter((i) => i.status === "open").length;
+      const openInc = securityIncidentRows().filter(({ cleared }) => !cleared).length;
       const doors = c?.securityDoors || [];
       const locked = doors.filter((d) => d.status === "locked").length;
       return html`
