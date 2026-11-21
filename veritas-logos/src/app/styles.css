@@ -924,7 +924,10 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 }
 
 /* Story resources and worksheets */
-.family-resource-index .family-field { max-width: 18rem; }
+.family-welcome-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
+.family-resource-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr)); gap: .65rem; align-items: end; }
+.family-resource-filters .input { min-width: 0; }
+.family-resource-count { margin-block: .65rem; }
 .family-resource-stories { margin-top: .8rem; }
 .family-resource-stories details { border-bottom: 1px solid var(--line); padding: .6rem 0; }
 .family-resource-stories summary { cursor: pointer; font-weight: 650; }

@@ -292,4 +292,99 @@ export const STORY_COLLECTIONS: Partial<Record<string, StoryCollection>> = {
       teen: { title: "What can the king change?", instructions: "Assign one group the king’s decisions in Daniel 6:12–18 and the other Daniel’s actions. Compare which choices each person can still make once the decree is in place." },
     },
   },
+  "red-sea": {
+    craft: {
+      title: "Make a paper sea that opens",
+      minutes: 15,
+      supplies: ["Blue paper", "Card", "Markers", "Glue stick", "Scissors"],
+      steps: {
+        young: ["Draw a dry path and a line of people down the middle of a card.", "Fold two pieces of blue paper and glue one edge of each piece beside the path so they open like doors.", "Open the waves and walk your fingers across as you retell the story."],
+        middle: ["Make two hinged blue waves over a paper path.", "Draw the camps on the outside and people and footprints on the inside.", "Label the cloud, wind, and crossing with details from Exodus 14:19–22."],
+        teen: ["Fold two paper gates over a central path. Use the outside for the people’s fear and the inside for the crossing.", "Annotate the outside with Exodus 14:10–15 and the inside with 14:19–22 and 14:30–31.", "Use the opening gates to explain how the passage moves from fear to trust."],
+      },
+      artTile: 15,
+      artAlt: "Two blue paper waves open like gates to show people on a dry path.",
+    },
+    play: {
+      young: { title: "Follow the dry path", instructions: "Make two rows of pillows as pretend waves. Take turns walking between them while someone retells what happened. Pause and name how the people felt when they reached the other side." },
+      middle: { title: "Put the crossing in order", instructions: "Write cards for the people seeing the army, the cloud moving, the wind blowing, and the crossing. Shuffle them, then put them in order and check Exodus 14:10–22." },
+      teen: { title: "Step forward or stand still?", instructions: "Compare Exodus 14:13–15 in pairs. One person paraphrases Moses’s reassurance and the other paraphrases God’s instruction. Discuss how the crossing puts both words into practice." },
+    },
+  },
+  "samuel-hears-god": {
+    craft: {
+      title: "Make Samuel’s paper lamp",
+      minutes: 15,
+      supplies: ["Dark blue paper", "Brown paper", "Yellow tissue paper", "Glue stick", "Markers", "Scissors"],
+      steps: {
+        young: ["Glue a brown paper lamp shape onto the blue paper.", "Tear yellow tissue paper into a little flame and glue it above the lamp.", "Draw Samuel nearby. Ask someone to tell how Eli helped him listen."],
+        middle: ["Cut and glue a paper lamp onto a dark page. Use yellow tissue for the light.", "Draw three speech circles around the lamp to show Samuel’s visits to Eli.", "Write what changes after the third visit and compare it with 1 Samuel 3:8–10."],
+        teen: ["Make a paper lamp and draw two columns beside it labeled Night and Morning.", "Under Night, record the change in Eli’s understanding. Under Morning, record Samuel’s hesitation and Eli’s response.", "Add verse references from 1 Samuel 3:8–18 and point out where each person helps the other listen."],
+      },
+      artTile: 16,
+      artAlt: "A paper lamp with a bright yellow tissue-paper flame on a starry blue card.",
+    },
+    play: {
+      young: { title: "Listen for your name", instructions: "Have a partner tell the story. When the partner calls ‘Samuel,’ play Samuel and answer that you are listening. Trade roles and see what changes the third time he goes to Eli." },
+      middle: { title: "What changed on the third visit?", instructions: "Read the calls in 1 Samuel 3:4–10. Take turns playing Samuel, Eli, and a narrator. Pause when Eli understands and explain what clue changed his mind." },
+      teen: { title: "Trace how a hard message gets heard", instructions: "Read 1 Samuel 3:8–18. Draw two arrows from Eli to Samuel and from Samuel to Eli. Record the words or actions that make each exchange possible." },
+    },
+  },
+  zacchaeus: {
+    craft: {
+      title: "Build a sliding sycamore card",
+      minutes: 20,
+      supplies: ["Card or thick paper", "Green and brown paper", "Markers", "Tape", "Scissors"],
+      steps: {
+        young: ["Draw a tree and a road on a card.", "Ask an adult to cut out a paper Zacchaeus and tape him to a long strip. Tape two loose paper loops to the tree trunk so the strip can slide through.", "Slide him up to see Jesus, then down to welcome him."],
+        middle: ["Make a sliding paper figure and two loops that guide it along a sycamore trunk.", "Label the top with why Zacchaeus climbed, and the bottom with what he promised to do.", "Use Luke 19:3–8 to explain what happens between the two positions."],
+        teen: ["Build a sliding sycamore card with tree, doorway, and table scenes.", "Add a verse from Luke 19 to each scene and one sentence about what each group of people sees.", "Use the moving figure to trace when welcome turns into a public commitment to repair harm."],
+      },
+      artTile: 17,
+      artAlt: "A paper tree card with a figure of Zacchaeus on a sliding tab.",
+    },
+    play: {
+      young: { title: "Find a spot to see", instructions: "Make a pretend crowd with stuffed animals on the floor. Move a paper Zacchaeus where he can see Jesus without standing on furniture. Take turns telling what Jesus said when he saw him." },
+      middle: { title: "Share or repay?", instructions: "Read Luke 19:8 aloud and sort Zacchaeus’s two promises onto Share and Repay cards. Make up a simple example of each that could happen at school or home." },
+      teen: { title: "Read the scene in three voices", instructions: "Assign the crowd, Zacchaeus, and Jesus to three readers. After Luke 19:1–10, each voice explains what it sees or values. Compare where the perspectives agree or diverge." },
+    },
+  },
+  "lost-sheep": {
+    craft: {
+      title: "Make a lost sheep trail map",
+      minutes: 15,
+      supplies: ["Green and white paper", "Markers", "Scissors", "Tape", "Paper clip"],
+      steps: {
+        young: ["Fold green paper into a little map. Draw a path, three hills, and a home.", "Ask an adult to cut out a paper sheep and clip it to the map.", "Move the sheep along the path and celebrate with the shepherd when it gets home."],
+        middle: ["Draw a trail from the flock to the lost sheep and back home.", "Make a moveable sheep from paper and a clip.", "Place one action from Luke 15:4–6 at each stop and tell what changes as the sheep travels back."],
+        teen: ["Fold a map into three panels labeled Complaint, Search, and Celebration.", "Draw or write a detail from Luke 15:1–7 in each panel. Move a clipped sheep through the center panel as you retell the story.", "Compare the audience’s first reaction with the shepherd’s invitation at the end."],
+      },
+      artTile: 18,
+      artAlt: "A white paper sheep clipped to a green trail map with hills.",
+    },
+    play: {
+      young: { title: "Find and celebrate", instructions: "Take turns hiding a paper sheep somewhere easy to reach. Look until you find it and call everyone to celebrate. Retell what the shepherd did next." },
+      middle: { title: "Follow the shepherd’s actions", instructions: "Write Search, Carry, and Celebrate on three slips. Shuffle them, put them in order, and explain how each action helps answer the complaint in Luke 15:2." },
+      teen: { title: "Compare the two responses", instructions: "Read Luke 15:1–7 and have two voices read the complaint and the invitation to celebrate. Discuss what the change in tone asks of the original audience." },
+    },
+  },
+  "wise-builders": {
+    craft: {
+      title: "Build two paper houses",
+      minutes: 20,
+      supplies: ["Card or thick paper", "Gray, tan, and blue paper", "Tape", "Markers", "Scissors"],
+      steps: {
+        young: ["Fold two little paper houses. Put one on gray paper for rock and one on tan paper for sand.", "Add a strip of blue paper waves. Ask someone to help you hold the rock house upright and tip the sand house down as you retell the story.", "Name one thing Jesus taught that you could do this week."],
+        middle: ["Fold two matching houses and make a base for rock and a base for sand.", "Move the same blue paper storm past both houses. Tip one house as the story describes.", "Write the words Hear and Do on the rock side, then explain how Jesus uses the two houses."],
+        teen: ["Build two matching paper houses and set them on different paper foundations.", "Label what stays the same in Matthew 7:24–27 and what changes.", "Under the rock house, write an example of putting a teaching from the Sermon on the Mount into practice."],
+      },
+      artTile: 19,
+      artAlt: "Two folded paper houses, one on a gray rock and one on tan sand beside waves.",
+    },
+    play: {
+      young: { title: "Hear it and do it", instructions: "Partner up. One person gives a simple kind direction, like moving a cushion to make room. The other listens and does it. Trade roles, then recall what Jesus said about the wise builder." },
+      middle: { title: "Same storm, different ending", instructions: "Make a two-column chart for rock and sand. Ask someone to read Matthew 7:24–27 while you mark every detail that repeats. Circle the detail that changes the ending." },
+      teen: { title: "Make a plan to practice", instructions: "Pick one action Jesus teaches in Matthew 5–7. Write one situation where you could put it into practice and a concrete action you could take. Share it with a partner if you like." },
+    },
+  },
 };

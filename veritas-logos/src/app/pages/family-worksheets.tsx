@@ -1,21 +1,25 @@
 import { useEffect, useState } from "react";
 import { AGE_GROUPS, type AgeGroup } from "../../core/family";
+import { STORY_COLLECTIONS } from "../../core/family-collections";
+import { familyStoryAnimation, familyStoryVideos } from "../../core/family-videos";
 import { getFamilyResources } from "../../core/family-resources";
 import { FAMILY_STORIES, type FamilyStory } from "../../core/family-stories";
 import { FamilyArt } from "./family-art";
 
-export function StoryResourceList({ story, age, worksheet, forAdults = false }: {
+export function StoryResourceList({ story, age, worksheet, forAdults = false, showWorksheet = true, showPublisher = true }: {
   story: FamilyStory;
   age: AgeGroup;
   worksheet: string;
   forAdults?: boolean;
+  showWorksheet?: boolean;
+  showPublisher?: boolean;
 }) {
-  const resources = getFamilyResources(story.id, age, forAdults);
+  const resources = showPublisher ? getFamilyResources(story.id, age, forAdults) : [];
   return <ul className="story-resource-list">
-    <li>
+    {showWorksheet && <li>
       <a href={worksheet}>Open Veritas Logos worksheet</a>
       <span>{age === "young" ? "Coloring page" : age === "middle" ? "Illustrated story activity" : "Scripture study sheet"} · Print or save as PDF</span>
-    </li>
+    </li>}
     {resources.map((item) => (
       <li key={item.url}>
         <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
@@ -28,20 +32,87 @@ export function StoryResourceList({ story, age, worksheet, forAdults = false }: 
   </ul>;
 }
 
-export function FamilyResourceIndex({ worksheetLink }: { worksheetLink: (story: string, age: AgeGroup) => string }) {
+export type FamilyResourceView = "worksheet" | "play" | "make" | "watch";
+
+const resourceTypes = [
+  { id: "all", label: "All resource types" },
+  { id: "worksheet", label: "Printables" },
+  { id: "play", label: "Activities" },
+  { id: "make", label: "Crafts" },
+  { id: "watch", label: "Videos and animations" },
+  { id: "publisher", label: "Publisher resources" },
+] as const;
+
+type ResourceType = typeof resourceTypes[number]["id"];
+
+export function FamilyResourceIndex({ resourceLink }: {
+  resourceLink: (story: string, age: AgeGroup, view: FamilyResourceView) => string;
+}) {
   const [age, setAge] = useState<AgeGroup>("young");
+  const [type, setType] = useState<ResourceType>("all");
+  const [duration, setDuration] = useState(0);
+  const [search, setSearch] = useState("");
+  const query = search.trim().toLowerCase();
+  const includes = (kind: ResourceType) => type === "all" || type === kind;
+  const matches = FAMILY_STORIES.flatMap((story) => {
+    if (!story.editions[age]) return [];
+    const collection = STORY_COLLECTIONS[story.id];
+    const activity = includes("play") ? collection?.play[age] : undefined;
+    const craft = includes("make") && collection?.craft.steps[age] ? collection.craft : undefined;
+    const videos = includes("watch") ? familyStoryVideos(story.id) : [];
+    const animation = includes("watch") ? familyStoryAnimation(story.id) : undefined;
+    const publisher = includes("publisher") ? getFamilyResources(story.id, age, true) : [];
+    const printable = includes("worksheet");
+    if (type === "make" && (!craft || (duration > 0 && craft.minutes > duration))) return [];
+    if (!activity && !craft && !videos.length && !animation && !publisher.length && !printable) return [];
+    const terms = [
+      story.title, story.reference, story.topic,
+      printable ? "worksheet printable coloring page Scripture study sheet" : "",
+      activity?.title, craft?.title, ...(craft?.supplies ?? []),
+      ...videos.flatMap((video) => [video.title, video.creator]),
+      animation?.title,
+      ...publisher.flatMap((item) => [item.title, item.provider, item.format]),
+    ];
+    if (query && !terms.some((term) => term?.toLowerCase().includes(query))) return [];
+    return [{ story, activity, craft, watchCount: videos.length + Number(Boolean(animation)), printable, hasPublisher: publisher.length > 0 }];
+  });
+
   return <section className="family-section family-resource-index" aria-labelledby="family-print-resources">
-    <h2 id="family-print-resources">Print & resources by story</h2>
-    <label className="family-field">Resource age group
-      <select className="input" value={age} onChange={(event) => setAge(event.target.value as AgeGroup)}>
-        {AGE_GROUPS.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
-      </select>
-    </label>
+    <h2 id="family-print-resources" tabIndex={-1}>Resource browser</h2>
+    <div className="family-resource-filters">
+      <label className="family-field">Search resources
+        <input className="input" type="search" placeholder="Story, craft, or creator" value={search} onChange={(event) => setSearch(event.target.value)} />
+      </label>
+      <label className="family-field">Resource age group
+        <select className="input" value={age} onChange={(event) => setAge(event.target.value as AgeGroup)}>
+          {AGE_GROUPS.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
+        </select>
+      </label>
+      <label className="family-field">Resource type
+        <select className="input" value={type} onChange={(event) => setType(event.target.value as ResourceType)}>
+          {resourceTypes.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+        </select>
+      </label>
+      {type === "make" && <label className="family-field">Craft time
+        <select className="input" value={duration} onChange={(event) => setDuration(Number(event.target.value))}>
+          <option value={0}>Any length</option>
+          <option value={15}>15 minutes or less</option>
+          <option value={20}>20 minutes or less</option>
+        </select>
+      </label>}
+    </div>
+    <p className="fine family-resource-count" role="status">{matches.length ? `${matches.length} ${matches.length === 1 ? "story" : "stories"}` : "No matching resources. Try another age group, resource type, or search."}</p>
     <div className="family-resource-stories">
-      {FAMILY_STORIES.filter((story) => story.editions[age]).map((story) => (
-        <details key={story.id}>
+      {matches.map(({ story, activity, craft, watchCount, printable, hasPublisher }) => (
+        <details key={`${age}/${type}/${story.id}`} open={type === "all" ? undefined : true}>
           <summary>{story.title} <span className="fine">{story.reference}</span></summary>
-          <StoryResourceList story={story} age={age} worksheet={worksheetLink(story.id, age)} forAdults />
+          {(craft || activity || watchCount > 0) && <ul className="story-resource-list">
+            {activity && <li><a href={resourceLink(story.id, age, "play")}>{activity.title}</a><span>Activity</span></li>}
+            {craft && <li><a href={resourceLink(story.id, age, "make")}>{craft.title}</a><span>Craft · About {craft.minutes} minutes</span></li>}
+            {watchCount > 0 && <li><a href={resourceLink(story.id, age, "watch")}>Open videos for {story.title}</a><span>{watchCount} watch options</span></li>}
+          </ul>}
+          {(printable || hasPublisher) && <StoryResourceList story={story} age={age} worksheet={resourceLink(story.id, age, "worksheet")}
+            showWorksheet={printable} showPublisher={hasPublisher} forAdults />}
         </details>
       ))}
     </div>

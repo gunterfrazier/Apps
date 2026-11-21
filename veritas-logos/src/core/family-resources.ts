@@ -30,6 +30,31 @@ const purple = (lesson: number): FamilyResource => ({
 });
 
 const storyResources: Record<string, FamilyResource[]> = {
+  "red-sea": [
+    trueway("Crossing the Red Sea printable lesson", "the-red-sea", "young", "Choose the age 5+ pack"),
+    trueway("Crossing the Red Sea preteen study", "red-sea-teens", "middle"),
+    trueway("Crossing the Red Sea teen study", "red-sea-teens", "teen"),
+  ],
+  "samuel-hears-god": [
+    trueway("Hannah and Samuel printable lesson", "hannah-and-samuel-5", "young", "Publisher ages 5–10"),
+    trueway("Hannah and Samuel preteen study", "hannah-and-samuel-teen", "middle"),
+    trueway("Hannah and Samuel teen study", "hannah-and-samuel-teen", "teen"),
+  ],
+  zacchaeus: [
+    trueway("Zacchaeus printable lesson", "zacchaeus", "young", "Choose the age 5+ pack"),
+    trueway("Zacchaeus preteen study", "zacchaeus-teens", "middle"),
+    trueway("Zacchaeus teen study", "zacchaeus-teens", "teen"),
+  ],
+  "lost-sheep": [
+    trueway("The Lost Sheep and the Lost Coin printable lesson", "the-parable-of-lost-things", "young", "Choose the age 5+ pack"),
+    trueway("The Lost Sheep and the Lost Coin preteen study", "lost-sheep-and-coin-teen", "middle"),
+    trueway("The Lost Sheep and the Lost Coin teen study", "lost-sheep-and-coin-teen", "teen"),
+  ],
+  "wise-builders": [
+    trueway("The Wise and Foolish Builders printable lesson", "the-wise-and-foolish-builders", "young", "Choose the age 5+ pack"),
+    trueway("The Wise and Foolish Builders preteen study", "wise-and-foolish-builders-preteen", "middle"),
+    trueway("The Wise and Foolish Builders teen study", "wise-and-foolish-builders-teen", "teen"),
+  ],
   "burning-bush": [
     purple(16),
     trueway("Burning Bush printable lesson and craft", "burning-bush-5", "young", "Publisher ages 5–10"),
