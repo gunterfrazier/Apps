@@ -87,8 +87,33 @@ function sermonResults() {
 Inputs["sermon-search"] = (el) => { sermonQuery = el.value; $("#sermon-list").innerHTML = flat(sermonResults()); };
 Actions["sermon-book"] = (el) => { sermonBook = el.dataset.book === sermonBook ? "" : el.dataset.book; render(); };
 
-// ----- Persistent Spotify-style audio player & mini-player bar -----
+// ----- Persistent sermon audio and video player -----
 const AUDIO_RATES = [1, 1.25, 1.5, 2];
+function isSermonVideoFile(url) {
+  try { return /\.(mp4|m4v|webm|ogv|mov|m3u8)$/i.test(new URL(url).pathname); }
+  catch { return false; }
+}
+
+function sermonSources(s) {
+  if (!s) return [];
+  const audio = sermonAudio(s), video = sermonVideo(s), sources = [];
+  const demo = !Backend.on && S.church(s.churchId)?.sample;
+  // Sample sermons have placeholder URLs. Play a clearly labeled sample in the demo.
+  if (isUrl(audio) && !(demo && /\.example\//i.test(audio))) sources.push({ key: "audio", kind: "audio", label: "Sermon audio", url: audio });
+  if (isUrl(video)) {
+    const kind = isSermonVideoFile(video) ? "video" : "embed";
+    sources.push({ key: "video", kind, label: "Watch video", url: video });
+    if (kind === "video") sources.push({ key: "video-audio", kind, label: "Listen to video", url: video });
+  }
+  if (demo && !sources.length) sources.push({ key: "sample", kind: "audio", label: "Demo audio" });
+  return sources;
+}
+
+function preferredSermonSource(s, forListening = false) {
+  const sources = sermonSources(s);
+  return forListening ? sources.find((source) => source.key !== "video") : sources[0];
+}
+
 let demoWavUrl = "";
 function getDemoAudioUrl() {
   if (demoWavUrl) return demoWavUrl;
@@ -107,274 +132,418 @@ function getDemoAudioUrl() {
 }
 
 const Player = {
-  audio: typeof Audio !== "undefined" ? new Audio() : null,
   sermonId: null,
+  source: null,
   rate: 1,
-  simTime: 0,
-  simDur: 0,
-  simPlaying: false,
-  simTimer: 0,
-  ready: false,
+  error: "",
+  pendingSeek: null,
+  revision: 0,
+  scope: "",
+  route: "",
+  dialogue: null,
+  focusReturn: null,
   init() {
-    if (this.ready || !this.audio) return;
-    this.ready = true;
+    if (this.dialogue) return;
+    const dialog = document.createElement("dialog");
+    dialog.id = "now-playing";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "np-title");
+    dialog.innerHTML = flat(html`<div class="np-shell">
+      <header class="np-head">
+        <button type="button" class="btn ghost sm" data-act="player-minimize">Minimize</button>
+        <button type="button" class="icon-btn" data-act="audio-close" aria-label="Close player">${icon("x")}</button>
+      </header>
+      <div class="np-art"></div>
+      <div class="np-visual"><video preload="metadata" playsinline></video><div class="np-frame"></div>
+        <button type="button" class="btn ghost sm np-fullscreen" data-act="player-fullscreen">${icon("expand")}Full-screen video</button></div>
+      <div class="np-info"><h2 id="np-title"></h2><p class="muted np-byline"></p></div>
+      <div class="np-sources"></div>
+      <p class="np-status" role="status"></p>
+      <div class="np-controls">${playbackControls()}</div>
+      <a class="np-provider-link btn ghost sm" target="_blank" rel="noopener" hidden>Open video on provider site</a>
+      <a class="np-notes btn ghost sm" data-act="player-notes">Sermon notes &amp; transcript</a>
+    </div>`);
+    document.body.append(dialog);
+    this.dialogue = dialog;
+    this.video = $("video", dialog);
+    this.audio = new Audio();
     this.audio.preload = "metadata";
-    this.audio.addEventListener("timeupdate", () => this.tick());
-    this.audio.addEventListener("loadedmetadata", () => this.tick());
-    this.audio.addEventListener("play", () => { this.syncMediaSession(); this.syncUI(); });
-    this.audio.addEventListener("pause", () => this.syncUI());
-    this.audio.addEventListener("ended", () => { this.stopSim(); this.syncUI(); });
+    for (const media of [this.audio, this.video]) {
+      const refresh = () => { if (media === this.media()) this.syncUI(); };
+      media.addEventListener("timeupdate", () => { if (media === this.media()) this.tick(); });
+      media.addEventListener("durationchange", () => { if (media === this.media()) this.tick(); });
+      media.addEventListener("loadedmetadata", () => {
+        if (media !== this.media()) return;
+        if (this.pendingSeek !== null) this.seek(this.pendingSeek);
+        this.tick();
+      });
+      for (const type of ["play", "pause", "ended", "playing"]) media.addEventListener(type, refresh);
+      media.addEventListener("error", () => {
+        if (media === this.media() && media.error) {
+          this.error = "This recording could not play. Check the link or try another source.";
+          this.syncUI();
+        }
+      });
+    }
+    dialog.addEventListener("cancel", (event) => { event.preventDefault(); this.minimize(); });
+    document.addEventListener("fullscreenchange", () => { this.video.controls = document.fullscreenElement === this.video; });
   },
+  scopeKey() { return JSON.stringify([S.state.current, S.me().id]); },
   sermon() { return this.sermonId ? S.get("sermons", this.sermonId) : null; },
-  active() { return !!this.sermon(); },
+  media() { return this.source?.kind === "video" ? this.video : this.source?.kind === "audio" ? this.audio : null; },
   isPlaying(id = this.sermonId) {
-    if (!id || id !== this.sermonId) return false;
-    return this.simPlaying || !!(this.audio && !this.audio.paused && !this.audio.ended);
+    const media = this.media();
+    return !!(id && id === this.sermonId && media && !media.paused && !media.ended && !media.error);
   },
-  duration(s = this.sermon()) {
-    const d = this.audio?.duration;
-    return Number.isFinite(d) && d > 120 ? d : ((s?.minutes || 35) * 60);
+  duration() {
+    const duration = this.media()?.duration;
+    return Number.isFinite(duration) && duration > 0 ? duration : 0;
   },
-  currentTime() {
-    if (this.simDur > 0) return this.simTime;
-    return this.audio?.currentTime || 0;
-  },
-  stopSim() { clearInterval(this.simTimer); this.simTimer = 0; this.simPlaying = false; },
-  startSim() {
-    this.stopSim();
-    this.simPlaying = true;
-    this.simTimer = setInterval(() => {
-      this.simTime = Math.min(this.simDur, this.simTime + 0.25 * this.rate);
-      this.tick();
-      if (this.simTime >= this.simDur) { this.stopSim(); this.audio?.pause(); this.syncUI(); }
-    }, 250);
-  },
-  load(s, autoPlay = true) {
-    if (!s) return;
+  currentTime() { return this.pendingSeek ?? this.media()?.currentTime ?? 0; },
+  select(s, source, { expand = false, startAt = null, play = true } = {}) {
+    if (!s || !source) return;
     this.init();
-    const changed = this.sermonId !== s.id;
+    const sameSermon = s.id === this.sermonId && this.scope === this.scopeKey();
+    const previous = this.source, previousMedia = this.media();
+    const sameMedia = sameSermon && previous?.kind === source.kind && previous.url === source.url;
+    const time = startAt ?? (sameSermon ? this.currentTime() : 0);
     this.sermonId = s.id;
-    const url = sermonAudio(s);
-    if (changed) {
-      this.stopSim();
-      this.simTime = 0;
-      this.simDur = (s.minutes || 35) * 60;
-      if (this.audio) {
-        this.audio.src = url && !IN_PREVIEW ? url : getDemoAudioUrl();
-        this.audio.playbackRate = this.rate;
+    this.scope = this.scopeKey();
+    this.source = source;
+    if (!sameMedia) {
+      this.revision++;
+      this.pendingSeek = null;
+      this.error = "";
+      previousMedia?.pause();
+      previousMedia?.removeAttribute("src");
+      previousMedia?.load();
+      $(".np-frame", this.dialogue).replaceChildren();
+      if (source.kind === "embed") {
+        $(".np-frame", this.dialogue).innerHTML = flat(embedView(source.url, s.title, { video: true }));
+      } else {
+        const media = this.media();
+        media.src = source.url || getDemoAudioUrl();
+        media.playbackRate = this.rate;
       }
     }
-    if (autoPlay) this.play();
-    else this.syncUI();
-  },
-  play() {
-    const s = this.sermon(); if (!s) return;
-    this.init();
-    const realUrl = sermonAudio(s) && !IN_PREVIEW;
-    if (!realUrl) { this.simDur = (s.minutes || 35) * 60; this.startSim(); }
-    this.audio?.play().catch(() => {
-      if (realUrl) { this.simDur = (s.minutes || 35) * 60; this.startSim(); }
-    });
+    if (this.media() && (!sameMedia || startAt !== null) && time > 0) this.seek(time);
+    if (expand || source.key === "video") this.expand();
+    if (play && this.media() && !this.isPlaying()) this.play();
     this.syncMediaSession();
     this.syncUI();
   },
-  pause() {
-    this.stopSim();
-    this.audio?.pause();
+  play() {
+    const media = this.media();
+    if (!media) return;
+    const revision = ++this.revision;
+    this.error = "";
+    if (media.error) media.load();
+    media.play().catch((error) => {
+      if (this.revision !== revision || media !== this.media() || error.name === "AbortError") return;
+      this.error = error.name === "NotAllowedError" ? "Tap Play to start this recording." : "This recording could not play. Check the link or try another source.";
+      this.syncUI();
+    });
     this.syncUI();
   },
-  toggle(id) {
-    const target = id ? S.get("sermons", id) : this.sermon();
-    if (!target) return;
-    if (this.sermonId !== target.id) { this.load(target, true); return; }
-    if (this.isPlaying(target.id)) this.pause(); else this.play();
-  },
+  pause() { this.revision++; this.media()?.pause(); this.syncUI(); },
+  toggle() { if (this.isPlaying()) this.pause(); else this.play(); },
   seek(sec) {
-    const s = this.sermon(); if (!s) return;
-    const dur = this.duration(s), next = clamp(+sec || 0, 0, dur);
-    if (this.simDur > 0) this.simTime = next;
-    if (this.audio && Number.isFinite(this.audio.duration)) {
-      this.audio.currentTime = Math.min(this.audio.duration - 0.5, next % Math.max(1, this.audio.duration));
+    const media = this.media();
+    if (!media) return;
+    const time = Math.max(0, +sec || 0);
+    if (!media.readyState) {
+      this.pendingSeek = time;
+    } else {
+      this.pendingSeek = null;
+      try { media.currentTime = this.duration() ? Math.min(time, this.duration()) : time; } catch { /* This stream is not seekable. */ }
     }
     this.tick();
   },
-  skip(delta) {
-    if (!this.sermon()) return;
-    this.seek(this.currentTime() + (+delta || 0));
-  },
-  setRate(r) {
-    this.rate = AUDIO_RATES.includes(+r) ? +r : 1;
-    if (this.audio) this.audio.playbackRate = this.rate;
+  skip(delta) { this.seek(this.currentTime() + delta); },
+  setRate(rate) {
+    this.rate = AUDIO_RATES.includes(rate) ? rate : 1;
+    if (this.media()) this.media().playbackRate = this.rate;
     this.syncUI();
   },
-  cycleRate() {
-    const i = AUDIO_RATES.indexOf(this.rate);
-    this.setRate(AUDIO_RATES[(i + 1) % AUDIO_RATES.length]);
+  expand() {
+    if (!this.sermon()) return;
+    this.init();
+    this.route = location.hash;
+    this.syncExpanded();
+    if (!this.dialogue.open) {
+      this.focusReturn = document.activeElement;
+      if (this.dialogue.showModal) this.dialogue.showModal();
+      else this.dialogue.setAttribute("open", "");
+      // Keep incoming app notifications above the modal and available to open.
+      const alert = $("#foreground-alert");
+      if (alert) this.dialogue.append(alert);
+    }
+    this.syncUI();
   },
-  close() {
-    this.pause();
+  hideExpanded(restoreFocus = true) {
+    if (!this.dialogue?.open) return;
+    if (this.dialogue.close) this.dialogue.close();
+    else this.dialogue.removeAttribute("open");
+    const alert = $("#foreground-alert", this.dialogue);
+    if (alert) document.body.append(alert);
+    if (restoreFocus) {
+      const button = this.focusReturn?.isConnected ? this.focusReturn : $(".mp-open");
+      button?.focus({ preventScroll: true });
+    }
+    this.focusReturn = null;
+    queueMicrotask(() => OpeningSummary.show());
+  },
+  minimize(restoreFocus = true) {
+    // Embedded players cannot be left playing invisibly. Direct recordings keep their existing media element.
+    if (this.source?.kind === "embed") { this.close(restoreFocus); return; }
+    if (this.source?.key === "video") this.source = { ...this.source, key: "video-audio", label: "Listen to video" };
+    const button = this.focusReturn;
+    this.hideExpanded(false);
+    this.syncUI();
+    if (restoreFocus) (button?.isConnected ? button : $(".mp-open"))?.focus({ preventScroll: true });
+  },
+  close(restoreFocus = true) {
+    const media = this.media();
+    this.revision++;
+    this.pendingSeek = null;
     this.sermonId = null;
-    this.simTime = 0;
+    this.source = null;
+    this.error = "";
+    this.hideExpanded(restoreFocus);
+    if (media) { media.pause(); media.removeAttribute("src"); media.load(); }
+    if (this.dialogue) $(".np-frame", this.dialogue).replaceChildren();
+    this.syncMediaSession();
     this.syncUI();
   },
   async cast() {
-    const a = this.audio;
+    const media = this.media();
+    if (!media) return;
     try {
-      if (a?.remote?.prompt) { await a.remote.prompt(); return; }
-      if (typeof a?.webkitShowPlaybackTargetPicker === "function") { a.webkitShowPlaybackTargetPicker(); return; }
+      if (media.remote?.prompt) { await media.remote.prompt(); return; }
+      if (typeof media.webkitShowPlaybackTargetPicker === "function") { media.webkitShowPlaybackTargetPicker(); return; }
     } catch (e) { if (e?.name === "NotFoundError" || e?.name === "InvalidStateError") toast("No cast or AirPlay speaker found nearby"); return; }
-    openSheet("Cast to a speaker or TV", html`<p style="margin-top:0">Stream <b>${this.sermon()?.title || "this sermon"}</b> to a smart speaker, TV or car audio:</p>
+    this.minimize(false);
+    openSheet("Cast to a speaker or TV", html`<p style="margin-top:0">Stream <b>${this.sermon()?.title || "this sermon"}</b> to a speaker or TV:</p>
       <ul class="steps-list">
-        <li><b>iPhone or iPad:</b> open Control Center and tap the <b>AirPlay</b> icon to pick your HomePod, Apple TV or Bluetooth speaker.</li>
-        <li><b>Android or Chrome:</b> open the browser menu and choose <b>Cast</b> to send audio to a Chromecast or Google Nest speaker.</li>
+        <li><b>iPhone or iPad:</b> open Control Center and tap the <b>AirPlay</b> icon.</li>
+        <li><b>Android or Chrome:</b> open the browser menu and choose <b>Cast</b>.</li>
       </ul>
       <button class="btn block" data-act="close-sheet">Got it</button>`);
   },
   syncMediaSession() {
-    const s = this.sermon();
-    if (!s || !("mediaSession" in navigator) || typeof MediaMetadata === "undefined") return;
-    const art = sermonArtwork(s);
+    const session = navigator.mediaSession, s = this.sermon();
+    if (!session || typeof MediaMetadata === "undefined") return;
+    const active = s && this.media(), art = active ? sermonArtwork(s) : "";
     try {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: s.title, artist: s.speaker, album: `${s.series} · ${S.church(s.churchId)?.name || PLATFORM.name}`,
-        artwork: isUrl(art) || art.startsWith("data:") ? [{ src: art, sizes: "512x512", type: "image/png" }] : [],
-      });
-      navigator.mediaSession.setActionHandler("play", () => this.play());
-      navigator.mediaSession.setActionHandler("pause", () => this.pause());
-      navigator.mediaSession.setActionHandler("seekbackward", () => this.skip(-15));
-      navigator.mediaSession.setActionHandler("seekforward", () => this.skip(15));
-    } catch {}
-  },
-  ensureBar() {
-    let bar = $("#mini-player");
-    if (!bar) {
-      bar = document.createElement("aside");
-      bar.id = "mini-player";
-      bar.setAttribute("aria-label", "Now playing mini-player");
-      bar.hidden = true;
-      document.body.appendChild(bar);
+      session.metadata = active ? new MediaMetadata({
+        title: s.title, artist: s.speaker, album: s.series || "",
+        artwork: isUrl(art) || art.startsWith("data:") ? [{ src: art }] : [],
+      }) : null;
+    } catch { /* A browser may reject a particular artwork URL. */ }
+    for (const [action, handler] of Object.entries({
+      play: () => this.play(), pause: () => this.pause(), seekbackward: () => this.skip(-15),
+      seekforward: () => this.skip(15), seekto: (event) => this.seek(event.seekTime),
+    })) {
+      try { session.setActionHandler(action, active ? handler : null); } catch { /* The device doesn't offer that control. */ }
     }
-    return bar;
   },
   tick() {
     const s = this.sermon(); if (!s) return;
-    const cur = this.currentTime(), dur = Math.max(1, this.duration(s)), pct = clamp((cur / dur) * 100, 0, 100);
-    const bar = $("#mini-player");
-    if (bar && !bar.hidden) {
-      const fill = $(".mp-progress i", bar), sub = $(".mp-sub", bar);
-      if (fill) fill.style.width = `${pct.toFixed(1)}%`;
-      if (sub) sub.textContent = `${s.speaker} · ${tc(cur)} / ${tc(dur)}`;
+    const time = this.currentTime(), duration = this.duration();
+    const fill = $("#mini-player .mp-progress i"), sub = $("#mini-player .mp-sub");
+    if (fill) fill.style.width = duration ? `${clamp(time / duration * 100, 0, 100)}%` : "0%";
+    if (sub) sub.textContent = this.error || `${tr(this.source.label)} · ${tc(time)}${duration ? ` / ${tc(duration)}` : ""}`;
+    if (!this.dialogue) return;
+    const range = $(".sac-range", this.dialogue);
+    range.disabled = !duration;
+    range.max = duration || 0;
+    range.value = time;
+    $("[data-sac-cur]", this.dialogue).textContent = tc(time);
+    $("[data-sac-rem]", this.dialogue).textContent = duration ? tc(duration) : "–";
+  },
+  syncExpanded() {
+    const s = this.sermon(), dialog = this.dialogue;
+    if (!s || !dialog) return;
+    const source = this.source;
+    dialog.dataset.mode = source.kind === "embed" ? "embed" : source.key;
+    const provider = source.kind === "embed";
+    $("#np-title", dialog).textContent = s.title;
+    $(".np-byline", dialog).textContent = [s.speaker, s.series].filter(Boolean).join(" · ");
+    $(".np-notes", dialog).href = `#sermon-${s.id}`;
+    $("[data-act=player-minimize]", dialog).textContent = provider ? "Back" : "Minimize";
+    const providerLink = $(".np-provider-link", dialog);
+    providerLink.hidden = !provider;
+    if (provider) providerLink.href = source.url;
+    const contentKey = JSON.stringify([s.id, sermonSources(s), sermonArtwork(s)]);
+    if (contentKey !== this.expandedKey) {
+      this.expandedKey = contentKey;
+      $(".np-art", dialog).innerHTML = flat(sermonArtTile(s, 220));
+      $(".np-sources", dialog).innerHTML = flat(sourceButtons(s));
     }
-    const card = $(".sermon-audio-card");
-    if (card && card.dataset.id === s.id) {
-      const scrub = $(".sac-range", card), elCur = $("[data-sac-cur]", card), elRem = $("[data-sac-rem]", card);
-      if (scrub && document.activeElement !== scrub) { scrub.max = Math.round(dur); scrub.value = Math.round(cur); }
-      if (elCur) elCur.textContent = tc(cur);
-      if (elRem) elRem.textContent = `-${tc(Math.max(0, dur - cur))}`;
-    }
+    updateSourceButtons(dialog, source, s.id);
+    $(".np-controls", dialog).hidden = !this.media();
+    updatePlayButton($(".sac-play", dialog), this.isPlaying());
+    $$("[data-act=audio-rate]", dialog).forEach((button) => button.setAttribute("aria-pressed", +button.dataset.r === this.rate));
+    $(".np-status", dialog).textContent = this.error || (provider ? "Use the provider’s controls. To keep listening while browsing, choose sermon audio when available." : "");
   },
   syncUI() {
-    const bar = this.ensureBar(), s = this.sermon();
-    const hide = !s || document.body.classList.contains("presenting") || document.body.classList.contains("kiosk-mode") || document.documentElement.classList.contains("overlay-page");
-    document.body.classList.toggle("has-mini-player", !hide);
-    if (hide) { bar.hidden = true; return; }
-    const playing = this.isPlaying(s.id), cur = this.currentTime(), dur = Math.max(1, this.duration(s)), pct = clamp((cur / dur) * 100, 0, 100);
-    bar.hidden = false;
-    bar.innerHTML = flat(html`<div class="mp-progress"><i style="width:${pct.toFixed(1)}%"></i></div>
-      <div class="mp-row">
-        <a class="mp-open" href="#sermon-${s.id}">${sermonArtTile(s, 42)}
-          <span class="mp-meta"><span class="mp-title">${s.title}</span><span class="mp-sub">${s.speaker} · ${tc(cur)} / ${tc(dur)}</span></span></a>
-        <div class="mp-btns">
-          <button type="button" class="mp-btn" data-act="audio-skip" data-sec="-15" title="Rewind 15 seconds" aria-label="Rewind 15 seconds">${icon("skipBack")}</button>
-          <button type="button" class="mp-btn play" data-act="audio-toggle" data-id="${s.id}" aria-label="${playing ? "Pause" : "Play"}">${icon(playing ? "pause" : "play")}</button>
-          <button type="button" class="mp-btn" data-act="audio-skip" data-sec="15" title="Forward 15 seconds" aria-label="Forward 15 seconds">${icon("skipFwd")}</button>
-          <button type="button" class="mp-rate" data-act="audio-rate-cycle" aria-label="Playback speed ${this.rate}x">${this.rate}×</button>
-          <button type="button" class="mp-btn mp-hide-xs" data-act="audio-cast" title="Cast audio" aria-label="Cast audio">${icon("cast")}</button>
-          <button type="button" class="mp-btn" data-act="audio-close" title="Close player" aria-label="Close mini-player">${icon("x")}</button>
-        </div>
-      </div>`);
-    const card = $(".sermon-audio-card");
-    if (card && card.dataset.id === s.id) {
-      const playBtn = $(".sac-play", card);
-      if (playBtn) { playBtn.innerHTML = flat(icon(playing ? "pause" : "play")); playBtn.setAttribute("aria-label", playing ? "Pause sermon" : "Play sermon"); }
-      $$("[data-act=audio-rate]", card).forEach((b) => b.setAttribute("aria-pressed", +b.dataset.r === this.rate));
+    const s = this.sermon();
+    if (this.sermonId && (!s || this.scope !== this.scopeKey())) { this.close(false); return; }
+    if (this.dialogue?.open && this.route !== location.hash) { this.minimize(false); return; }
+    this.syncExpanded();
+    const show = !!(s && this.media() && !this.dialogue?.open && !document.body.matches(".presenting, .kiosk-mode") &&
+      !document.documentElement.classList.contains("overlay-page"));
+    document.body.classList.toggle("has-mini-player", show);
+    let bar = $("#mini-player");
+    if (!bar && show) {
+      bar = document.createElement("aside");
+      bar.id = "mini-player";
+      bar.setAttribute("aria-label", "Now playing mini-player");
+      document.body.append(bar);
     }
-    $$("[data-act=mini-play]").forEach((b) => {
-      const on = this.isPlaying(b.dataset.id);
-      b.setAttribute("aria-pressed", on);
-      b.innerHTML = flat(icon(on ? "pause" : "play"));
+    if (bar) bar.hidden = !show;
+    if (show) {
+      const key = JSON.stringify([s.id, s.title, sermonArtwork(s)]);
+      if (this.barKey !== key) {
+        this.barKey = key;
+        bar.innerHTML = flat(html`<div class="mp-progress"><i></i></div>
+          <div class="mp-row">
+            <button type="button" class="mp-open" data-act="player-expand" aria-label="Open player for ${s.title}">${sermonArtTile(s, 42)}
+              <span class="mp-meta"><span class="mp-title">${s.title}</span><span class="mp-sub"></span></span></button>
+            <div class="mp-btns">
+              <button type="button" class="mp-btn play" data-act="audio-toggle"></button>
+              <button type="button" class="mp-btn mp-hide-xs" data-act="audio-skip" data-sec="15" aria-label="Skip forward 15 seconds">${icon("skipFwd")}</button>
+              <button type="button" class="mp-btn" data-act="audio-close" aria-label="Close mini-player">${icon("x")}</button>
+            </div>
+          </div>`);
+      }
+      updatePlayButton($("[data-act=audio-toggle]", bar), this.isPlaying());
+    }
+    $$(".sermon-audio-card").forEach((card) => {
+      const current = card.dataset.id === s?.id;
+      updateSourceButtons(card, current ? this.source : null, card.dataset.id);
+      const open = $("[data-act=player-expand]", card);
+      if (open) open.hidden = !current;
     });
+    $$("[data-act=mini-play]").forEach((button) => updatePlayButton(button, this.isPlaying(button.dataset.id), button.dataset.title));
+    this.tick();
   },
 };
 
-// ----- Player and transcript on the sermon page -----
-function sermonMedia(s) {
-  const video = sermonVideo(s), audio = sermonAudio(s);
-  const isCur = Player.sermonId === s.id, playing = Player.isPlaying(s.id);
-  const dur = isCur ? Player.duration(s) : (s.minutes || 35) * 60, cur = isCur ? Player.currentTime() : 0;
-  return html`${video ? html`<div class="sermon-video">${embedView(video, s.title, { video: true })}</div>` : ""}
-    <div class="sermon-audio-card" data-id="${s.id}">
-      <div class="sac-top">
-        ${sermonArtTile(s, 68)}
-        <div class="sac-info">
-          <span class="sac-k">${s.series || "Message"}</span>
-          <span class="sac-title">${s.title}</span>
-          <span class="sac-sub">${s.speaker} · ${s.minutes || 35} min${!audio && canMedia() ? html` · <a href="#media-${s.id}">Add audio file</a>` : ""}</span>
-        </div>
-        <button type="button" class="icon-btn" data-act="audio-cast" data-id="${s.id}" title="Cast to speaker or TV" aria-label="Cast audio">${icon("cast")}</button>
+function updatePlayButton(button, playing, title = "") {
+  if (!button) return;
+  const label = `${playing ? "Pause" : "Play"}${title ? ` ${title}` : ""}`;
+  if (button.getAttribute("aria-label") === label) return;
+  button.setAttribute("aria-label", label);
+  button.innerHTML = flat(icon(playing ? "pause" : "play"));
+}
+
+function sourceButtons(s) {
+  return html`<div class="btns" role="group" aria-label="Playback source">
+    ${sermonSources(s).map((source) => html`<button type="button" class="btn ghost sm" data-act="audio-source" data-id="${s.id}"
+      data-source="${source.key}" aria-pressed="false">${icon(source.key === "video" ? "play" : "music")}${source.label}</button>`)}
+  </div>`;
+}
+
+function updateSourceButtons(root, source, id) {
+  $$("[data-act=audio-source]", root).forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.id === id && source?.key === button.dataset.source));
+  });
+}
+
+function playbackControls() {
+  return html`<div class="sac-scrub">
+      <input type="range" class="sac-range" min="0" max="0" value="0" step="any" data-input="audio-scrub" aria-label="Seek recording" disabled>
+      <div class="sac-times"><span data-sac-cur>0:00</span><span data-sac-rem>–</span></div>
+    </div>
+    <div class="sac-controls">
+      <div class="sac-transport">
+        <button type="button" class="sac-skip" data-act="audio-skip" data-sec="-15" aria-label="Skip back 15 seconds">${icon("skipBack")}15s</button>
+        <button type="button" class="sac-play" data-act="audio-toggle" aria-label="Play">${icon("play")}</button>
+        <button type="button" class="sac-skip" data-act="audio-skip" data-sec="15" aria-label="Skip forward 15 seconds">15s${icon("skipFwd")}</button>
       </div>
-      <div class="sac-scrub">
-        <input type="range" class="sac-range" min="0" max="${Math.round(dur)}" value="${Math.round(cur)}" data-input="audio-scrub" data-id="${s.id}" aria-label="Seek sermon audio">
-        <div class="sac-times"><span data-sac-cur>${tc(cur)}</span><span data-sac-rem>-${tc(Math.max(0, dur - cur))}</span></div>
-      </div>
-      <div class="sac-controls">
-        <div class="sac-transport">
-          <button type="button" class="sac-skip" data-act="audio-skip" data-id="${s.id}" data-sec="-15" aria-label="Skip back 15 seconds">${icon("skipBack")}15s</button>
-          <button type="button" class="sac-play" data-act="audio-toggle" data-id="${s.id}" aria-label="${playing ? "Pause sermon" : "Play sermon"}">${icon(playing ? "pause" : "play")}</button>
-          <button type="button" class="sac-skip" data-act="audio-skip" data-id="${s.id}" data-sec="15" aria-label="Skip forward 15 seconds">15s${icon("skipFwd")}</button>
-        </div>
-        <div class="sac-actions" role="group" aria-label="Playback speed">
-          ${AUDIO_RATES.map((r) => html`<button type="button" class="chip" data-act="audio-rate" data-r="${r}" aria-pressed="${Player.rate === r}">${r}×</button>`)}
-        </div>
+      <div class="sac-actions" role="group" aria-label="Playback speed">
+        ${AUDIO_RATES.map((rate) => html`<button type="button" class="chip" data-act="audio-rate" data-r="${rate}" aria-pressed="${rate === 1}">${rate}×</button>`)}
+        <button type="button" class="icon-btn" data-act="audio-cast" aria-label="Cast recording">${icon("cast")}</button>
       </div>
     </div>`;
 }
+
+function sermonMedia(s) {
+  const sources = sermonSources(s);
+  return html`<div class="sermon-audio-card" data-id="${s.id}">
+    <div class="sac-top">
+      ${sermonArtTile(s, 68)}
+      <div class="sac-info">
+        <span class="sac-k">Sermon recording</span>
+        <span class="sac-title">${s.title}</span>
+        <span class="sac-sub">${s.speaker} · ${s.minutes || 35} min</span>
+      </div>
+    </div>
+    ${sources.length ? sourceButtons(s) : html`<p class="muted">No recording is available.${canMedia() ? html` <a href="#media-${s.id}">Add a recording</a>` : ""}</p>`}
+    <button type="button" class="btn ghost sm sac-open" data-act="player-expand" hidden>${icon("expand")}Open player</button>
+  </div>`;
+}
 function transcriptSection(s) {
   if (!s.transcript?.length) return "";
-  const timed = s.transcript.some((p) => p.t != null);
+  const canSeek = !!preferredSermonSource(s, true);
   return html`<section class="sec"><details class="transcript"><summary><h2>Transcript</h2><span class="faint">${plural(s.transcript.reduce((n, p) => n + p.text.split(/\s+/).length, 0), "word")}</span></summary>
     <label class="field"><span class="sr">Search the transcript</span><input type="search" placeholder="Search the transcript" data-input="transcript-search"></label>
-    <div class="tx-body">${s.transcript.map((p) => html`<p data-text="${p.text}">${timed && p.t != null ? html`<button class="tx-t" data-act="seek" data-id="${s.id}" data-t="${p.t}" aria-label="Play from ${tc(p.t)}">${tc(p.t)}</button>` : ""}<span>${p.text}</span></p>`)}</div>
+    <div class="tx-body">${s.transcript.map((p) => {
+      let time = "";
+      if (p.t != null) time = canSeek ? html`<button type="button" class="tx-t" data-act="seek" data-id="${s.id}" data-t="${p.t}" aria-label="Play from ${tc(p.t)}">${tc(p.t)}</button>`
+        : html`<span class="faint">${tc(p.t)} </span>`;
+      return html`<p data-text="${p.text}">${time}<span data-transcript-line>${p.text}</span></p>`;
+    })}</div>
     <p class="faint tx-none" hidden>No matches.</p></details></section>`;
 }
 Inputs["transcript-search"] = (el) => {
   const box = el.closest(".transcript"), q = el.value.trim(); let shown = 0;
-  $$(".tx-body p", box).forEach((p) => { const t = p.dataset.text, hit = !q || t.toLowerCase().includes(q.toLowerCase()); p.hidden = !hit; if (hit) shown++; $("span", p).innerHTML = flat(highlight(t, q)); });
+  $$(".tx-body p", box).forEach((p) => { const t = p.dataset.text, hit = !q || t.toLowerCase().includes(q.toLowerCase()); p.hidden = !hit; if (hit) shown++; $("[data-transcript-line]", p).innerHTML = flat(highlight(t, q)); });
   $(".tx-none", box).hidden = shown > 0;
 };
-Actions["mini-play"] = (el) => Player.toggle(el.dataset.id);
-Actions["audio-toggle"] = (el) => Player.toggle(el.dataset.id || Player.sermonId);
-Actions["audio-skip"] = (el) => {
-  if (el.dataset.id && Player.sermonId !== el.dataset.id) Player.load(S.get("sermons", el.dataset.id), true);
-  Player.skip(+el.dataset.sec || 0);
+Actions["mini-play"] = (el) => {
+  const s = S.get("sermons", el.dataset.id);
+  if (Player.sermonId === s?.id && Player.media()) Player.toggle();
+  else Player.select(s, preferredSermonSource(s, true) || preferredSermonSource(s));
 };
-Inputs["audio-scrub"] = (el) => {
-  if (el.dataset.id && Player.sermonId !== el.dataset.id) Player.load(S.get("sermons", el.dataset.id), false);
-  Player.seek(+el.value || 0);
+Actions["audio-source"] = (el) => {
+  const s = S.get("sermons", el.dataset.id);
+  Player.select(s, sermonSources(s).find((source) => source.key === el.dataset.source), { expand: true });
 };
+Actions["audio-toggle"] = () => Player.toggle();
+Actions["audio-skip"] = (el) => Player.skip(+el.dataset.sec || 0);
+Inputs["audio-scrub"] = (el) => Player.seek(+el.value || 0);
 Actions["seek"] = (el) => {
-  const id = el.dataset.id || splitRoute().tail;
-  if (id && Player.sermonId !== id) Player.load(S.get("sermons", id), true);
-  else if (!Player.isPlaying()) Player.play();
-  Player.seek(+el.dataset.t || 0);
+  const s = S.get("sermons", el.dataset.id || splitRoute().tail);
+  const source = Player.sermonId === s?.id && Player.media() ? Player.source : preferredSermonSource(s, true);
+  Player.select(s, source, { startAt: +el.dataset.t || 0 });
 };
 Actions["audio-rate"] = (el) => Player.setRate(+el.dataset.r);
-Actions["audio-rate-cycle"] = () => Player.cycleRate();
-Actions["audio-cast"] = (el) => {
-  if (el.dataset.id && Player.sermonId !== el.dataset.id) Player.load(S.get("sermons", el.dataset.id), false);
-  Player.cast();
-};
+Actions["audio-cast"] = () => Player.cast();
 Actions["audio-close"] = () => Player.close();
+Actions["player-expand"] = () => Player.expand();
+Actions["player-minimize"] = () => Player.minimize();
+Actions["player-notes"] = () => {
+  const sermon = Player.sermon();
+  Player.minimize(false);
+  if (sermon) go(`sermon-${sermon.id}`);
+};
+Actions["player-fullscreen"] = async () => {
+  const video = Player.video;
+  if (!video) return;
+  try {
+    if (video.requestFullscreen) await video.requestFullscreen();
+    else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+    else throw new Error("Fullscreen unavailable");
+  } catch {
+    $(".np-status", Player.dialogue).textContent = "Full-screen video isn’t available on this device.";
+  }
+};
+window.addEventListener("hashchange", () => {
+  if (Player.dialogue?.open && Player.route !== location.hash) Player.minimize(false);
+});
 
 // ----- Media editor for staff -----
 Screens.media = (id) => {

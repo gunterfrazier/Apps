@@ -824,7 +824,6 @@ body.kiosk-mode #app { padding-bottom: 0; }
 .pair-wait .ai-dot { display: inline-block; vertical-align: -1px; margin-right: 6px; }
 
 /* ---------- Sermon media, transcripts, AI drafts ---------- */
-.sermon-video { margin-top: 14px; }
 .audio-player { margin-top: 14px; background: var(--surface); border-radius: var(--r-l); box-shadow: var(--sh-1); padding: 12px; }
 .audio-player audio { width: 100%; }
 .speeds { display: flex; gap: 6px; margin-top: 8px; }
@@ -1478,7 +1477,7 @@ html[data-theme="sanctuary"].contrast, html[data-theme="dark"].contrast {
 .mp-progress { height: 3px; background: var(--sunken); width: 100%; overflow: hidden; }
 .mp-progress i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--brand), var(--brand-2)); transition: width .18s linear; }
 .mp-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 10px; }
-.mp-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; color: inherit; text-decoration: none; }
+.mp-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: start; cursor: pointer; }
 .mp-open .art-tile { --sz: 42px; border-radius: 11px; }
 .mp-meta { flex: 1; min-width: 0; }
 .mp-title { font: 700 .9rem/1.2 var(--display); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1487,13 +1486,46 @@ html[data-theme="sanctuary"].contrast, html[data-theme="dark"].contrast {
 .mp-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; border: 0; background: transparent; color: var(--ink); cursor: pointer; font: 700 .74rem var(--display); padding: 0; }
 .mp-btn:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
 .mp-btn.play { width: 38px; height: 38px; background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: var(--on-brand); box-shadow: var(--sh-brand); margin: 0 2px; }
-.mp-rate { border: 0; background: var(--sunken); color: var(--brand-ink); border-radius: 999px; height: 28px; padding: 0 8px; font: 700 .74rem var(--display); cursor: pointer; }
-@media (max-width: 420px) { .mp-hide-xs { display: none !important; } }
+@media (max-width: 360px) { .mp-hide-xs { display: none !important; } }
 
 body.has-mini-player #app { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 114px); }
 body.has-mini-player .composer { bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 88px); }
 body.has-mini-player #toast { bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 96px); }
 body.presenting #mini-player, body.kiosk-mode #mini-player, html.overlay-page #mini-player { display: none !important; }
+
+/* Expanded sermon player */
+.sac-open { margin-top: 10px; }
+.sac-open[hidden], .np-controls[hidden], .np-provider-link[hidden] { display: none; }
+.sermon-audio-card [data-source][aria-pressed="true"], #now-playing [data-source][aria-pressed="true"] {
+  background: var(--brand-soft); border-color: var(--brand); color: var(--brand-ink);
+}
+#now-playing {
+  position: fixed; inset: 0; z-index: 41; margin: 0;
+  width: 100%; max-width: none; height: 100%; max-height: none;
+  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  border: 0; background: var(--canvas); color: var(--ink); overflow: auto; overscroll-behavior: contain;
+}
+#now-playing:not([open]) { display: none; }
+body:has(#now-playing[open]) { overflow: hidden; }
+.np-shell { display: grid; gap: 16px; width: min(100%, 640px); margin: 0 auto; padding: 14px 20px 28px; }
+.np-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.np-art { display: grid; place-items: center; padding: 14px 0; }
+.np-art .art-tile { width: min(220px, 56vw); height: auto; aspect-ratio: 1; }
+.np-info h2, .np-info p { margin: 0; overflow-wrap: anywhere; }
+.np-sources .btns { margin: 0; }
+.np-status { margin: 0; color: var(--ink-2); }
+.np-status:empty { display: none; }
+.np-notes, .np-provider-link { justify-self: start; }
+.np-visual { min-width: 0; }
+.np-visual video, .np-frame .embed { display: block; width: 100%; aspect-ratio: 16/9; max-height: 50vh; border-radius: var(--r-m); background: #111; }
+.np-visual video { object-fit: contain; }
+.np-fullscreen { margin-top: 8px; }
+#now-playing:not([data-mode="video"]) .np-visual video, #now-playing:not([data-mode="video"]) .np-fullscreen,
+#now-playing:not([data-mode="embed"]) .np-frame,
+#now-playing:not([data-mode="video"]):not([data-mode="embed"]) .np-visual,
+#now-playing[data-mode="video"] .np-art, #now-playing[data-mode="embed"] .np-art { display: none; }
+.np-controls .sac-controls { gap: 14px; }
+.np-controls .sac-play { width: 56px; height: 56px; }
 
 /* ---------- Five-Suite Core Feature Upgrade Styles ---------- */
 /* 1. Blockout Mini-Calendar & Monthly Staffing Calendar */

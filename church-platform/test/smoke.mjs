@@ -15,8 +15,22 @@ const root = join(here, "..", "dist");
 const shots = join(here, "..", ".shots");
 mkdirSync(shots, { recursive: true });
 const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".webmanifest": "application/manifest+json" };
+const recordings = new Map();
 const server = createServer((req, res) => {
-  const p = join(root, decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/\/$/, "/index.html"));
+  const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  const recording = recordings.get(path);
+  if (recording) {
+    const { type, body } = recording;
+    const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range || "");
+    const start = range ? +range[1] : 0;
+    const end = range?.[2] ? Math.min(+range[2], body.length - 1) : body.length - 1;
+    res.writeHead(range ? 206 : 200, {
+      "content-type": type, "content-length": end - start + 1, "accept-ranges": "bytes",
+      ...(range ? { "content-range": `bytes ${start}-${end}/${body.length}` } : {}),
+    });
+    return res.end(body.subarray(start, end + 1));
+  }
+  const p = join(root, path.replace(/\/$/, "/index.html"));
   // Leave out config.js so the test runs in browser-only mode with the sample churches.
   if (!p.startsWith(root) || !existsSync(p) || p.endsWith("config.js")) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { "content-type": types[extname(p)] || "application/octet-stream" }); res.end(readFileSync(p));
@@ -1069,6 +1083,129 @@ await step("room booking", async () => {
   await sheetSubmit(); await page.waitForSelector("#scrim .err");
   await page.click("#scrim [data-act=room-switch] >> nth=0"); await page.waitForSelector("#scrim .room-msg.ok"); await sheetSubmit(); await sheetGone();
   await expectText("Parent meeting"); await shot("38-rooms");
+});
+await step("sermon playback across screens", async () => {
+  const videoBody = await page.evaluate(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 96;
+    canvas.height = 54;
+    const frame = canvas.getContext("2d");
+    const audio = new AudioContext();
+    const output = audio.createMediaStreamDestination();
+    const tone = audio.createOscillator();
+    tone.connect(output);
+    tone.start();
+    const stream = canvas.captureStream(10);
+    stream.addTrack(output.stream.getAudioTracks()[0]);
+    const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+    const chunks = [];
+    recorder.ondataavailable = (event) => chunks.push(event.data);
+    const done = new Promise((resolve) => { recorder.onstop = resolve; });
+    recorder.start();
+    // Leave enough recording after the route change to observe it playing in a loaded test browser.
+    for (let index = 0; index < 50; index++) {
+      frame.fillStyle = index % 2 ? "#123" : "#569";
+      frame.fillRect(0, 0, 96, 54);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    recorder.stop();
+    await done;
+    stream.getTracks().forEach((track) => track.stop());
+    await audio.close();
+    return Array.from(new Uint8Array(await new Blob(chunks).arrayBuffer()));
+  });
+  const audio = Buffer.alloc(44 + 8000 * 2 * 30);
+  audio.write("RIFF", 0); audio.writeUInt32LE(audio.length - 8, 4); audio.write("WAVEfmt ", 8);
+  audio.writeUInt32LE(16, 16); audio.writeUInt16LE(1, 20); audio.writeUInt16LE(1, 22);
+  audio.writeUInt32LE(8000, 24); audio.writeUInt32LE(16000, 28); audio.writeUInt16LE(2, 32);
+  audio.writeUInt16LE(16, 34); audio.write("data", 36); audio.writeUInt32LE(audio.length - 44, 40);
+  recordings.set("/test-recording.webm", { type: "video/webm", body: Buffer.from(videoBody) });
+  recordings.set("/test-recording.wav", { type: "audio/wav", body: audio });
+  await page.route("https://www.youtube.com/embed/test-sermon", (route) => route.fulfill({ contentType: "text/html", body: "Embedded video" }));
+  const saved = await page.evaluate(() => {
+    const { S } = __app;
+    const original = structuredClone(S.get("sermons", "riverside-s0"));
+    S.update("sermons", original.id, { audioUrl: location.origin + "/test-recording.wav", videoUrl: location.origin + "/test-recording.webm" });
+    return original;
+  });
+  const player = page.locator("#now-playing");
+  const mini = page.getByRole("complementary", { name: "Now playing mini-player" });
+  const source = (name) => player.getByRole("button", { name, exact: true });
+  let notificationId;
+  try {
+    await goTo("sermon-riverside-s0");
+    await page.getByRole("button", { name: "Sermon audio", exact: true }).click();
+    await player.waitFor();
+    await source("Pause").waitFor();
+    await player.locator("[data-sac-rem]").getByText("0:30", { exact: true }).waitFor();
+    notificationId = await page.evaluate(() => {
+      const { S } = __app;
+      const n = S.add("notifications", { userId: S.me().id, kind: "security", title: "Test notification",
+        body: "This alert can be read while a sermon is playing.", at: new Date().toISOString() });
+      const banner = document.querySelector("#foreground-alert button");
+      banner.dataset.id = n.id;
+      banner.textContent = n.title;
+      banner.hidden = false;
+      return n.id;
+    });
+    await source("Test notification").click();
+    await page.locator("#scrim").getByText("This alert can be read while a sermon is playing.").waitFor();
+    await mini.getByRole("button", { name: "Pause", exact: true }).waitFor();
+    await page.locator("#scrim").getByRole("button", { name: "Close", exact: true }).click();
+    await mini.getByRole("button", { name: "Open player for Remain in my love" }).click();
+    await source("Minimize").click();
+    await mini.getByRole("button", { name: "Pause", exact: true }).waitFor();
+    await goTo("events");
+    await mini.getByRole("button", { name: "Open player for Remain in my love" }).click();
+    await source("Pause").waitFor();
+    await source("Pause").click();
+    await source("Play").waitFor();
+    await player.getByRole("slider", { name: "Seek recording" }).press("End");
+    await player.locator("[data-sac-cur]").getByText("0:30", { exact: true }).waitFor();
+
+    // Restart on the other source after closing, so the very short video fixture starts at zero.
+    await source("Close player").click();
+    await goTo("sermon-riverside-s0");
+    await page.getByRole("button", { name: "Watch video", exact: true }).click();
+    await player.locator("video").waitFor();
+    await page.waitForFunction(() => document.querySelector("#now-playing video").currentTime > 0.05);
+    await source("Listen to video").click();
+    await player.locator("video").waitFor({ state: "hidden" });
+    await source("Minimize").click();
+    await mini.getByText(/Listen to video/).waitFor();
+    const at = await page.locator("#now-playing video").evaluate((element) => element.currentTime);
+    await goTo("home");
+    await page.waitForFunction((time) => {
+      const video = document.querySelector("#now-playing video");
+      return !video.paused && video.currentTime > time;
+    }, at);
+    await mini.getByRole("button", { name: "Close mini-player" }).click();
+    await mini.waitFor({ state: "hidden" });
+
+    await page.evaluate(() => __app.S.update("sermons", "riverside-s0", {
+      audioUrl: location.origin + "/missing-recording.mp3", videoUrl: "https://youtu.be/test-sermon",
+    }));
+    await goTo("sermon-riverside-s0");
+    await page.getByRole("button", { name: "Sermon audio", exact: true }).click();
+    await player.getByRole("status").getByText(/could not play/).waitFor();
+    await source("Play").waitFor();
+    await source("Watch video").click();
+    await player.locator('iframe[src="https://www.youtube.com/embed/test-sermon"]').waitFor();
+    await player.getByRole("slider", { name: "Seek recording" }).waitFor({ state: "hidden" });
+    await source("Back").click();
+    if (await player.locator("iframe").count()) throw new Error("embedded video still mounted after closing");
+  } catch (error) {
+    const status = await player.locator(".np-status").textContent();
+    throw new Error(`#${new URL(page.url()).hash.slice(1)} (${status || "no playback message"}): ${error.message}`);
+  } finally {
+    await page.evaluate(({ sermon, notificationId }) => {
+      document.querySelector("#now-playing[open] [data-act=audio-close], #mini-player:not([hidden]) [data-act=audio-close]")?.click();
+      __app.S.update("sermons", sermon.id, sermon);
+      if (notificationId) __app.S.remove("notifications", notificationId);
+    }, { sermon: saved, notificationId });
+    recordings.clear();
+    await page.unroute("https://www.youtube.com/embed/test-sermon");
+  }
 });
 await step("sermon archive, transcript and podcast", async () => {
   await goTo("word"); await page.fill("input[data-input=sermon-search]", "Tuesday"); await page.waitForSelector("#sermon-list .snippet mark");

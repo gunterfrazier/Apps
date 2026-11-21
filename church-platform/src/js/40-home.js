@@ -212,7 +212,7 @@ Screens.home = () => {
             <span class="sc-body"><span class="sc-k">${latest.series}</span><span class="sc-title">${latest.title}</span>
             <span class="sc-meta">${latest.passage} · ${latest.speaker}</span></span>
           </a>
-          <button type="button" class="sc-play-btn" data-act="mini-play" data-id="${latest.id}" aria-label="Play ${latest.title}">${icon(typeof Player !== "undefined" && Player.isPlaying(latest.id) ? "pause" : "play")}</button>
+          ${sermonSources(latest).length ? html`<button type="button" class="sc-play-btn" data-act="mini-play" data-id="${latest.id}" data-title="${latest.title}" aria-label="${Player.isPlaying(latest.id) ? "Pause" : "Play"} ${latest.title}">${icon(Player.isPlaying(latest.id) ? "pause" : "play")}</button>` : ""}
         </div></section>` : ""}
 
       <section class="sec">
@@ -324,7 +324,7 @@ const OpeningSummary = {
   pending: true,
   show() {
     if (!this.pending || !this.eligible || document.visibilityState !== "visible" ||
-        !S.church() || !S.me().name || pendingRoute || thisDevice() || SANDBOX || isTrainingChurch() || $("#scrim") ||
+        !S.church() || !S.me().name || pendingRoute || thisDevice() || SANDBOX || isTrainingChurch() || $("#scrim, #now-playing[open]") ||
         ((Backend.on || Backend.configured()) && !Backend.ready)) return;
     this.pending = false;
 
@@ -372,6 +372,7 @@ Actions["notes-open"] = (el) => {
   const n = myNotifications().find((item) => item.id === el.dataset.id);
   if (!n) return;
   ForegroundAlerts.hide();
+  if (Player.dialogue?.open) Player.minimize(false);
   if (!n.read) { n.read = true; S.save(); }
   render();
   const link = n.link?.startsWith("#") && n.link !== "#alerts" ? n.link : "";
