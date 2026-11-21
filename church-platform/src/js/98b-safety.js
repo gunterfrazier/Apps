@@ -2241,13 +2241,34 @@ Actions["drill-end-finish"] = () => {
 
 let reunifySearch = "";
 
-function renderSecurityReunification(c) {
+function activeReunificationCheckins() {
   const today = isoDay(new Date());
-  const checkins = S.list("checkins").filter((k) => k.serviceKey?.slice(0, 10) >= today);
-  const activeKids = checkins.filter((k) => !k.out);
-  const logs = S.list("securityReunifications").sort((a, b) => b.at.localeCompare(a.at));
+  return S.list("checkins").filter((k) => !k.out && k.serviceKey?.slice(0, 10) >= today);
+}
+
+function reunifyResults(activeKids) {
   const q = reunifySearch.trim().toLowerCase();
   const filteredKids = activeKids.filter((k) => !q || `${k.childName} ${k.parentName} ${k.code} ${k.room}`.toLowerCase().includes(q));
+  return filteredKids.length ? filteredKids.map((k) => {
+    const authPickups = pickupsOf(k.by).map((p) => `${p.name} (${p.relation || "Authorized"})`);
+    return html`<div class="row">
+      <span class="lead-ic" style="font-family:monospace;font-weight:700;background:var(--brand-soft);color:var(--brand-ink)">${k.code}</span>
+      <span class="body">
+        <span class="t">${k.childName} <span class="tag">${k.room}</span></span>
+        <span class="s">Primary Parent: <b>${k.parentName || S.userName(k.by)}</b> · Pickup Code: <b>${k.code}</b></span>
+        ${authPickups.length ? html`<span class="s faint">Authorized Pickups: ${authPickups.join(", ")}</span>` : ""}
+        ${k.allergies ? html`<span class="s" style="color:var(--warn)">Allergy: ${k.allergies}</span>` : ""}
+      </span>
+      <div class="btns" style="margin:0">
+        <button type="button" class="btn sm" data-act="reunify-verify-modal" data-id="${k.id}">${icon("check")}Verify &amp; Release Child</button>
+      </div>
+    </div>`;
+  }) : empty("No checked-in children awaiting reunification match that code. Tap 'Seed Sample Check-In Kids' above to test the 4-step workflow.");
+}
+
+function renderSecurityReunification(c) {
+  const activeKids = activeReunificationCheckins();
+  const logs = S.list("securityReunifications").sort((a, b) => b.at.localeCompare(a.at));
 
   return html`
     <div class="stat-tiles" style="margin-top:14px">
@@ -2269,21 +2290,7 @@ function renderSecurityReunification(c) {
       </label>
 
       <div class="rows" id="reunify-list">
-        ${filteredKids.length ? filteredKids.map((k) => {
-          const authPickups = pickupsOf(k.by).map((p) => `${p.name} (${p.relation || "Authorized"})`);
-          return html`<div class="row">
-            <span class="lead-ic" style="font-family:monospace;font-weight:700;background:var(--brand-soft);color:var(--brand-ink)">${k.code}</span>
-            <span class="body">
-              <span class="t">${k.childName} <span class="tag">${k.room}</span></span>
-              <span class="s">Primary Parent: <b>${k.parentName || S.userName(k.by)}</b> · Pickup Code: <b>${k.code}</b></span>
-              ${authPickups.length ? html`<span class="s faint">Authorized Pickups: ${authPickups.join(", ")}</span>` : ""}
-              ${k.allergies ? html`<span class="s" style="color:var(--warn)">Allergy: ${k.allergies}</span>` : ""}
-            </span>
-            <div class="btns" style="margin:0">
-              <button type="button" class="btn sm" data-act="reunify-verify-modal" data-id="${k.id}">${icon("check")}Verify &amp; Release Child</button>
-            </div>
-          </div>`;
-        }) : empty("No checked-in children awaiting reunification match that code. Tap 'Seed Sample Check-In Kids' above to test the 4-step workflow.")}
+        ${reunifyResults(activeKids)}
       </div>
     </section>
 
@@ -2302,7 +2309,10 @@ function renderSecurityReunification(c) {
   `;
 }
 
-Inputs["reunify-search"] = (el) => { reunifySearch = el.value; render(); };
+Inputs["reunify-search"] = (el) => {
+  reunifySearch = el.value;
+  $("#reunify-list").innerHTML = flat(reunifyResults(activeReunificationCheckins()));
+};
 
 Actions["reunify-sim-seed"] = () => {
   const c = S.church(), today = isoDay(new Date());
