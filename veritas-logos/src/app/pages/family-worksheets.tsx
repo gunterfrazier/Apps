@@ -24,7 +24,7 @@ export function StoryResourceList({ story, age, worksheet, forAdults = false, sh
       <li key={item.url}>
         <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
         <span>{item.provider} · {item.format}{item.detail && ` · ${item.detail}`}</span>
-        {item.provider === "BibleProject" && <span>
+        {item.provider === "BibleProject" && item.format === "Video" && <span>
           <a href="https://bibleproject.com/" target="_blank" rel="noopener noreferrer">BibleProject</a> is the author and owner of this video.
         </span>}
       </li>

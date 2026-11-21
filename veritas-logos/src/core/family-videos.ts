@@ -21,7 +21,34 @@ export const FAMILY_VIDEO_CHANNELS = [
   { name: "Saddleback Kids animated Bible stories", url: "https://www.youtube.com/playlist?list=PL5aPdmniG3y_n7hXEKTV4qQnIeCe-p6Ws" },
 ];
 
+const genesisBeginnings: StoryVideoLink = {
+  id: "bibleproject-genesis-beginnings", url: "https://bibleproject.com/videos/torah-genesis-1/",
+  title: "Genesis 1–11 overview", creator: "BibleProject", format: "Companion lesson",
+};
+
 const videosByStory: Record<string, StoryVideoLink[]> = {
+  "adam-and-eve": [saddleback("l7TDvJrjjz0", "Adam and Eve Sin"), genesisBeginnings],
+  "tower-of-babel": [
+    { id: "servus-dei-babel", url: "https://www.servus-dei.com/post/tower-of-babel-higher-and-higher",
+      title: "The Tower of Babel: Higher and Higher", creator: "Servus Dei", format: "Animated retelling" },
+    genesisBeginnings,
+  ],
+  "god-calls-abraham": [
+    saddleback("foWKaKnJeUw", "Abraham (Genesis 12–13)"),
+    { id: "mimi-lumi-abraham", url: "https://mimiandlumi.com/episodes/god-calls-abraham/",
+      title: "God Calls Abraham", creator: "Mimi & Lumi", format: "Animated retelling" },
+  ],
+  "sarah-laughs": [
+    saddleback("SDlDgcXk2lc", "God’s Promises for Abraham and Sarah"),
+    { id: "6P_WR4xW6io", title: "Sarah Laughed", creator: "DG Bible Songs", format: "Musical adaptation" },
+  ],
+  "jacob-and-esau": [
+    { id: "tiny-bible-jacob", url: "https://tinybiblestories.com/pages/jacob-and-esau-story-l-jacob-goes-back-home",
+      title: "Jacob Goes Back Home", creator: "Tiny Bible Stories", format: "Animated retelling" },
+    { id: "bibleproject-genesis-family", url: "https://bibleproject.com/videos/genesis-12-50/",
+      title: "Genesis 12–50 overview", creator: "BibleProject", format: "Companion lesson" },
+  ],
+  "baby-moses": [saddleback("vf-4x4iefQE", "Baby Moses (Exodus 1–2)")],
   "red-sea": [
     saddleback("h5Sj-ZotsXw", "Moses and the Red Sea"),
     { id: "bibleproject-exodus", url: "https://bibleproject.com/videos/exodus-1-18/",
@@ -106,6 +133,12 @@ export function familyStoryVideos(storyId: string): readonly StoryVideoLink[] {
 }
 
 const animations: Partial<Record<string, { file: string; title: string; format: string; note: string }>> = {
+  "baby-moses": {
+    file: "basket-among-reeds-short.mp4",
+    title: "A Basket Among the Reeds",
+    format: "animated short",
+    note: "A silent animation with on-screen story text. Moses’s sister watches by the Nile as a princess comes toward the basket.",
+  },
   "wise-builders": {
     file: "two-builders-short.mp4",
     title: "Two houses, one storm",

@@ -30,6 +30,40 @@ const purple = (lesson: number): FamilyResource => ({
 });
 
 const storyResources: Record<string, FamilyResource[]> = {
+  "adam-and-eve": [
+    trueway("Adam and Eve in Genesis 2 printable lesson", "adam-and-eve-5", "young", "Publisher ages 5–10"),
+    trueway("Adam and Eve study", "adam-eve-teen", "middle", "Publisher preteen and teen pack"),
+    trueway("Adam and Eve teen study", "adam-eve-teen", "teen"),
+  ],
+  "tower-of-babel": [
+    trueway("Tower of Babel printable lesson", "the-tower-of-babel-bible-lesson-for-5-10-year-old", "young", "Publisher ages 5–10"),
+    trueway("Tower of Babel preteen study", "babel-teens", "middle"),
+    trueway("Tower of Babel teen study", "babel-teens", "teen"),
+  ],
+  "god-calls-abraham": [
+    trueway("God Calls Abraham and Sarah printable lesson", "god-calls-abraham-and-sarah-free-bible-lesson-for-under-5s", "young", "Choose the age 5+ pack on the page"),
+    trueway("God Calls Abraham and Sarah preteen study", "abram-and-sarai-teen", "middle"),
+    trueway("God Calls Abraham and Sarah teen study", "abram-and-sarai-teen", "teen"),
+  ],
+  "sarah-laughs": [
+    trueway("Isaac Is Born printable lesson", "isaac-is-born-5", "young", "Publisher ages 5–10"),
+    trueway("Isaac Is Born preteen study", "isaac-is-born-teens", "middle"),
+    trueway("Isaac Is Born teen study", "isaac-is-born-teens", "teen"),
+  ],
+  "jacob-and-esau": [
+    { title: "Jacob and Esau activity pack", provider: "Mary’s Printables", format: "PDF lesson",
+      url: "https://www.marysprintables.com/esau-and-jacob-worksheet/", audience: ["young"],
+      detail: "Covers events from Genesis 25, 27, and 33" },
+    { title: "Jacob and Esau reunion worksheet", provider: "Learn of Christ", format: "PDF lesson",
+      url: "https://learnofchrist.com/activity-sheets/genesis/33", audience: ["middle"], detail: "Genesis 33" },
+    { title: "Book of Genesis study guide", provider: "BibleProject", format: "Read online",
+      url: "https://bibleproject.com/guides/book-of-genesis/", audience: ["teen"], detail: "Context for Jacob’s family" },
+  ],
+  "baby-moses": [
+    trueway("Baby Moses printable lesson", "baby-moses-bible-lesson-5-10-year-old-bible-lesson-pack", "young", "Publisher ages 5–10"),
+    trueway("Baby Moses preteen study", "baby-moses-teens", "middle"),
+    trueway("Baby Moses teen study", "baby-moses-teens", "teen"),
+  ],
   "red-sea": [
     trueway("Crossing the Red Sea printable lesson", "the-red-sea", "young", "Choose the age 5+ pack"),
     trueway("Crossing the Red Sea preteen study", "red-sea-teens", "middle"),

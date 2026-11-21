@@ -387,4 +387,118 @@ export const STORY_COLLECTIONS: Partial<Record<string, StoryCollection>> = {
       teen: { title: "Make a plan to practice", instructions: "Pick one action Jesus teaches in Matthew 5–7. Write one situation where you could put it into practice and a concrete action you could take. Share it with a partner if you like." },
     },
   },
+  "adam-and-eve": {
+    craft: {
+      title: "Make a lift-the-leaf garden",
+      minutes: 15,
+      supplies: ["Green paper", "Card", "Markers", "Tape", "Scissors"],
+      steps: {
+        young: ["Draw a garden full of plants on a piece of card.", "Ask an adult to cut three paper leaves and tape one edge of each over your picture so they can lift.", "Under one leaf, draw how to care for a plant. Under another, draw someone you can talk to when you need help."],
+        middle: ["Make three lifting leaf flaps on a garden card.", "Under the leaves, draw or write the work God gave, the boundary God set, and the question God asked.", "Add references from Genesis 2–3 and show a partner where each leaf fits."],
+        teen: ["Make three hinged leaves for Genesis 2:15–17, 3:8–13, and 3:20–24.", "On each leaf, put a word for the action you notice. Under it, write the verse and a question it raises.", "Use the three leaves to explain how the story moves from care to hiding to life outside Eden."],
+      },
+      artTile: 20,
+      artAlt: "Green paper leaves lifting from a handmade garden card.",
+    },
+    play: {
+      young: { title: "Spot a way to care", instructions: "Have a partner name something in a garden. Take turns saying what it needs and acting out one way to care for it." },
+      middle: { title: "What was actually said?", instructions: "Read Genesis 2:16–17 and 3:1–3. Have a partner paraphrase each passage. Compare which details each speaker emphasizes, adds, or leaves out." },
+      teen: { title: "Follow the questions", instructions: "Find God’s questions in Genesis 3:9–13. Read them with a partner and compare what each answer reveals about fear, trust, or blame." },
+    },
+  },
+  "tower-of-babel": {
+    craft: {
+      title: "Build a paper-brick tower",
+      minutes: 20,
+      supplies: ["Orange or brown paper", "Blue card", "Markers", "Glue stick", "Scissors"],
+      steps: {
+        young: ["Cut out paper bricks with an adult and stack them into the shape of a tall tower on a card.", "Glue the bricks down and draw two speech bubbles beside the tower.", "Put a different picture in each speech bubble. Take turns explaining the pictures without words."],
+        middle: ["Build a stepped tower out of paper rectangles on a card.", "Add two speech bubbles for what the builders said they wanted in Genesis 11:4.", "Draw paths away from the tower and label them with what actually happened in Genesis 11:8–9."],
+        teen: ["Make a paper tower with two paths running outward from the base.", "Add the key words about a name and scattering from Genesis 11:4 and 11:8–9.", "On the back, add Genesis 12:2–3 and explain how the promised name serves a different purpose."],
+      },
+      artTile: 21,
+      artAlt: "A stepped terracotta tower made of paper bricks, with colorful speech bubbles beside it.",
+    },
+    play: {
+      young: { title: "Build without words", instructions: "Take turns pointing, drawing, or gesturing to show where a partner can place one paper brick. Talk about which signals helped you understand each other." },
+      middle: { title: "What were they building for?", instructions: "Read Genesis 11:1–9. Make a two-column chart for the builders’ plans and the ending. Match each plan with the part of the ending that changes it." },
+      teen: { title: "Compare two names", instructions: "Pair up. One reader traces the desire for a name in Genesis 11 and the other traces the promise of a name in Genesis 12. Compare who initiates each and who benefits." },
+    },
+  },
+  "god-calls-abraham": {
+    craft: {
+      title: "Fold Abram’s journey map",
+      minutes: 15,
+      supplies: ["Paper", "Colored scraps", "Markers", "Glue stick", "Scissors"],
+      steps: {
+        young: ["Fold a piece of paper into three parts and draw a home, a path, and a tent.", "Glue little hills or trees beside the path and mark which way the family traveled.", "Unfold the map and retell who traveled with Abram."],
+        middle: ["Fold a map for Haran, Shechem, and the camp between Bethel and Ai.", "Mark each stop with an image from Genesis 12:4–9.", "Draw an arrow from the journey to other families to show who is included in the promise."],
+        teen: ["Fold a map for the departure, the arrival at Shechem, and the second campsite.", "Add a reference and a line about travel or worship at each stop.", "Use the reverse side to compare what Abram leaves behind with who is included in the promise."],
+      },
+      artTile: 22,
+      artAlt: "A colorful folded map with a dotted route through hills toward a paper tent.",
+    },
+    play: {
+      young: { title: "Pack for the journey", instructions: "Name one thing you would carry on a long walk. Have a partner repeat your item and add another. Then name the people who went with Abram." },
+      middle: { title: "Place the journey stops", instructions: "Read Genesis 12:4–9. Make cards for Haran, Shechem, and the camp between Bethel and Ai. Put them in order and explain one event at each stop." },
+      teen: { title: "Leave, go, bless", instructions: "Read Genesis 12:1–3. Have each person trace one action. Compare who acts in each phrase and how those actions reach beyond Abram." },
+    },
+  },
+  "sarah-laughs": {
+    craft: {
+      title: "Make a celebration tent card",
+      minutes: 20,
+      supplies: ["Purple and orange paper", "Card", "Markers", "Tape", "Scissors"],
+      steps: {
+        young: ["Draw a tent on a card and tape a paper flap over its doorway.", "Draw Sarah and baby Isaac behind the flap.", "Open the flap to tell why Sarah laughed when Isaac was born."],
+        middle: ["Make a tent-shaped flap on a folded card.", "Draw Sarah hearing the promise on the outside and Sarah holding Isaac on the inside.", "Label both pictures using Genesis 18:12 and 21:6. Explain how the meaning of the laughter changes."],
+        teen: ["Make a tent card with a flap and add three small paper stars around it.", "On the stars, record who laughs in Genesis 17:17, 18:12, and 21:6 and what each person has just heard or seen.", "Use the inside of the tent to show how the last scene changes the tone of the earlier ones."],
+      },
+      artTile: 23,
+      artAlt: "A purple paper card with stars and an orange tent flap opening to reveal a baby.",
+    },
+    play: {
+      young: { title: "Two kinds of laughter", instructions: "Show with your face how Sarah might look when the promise surprises her and when she shares her joy. Ask a partner to guess the two moments." },
+      middle: { title: "Match the laugh to the scene", instructions: "Make two cards labeled Promise and Birth. Take turns reading Genesis 18:9–15 and 21:1–7, then match details about Sarah’s laughter to the right card." },
+      teen: { title: "Trace a repeated action", instructions: "Read Genesis 17:17, 18:12, and 21:6 aloud. Write one word for the tone of each laugh and explain what in the passage leads you to it." },
+    },
+  },
+  "jacob-and-esau": {
+    craft: {
+      title: "Build a peace-bridge card",
+      minutes: 20,
+      supplies: ["Colored card", "Paper scraps", "Markers", "Tape", "Scissors"],
+      steps: {
+        young: ["Fold a card and draw a path from each side to the middle.", "Cut out two paper figures or hands with an adult and tape them near the middle so they can reach toward each other.", "Open the card and tell what Esau did when he saw Jacob."],
+        middle: ["Make a folded card with two paths meeting at a paper bridge.", "On one side, show Jacob preparing to meet Esau. On the other, show Esau running to him.", "At the bridge, add a detail from Genesis 33:4 or 33:10 and explain why it matters."],
+        teen: ["Create a paper bridge with three panels for fear, welcome, and acceptance.", "Cite Genesis 32:7–12 and 33:4–11 as you add a decision or gesture to each panel.", "Draw two paths continuing separately from the bridge and use them to discuss the ending in Genesis 33:16–17."],
+      },
+      artTile: 24,
+      artAlt: "Two paper figures reach toward each other over a small bridge on an open card.",
+    },
+    play: {
+      young: { title: "Finish the meeting", instructions: "Have a partner tell the story up to when Jacob sees Esau. Act out how you think the meeting will go, then listen to what Esau really does." },
+      middle: { title: "Expected and actual", instructions: "Write two short scenes, one for what Jacob seems to expect in Genesis 32 and one for what Esau does in Genesis 33:1–11. Compare the actions in each." },
+      teen: { title: "Trace the gift", instructions: "Follow the gift from Jacob’s plan in Genesis 32:13–21 to Esau’s acceptance in 33:8–11. In pairs, explain how its meaning shifts between those moments." },
+    },
+  },
+  "baby-moses": {
+    craft: {
+      title: "Weave a paper basket in the reeds",
+      minutes: 20,
+      supplies: ["Brown, blue, and green paper", "White paper", "Tape", "Markers", "Scissors"],
+      steps: {
+        young: ["Make a shallow folded paper basket with an adult. Tape paper strips across its front.", "Fold white paper into a little blanket and put it in the basket. Draw or add paper reeds on a blue river card.", "Set the basket by the reeds and take turns naming the people who helped Moses."],
+        middle: ["Make a paper basket by weaving narrow strips through slits in a folded paper base. Tape the strip ends.", "Add paper reeds and a paper blanket.", "Write one action by the mother, sister, and princess on separate reeds, then arrange them in story order."],
+        teen: ["Make or draw a basket among paper reeds.", "Add three reeds labeled with actions by the mother, sister, and princess, each with a verse from Exodus 2:1–10.", "Connect these actions with arrows and explain at which moments one person’s decision created room for another person to act."],
+      },
+      artTile: 25,
+      artAlt: "A woven paper basket with a white paper blanket on a blue river card bordered by green reeds.",
+    },
+    play: {
+      young: { title: "Take turns being a helper", instructions: "Use a paper basket to retell the scene. One person plays the mother, one watches as the sister, and one finds the basket as the princess. Switch roles and tell it again." },
+      middle: { title: "Make a chain of care", instructions: "Put paper slips for the mother, sister, and princess in story order. Add an action to each slip, then discuss what would be lost from the chain without that action." },
+      teen: { title: "The river in two scenes", instructions: "Compare Exodus 1:22 with 2:1–10. Mark how Pharaoh uses the river and how the women use it. Discuss who has power at each turning point." },
+    },
+  },
 };
