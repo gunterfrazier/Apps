@@ -1,8 +1,9 @@
 interface StoryVideoLink {
   id: string;
   title: string;
+  url?: string;
   creator: string;
-  format: "Animated retelling" | "Musical adaptation" | "Short excerpt";
+  format: "Animated retelling" | "Musical adaptation" | "Short excerpt" | "Companion lesson";
 }
 
 const saddleback = (id: string, title: string): StoryVideoLink => ({
@@ -17,6 +18,12 @@ export const FAMILY_VIDEO_CHANNELS = [
 ];
 
 const videosByStory: Record<string, StoryVideoLink[]> = {
+  creation: [{ id: "fJnj_SAlh8Y", title: "God’s Story: Creation", creator: "Crossroads Kids’ Club", format: "Animated retelling" }],
+  ruth: [
+    saddleback("SDmjO7X8ELI", "Ruth and Naomi"),
+    { id: "opjrer7dB38", title: "The Story of Ruth and Naomi", creator: "Minno Kids", format: "Animated retelling" },
+  ],
+  "burning-bush": [saddleback("SfR1x3lvrvs", "Moses and the Burning Bush")],
   david: [{ id: "QOznv1uhn0M", title: "David and Goliath", creator: "Minno Kids", format: "Animated retelling" }],
   jonah: [saddleback("WOSadLyqshg", "Jonah and the Fish")],
   esther: [saddleback("D3lsMSEEuG4", "Esther’s Request to the King")],
@@ -27,7 +34,11 @@ const videosByStory: Record<string, StoryVideoLink[]> = {
     { id: "tYIiQZUqjdw", title: "God speaks to Noah", creator: "Minno Kids", format: "Short excerpt" },
   ],
   galilee: [saddleback("uYLHqdSO9OY", "Jesus Calms the Storm")],
-  samaritan: [saddleback("osfQg4yKtq8", "The Good Samaritan")],
+  samaritan: [
+    saddleback("osfQg4yKtq8", "The Good Samaritan"),
+    { id: "crossroads-helpers", url: "https://www.crossroads.net/media/videos/lets-be-helpers-or-good-samaritan-or-kids-club-older",
+      title: "Let’s Be Helpers", creator: "Crossroads Kids’ Club", format: "Companion lesson" },
+  ],
   "jesus-welcomes-children": [saddleback("VPUMDVBO7dY", "Jesus and the Children")],
   "prodigal-son": [saddleback("DJgROx4wFKM", "The Prodigal Son")],
   joseph: [saddleback("4m6R_9KYHlY", "Joseph Forgives His Brothers")],

@@ -1,7 +1,5 @@
 import type { FamilyStory } from "./family-stories";
 
-const publicDomain = { license: "Public domain", licenseUrl: "https://creativecommons.org/publicdomain/mark/1.0/" };
-
 export const NEW_FAMILY_STORIES: FamilyStory[] = [
   {
     id: "creation",
@@ -13,11 +11,6 @@ export const NEW_FAMILY_STORIES: FamilyStory[] = [
     topic: "Creation and care",
     drawPrompt: "Color the sky, the sea, and the land. Draw one more thing God made.",
     sceneTitles: ["Light in the darkness", "Sky, seas, and land", "A world filled with life", "A day of rest"],
-    image: {
-      ...publicDomain, file: "creation.webp", alt: "A bright opening appears above dark water in a swirling sky.",
-      credit: "The Creation, James Tissot",
-      source: "https://commons.wikimedia.org/wiki/File:Tissot_The_Creation.jpg",
-    },
     activity: {
       prompt: "What did God do on the seventh day?",
       options: ["Made the sea", "Rested and blessed the day", "Made the birds"],
@@ -63,12 +56,6 @@ export const NEW_FAMILY_STORIES: FamilyStory[] = [
     topic: "Jealousy, courage, and forgiveness",
     drawPrompt: "Give Joseph’s coat bright stripes. Choose a different color for each stripe.",
     sceneTitles: ["The coat and the dreams", "Far from home", "A plan for the years of hunger", "Joseph reveals his name"],
-    image: {
-      file: "joseph.webp", alt: "Joseph reveals who he is to his brothers in Egypt.",
-      credit: "Joseph Revealing Himself to His Brothers in Egypt, studio of Pier Francesco Mola · National Gallery of Art",
-      source: "https://www.nga.gov/artworks/56356-joseph-revealing-himself-his-brothers-egypt",
-      license: "CC0", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
-    },
     activity: {
       prompt: "Why did Joseph’s brothers go to Egypt?",
       options: ["To buy grain", "To see a new palace", "To look for sheep"],
@@ -114,11 +101,6 @@ export const NEW_FAMILY_STORIES: FamilyStory[] = [
     topic: "Loyalty and practical kindness",
     drawPrompt: "Color the barley that Ruth gathers. Draw a basket for the grain she brings home.",
     sceneTitles: ["Naomi prepares to leave", "Ruth chooses to stay", "Grain in the field", "A family after harvest"],
-    image: {
-      ...publicDomain, file: "ruth.webp", alt: "Ruth meets Boaz among the people harvesting his field.",
-      credit: "Ruth in the Field of Boaz, Julius Schnorr von Carolsfeld",
-      source: "https://commons.wikimedia.org/wiki/File:Julius_Schnorr_von_Carolsfeld-_Ruth_im_Feld_des_Boaz.jpg",
-    },
     activity: {
       prompt: "How did Ruth find food for herself and Naomi?",
       options: ["She caught fish", "She gathered grain left by workers", "She baked bread for the town"],
@@ -164,11 +146,6 @@ export const NEW_FAMILY_STORIES: FamilyStory[] = [
     topic: "Jesus provides for the crowd",
     drawPrompt: "Color the bread and fish. Draw another basket for the food left over.",
     sceneTitles: ["The crowd on the hillside", "The boy’s food", "Everyone has enough", "Twelve baskets"],
-    image: {
-      ...publicDomain, file: "feeding-the-crowd.webp", alt: "A large crowd spread across a hillside beside the Sea of Galilee.",
-      credit: "The Miracle of the Loaves and Fishes, James Tissot · Brooklyn Museum",
-      source: "https://commons.wikimedia.org/wiki/File:Brooklyn_Museum_-_The_Miracle_of_the_Loaves_and_Fishes_(La_multiplication_des_pains)_by_James_Tissot.jpg",
-    },
     activity: {
       prompt: "How many baskets of pieces were left after everyone ate?",
       options: ["Two", "Five", "Twelve"],
@@ -214,11 +191,6 @@ export const NEW_FAMILY_STORIES: FamilyStory[] = [
     topic: "Resurrection and hope",
     drawPrompt: "Color the empty tomb. Draw the morning sun above the stone that was rolled away.",
     sceneTitles: ["Early at the tomb", "The stone is moved", "Fear and joy", "Jesus meets them"],
-    image: {
-      ...publicDomain, file: "resurrection.webp", alt: "Mary Magdalene and other women come to the tomb.",
-      credit: "Mary Magdalene and the Holy Women at the Tomb, James Tissot · Brooklyn Museum",
-      source: "https://commons.wikimedia.org/wiki/File:Brooklyn_Museum_-_Mary_Magdalene_and_the_Holy_Women_at_the_Tomb_(Madeleine_et_les_saintes_femmes_au_tombeau)_-_James_Tissot.jpg",
-    },
     activity: {
       prompt: "What news did the angel tell the women?",
       options: ["Jesus was still in the tomb", "Jesus had risen", "They should go back the next day"],

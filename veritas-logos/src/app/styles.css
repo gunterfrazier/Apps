@@ -876,9 +876,9 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .kids-catalog-section + .kids-catalog-section { margin-top: 1.3rem; }
 .kids-catalog-section > h2 { margin: 0 0 .65rem; }
 .kids-card p:last-child, .kids-story figcaption { color: var(--kids-muted); }
-.kids-detail-grid { display: grid; grid-template-areas: "heading" "art" "body" "media"; gap: 1rem; margin-top: 1rem; }
+.kids-detail-grid { display: grid; grid-template-areas: "art" "body"; gap: 1rem; }
 .kids-detail-grid > * { min-width: 0; }
-.kids-story-heading { grid-area: heading; }
+.kids-story-heading { margin-top: 1rem; }
 .kids-story-heading .kids-reference { margin: 0; }
 .kids-feature-art { grid-area: art; }
 .kids-story-body { grid-area: body; }
@@ -886,12 +886,10 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .kids-story-text, .kids-question p { font-size: 1.08rem; line-height: 1.65; }
 .kids-young .kids-story-text { font-size: 1.21rem; }
 .kids-question { padding: .8rem 1rem; border-radius: 14px; background: var(--kids-tint); }
-.kids-question h2, .kids-video h2 { font-size: 1.17rem; margin: 0 0 .35rem; }
+.kids-question h2, .kids-question h3 { font-size: 1.17rem; margin: 0 0 .35rem; }
 .kids-question p { margin: 0; }
-.kids-story-media { grid-area: media; display: grid; gap: .9rem; align-content: start; }
 .kids-story figure { margin: 0; }
 .kids-story img, .kids-story video { display: block; width: 100%; max-height: 32rem; object-fit: contain; background: var(--kids-card); border-radius: 12px; }
-.kids-paged-art img { aspect-ratio: 16 / 10; }
 .kids-story figcaption { padding: .35rem 0 0; font-size: .85rem; }
 .kids-watch { margin-top: .9rem; padding: .8rem; border: 1px solid var(--kids-line); border-radius: 14px; background: var(--kids-card); }
 .kids-watch h2 { margin: 0 0 .25rem; font-size: 1.2rem; }
@@ -920,12 +918,8 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .kids-story-body .kids-question + .kids-question { margin-top: .8rem; }
 .kids-answer-options { margin-block: .6rem; }
 .kids-activity [role="status"]:empty { margin: 0; }
-.kids-video { border: 1px solid var(--kids-line); background: var(--kids-card); padding: .65rem; border-radius: 14px; }
-.kids-video details { margin-top: .5rem; }
-.kids-video[open] > video { margin-top: .5rem; }
-.kids-illustrations figure { margin-top: .75rem; }
 @media (min-width: 760px) {
-  .kids-detail-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); grid-template-areas: "heading heading" "body art" "body media"; align-items: start; align-content: start; column-gap: 2rem; }
+  .kids-detail-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); grid-template-areas: "body art"; align-items: start; align-content: start; column-gap: 2rem; }
   .kids-teen .kids-card { border-radius: 8px; }
 }
 
@@ -939,8 +933,6 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .story-resource-list > li { display: grid; gap: .12rem; }
 .story-resource-list > li > a { justify-self: start; font-weight: 650; }
 .story-resource-list > li > span { font-size: .85rem; color: var(--kids-muted, var(--ink-2)); }
-.kids-print-resources { margin-top: 1rem; padding: .8rem 1rem; border-radius: 14px; border: 1px solid var(--kids-line); background: var(--kids-card); }
-.kids-print-resources h2 { margin: 0; font-size: 1.17rem; }
 .worksheet-actions, .story-worksheet { max-width: 44rem; margin: 0 auto; }
 .worksheet-actions p { margin-top: .5rem; }
 .story-worksheet { background: #fff; color: #111; color-scheme: light; border-radius: 12px; padding: clamp(1rem, 4vw, 2rem); }
@@ -1016,7 +1008,6 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 }
 .kids-teen .kids-space-icon { background: var(--kids-accent); color: var(--kids-card); border-radius: 12px; }
 .kids-teen .kids-intro { border: 1px solid var(--kids-line); border-radius: 12px; }
-.kids-teen .kids-card .family-historical-art { aspect-ratio: 1; }
 .kids-card-action { display: inline-block; margin-top: .65rem; color: var(--kids-accent); font-size: .86rem; font-weight: 800; }
 .kids-card:hover .kids-card-action { text-decoration: underline; }
 .kids-more-stories { margin-top: 1.3rem; }
@@ -1024,7 +1015,6 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .kids-more-stories .kids-grid { margin-top: .6rem; }
 
 .family-art-grayscale { filter: grayscale(1); }
-.worksheet-credit { font-size: .82em; }
 .worksheet-coloring { width: min(100%, 27rem); margin: .55rem auto 0; border: 2px solid #333; }
 .worksheet-art-prompt { display: grid; gap: .75rem; grid-template-columns: minmax(5rem, 22%) minmax(0, 1fr); align-items: start; }
 .worksheet-art-prompt > img { width: 100%; max-height: 9rem; object-fit: contain; filter: grayscale(1); }
@@ -1033,4 +1023,26 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
   .worksheet-coloring { width: min(100%, 5in); }
   .worksheet-art-prompt { grid-template-columns: 1.28in minmax(0, 1fr); }
   .story-worksheet > .worksheet-prompt { break-inside: avoid; }
+}
+
+.kids-story-jump { display: grid; grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr)); gap: .5rem; margin: 1rem 0; }
+.kids-story-jump .kids-control { justify-content: center; color: var(--kids-accent); background: var(--kids-tint); }
+.kids-story-jump .kids-control:hover { border-color: var(--kids-accent); }
+.kids-young .kids-story-jump .kids-control { border-radius: 16px; }
+.kids-story-section { margin-block: 1.2rem; }
+.kids-story-section > h2 { margin: 0 0 .6rem; font-size: 1.4rem; scroll-margin-top: .8rem; }
+.kids-collection-panel { padding: clamp(.85rem, 2vw, 1.25rem); border: 1px solid var(--kids-line); background: var(--kids-card); border-radius: 18px; }
+.kids-offscreen-activity h3, .kids-craft h3 { margin: 0 0 .35rem; font-size: 1.18rem; }
+.kids-offscreen-activity p { margin: .4rem 0 1rem; }
+.kids-craft { display: grid; gap: 1rem; align-items: start; }
+.kids-craft-art { max-width: 19rem; border-radius: 14px; }
+.kids-craft p { margin: .4rem 0; }
+.kids-craft ol { padding-inline-start: 1.4rem; }
+.kids-craft li + li { margin-top: .5rem; }
+.kids-original-short { border: 1px solid var(--kids-line); background: var(--kids-tint); padding: .75rem; margin-bottom: .75rem; border-radius: 12px; }
+.kids-original-short summary { font-weight: 700; color: var(--kids-accent); }
+.kids-original-short video { margin: .6rem 0; max-width: 32rem; }
+.kids-original-short p { margin-top: .4rem; }
+@media (min-width: 580px) {
+  .kids-craft { grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); }
 }

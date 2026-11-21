@@ -66,14 +66,6 @@ export const MORE_FAMILY_STORIES: FamilyStory[] = [
     sceneTitles: ["Mordecai’s message", "The king’s scepter", "Two banquets", "A new decree"],
     reference: "Esther 4–8", reading: "Esther 4:10–17; Esther 5:1–8", teenReading: "Esther 4:10–17; Esther 7:1–6; Esther 8:3–8",
     topic: "Courage and responsibility",
-    image: {
-      file: "esther.webp",
-      alt: "Esther leans on her attendants as the king turns toward her from his throne.",
-      credit: "Esther before Ahasuerus, Artemisia Gentileschi · The Metropolitan Museum of Art",
-      source: "https://www.metmuseum.org/art/collection/search/436453",
-      license: "Public domain",
-      licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
-    },
     drawPrompt: "Find the scepter in the picture. What might Esther be thinking as she approaches the king?",
     activity: {
       prompt: "What did Esther ask the Jews in Susa to do before she approached the king?",
@@ -105,14 +97,6 @@ export const MORE_FAMILY_STORIES: FamilyStory[] = [
     id: "daniel", title: "Daniel in the lions’ den", testament: "old",
     sceneTitles: ["A law aimed at Daniel", "The open window", "At the den before dawn"],
     reference: "Daniel 6", reading: "Daniel 6:6–23", topic: "Integrity under pressure",
-    image: {
-      file: "daniel.webp",
-      alt: "Daniel sits with his hands clasped and looks up while lions surround him.",
-      credit: "Daniel in the Lions’ Den, Sir Peter Paul Rubens · National Gallery of Art",
-      source: "https://www.nga.gov/artworks/50298-daniel-lions-den",
-      license: "Public domain",
-      licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
-    },
     drawPrompt: "Find Daniel and the lions. Pick a detail that helps you tell how the night ended.",
     activity: {
       prompt: "What did Daniel continue to do after he heard about the law?",
@@ -135,6 +119,48 @@ export const MORE_FAMILY_STORIES: FamilyStory[] = [
           "Darius seals the den and spends a sleepless night. At dawn Daniel credits his rescue to God, who sent an angel to shut the lions’ mouths. The encounter reverses the helplessness the king displayed the night before. The chapter ends with Darius addressing his kingdom about Daniel’s God.",
         ],
         question: "Compare Daniel’s power with Darius’s. What can each person control, and where do you see the limits of their control?",
+      },
+    },
+  },
+  {
+    id: "burning-bush", title: "Moses and the burning bush", testament: "old",
+    sceneTitles: ["A bush that kept burning", "Take off your sandals", "A difficult job", "A promise to go with Moses"],
+    reference: "Exodus 3–4", reading: "Exodus 3:1–12", teenReading: "Exodus 3:7–15; Exodus 4:10–17",
+    topic: "Listening, courage, and asking for help",
+    drawPrompt: "Color the flames, then color the leaves to show that the bush stayed whole.",
+    activity: {
+      prompt: "What surprised Moses about the bush?",
+      options: ["It was on fire and stayed whole", "It floated down a river", "It grew bread"],
+      answer: 0,
+      explanation: "Moses turned aside because the fire did not burn up the bush.",
+    },
+    editions: {
+      young: {
+        paragraphs: [
+          "Moses was looking after sheep. He led them through the wilderness to a mountain. There he saw a bush that was on fire. Even though he could see flames, the bush did not burn up. He came closer to look.",
+          "God called, ‘Moses! Moses!’ Moses answered that he was there. God told him to take off his sandals. The ground where Moses stood was holy. Moses covered his face.",
+          "God had seen how badly the Israelites were being treated in Egypt and had heard them cry for help. He told Moses to go to Pharaoh, the king of Egypt, and lead the people out. Moses wondered why he was the one to go.",
+          "God promised to be with Moses. Moses still had questions. He worried that he would have trouble speaking, so God told him that his brother Aaron could help. Moses had a hard job to do, and he had someone to go with him.",
+        ],
+        question: "What help did God promise Moses when he was afraid to go?",
+      },
+      middle: {
+        paragraphs: [
+          "Moses was tending the flock of his father-in-law Jethro when he came to Horeb. A bush burned without being consumed. Moses turned aside to investigate, and God called him by name from the bush.",
+          "Moses answered, and God warned him to stop and remove his sandals because the ground was holy. God identified himself as the God of Abraham, Isaac, and Jacob. Moses hid his face.",
+          "God said he had seen the suffering of his people, heard their cries, and come to rescue them from Egypt. He commissioned Moses to go to Pharaoh and bring the Israelites out. When Moses asked who he was to do such a thing, God promised to go with him.",
+          "Moses continued to ask questions, including what he should say if the people asked for God’s name. In Exodus 4 he also raised his difficulty with speaking. God said Aaron would speak with him and that God would teach them what to do.",
+        ],
+        question: "How does God’s answer in Exodus 3:12 respond to Moses’ question in verse 11?",
+      },
+      teen: {
+        paragraphs: [
+          "Exodus 3 opens with Moses keeping another person’s flock. The burning bush interrupts ordinary work, and the narrator notes that God calls after seeing Moses turn aside. Moses’ curiosity brings him to the edge of a place he is told is holy.",
+          "The instructions to stop and remove his sandals establish the seriousness of the encounter. God identifies himself in relation to Moses’ ancestors. Moses covers his face, and God begins speaking about the suffering of people in Egypt.",
+          "The movement from God seeing, hearing, and knowing the Israelites’ suffering to God sending Moses gives the commission its purpose. Moses questions his own standing. God responds with a promise of presence and a sign tied to what will happen after the people leave.",
+          "Moses asks what name he should give the Israelites. Later he doubts whether he can speak well enough. The conversation includes both resistance and practical help. Aaron is appointed to speak, and Moses still has a role in communicating the message.",
+        ],
+        question: "Compare Moses’ questions in Exodus 3:11 and 4:10. Which parts of God’s answers address Moses’ fear, and which still ask him to act?",
       },
     },
   },

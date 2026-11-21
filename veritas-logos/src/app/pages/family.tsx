@@ -1,25 +1,25 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { getPassage } from "../../core/bible";
 import { AGE_GROUPS, FAMILY_THEMES, type AgeGroup, type FamilyProfile, type FamilySettings } from "../../core/family";
-import { FAMILY_STORIES, type FamilyStory, type StoryActivity, type StoryImage } from "../../core/family-stories";
+import { FAMILY_STORIES, type FamilyStory, type StoryActivity } from "../../core/family-stories";
+import { STORY_COLLECTIONS } from "../../core/family-collections";
 import { FAMILY_VIDEO_CHANNELS, familyStoryVideos } from "../../core/family-videos";
 import { account, useAccount } from "../account";
 import { Loading, useAsync } from "../ui";
-import { FamilyArt, FAMILY_SPACES } from "./family-art";
+import { CraftArt, FamilyArt, FAMILY_SPACES } from "./family-art";
 import { FamilyResourceIndex, FamilyWorksheet, StoryResourceList } from "./family-worksheets";
 
 const previewId = (age: string) => `preview-${age}`;
 const kidsHash = (id: string, story?: string) => `#kids-${id}${story ? "/" + story : ""}`;
 const worksheetHash = (id: string, story: string) => `${kidsHash(id, story)}/worksheet`;
-const mediaPath = (file: string) => `family/${file}`;
 const defaultSettings: FamilySettings = { nickname: "", ageGroup: "young", theme: "ocean" };
 const uuid = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 const themeIcons = { ocean: "≈", orchard: "✿", grove: "❧" };
 const featuredStories: Record<AgeGroup, string[]> = {
-  young: ["creation", "noah", "david", "jonah", "galilee", "jesus-welcomes-children", "feeding-the-crowd", "resurrection"],
-  middle: ["joseph", "ruth", "jonah", "esther", "daniel", "samaritan", "prodigal-son", "feeding-the-crowd"],
-  teen: ["creation", "ruth", "esther", "daniel", "samaritan", "prodigal-son", "resurrection"],
+  young: ["creation", "noah", "burning-bush", "david", "jonah", "galilee", "jesus-welcomes-children", "feeding-the-crowd", "resurrection"],
+  middle: ["joseph", "burning-bush", "ruth", "jonah", "esther", "daniel", "samaritan", "prodigal-son", "feeding-the-crowd"],
+  teen: ["creation", "burning-bush", "ruth", "esther", "daniel", "samaritan", "prodigal-son", "resurrection"],
 };
 const welcomeStory = FAMILY_STORIES.find((story) => story.id === "noah")!;
 
@@ -71,7 +71,7 @@ export function FamilyPage() {
       </details>
       <details className="family-section family-media-credits">
         <summary>About the artwork and video</summary>
-        <p>Story Club and Bible Explorers use illustrations made for Veritas Logos. Teen studies also feature credited historical artwork and photography. Each story includes its media credits.</p>
+        <p>The story and activity illustrations were created for Veritas Logos. Watch links include the creator’s name.</p>
       </details>
       <section className="family-section">
         <h2>Activities for home</h2>
@@ -195,11 +195,6 @@ function ProfileForm({ owner, profile, onCancel, onSaved }: { owner: string; pro
   );
 }
 
-function ImageCredit({ image }: { image: StoryImage }) {
-  return <p>{image.credit}. <a href={image.source} target="_blank" rel="noopener noreferrer">Image source</a>{" · "}
-    <a href={image.licenseUrl} target="_blank" rel="noopener noreferrer">{image.license}</a>. Resized for display.</p>;
-}
-
 function StoryScripture({ reference }: { reference: string }) {
   const [expanded, setExpanded] = useState(false);
   const { data, loading } = useAsync(() => expanded ? getPassage("BSB", reference) : Promise.resolve(null), [expanded, reference]);
@@ -222,7 +217,7 @@ function StoryCheck({ activity }: { activity: StoryActivity }) {
   const [choice, setChoice] = useState<number | null>(null);
   return (
     <section className="kids-question kids-activity" aria-labelledby="story-activity-heading">
-      <h2 id="story-activity-heading">Try the activity</h2>
+      <h3 id="story-activity-heading">Check what you remember</h3>
       <p id="story-activity-prompt">{activity.prompt}</p>
       <div className="kids-answer-options" role="group" aria-labelledby="story-activity-prompt">
         {activity.options.map((label, index) => (
@@ -236,21 +231,25 @@ function StoryCheck({ activity }: { activity: StoryActivity }) {
 
 function StoryWatch({ storyId }: { storyId: string }) {
   const videos = familyStoryVideos(storyId);
-  if (!videos.length) return null;
-  return (
-    <section className="kids-watch" aria-labelledby="story-watch-title">
-      <h2 id="story-watch-title">Watch the story</h2>
-      <p>Videos open on YouTube. Younger children can watch with an adult.</p>
-      <ul className="kids-watch-list">
-        {videos.map((video) => <li key={video.id}>
-          <a className="kids-watch-link" href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer">
-            <span className="kids-watch-icon" aria-hidden="true">▶</span>
-            <span><strong>{video.title}</strong><small>{video.creator} · {video.format}</small></span>
-          </a>
-        </li>)}
-      </ul>
-    </section>
-  );
+  const [showAnimation, setShowAnimation] = useState(false);
+  return <>
+    {storyId === "burning-bush" && <details className="kids-original-short" onToggle={(event) => setShowAnimation(event.currentTarget.open)}>
+      <summary>The bush that kept burning · Veritas Logos animated short</summary>
+      {showAnimation && <video controls preload="metadata" playsInline aria-label="The bush that kept burning, a silent animated short with on-screen text">
+        <source src="family/burning-bush-short.mp4" type="video/mp4" />
+      </video>}
+      <p className="fine">A short, silent animation with on-screen story text.</p>
+    </details>}
+    <p>Creator links open on the publisher’s site or YouTube. Younger children can watch with an adult.</p>
+    <ul className="kids-watch-list">
+      {videos.map((video) => <li key={video.id}>
+        <a className="kids-watch-link" href={video.url ?? `https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer">
+          <span className="kids-watch-icon" aria-hidden="true">▶</span>
+          <span><strong>{video.title}</strong><small>{video.creator} · {video.format}</small></span>
+        </a>
+      </li>)}
+    </ul>
+  </>;
 }
 
 function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyProfile }) {
@@ -258,86 +257,85 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
   const [showAll, setShowAll] = useState(false);
   const edition = story.editions[profile.ageGroup];
   if (!edition) return null;
-  const { image, illustrations, video } = story;
+  const collection = STORY_COLLECTIONS[story.id];
+  const activity = collection?.play[profile.ageGroup];
+  const craft = collection?.craft;
+  const sections = ["Read", "Play", ...(craft ? ["Make"] : []), ...(familyStoryVideos(story.id).length ? ["Watch"] : [])];
   const storybook = profile.ageGroup !== "teen";
   const paged = storybook && !showAll;
   const last = edition.paragraphs.length - 1;
-  const sceneArt = profile.ageGroup === "middle" && paged ? illustrations?.find((item) => item.scene === scene) : undefined;
-  const historical = profile.ageGroup === "teen" ? image : undefined;
   return (
     <article className="kids-story">
       <a className="kids-back" href={kidsHash(profile.id)}>← All stories</a>
-      <div className="kids-detail-grid">
-        <header className="kids-story-heading">
-          <p className="kids-reference">{story.reference}</p>
-          <h1>{story.title}</h1>
-        </header>
-        <div className="kids-feature-art">
-          <figure className={paged ? "kids-paged-art" : undefined}>
-            {sceneArt ? <img src={mediaPath(sceneArt.file)} alt={sceneArt.alt} /> :
-              <FamilyArt story={story} age={profile.ageGroup} />}
-            {(sceneArt || historical) && <figcaption>{(sceneArt ?? historical)?.credit}</figcaption>}
-          </figure>
-          <StoryWatch storyId={story.id} />
+      <header className="kids-story-heading">
+        <p className="kids-reference">{story.reference}</p>
+        <h1>{story.title}</h1>
+      </header>
+      <nav className="kids-story-jump" aria-label="Story sections">
+        {sections.map((section) => <button key={section} className="kids-control" type="button" onClick={() => {
+          const heading = document.getElementById(`story-${section.toLowerCase()}`);
+          heading?.focus({ preventScroll: true });
+          heading?.scrollIntoView({ block: "start" });
+        }}>{section}</button>)}
+      </nav>
+      <section className="kids-story-section" aria-labelledby="story-read">
+        <h2 id="story-read" tabIndex={-1}>Read</h2>
+        <div className="kids-detail-grid">
+          <figure className="kids-feature-art"><FamilyArt story={story} age={profile.ageGroup} /></figure>
+          <div className="kids-story-body">
+            {paged ? (
+              <section className="kids-scene" aria-label="Story pages">
+                <div aria-live="polite" aria-atomic="true">
+                  <p className="kids-reference kids-scene-count">Page {scene + 1} of {last + 1}</p>
+                  <h3 className="kids-scene-title">{story.sceneTitles[scene]}</h3>
+                  <p className="kids-story-text">{edition.paragraphs[scene]}</p>
+                </div>
+                <div className="kids-scene-nav" role="group" aria-label="Story page controls">
+                  <button type="button" className="kids-control" disabled={scene === 0} onClick={() => setScene(scene - 1)}>Previous page</button>
+                  <button type="button" className="kids-control next" disabled={scene === last} onClick={() => setScene(scene + 1)}>Next page</button>
+                </div>
+              </section>
+            ) : edition.paragraphs.map((paragraph, index) => <section className="kids-reading-scene" key={story.sceneTitles[index]}>
+              <h3 className="kids-scene-title">{story.sceneTitles[index]}</h3>
+              <p className="kids-story-text">{paragraph}</p>
+            </section>)}
+            {storybook && <button type="button" className="kids-reading-mode" onClick={() => setShowAll(!showAll)}>
+              {showAll ? "Read page by page" : "Read the whole story"}
+            </button>}
+            {(!paged || scene === last) && <section className="kids-question">
+                <h3>{profile.ageGroup === "young" ? "Talk about it" : "Think it through"}</h3>
+                <p>{edition.question}</p>
+            </section>}
+            <StoryScripture reference={profile.ageGroup === "teen" ? story.teenReading ?? story.reading : story.reading} />
+          </div>
         </div>
-        <div className="kids-story-body">
-          {paged ? (
-            <section className="kids-scene" aria-label="Story pages">
-              <div aria-live="polite" aria-atomic="true">
-                <p className="kids-reference kids-scene-count">Page {scene + 1} of {last + 1}</p>
-                <h2 className="kids-scene-title">{story.sceneTitles[scene]}</h2>
-                <p className="kids-story-text">{edition.paragraphs[scene]}</p>
-              </div>
-              <div className="kids-scene-nav" role="group" aria-label="Story page controls">
-                <button type="button" className="kids-control" disabled={scene === 0} onClick={() => setScene(scene - 1)}>Previous page</button>
-                <button type="button" className="kids-control next" disabled={scene === last} onClick={() => setScene(scene + 1)}>Next page</button>
-              </div>
-            </section>
-          ) : edition.paragraphs.map((paragraph, index) => <section className="kids-reading-scene" key={story.sceneTitles[index]}>
-            <h2 className="kids-scene-title">{story.sceneTitles[index]}</h2>
-            <p className="kids-story-text">{paragraph}</p>
-          </section>)}
-          {storybook && <button type="button" className="kids-reading-mode" onClick={() => setShowAll(!showAll)}>
-            {showAll ? "Read page by page" : "Read the whole story"}
-          </button>}
-          {(!paged || scene === last) && <>
-            {storybook && <StoryCheck activity={story.activity} />}
-            <section className="kids-question">
-              <h2>{profile.ageGroup === "young" ? "Talk about it" : "Think it through"}</h2>
-              <p>{edition.question}</p>
-            </section>
-          </>}
-          <StoryScripture reference={profile.ageGroup === "teen" ? story.teenReading ?? story.reading : story.reading} />
-          <section className="kids-print-resources" aria-labelledby="story-resources-heading">
-            <h2 id="story-resources-heading">Print & resources</h2>
-            <StoryResourceList story={story} age={profile.ageGroup} worksheet={worksheetHash(profile.id, story.id)} />
-          </section>
+      </section>
+      <section className="kids-story-section kids-collection-panel" aria-labelledby="story-play">
+        <h2 id="story-play" tabIndex={-1}>Play</h2>
+        {activity && <div className="kids-offscreen-activity">
+          <h3>{activity.title}</h3>
+          <p>{activity.instructions}</p>
+        </div>}
+        {storybook && <StoryCheck activity={story.activity} />}
+        <StoryResourceList story={story} age={profile.ageGroup} worksheet={worksheetHash(profile.id, story.id)} />
+      </section>
+      {craft && <section className="kids-story-section kids-collection-panel" aria-labelledby="story-make">
+        <h2 id="story-make" tabIndex={-1}>Make</h2>
+        <div className="kids-craft">
+          <CraftArt tile={craft.artTile} alt={craft.artAlt} />
+          <div>
+            <h3>{craft.title}</h3>
+            <p className="kids-reference">About {craft.minutes} minutes</p>
+            <p><strong>Supplies</strong> · {craft.supplies.join(", ")}</p>
+            {profile.ageGroup === "young" && <p>Ask an adult to help with scissors and small supplies.</p>}
+            <ol>{craft.steps[profile.ageGroup].map((step) => <li key={step}>{step}</li>)}</ol>
+          </div>
         </div>
-        <div className="kids-story-media">
-          {video && <details className="kids-video">
-            <summary>Veritas Logos video recap and transcript</summary>
-            <video controls preload="none" playsInline poster={image && mediaPath(image.file)} aria-label={video.title}>
-              <source src={mediaPath(video.file)} type="video/mp4" />
-              <track kind="captions" src={mediaPath(video.captions)} label="English" srcLang="en" default />
-            </video>
-            <details><summary>Read the transcript</summary>{video.transcript.map((line) => <p key={line}>{line}</p>)}</details>
-          </details>}
-          {illustrations && <details className="kids-illustrations">
-            <summary>More illustrations</summary>
-            {illustrations.map((item) => <figure key={item.file}>
-              <img src={mediaPath(item.file)} alt={item.alt} loading="lazy" />
-              <figcaption>{item.credit}</figcaption>
-            </figure>)}
-          </details>}
-          <details className="family-media-credits">
-            <summary>Media credits</summary>
-            <p>Storybook and activity illustrations created for Veritas Logos.</p>
-            {image && <ImageCredit image={image} />}
-            {illustrations?.map((item) => <ImageCredit key={item.file} image={item} />)}
-            {video && <p>Story video by Veritas Logos with synthetic narration. The credited images are resized and combined with titles, narration, and captions. Video and captions are shared under <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 3.0</a>.</p>}
-          </details>
-        </div>
-      </div>
+      </section>}
+      {familyStoryVideos(story.id).length > 0 && <section className="kids-story-section kids-collection-panel kids-watch" aria-labelledby="story-watch">
+        <h2 id="story-watch" tabIndex={-1}>Watch</h2>
+        <StoryWatch storyId={story.id} />
+      </section>}
     </article>
   );
 }

@@ -3,7 +3,7 @@ import type { AgeGroup } from "./family";
 interface FamilyResource {
   title: string;
   provider: string;
-  format: "PDF lesson" | "Coloring page" | "Group activities" | "Video" | "Illustrated PDF" | "Read online";
+  format: "PDF lesson" | "Coloring page" | "Group activities" | "Video" | "Illustrated PDF" | "Read online" | "Parent-led lesson";
   url: string;
   audience: ReadonlyArray<AgeGroup>;
   detail?: string;
@@ -19,7 +19,23 @@ const markVideo: FamilyResource = {
   url: "https://bibleproject.com/videos/mark/", audience: ["teen"], detail: "Context for the whole Gospel",
 };
 
+const purple = (lesson: number): FamilyResource => ({
+  title: "Purple Curriculum parent-led lesson",
+  provider: "Purple Curriculum",
+  format: "Parent-led lesson",
+  url: `https://www.purplecurriculum.com/preschool-cms-1/${lesson}`,
+  audience: ["young"],
+  adultOnly: true,
+  detail: "Publisher ages 3–5. Some linked downloads have separate access requirements.",
+});
+
 const storyResources: Record<string, FamilyResource[]> = {
+  "burning-bush": [
+    purple(16),
+    trueway("Burning Bush printable lesson and craft", "burning-bush-5", "young", "Publisher ages 5–10"),
+    trueway("Burning Bush printable lesson and craft", "burning-bush-5", "middle", "Publisher ages 5–10"),
+    trueway("Burning Bush study for teens", "burning-bush-teens", "teen"),
+  ],
   david: [
     trueway("David and Goliath printable lesson", "david-and-goliath-5", "young", "Publisher age range 5–10"),
     trueway("David and Goliath study for preteens", "david-and-goliath-teen", "middle"),
@@ -59,6 +75,7 @@ const storyResources: Record<string, FamilyResource[]> = {
     },
   ],
   ruth: [
+    purple(27),
     trueway("Ruth printable lesson", "ruth-5", "young", "Publisher age range 5–10"),
     trueway("Ruth study for preteens", "ruth-teen", "middle"),
     trueway("Ruth study for teens", "ruth-teen", "teen"),
@@ -90,6 +107,7 @@ const storyResources: Record<string, FamilyResource[]> = {
     },
   ],
   noah: [
+    purple(4),
     trueway("Noah’s Ark printable lesson", "noah-5", "young", "Publisher age range 5–10"),
     trueway("God keeps his promises", "god-keeps-his-promises-bible-lesson-for-5-10-year-old", "middle", "Publisher age range 5–10"),
     trueway("Noah’s Ark teen study", "noah-teen", "teen", "Genesis 6–7"),
@@ -110,6 +128,7 @@ const storyResources: Record<string, FamilyResource[]> = {
     markVideo,
   ],
   samaritan: [
+    purple(70),
     trueway("The Good Samaritan printable lesson", "good-samaritan", "young", "Choose the age 5+ edition"),
     trueway("The Good Samaritan preteen study", "the-good-samaritan-preteens", "middle"),
     trueway("The Good Samaritan teen study", "good-samaritan-teen", "teen"),

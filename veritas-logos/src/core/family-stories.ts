@@ -4,8 +4,6 @@ import { NEW_FAMILY_STORIES } from "./family-story-expansion";
 
 interface StoryEdition { paragraphs: string[]; question: string }
 export interface StoryActivity { prompt: string; options: string[]; answer: number; explanation: string }
-export interface StoryImage { file: string; alt: string; credit: string; source: string; license: string; licenseUrl: string }
-interface StoryVideo { file: string; title: string; captions: string; transcript: string[] }
 export interface FamilyStory {
   id: string;
   title: string;
@@ -16,23 +14,9 @@ export interface FamilyStory {
   teenReading?: string;
   topic: string;
   drawPrompt: string;
-  image?: StoryImage;
-  illustrations?: (StoryImage & { scene: number })[];
-  video?: StoryVideo;
   activity: StoryActivity;
   editions: Partial<Record<AgeGroup, StoryEdition>>;
 }
-
-const publicDomain = {
-  license: "Public domain",
-  licenseUrl: "https://creativecommons.org/publicdomain/mark/1.0/",
-};
-
-const padgett = {
-  credit: "Jim Padgett, © 1984 · Distant Shores Media/Sweet Publishing",
-  license: "CC BY-SA 3.0",
-  licenseUrl: "https://creativecommons.org/licenses/by-sa/3.0/",
-};
 
 const existingStories: FamilyStory[] = [
   {
@@ -50,37 +34,6 @@ const existingStories: FamilyStory[] = [
       options: ["A feather", "An olive leaf", "A piece of wood"],
       answer: 1,
       explanation: "The olive leaf helped Noah see that the water was going down.",
-    },
-    image: {
-      ...publicDomain,
-      file: "noah.webp",
-      alt: "Pairs of animals gather beside a large wooden ark beneath storm clouds.",
-      credit: "Noah’s Ark, Edward Hicks, 1846 · Philadelphia Museum of Art",
-      source: "https://commons.wikimedia.org/wiki/File:Edward_Hicks,_American_-_Noah%27s_Ark_-_Google_Art_Project.jpg",
-    },
-    illustrations: [
-      {
-        ...padgett,
-        file: "noah-illustration.webp", scene: 3,
-        alt: "Noah reaches toward a dove from a window in the ark.",
-        source: "https://commons.wikimedia.org/wiki/File:Book_of_Genesis_Chapter_8-9_(Bible_Illustrations_by_Sweet_Media).jpg",
-      },
-      {
-        ...padgett,
-        file: "noah-rainbow.webp", scene: 4,
-        alt: "Noah and his family see a rainbow in the sky.",
-        source: "https://commons.wikimedia.org/wiki/File:Book_of_Genesis_Chapter_9-4_(Bible_Illustrations_by_Sweet_Media).jpg",
-      },
-    ],
-    video: {
-      file: "noah-story.mp4",
-      title: "Noah and the ark in three scenes",
-      captions: "noah-story.vtt",
-      transcript: [
-        "God told Noah to build an ark. Noah did what God asked.",
-        "After the rain stopped, Noah sent out a dove. It brought back an olive leaf.",
-        "God set a rainbow in the sky as a sign of his promise to all living things.",
-      ],
     },
     editions: {
       young: {
@@ -131,14 +84,6 @@ const existingStories: FamilyStory[] = [
       answer: 0,
       explanation: "Jesus spoke to the wind and waves, and the storm became calm.",
     },
-    image: {
-      file: "galilee.webp",
-      alt: "A view of the Sea of Galilee from the hills at Gamla.",
-      credit: "The Sea of Galilee as seen from Gamla · Davidbena",
-      source: "https://commons.wikimedia.org/wiki/File:Sea_of_Galilee_(xxx).jpg",
-      license: "CC BY-SA 4.0",
-      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
-    },
     editions: {
       young: {
         paragraphs: [
@@ -183,13 +128,6 @@ const existingStories: FamilyStory[] = [
       options: ["He walked past", "He told him to stand up", "He cared for him and took him to an inn"],
       answer: 2,
       explanation: "The Samaritan stayed with the wounded traveler and made sure someone would look after him.",
-    },
-    image: {
-      ...publicDomain,
-      file: "samaritan.webp",
-      alt: "The Samaritan supports an injured traveler as he lifts him onto a horse.",
-      credit: "The Good Samaritan (after Delacroix), Vincent van Gogh, 1890 · Kröller-Müller Museum",
-      source: "https://commons.wikimedia.org/wiki/File:Vincent_van_Gogh_-_The_Good_Samaritan,_1890_-_Google_Art_Project.jpg",
     },
     editions: {
       young: {
@@ -236,13 +174,6 @@ const existingStories: FamilyStory[] = [
       answer: 0,
       explanation: "Jesus welcomed the children, took them in his arms, and blessed them.",
     },
-    image: {
-      ...publicDomain,
-      file: "jesus-welcomes-children.webp",
-      alt: "Jesus holds a child while other children and their families gather around him.",
-      credit: "Christ Blessing the Children, Lucas Cranach the Elder · Städel Museum",
-      source: "https://commons.wikimedia.org/wiki/File:Lucas_Cranach_the_Elder_Christ_blessing_the_Children,_Frankfurt_am_Main,_St%C3%A4del_Museum.jpg",
-    },
     editions: {
       young: {
         paragraphs: [
@@ -288,13 +219,6 @@ const existingStories: FamilyStory[] = [
       options: ["He hid inside", "He ran to meet him", "He sent him away"],
       answer: 1,
       explanation: "The father saw his son from far away, ran to him, and hugged him.",
-    },
-    image: {
-      ...publicDomain,
-      file: "prodigal-son.webp",
-      alt: "A father places both hands on his kneeling son’s shoulders as others look on.",
-      credit: "The Return of the Prodigal Son, Rembrandt · State Hermitage Museum",
-      source: "https://commons.wikimedia.org/wiki/File:Rembrandt_-_The_Return_of_the_Prodigal_Son_-_WGA19133.jpg",
     },
     editions: {
       young: {
