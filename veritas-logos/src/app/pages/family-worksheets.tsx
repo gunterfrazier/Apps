@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AGE_GROUPS, type AgeGroup } from "../../core/family";
 import { getFamilyResources } from "../../core/family-resources";
 import { FAMILY_STORIES, type FamilyStory } from "../../core/family-stories";
+import { FamilyArt } from "./family-art";
 
 export function StoryResourceList({ story, age, worksheet, forAdults = false }: {
   story: FamilyStory;
@@ -13,7 +14,7 @@ export function StoryResourceList({ story, age, worksheet, forAdults = false }: 
   return <ul className="story-resource-list">
     <li>
       <a href={worksheet}>Open Veritas Logos worksheet</a>
-      <span>Print or save as PDF</span>
+      <span>{age === "young" ? "Coloring page" : age === "middle" ? "Illustrated story activity" : "Scripture study sheet"} · Print or save as PDF</span>
     </li>
     {resources.map((item) => (
       <li key={item.url}>
@@ -48,13 +49,13 @@ export function FamilyResourceIndex({ worksheetLink }: { worksheetLink: (story: 
 }
 
 function WorksheetPrompt({ heading, prompt, lines = 2 }: { heading: string; prompt: string; lines?: number }) {
-  return <section>
+  return <div className="worksheet-prompt">
     <h2>{heading}</h2>
     <p>{prompt}</p>
     <div className="worksheet-lines" aria-hidden="true">
       {Array.from({ length: lines }, (_, index) => <div key={index} />)}
     </div>
-  </section>;
+  </div>;
 }
 
 export function FamilyWorksheet({ story, age, back }: { story: FamilyStory; age: AgeGroup; back: string }) {
@@ -82,18 +83,25 @@ export function FamilyWorksheet({ story, age, back }: { story: FamilyStory; age:
       <p><strong>Topic</strong> {story.topic}</p>
       {age === "young" ? <>
         <section>
-          <h2>Draw the story</h2>
+          <h2>Color the story</h2>
           <p>{story.drawPrompt}</p>
-          <div className="worksheet-drawing" aria-hidden="true" />
+          <figure className="worksheet-coloring"><FamilyArt story={story} age={age} variant="ink" /></figure>
         </section>
         <WorksheetPrompt heading="Remember" prompt={story.activity.prompt} lines={1} />
         <WorksheetPrompt heading="Talk together" prompt={edition.question} lines={0} />
       </> : age === "middle" ? <>
-        <WorksheetPrompt heading="Retell the beginning" prompt="Who is in this story? Write what happens first." />
+        <section className="worksheet-art-prompt">
+          <FamilyArt story={story} age={age} grayscale />
+          <WorksheetPrompt heading="Spot the detail" prompt="Circle a detail in the picture. Explain how it helps you retell this part of the story." lines={2} />
+        </section>
         <WorksheetPrompt heading="Remember a detail" prompt={story.activity.prompt} />
         <WorksheetPrompt heading="Talk together" prompt={edition.question} lines={3} />
       </> : <>
-        <WorksheetPrompt heading="Observe" prompt="Choose a detail that stands out. Write it down with a verse reference." lines={3} />
+        <section className="worksheet-art-prompt">
+          <FamilyArt story={story} age={age} />
+          <WorksheetPrompt heading="Compare the art and the text" prompt="What moment did the artist choose? Cite a verse and describe a detail that the words add to the image." lines={3} />
+        </section>
+        {story.image && <p className="worksheet-credit">{story.image.credit}</p>}
         <WorksheetPrompt heading="Reflect" prompt={edition.question} lines={3} />
         <WorksheetPrompt heading="Apply" prompt="Describe one action or conversation this passage could lead to this week." lines={3} />
       </>}

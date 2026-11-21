@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { getPassage } from "../../core/bible";
-import { AGE_GROUPS, FAMILY_THEMES, type FamilyProfile, type FamilySettings } from "../../core/family";
+import { AGE_GROUPS, FAMILY_THEMES, type AgeGroup, type FamilyProfile, type FamilySettings } from "../../core/family";
 import { FAMILY_STORIES, type FamilyStory, type StoryActivity, type StoryImage } from "../../core/family-stories";
 import { FAMILY_VIDEO_CHANNELS, familyStoryVideos } from "../../core/family-videos";
 import { account, useAccount } from "../account";
 import { Loading, useAsync } from "../ui";
+import { FamilyArt, FAMILY_SPACES } from "./family-art";
 import { FamilyResourceIndex, FamilyWorksheet, StoryResourceList } from "./family-worksheets";
 
 const previewId = (age: string) => `preview-${age}`;
@@ -13,6 +14,14 @@ const worksheetHash = (id: string, story: string) => `${kidsHash(id, story)}/wor
 const mediaPath = (file: string) => `family/${file}`;
 const defaultSettings: FamilySettings = { nickname: "", ageGroup: "young", theme: "ocean" };
 const uuid = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+const themeIcons = { ocean: "≈", orchard: "✿", grove: "❧" };
+const featuredStories: Record<AgeGroup, string[]> = {
+  young: ["creation", "noah", "david", "jonah", "galilee", "jesus-welcomes-children", "feeding-the-crowd", "resurrection"],
+  middle: ["joseph", "ruth", "jonah", "esther", "daniel", "samaritan", "prodigal-son", "feeding-the-crowd"],
+  teen: ["creation", "ruth", "esther", "daniel", "samaritan", "prodigal-son", "resurrection"],
+};
+const welcomeStory = FAMILY_STORIES.find((story) => story.id === "noah")!;
 
 export function FamilyPage() {
   const { status, user } = useAccount();
@@ -29,7 +38,7 @@ export function FamilyPage() {
             heading?.scrollIntoView({ block: "start" });
           }}>Browse by age</button>
         </div>
-        <img src={mediaPath("noah.webp")} alt="Animals gather around Noah’s ark in Edward Hicks’s painting." />
+        <div className="family-welcome-art"><FamilyArt story={welcomeStory} age="young" /></div>
       </section>
       <section className="family-section" aria-labelledby="family-profiles-title">
         <h2 id="family-profiles-title">Family profiles</h2>
@@ -43,7 +52,9 @@ export function FamilyPage() {
         <div className="family-age-grid">
           {AGE_GROUPS.map((group) => (
             <a key={group.id} className={`family-age-card family-age-${group.id}`} href={kidsHash(previewId(group.id))}>
-              <strong>{group.label}</strong><span>{group.description}</span>
+              <span className="family-age-icon" aria-hidden="true">{FAMILY_SPACES[group.id].icon}</span>
+              <strong>{FAMILY_SPACES[group.id].name}</strong>
+              <span>{group.label} · {group.description}</span>
             </a>
           ))}
         </div>
@@ -60,7 +71,7 @@ export function FamilyPage() {
       </details>
       <details className="family-section family-media-credits">
         <summary>About the artwork and video</summary>
-        <p>The first collection pairs Bible stories with paintings, book illustrations, a photograph of the Sea of Galilee, and a captioned story video. Each story includes its media credits.</p>
+        <p>Story Club and Bible Explorers use illustrations made for Veritas Logos. Teen studies also feature credited historical artwork and photography. Each story includes its media credits.</p>
       </details>
       <section className="family-section">
         <h2>Activities for home</h2>
@@ -105,10 +116,13 @@ function FamilyProfiles({ owner }: { owner: string }) {
     {data.length === 0 && <p>Create your first profile with a nickname, an age group, and a favorite color.</p>}
     <div className="family-profile-grid">
       {data.map((profile) => (
-        <article className="family-profile-card" key={profile.id}>
-          <div>
-            <h3>{profile.nickname}</h3>
-            <p className="fine">{AGE_GROUPS.find((group) => group.id === profile.ageGroup)?.label}</p>
+        <article className="family-profile-card" key={profile.id} data-profile-theme={profile.theme}>
+          <div className="family-profile-identity">
+            <span className="family-profile-avatar" aria-hidden="true">{themeIcons[profile.theme]}</span>
+            <div>
+              <h3>{profile.nickname}</h3>
+              <p className="fine">{FAMILY_SPACES[profile.ageGroup].name} · {AGE_GROUPS.find((group) => group.id === profile.ageGroup)?.label}</p>
+            </div>
           </div>
           <div className="action-row">
             <a className="btn primary" href={kidsHash(profile.id)} aria-label={`Open ${profile.nickname}’s profile`}>Open profile</a>
@@ -159,12 +173,19 @@ function ProfileForm({ owner, profile, onCancel, onSaved }: { owner: string; pro
           {AGE_GROUPS.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
         </select>
       </label>
-      <label className="family-field">Color theme
-        <select className="input" value={settings.theme}
-          onChange={(event) => setSettings({ ...settings, theme: event.target.value as FamilySettings["theme"] })}>
-          {FAMILY_THEMES.map((theme) => <option key={theme.id} value={theme.id}>{theme.label}</option>)}
-        </select>
-      </label>
+      <fieldset className="family-theme-field">
+        <legend>Choose a theme</legend>
+        <div className="family-theme-grid">
+          {FAMILY_THEMES.map((theme) => (
+            <label key={theme.id} className="family-theme-option" data-profile-theme={theme.id}>
+              <input type="radio" name="family-theme" value={theme.id} checked={settings.theme === theme.id}
+                onChange={() => setSettings({ ...settings, theme: theme.id })} />
+              <span className="family-profile-avatar" aria-hidden="true">{themeIcons[theme.id]}</span>
+              <span>{theme.label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <div className="action-row">
         <button className="btn primary" type="submit" disabled={busy || !settings.nickname.trim()}>Save profile</button>
         <button className="btn" type="button" disabled={busy} onClick={onCancel}>Cancel</button>
@@ -241,7 +262,8 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
   const storybook = profile.ageGroup !== "teen";
   const paged = storybook && !showAll;
   const last = edition.paragraphs.length - 1;
-  const art = paged ? illustrations?.find((item) => item.scene === scene) ?? image : image;
+  const sceneArt = profile.ageGroup === "middle" && paged ? illustrations?.find((item) => item.scene === scene) : undefined;
+  const historical = profile.ageGroup === "teen" ? image : undefined;
   return (
     <article className="kids-story">
       <a className="kids-back" href={kidsHash(profile.id)}>← All stories</a>
@@ -252,8 +274,9 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
         </header>
         <div className="kids-feature-art">
           <figure className={paged ? "kids-paged-art" : undefined}>
-            <img src={mediaPath(art.file)} alt={art.alt} />
-            <figcaption>{art.credit}</figcaption>
+            {sceneArt ? <img src={mediaPath(sceneArt.file)} alt={sceneArt.alt} /> :
+              <FamilyArt story={story} age={profile.ageGroup} />}
+            {(sceneArt || historical) && <figcaption>{(sceneArt ?? historical)?.credit}</figcaption>}
           </figure>
           <StoryWatch storyId={story.id} />
         </div>
@@ -293,7 +316,7 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
         <div className="kids-story-media">
           {video && <details className="kids-video">
             <summary>Veritas Logos video recap and transcript</summary>
-            <video controls preload="none" playsInline poster={mediaPath(image.file)} aria-label={video.title}>
+            <video controls preload="none" playsInline poster={image && mediaPath(image.file)} aria-label={video.title}>
               <source src={mediaPath(video.file)} type="video/mp4" />
               <track kind="captions" src={mediaPath(video.captions)} label="English" srcLang="en" default />
             </video>
@@ -308,7 +331,8 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
           </details>}
           <details className="family-media-credits">
             <summary>Media credits</summary>
-            <ImageCredit image={image} />
+            <p>Storybook and activity illustrations created for Veritas Logos.</p>
+            {image && <ImageCredit image={image} />}
             {illustrations?.map((item) => <ImageCredit key={item.file} image={item} />)}
             {video && <p>Story video by Veritas Logos with synthetic narration. The credited images are resized and combined with titles, narration, and captions. Video and captions are shared under <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 3.0</a>.</p>}
           </details>
@@ -318,10 +342,30 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
   );
 }
 
+function StoryCards({ stories, profile }: { stories: FamilyStory[]; profile: FamilyProfile }) {
+  return <div className="kids-grid">
+    {stories.map((story) => (
+      <a className="kids-card" key={story.id} href={kidsHash(profile.id, story.id)}>
+        <FamilyArt story={story} age={profile.ageGroup} decorative />
+        <div>
+          <p className="kids-reference">{story.reference}</p>
+          <h3>{story.title}</h3>
+          <p>{story.topic}</p>
+          <span className="kids-card-action" aria-hidden="true">{FAMILY_SPACES[profile.ageGroup].action} →</span>
+        </div>
+      </a>
+    ))}
+  </div>;
+}
+
 function KidsStories({ profile, storyId, worksheet }: { profile: FamilyProfile; storyId?: string; worksheet: boolean }) {
   const group = AGE_GROUPS.find(({ id }) => id === profile.ageGroup);
   const stories = FAMILY_STORIES.filter((story) => story.editions[profile.ageGroup]);
   const story = stories.find(({ id }) => id === storyId);
+  const featuredIds = featuredStories[profile.ageGroup];
+  const featured = featuredIds.map((id) => stories.find((entry) => entry.id === id)).filter((entry) => entry !== undefined);
+  const more = stories.filter((entry) => !featuredIds.includes(entry.id));
+  const space = FAMILY_SPACES[profile.ageGroup];
   return (
     <div className={`kids-app kids-${profile.ageGroup}`} data-kids-theme={profile.theme}>
       <header className="kids-header">
@@ -332,33 +376,29 @@ function KidsStories({ profile, storyId, worksheet }: { profile: FamilyProfile; 
         {story && worksheet ? <FamilyWorksheet story={story} age={profile.ageGroup} back={kidsHash(profile.id, story.id)} /> :
           story ? <StoryDetail story={story} profile={profile} /> : (
           <>
-            <header className="kids-intro">
-              <p className="kids-reference">{group?.label}</p>
-              <h1>{profile.nickname ? `${profile.nickname}’s stories` : profile.ageGroup === "teen" ? "Bible stories and studies" : "Bible stories"}</h1>
-              <p>{group?.description}</p>
+            <header className="kids-intro" data-profile-theme={profile.nickname ? profile.theme : undefined}>
+              <span className="kids-space-icon" aria-hidden="true">{profile.nickname ? themeIcons[profile.theme] : space.icon}</span>
+              <div>
+                <p className="kids-reference">{group?.label}</p>
+                <h1>{profile.nickname ? `${profile.nickname}’s ${space.name}` : space.name}</h1>
+                <p>{group?.description}</p>
+              </div>
             </header>
             {storyId && <p role="status">That story is unavailable in this age group. Choose a story below.</p>}
             {(["old", "new"] as const).map((testament) => {
-              const matches = stories.filter((entry) => entry.testament === testament);
+              const matches = featured.filter((entry) => entry.testament === testament);
               if (!matches.length) return null;
               return (
                 <section className="kids-catalog-section" key={testament} aria-labelledby={`kids-${testament}-testament`}>
                   <h2 id={`kids-${testament}-testament`}>{testament === "old" ? "Old Testament" : "New Testament"}</h2>
-                  <div className="kids-grid">
-                    {matches.map((entry) => (
-                      <a className="kids-card" key={entry.id} href={kidsHash(profile.id, entry.id)}>
-                        <img src={mediaPath(entry.image.file)} alt="" loading="lazy" />
-                        <div>
-                          <p className="kids-reference">{entry.reference}</p>
-                          <h3>{entry.title}</h3>
-                          <p>{entry.topic}</p>
-                        </div>
-                      </a>
-                    ))}
-                  </div>
+                  <StoryCards stories={matches} profile={profile} />
                 </section>
               );
             })}
+            {more.length > 0 && <details className="kids-more-stories">
+              <summary>More stories ({more.length})</summary>
+              <StoryCards stories={more} profile={profile} />
+            </details>}
           </>
         )}
       </main>

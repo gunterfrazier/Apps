@@ -11,7 +11,7 @@ export const NEW_FAMILY_STORIES: FamilyStory[] = [
     reading: "Genesis 1:1–13; Genesis 2:1–3",
     teenReading: "Genesis 1:1–2:3",
     topic: "Creation and care",
-    drawPrompt: "Draw a sky, a sea, and a piece of land. Fill each part with something from the story.",
+    drawPrompt: "Color the sky, the sea, and the land. Draw one more thing God made.",
     sceneTitles: ["Light in the darkness", "Sky, seas, and land", "A world filled with life", "A day of rest"],
     image: {
       ...publicDomain, file: "creation.webp", alt: "A bright opening appears above dark water in a swirling sky.",
@@ -61,7 +61,7 @@ export const NEW_FAMILY_STORIES: FamilyStory[] = [
     reading: "Genesis 37:3–11; Genesis 41:53–57; Genesis 45:1–11",
     teenReading: "Genesis 37:18–28; Genesis 41:25–36; Genesis 44:18–34; Genesis 45:1–15",
     topic: "Jealousy, courage, and forgiveness",
-    drawPrompt: "Draw Joseph seeing his brothers again in Egypt. Show something that tells you how he feels.",
+    drawPrompt: "Give Joseph’s coat bright stripes. Choose a different color for each stripe.",
     sceneTitles: ["The coat and the dreams", "Far from home", "A plan for the years of hunger", "Joseph reveals his name"],
     image: {
       file: "joseph.webp", alt: "Joseph reveals who he is to his brothers in Egypt.",
@@ -112,7 +112,7 @@ export const NEW_FAMILY_STORIES: FamilyStory[] = [
     reading: "Ruth 1:14–18; Ruth 2:8–18; Ruth 4:13–17",
     teenReading: "Ruth 1:6–18; Ruth 2:5–16; Ruth 4:1–17",
     topic: "Loyalty and practical kindness",
-    drawPrompt: "Draw Ruth gathering grain and taking it home to Naomi.",
+    drawPrompt: "Color the barley that Ruth gathers. Draw a basket for the grain she brings home.",
     sceneTitles: ["Naomi prepares to leave", "Ruth chooses to stay", "Grain in the field", "A family after harvest"],
     image: {
       ...publicDomain, file: "ruth.webp", alt: "Ruth meets Boaz among the people harvesting his field.",
@@ -162,7 +162,7 @@ export const NEW_FAMILY_STORIES: FamilyStory[] = [
     reading: "John 6:1–13",
     teenReading: "John 6:1–15; John 6:26–35",
     topic: "Jesus provides for the crowd",
-    drawPrompt: "Draw five loaves, two fish, and a basket for the food left over.",
+    drawPrompt: "Color the bread and fish. Draw another basket for the food left over.",
     sceneTitles: ["The crowd on the hillside", "The boy’s food", "Everyone has enough", "Twelve baskets"],
     image: {
       ...publicDomain, file: "feeding-the-crowd.webp", alt: "A large crowd spread across a hillside beside the Sea of Galilee.",
@@ -212,7 +212,7 @@ export const NEW_FAMILY_STORIES: FamilyStory[] = [
     reading: "Matthew 28:1–10",
     teenReading: "Matthew 27:57–66; Matthew 28:1–10",
     topic: "Resurrection and hope",
-    drawPrompt: "Draw the stone rolled away and the women hurrying to tell the others what they saw.",
+    drawPrompt: "Color the empty tomb. Draw the morning sun above the stone that was rolled away.",
     sceneTitles: ["Early at the tomb", "The stone is moved", "Fear and joy", "Jesus meets them"],
     image: {
       ...publicDomain, file: "resurrection.webp", alt: "Mary Magdalene and other women come to the tomb.",

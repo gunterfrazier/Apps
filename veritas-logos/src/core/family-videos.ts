@@ -17,6 +17,10 @@ export const FAMILY_VIDEO_CHANNELS = [
 ];
 
 const videosByStory: Record<string, StoryVideoLink[]> = {
+  david: [{ id: "QOznv1uhn0M", title: "David and Goliath", creator: "Minno Kids", format: "Animated retelling" }],
+  jonah: [saddleback("WOSadLyqshg", "Jonah and the Fish")],
+  esther: [saddleback("D3lsMSEEuG4", "Esther’s Request to the King")],
+  daniel: [{ id: "eywIAaKaHUU", title: "Daniel and the Lions’ Den", creator: "Minno Kids", format: "Animated retelling" }],
   noah: [
     saddleback("qzYjy6lhRag", "Noah and the Flood"),
     { id: "l1vSBNmKrSI", title: "Noah’s Ark", creator: "VeggieTales Official", format: "Musical adaptation" },

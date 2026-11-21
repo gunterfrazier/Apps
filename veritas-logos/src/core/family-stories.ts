@@ -1,4 +1,5 @@
 import type { AgeGroup } from "./family";
+import { MORE_FAMILY_STORIES } from "./family-story-more";
 import { NEW_FAMILY_STORIES } from "./family-story-expansion";
 
 interface StoryEdition { paragraphs: string[]; question: string }
@@ -15,7 +16,7 @@ export interface FamilyStory {
   teenReading?: string;
   topic: string;
   drawPrompt: string;
-  image: StoryImage;
+  image?: StoryImage;
   illustrations?: (StoryImage & { scene: number })[];
   video?: StoryVideo;
   activity: StoryActivity;
@@ -43,7 +44,7 @@ const existingStories: FamilyStory[] = [
     reading: "Genesis 8:6–12; Genesis 9:8–17",
     teenReading: "Genesis 6:11–22; Genesis 9:8–17",
     topic: "Trust and promises",
-    drawPrompt: "Draw Noah watching for the dove. Add the olive leaf in its beak.",
+    drawPrompt: "Color the ark, the animals, and the rainbow. Draw a dove carrying a leaf nearby.",
     activity: {
       prompt: "What did the dove bring back to Noah?",
       options: ["A feather", "An olive leaf", "A piece of wood"],
@@ -123,7 +124,7 @@ const existingStories: FamilyStory[] = [
     reading: "Mark 4:35–41",
     teenReading: "Mark 4:35–41; Psalm 107:23–30",
     topic: "Fear and faith",
-    drawPrompt: "Draw the boat on the lake. Show what changed after Jesus spoke.",
+    drawPrompt: "Color the boat and the waves. Draw a patch of calm water where the storm has passed.",
     activity: {
       prompt: "What did Jesus do when his friends woke him?",
       options: ["He spoke to the wind and waves", "He asked them to swim", "He put up the sail"],
@@ -176,7 +177,7 @@ const existingStories: FamilyStory[] = [
     reference: "Luke 10:25–37",
     reading: "Luke 10:25–37",
     topic: "Mercy and neighbors",
-    drawPrompt: "Draw the Samaritan helping the traveler reach a safe place.",
+    drawPrompt: "Color the traveler, the Samaritan, and the donkey. Draw a path to a safe place.",
     activity: {
       prompt: "How did the Samaritan help the traveler?",
       options: ["He walked past", "He told him to stand up", "He cared for him and took him to an inn"],
@@ -228,7 +229,7 @@ const existingStories: FamilyStory[] = [
     reference: "Mark 10:13–16",
     reading: "Mark 10:13–16",
     topic: "Welcome and belonging",
-    drawPrompt: "Draw Jesus welcoming the children. Show how their faces might look.",
+    drawPrompt: "Color Jesus and the children. Draw a flower for each child you can find.",
     activity: {
       prompt: "How did Jesus respond when people brought children to him?",
       options: ["He welcomed and blessed them", "He told them to wait outside", "He asked them to come back when they were older"],
@@ -281,7 +282,7 @@ const existingStories: FamilyStory[] = [
     reading: "Luke 15:11–24",
     teenReading: "Luke 15:11–32",
     topic: "Forgiveness and joy",
-    drawPrompt: "Draw the father seeing his son on the road. Show what he did next.",
+    drawPrompt: "Color the father and his son. Draw a path to the father’s house.",
     activity: {
       prompt: "What did the father do when he saw his son coming home?",
       options: ["He hid inside", "He ran to meet him", "He sent him away"],
@@ -327,4 +328,4 @@ const existingStories: FamilyStory[] = [
   },
 ];
 
-export const FAMILY_STORIES: FamilyStory[] = [...NEW_FAMILY_STORIES, ...existingStories];
+export const FAMILY_STORIES: FamilyStory[] = [...NEW_FAMILY_STORIES, ...existingStories, ...MORE_FAMILY_STORIES];

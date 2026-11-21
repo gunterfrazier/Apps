@@ -20,6 +20,22 @@ const markVideo: FamilyResource = {
 };
 
 const storyResources: Record<string, FamilyResource[]> = {
+  david: [
+    trueway("David and Goliath printable lesson", "david-and-goliath-5", "young", "Publisher age range 5–10"),
+    trueway("David and Goliath study for preteens", "david-and-goliath-teen", "middle"),
+  ],
+  jonah: [
+    trueway("Jonah and the great fish printable lesson", "jonah", "young", "Choose the age 5+ edition"),
+    trueway("Jonah study for preteens", "jonah-teens", "middle", "Includes all four chapters"),
+  ],
+  esther: [
+    trueway("Esther study for preteens", "esther-teens", "middle"),
+    trueway("Esther study for teens", "esther-teens", "teen"),
+  ],
+  daniel: [
+    trueway("Daniel and the lions’ den study for preteens", "daniel-teens", "middle"),
+    trueway("Daniel and the lions’ den study for teens", "daniel-teens", "teen"),
+  ],
   creation: [
     trueway("Creation printable lesson", "creation-bible-lesson-for-children-5-10-years-old", "young", "Publisher age range 5–10"),
     trueway("Creation study for preteens", "creation-genesis-1-teen", "middle"),
