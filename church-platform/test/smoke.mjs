@@ -264,6 +264,66 @@ await step("security communications dock", async () => {
   await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
   await sheetGone();
 });
+await step("security roles and approvals", async () => {
+  await goTo("me");
+  await page.click("[data-act=demo-role]");
+  await page.click('#scrim [data-act=demo-role-set][data-id="admin"]');
+  await sheetGone();
+  const original = await page.evaluate(() => structuredClone(__app.S.state));
+  await goTo("security-access");
+  await page.selectOption("#security-assignee", "u-marcus");
+  await page.click('[data-act="security-edit-access"]');
+  await page.selectOption('#scrim select[name="role"]', "supervisor");
+  await page.selectOption('#scrim select[name="maxLevel"]', "2");
+  await sheetSubmit();
+  await sheetGone();
+  await expectText("Direct limit: Level 2");
+  await page.selectOption("#security-assignee", "u-linda");
+  await page.click('[data-act="security-edit-access"]');
+  await page.selectOption('#scrim select[name="role"]', "head");
+  await sheetSubmit();
+  await sheetGone();
+
+  const switchUser = (id) => page.evaluate((id) => {
+    const { S } = __app;
+    S.state.me = { ...S.me(), id, name: S.userName(id) };
+    __app.render();
+  }, id);
+  const declare = async (level) => {
+    await goTo("security");
+    await page.locator(".sec-protocol-options summary").click();
+    await page.click(`.sec-protocol-options [data-act="sec-activate-level"][data-level="${level}"]`);
+    await page.click('#scrim [data-act="security-confirm-level"]');
+    await sheetGone();
+  };
+  try {
+    await switchUser("u-marcus");
+    await goTo("security-drill");
+    await page.waitForURL(/#security$/);
+    await declare(4);
+    if (await page.evaluate(() => !!__app.S.church().activeAlert)) throw new Error("a declaration above the limit activated before review");
+    await goTo("security-access");
+    await expectText("Awaiting review");
+    if (await page.locator('[data-act="security-review-request"]').count()) throw new Error("a supervisor could review their own request");
+    await declare(2);
+    if (await page.evaluate(() => __app.S.church().activeAlert?.level) !== 2) throw new Error("a declaration within the limit did not activate");
+    await switchUser("u-linda");
+    await goTo("security-access");
+    await page.click('[data-act="security-review-request"]');
+    await page.click('#scrim [data-choice="approve"]');
+    await sheetGone();
+    if (await page.evaluate(() => __app.S.church().activeAlert?.level) !== 4) throw new Error("approval did not activate the requested level");
+    await expectText("Approved");
+    await page.click('[data-act="sec-all-clear"]');
+    if (await page.evaluate(() => !!__app.S.church().activeAlert)) throw new Error("head of security could not issue all clear");
+  } finally {
+    await page.evaluate((state) => { __app.S.state = state; __app.S.flush(); }, original);
+    await goTo("me");
+    await page.click("[data-act=demo-role]");
+    await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
+    await sheetGone();
+  }
+});
 await step("campus filter", async () => {
   await goTo("home"); await page.click(".home-top [data-act=pick-campus]");
   await page.click('#scrim [data-id="riverside-east"]');

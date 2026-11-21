@@ -341,7 +341,7 @@ function ownerOf(kind, r) {
 function blankState() {
   const s = buildSeed();
   for (const k of Object.keys(s)) { if (Array.isArray(s[k])) s[k] = []; else if (k !== "me" && s[k] && typeof s[k] === "object") s[k] = {}; }
-  return Object.assign(s, { current: null, me: { id: Backend.user?.id || "", name: "", email: Backend.user?.email || "", phone: "", household: [], pickups: [] } });
+  return Object.assign(s, { current: null, securityProtocolRequests: [], securityAccessAssignments: [], me: { id: Backend.user?.id || "", name: "", email: Backend.user?.email || "", phone: "", household: [], pickups: [] } });
 }
 
 // ----- Signing in: new people confirm their email with a code, then choose a name and password; after that, email and password -----
