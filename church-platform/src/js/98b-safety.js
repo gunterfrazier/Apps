@@ -13,8 +13,9 @@
 const SECURITY_ROLES_DEFAULT = ["admin", "pastor", "staff"];
 
 function isSecurityMember(userId = S.me().id, cid = S.state.current) {
-  if (!S.isMember(cid)) return false;
   if (S.isPrimary(cid, userId)) return true;
+  if (!S.membership(cid, userId)) return false;
+  if (securityAssignment(userId, cid)?.role) return true;
   const r = S.role(cid, userId);
   // Matches on_security_team() in upgrade-15.sql: the Security team permission, church admins, or a security,
   // safety, medical, first aid, greeter or usher team.
@@ -23,8 +24,38 @@ function isSecurityMember(userId = S.me().id, cid = S.state.current) {
   return teams.some((t) => /security|safety|medical|first.?aid|greeter|usher/.test(t));
 }
 
+const securityAssignment = (userId, cid) => S.list("securityAccessAssignments", cid).find((a) => a.userId === userId);
+const securityAdmin = (userId = S.me().id, cid = S.state.current) => {
+  const role = S.role(cid, userId);
+  return S.isPrimary(cid, userId) || role?.id === "admin" || !!role?.perms?.["manage.church"];
+};
+const securityLevel = (userId = S.me().id, cid = S.state.current) => {
+  if (!S.membership(cid, userId) && !S.isPrimary(cid, userId)) return 0;
+  if (securityAdmin(userId, cid)) return 3;
+  const role = securityAssignment(userId, cid)?.role;
+  if (role === "head") return 3;
+  if (role === "supervisor") return 2;
+  return isSecurityMember(userId, cid) ? 1 : 0;
+};
+const canLeadSecurity = () => securityLevel() === 3;
+const canSuperviseSecurity = () => securityLevel() >= 2;
+const directSecurityLevel = () => canLeadSecurity() ? 5 : Math.max(0, Math.min(5, +securityAssignment(S.me().id, S.state.current)?.maxLevel || 0));
+
+function securitySections() {
+  return {
+    drill: canLeadSecurity(),
+    incidents: canSuperviseSecurity(),
+    doors: canSuperviseSecurity() || S.can("checkin.station"),
+    rollcall: canViewUnaccountedReport(),
+    reunify: canSuperviseSecurity() || S.can("checkin.station"),
+    medical: canSuperviseSecurity(),
+    protocols: canLeadSecurity(),
+    access: canSuperviseSecurity(),
+  };
+}
+
 function canViewUnaccountedReport(userId = S.me().id, cid = S.state.current) {
-  return isSecurityMember(userId, cid) || S.can("view.reports", cid) || S.can("checkin.station", cid) || S.can("manage.classes", cid);
+  return securityLevel(userId, cid) >= 2 || S.can("view.reports", cid) || S.can("checkin.station", cid) || S.can("manage.classes", cid);
 }
 
 // Protocols and drill settings start from the app's standard ones. Doors, AEDs and medical responders are the church's
@@ -303,7 +334,7 @@ function defaultDrillPlannerConfig(cid) {
   if (typeof QUIET_KINDS !== "undefined" && !QUIET_KINDS.includes("securityIncidents")) {
     QUIET_KINDS.push("securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications");
   }
-  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications"]) st[k] ||= []; };
+  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments"]) st[k] ||= []; };
   const prevLoad = S.load.bind(S);
   S.load = function () { prevLoad(); lists(this.state); };
   if (S.state) lists(S.state);
@@ -344,9 +375,25 @@ if (safetyChannel) {
 // The church's own channel carries safety alerts and drills (and the live sermon from 41-word.js). Changes to the church's
 // settings only reach other devices the next time they load, so these go out on this channel as they happen.
 const churchTopic = (id) => `church:${id}`;
-function heardOnChurchChannel(m) {
+async function heardOnChurchChannel(m) {
   const c = S.church(); if (!c || m?.churchId !== c.id) return;
-  if (m.type === "safety-alert") { c.activeAlert = m.activeAlert || null; c.activeDrill = m.activeDrill || null; }
+  if (m.type === "safety-alert") {
+    // A broadcast is a refresh signal. A sender cannot set another device's live alert.
+    const { data, error } = await Backend.client.from("churches").select("data").eq("id", c.id).maybeSingle();
+    if (error || !data || S.church() !== c) return;
+    const key = `churches:${c.id}`;
+    const saved = JSON.parse(Backend.snap.get(key) || "null");
+    for (const field of ["activeAlert", "activeDrill"]) {
+      if (Object.hasOwn(data.data, field)) {
+        c[field] = data.data[field];
+        if (saved) saved.data[field] = c[field];
+      } else {
+        delete c[field];
+        if (saved) delete saved.data[field];
+      }
+    }
+    if (saved) Backend.snap.set(key, JSON.stringify(saved));
+  }
   else if (m.type === "pew-sync") c.livePew = m.pew || null;
   else return;
   render();
@@ -358,8 +405,8 @@ function heardOnChurchChannel(m) {
 /** Settings a person's role can't change are sent back as they last came from the server, so a value heard on the
  *  church channel (an alert, the live sermon) isn't sent back as a change their role would be refused. */
 const CHURCH_KEY_ROLES = {
-  activeAlert: () => isSecurityMember(), activeDrill: () => isSecurityMember(), securityDoors: () => isSecurityMember(), drillPlanner: () => isSecurityMember(),
-  securityProtocols: () => isSecurityMember(), securityAeds: () => isSecurityMember(), medicalResponders: () => isSecurityMember(),
+  activeAlert: canSuperviseSecurity, activeDrill: canLeadSecurity, securityDoors: canSuperviseSecurity, drillPlanner: canLeadSecurity,
+  securityProtocols: canLeadSecurity, securityAeds: canLeadSecurity, medicalResponders: canLeadSecurity,
   livePew: () => S.canAny(["present", "manage.sermons"]), giftCategories: () => S.can("view.giving"),
 };
 {
@@ -409,7 +456,12 @@ function broadcastSafetyUpdate(payload = {}) {
   try { safetyChannel?.postMessage(msg); } catch {}
   try { presChannel?.postMessage(msg); } catch {}
   // Screens following the booth hear it on the presentation channel; members' phones on the church's own channel.
-  if (typeof Backend !== "undefined" && Backend.on) { Backend.broadcast(msg); Backend.broadcast(msg, churchTopic(c.id)); }
+  if (Backend.on) {
+    Backend.push().then(() => {
+      Backend.broadcast(msg, `present:${c.id}`);
+      Backend.broadcast(msg, churchTopic(c.id));
+    }).catch(() => toast("Security Command could not sync. Check your connection."));
+  }
   if (secEarpieceMode && payload.spokenText && payload.msgId !== lastSpokenMsgId) {
     lastSpokenMsgId = payload.msgId || String(Date.now());
     playEarpieceCallout(payload.spokenText, payload.voiceUrl || "");
@@ -679,8 +731,10 @@ Forms["sos-alert-security"] = async (d, f) => {
 };
 
 // ----- 2. Automated Protocol Activation Engine (Levels 1 to 5 & Drill Mode Support) -----
-function activateSecurityProtocol(levelNum, { customNote = "", incidentId = "", isDrill = false, drillFunctions = null, drillRealStaffIds = null } = {}) {
-  const c = S.church(); if (!c) return;
+let protocolTransitionPending = false;
+async function activateSecurityProtocol(levelNum, { customNote = "", incidentId = "", isDrill = false, drillFunctions = null, drillRealStaffIds = null, request = null } = {}) {
+  let c = S.church();
+  if (!c || (isDrill ? !canLeadSecurity() : !canSuperviseSecurity()) || (!isDrill && protocolTransitionPending)) return;
   const proto = (c.securityProtocols || defaultSecurityProtocols()).find((p) => +p.level === +levelNum);
   if (!proto) return;
 
@@ -696,12 +750,12 @@ function activateSecurityProtocol(levelNum, { customNote = "", incidentId = "", 
 
   const now = new Date().toISOString();
   const prefix = isDrill ? "🧪 [DRILL] " : "";
-  const effectiveDoors = isDrill ? !!fn.doors : !!proto.requireDoorCheck;
+  let effectiveDoors = isDrill ? !!fn.doors : !!proto.requireDoorCheck;
   const effectiveDisplays = isDrill ? (!!fn.displays && !!proto.overrideDisplays) : !!proto.overrideDisplays;
-  const effectiveRollCall = isDrill ? !!fn.rollCall : !!proto.requireRollCall;
+  let effectiveRollCall = isDrill ? !!fn.rollCall : !!proto.requireRollCall;
   const effectiveHomeBanner = isDrill ? !!fn.homeBanner : true;
 
-  c.activeAlert = {
+  const nextAlert = {
     active: true,
     isDrill: !!isDrill,
     level: proto.level,
@@ -721,6 +775,47 @@ function activateSecurityProtocol(levelNum, { customNote = "", incidentId = "", 
     startedBy: S.me().id,
     startedByName: S.me().name,
   };
+
+  if (!isDrill && Backend.on) {
+    protocolTransitionPending = true;
+    try {
+      const { data, error } = await Backend.client.rpc("security_protocol", {
+        c: c.id, action: request ? "approve" : "declare", level_no: +levelNum, request_id: request?.id || null,
+        alert: nextAlert, incident_id: incidentId || null,
+      });
+      if (error) throw error;
+      if (S.state.current !== c.id || S.me().id !== nextAlert.startedBy) return;
+      c = S.church();
+      if (data.status === "pending") {
+        if (!S.get("securityProtocolRequests", data.id)) S.add("securityProtocolRequests", {
+          id: data.id, at: data.at, level: +levelNum, incidentId, requestedBy: S.me().id, status: "pending",
+        });
+        toast("Request sent to the head of security and church administrators.");
+        render();
+        return;
+      }
+      if (request) {
+        const currentRequest = S.get("securityProtocolRequests", request.id);
+        if (currentRequest) currentRequest.status = "approved";
+      }
+      c.activeAlert = data.alert;
+      effectiveDoors = !!data.alert.requireDoorCheck;
+      effectiveRollCall = !!data.alert.requireRollCall;
+    } catch (error) {
+      toast(error.message || "Could not declare the security protocol.");
+      return;
+    } finally { protocolTransitionPending = false; }
+  } else {
+    if (!isDrill && +levelNum > directSecurityLevel()) {
+      requestSecurityProtocol(levelNum, incidentId);
+      return;
+    }
+    if (!isDrill && (c.activeDrill?.active || (c.activeAlert?.active && +c.activeAlert.level >= +levelNum))) {
+      return toast("End the drill or choose a higher level than the active protocol.");
+    }
+    c.activeAlert = nextAlert;
+    if (request) request.status = "approved";
+  }
 
   // If door verification is included, reset doors to "pending" so real or simulated assignees verify them fresh
   if (effectiveDoors) {
@@ -781,9 +876,24 @@ function activateSecurityProtocol(levelNum, { customNote = "", incidentId = "", 
   render();
 }
 
-function clearSecurityProtocol() {
-  const c = S.church(); if (!c?.activeAlert) return;
-  const old = c.activeAlert;
+async function clearSecurityProtocol() {
+  let c = S.church();
+  if (!c?.activeAlert || !canLeadSecurity() || protocolTransitionPending) return;
+  let old = c.activeAlert;
+  if (Backend.on && !old.isDrill) {
+    protocolTransitionPending = true;
+    const userId = S.me().id;
+    try {
+      const { data, error } = await Backend.client.rpc("security_protocol", { c: c.id, action: "clear" });
+      if (error) throw error;
+      if (S.state.current !== c.id || S.me().id !== userId) return;
+      c = S.church();
+      old = data.previousAlert;
+    } catch (error) {
+      toast(error.message || "Could not issue All Clear.");
+      return;
+    } finally { protocolTransitionPending = false; }
+  }
   c.activeAlert = null;
   S.add("securityMessages", {
     by: S.me().id,
@@ -935,23 +1045,25 @@ let rollCallGroupFilter = "ALL";
 function securitySeg(active) {
   const openInc = S.list("securityIncidents").filter((i) => i.status === "open").length;
   const unacc = S.list("securityRollCall").filter((r) => r.status !== "safe").length;
-  const drillOn = !!S.church()?.activeDrill?.active;
+  const drillOn = !!S.church()?.activeDrill?.active, access = securitySections();
   return seg([
     ["security", "Tactical Comms", isSecurityMember()],
-    ["security-drill", `Drill Simulator${drillOn ? " (LIVE)" : ""}`, isSecurityMember() || isStaffMember()],
-    ["security-incidents", `Incidents${openInc ? ` (${openInc})` : ""}`, isSecurityMember()],
-    ["security-doors", "Doors & Entryways", isSecurityMember() || S.can("checkin.station") || isStaffMember()],
-    ["security-rollcall", `Roll Call${unacc ? ` (${unacc})` : ""}`, canViewUnaccountedReport() || S.isMember()],
-    ["security-reunify", "Child Reunification", isSecurityMember() || S.can("checkin.station") || isStaffMember()],
-    ["security-medical", "Medical & AED", isSecurityMember() || isStaffMember() || S.isMember()],
-    ["security-protocols", "5-Level Protocols", isSecurityMember()],
+    ["security-drill", `Drill Simulator${drillOn ? " (LIVE)" : ""}`, access.drill],
+    ["security-incidents", `Incidents${openInc ? ` (${openInc})` : ""}`, access.incidents],
+    ["security-doors", "Doors & Entryways", access.doors],
+    ["security-rollcall", `Roll Call${unacc ? ` (${unacc})` : ""}`, access.rollcall],
+    ["security-reunify", "Child Reunification", access.reunify],
+    ["security-medical", "Medical & AED", access.medical],
+    ["security-protocols", "5-Level Protocols", access.protocols],
+    ["security-access", "Access & approvals", access.access],
   ], active);
 }
 
 Screens.security = (tail = "") => {
   if (!S.church()) return { redirect: "churches" };
-  const sub = ["drill", "incidents", "doors", "rollcall", "reunify", "medical", "protocols"].includes(tail) ? tail : "";
+  const sub = ["drill", "incidents", "doors", "rollcall", "reunify", "medical", "protocols", "access"].includes(tail) ? tail : "";
   if (!sub && !isSecurityMember()) return { redirect: "safety-status" };
+  if (sub && !securitySections()[sub]) return { redirect: isSecurityMember() ? "security" : "home" };
   const activeHash = sub ? `security-${sub}` : "security";
   const c = S.church(), alert = c.activeAlert, drill = c.activeDrill;
 
@@ -969,19 +1081,20 @@ Screens.security = (tail = "") => {
   else if (sub === "reunify") bodyContent = renderSecurityReunification(c);
   else if (sub === "medical") bodyContent = renderSecurityMedical(c);
   else if (sub === "protocols") bodyContent = renderSecurityProtocolGenerator(c);
+  else if (sub === "access") bodyContent = renderSecurityAccess(c);
 
   return {
     title: "Security Command", back: hasAdminTools() ? "admin" : "home",
     body: html`
       ${!sub ? renderSecurityChannelHeader() : ""}
       ${securitySeg(activeHash)}
-      ${drill?.active ? renderActiveDrillTelemetryBar(c, drill) : ""}
+      ${drill?.active && canLeadSecurity() ? renderActiveDrillTelemetryBar(c, drill) : ""}
       ${alert?.active ? renderActiveProtocolBanner(alert) : sub ? html`
         <div class="panel" style="margin-top:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
           <div><span class="tag ok">STATUS: NORMAL OPERATIONS</span> <span class="faint" style="margin-left:6px">${plural(securityTeamUserIds().length, "security member")} on roster</span></div>
           <div class="btns" style="margin:0">
-            <a class="btn ghost sm" href="#security-drill">🧪 Launch Safety Drill Simulator</a>
-            <button type="button" class="btn danger sm" data-act="sec-trigger-modal">${icon("shield")}Activate Live Protocol</button>
+            ${canLeadSecurity() ? html`<a class="btn ghost sm" href="#security-drill">Launch Safety Drill Simulator</a>` : ""}
+            ${canSuperviseSecurity() ? html`<button type="button" class="btn danger sm" data-act="sec-trigger-modal">${icon("shield")}Declare protocol</button>` : ""}
           </div>
         </div>` : ""}
       ${bodyContent}
@@ -1006,7 +1119,7 @@ function renderActiveProtocolBanner(alert) {
       </div>
       <div class="btns" style="margin:0">
         ${!isSafe ? html`<button type="button" class="btn sm" style="background:#16a34a;color:#fff" data-act="mark-myself-safe">${icon("check")}Mark Myself Safe</button>` : html`<span class="tag ok">You are marked SAFE</span>`}
-        ${isSecurityMember() ? html`<button type="button" class="btn ghost sm" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.35)" data-act="sec-all-clear">Issue All Clear</button>` : ""}
+        ${canLeadSecurity() ? html`<button type="button" class="btn ghost sm" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.35)" data-act="sec-all-clear">Issue All Clear</button>` : ""}
       </div>
     </div>
     ${steps.length ? html`<div class="sec-role-steps">
@@ -1031,18 +1144,18 @@ function renderSecurityComms(c) {
   const msgs = S.list("securityMessages").sort((a, b) => b.at.localeCompare(a.at)).slice(0, 40);
   const protos = c.securityProtocols || defaultSecurityProtocols();
   return html`
-    <details class="sec sec-protocol-options">
+    ${canSuperviseSecurity() ? html`<details class="sec sec-protocol-options">
       <summary>Protocol escalation</summary>
       <div class="btns">
         <button type="button" class="btn danger sm" data-act="sec-trigger-modal">${icon("shield")}Activate live protocol</button>
-        <a class="btn ghost sm" href="#security-protocols">Customize protocols</a>
+        ${canLeadSecurity() ? html`<a class="btn ghost sm" href="#security-protocols">Customize protocols</a>` : ""}
       </div>
       <div class="sec-level-strip">
         ${protos.map((p) => html`<button type="button" class="sec-level-btn ${c.activeAlert?.level === p.level ? "is-active" : ""}" style="--lvl-col:${p.color}" data-act="sec-activate-level" data-level="${p.level}">
-          <b>${p.code}</b><span>${p.name}</span>
+          <b>${p.code}</b><span>${p.name}</span>${+p.level > directSecurityLevel() ? html`<small>Approval required</small>` : ""}
         </button>`)}
       </div>
-    </details>
+    </details>` : ""}
 
     <section class="sec" aria-label="Security messages">
       <div class="panel sec-chat-box">
@@ -1276,15 +1389,16 @@ Actions["sec-inc-resolve"] = (el) => {
 };
 
 Actions["sec-trigger-modal"] = () => {
+  if (!canSuperviseSecurity()) return;
   const c = S.church(), protos = c.securityProtocols || defaultSecurityProtocols();
   openSheet("Activate Security Protocol", html`
-    <p class="muted" style="margin-top:0">Choose the protocol level to initiate its automated notification, door verification, display override, and role-specific checklist sequence.</p>
+    <p class="muted" style="margin-top:0">Choose a level. Levels above your direct limit go to the head of security and church administrators for review.</p>
     <div class="rows">
       ${protos.map((p) => html`<button type="button" class="row" data-act="sec-activate-level" data-level="${p.level}">
         <span class="lead-ic" style="background:${p.color};color:#fff;font-weight:700">${p.level}</span>
         <span class="body">
           <span class="t">${p.code}: ${p.name}</span>
-          <span class="s">${p.summary}</span>
+          <span class="s">${+p.level > directSecurityLevel() ? "Approval required · " : ""}${p.summary}</span>
         </span>
         ${icon("chev")}
       </button>`)}
@@ -1293,10 +1407,167 @@ Actions["sec-trigger-modal"] = () => {
 };
 
 Actions["sec-activate-level"] = (el) => {
+  if (!canSuperviseSecurity()) return;
+  const level = +el.dataset.level, review = level > directSecurityLevel();
+  if (level < 1 || level > 5) return;
+  openSheet(`Level ${level} protocol`, html`<p>${review ? "Send this declaration for review. It will take effect only if approved." : "Activate this live protocol now?"}</p>
+    <div class="btns"><button type="button" class="btn ${review ? "" : "danger"}" data-act="security-confirm-level" data-level="${level}" data-inc="${el.dataset.inc || ""}">
+      ${review ? "Request approval" : "Activate protocol"}
+    </button></div>`);
+};
+Actions["security-confirm-level"] = (el) => {
   closeSheet(true);
   activateSecurityProtocol(+el.dataset.level, { incidentId: el.dataset.inc || "" });
 };
 Actions["sec-all-clear"] = () => clearSecurityProtocol();
+
+function requestSecurityProtocol(level, incidentId) {
+  const c = S.church(), me = S.me().id;
+  if (S.list("securityProtocolRequests").some((r) => r.status === "pending" &&
+      r.requestedBy === me && r.level === level && (r.incidentId || "") === incidentId)) {
+    return toast("An equivalent request is already waiting for review.");
+  }
+  S.add("securityProtocolRequests", { level, incidentId, status: "pending", requestedBy: me, at: new Date().toISOString() });
+  const reviewers = new Set([c.ownerId, ...S.members().map((m) => m.userId).filter((id) => securityLevel(id, c.id) === 3)]);
+  reviewers.forEach((id) => {
+    if (id) notify(id, { kind: "security", title: "Security protocol approval requested",
+      body: `Review the request to activate Level ${level}.`, link: "#security-access" });
+  });
+  toast("Request sent to the head of security and church administrators.");
+  render();
+}
+
+function renderSecurityAccess(c) {
+  const manage = securityAdmin();
+  const members = S.members().filter((m) => S.user(m.userId));
+  const people = members.filter((m) => !securityAdmin(m.userId, c.id) && !String(m.roleId).startsWith("device:"))
+    .sort((a, b) => S.userName(a.userId).localeCompare(S.userName(b.userId)));
+  const ranks = ["", "Volunteer", "Supervisor", "Head of security"];
+  const roster = members.map((m) => ({ id: m.userId, rank: securityLevel(m.userId, c.id) }))
+    .filter((p) => p.rank && (canLeadSecurity() || p.id === S.me().id)).sort((a, b) => b.rank - a.rank || S.userName(a.id).localeCompare(S.userName(b.id)));
+  const requests = S.list("securityProtocolRequests")
+    .filter((r) => canLeadSecurity() || r.requestedBy === S.me().id)
+    .sort((a, b) => b.at.localeCompare(a.at));
+  return html`
+    <section class="sec">
+      <h2 class="sec-head">Protocol approval requests</h2>
+      <div class="rows">${requests.length ? requests.map((r) => {
+        const incident = r.incidentId && S.get("securityIncidents", r.incidentId);
+        return html`<div class="row"><span class="body">
+          <span class="t">Level ${r.level} · ${S.userName(r.requestedBy)}</span>
+          <span class="s">${r.status === "pending" ? "Awaiting review" : r.status === "approved" ? "Approved" : "Declined"} · ${ago(r.at)}</span>
+          ${incident ? html`<span class="s">${incident.category} · ${incident.room || "Location unavailable"}</span>` : ""}
+          ${canLeadSecurity() && r.status === "pending" ? html`<span class="btns">
+            <button type="button" class="btn sm" data-act="security-review-request" data-id="${r.id}">Review</button>
+          </span>` : ""}
+        </span></div>`;
+      }) : empty("No protocol approval requests.")}</div>
+    </section>
+    <section class="sec">
+      <h2 class="sec-head">Security access</h2>
+      <div class="rows">
+        <div class="row"><span class="body"><span class="t">Head of security and church administrators</span><span class="s">All Security Command functions, including drills, protocol review and All Clear. Church administrators assign access.</span></span></div>
+        <div class="row"><span class="body"><span class="t">Supervisor</span><span class="s">Communications, incidents and response tools. Declares up to their assigned level. Higher levels require approval.</span></span></div>
+        <div class="row"><span class="body"><span class="t">Volunteer</span><span class="s">Security communications. Access from a separate church role, such as check-in, still applies.</span></span></div>
+      </div>
+    </section>
+    <section class="sec">
+      <h2 class="sec-head">${canLeadSecurity() ? "Security roster" : "Your access"}</h2>
+      <div class="rows">${roster.length ? roster.map(({id, rank}) => html`<div class="row"><span class="body">
+        <span class="t">${S.userName(id)}</span><span class="s">${securityAdmin(id, c.id) ? "Church administrator" : ranks[rank]}
+          ${rank === 2 ? ` · Direct limit: ${securityAssignment(id, c.id)?.maxLevel ? `Level ${securityAssignment(id, c.id).maxLevel}` : "Approval for every level"}` : ""}</span>
+      </span></div>`) : empty("No security team members.")}</div>
+    </section>
+    ${manage && people.length ? html`<section class="sec">
+      <h2 class="sec-head">Assign access</h2>
+      <div class="panel"><label class="field"><span>Church member</span><select id="security-assignee">
+        ${people.map((m) => html`<option value="${m.userId}">${S.userName(m.userId)}</option>`)}
+      </select></label>
+      <button type="button" class="btn" data-act="security-edit-access">Edit access</button></div>
+    </section>` : ""}
+  `;
+}
+
+Actions["security-edit-access"] = () => {
+  if (!securityAdmin()) return;
+  const id = $("#security-assignee")?.value;
+  if (!id || !S.membership(S.state.current, id) || securityAdmin(id)) return;
+  const assignment = securityAssignment(id, S.state.current);
+  const roles = [["", "Use church role and team"], ["volunteer", "Volunteer"], ["supervisor", "Supervisor"], ["head", "Head of security"]];
+  openSheet(S.userName(id), html`<form data-form="security-save-access">
+    <input type="hidden" name="id" value="${id}">
+    <label class="field"><span>Security role</span><select name="role">
+      ${roles.map(([key, label]) => html`<option value="${key}" ${attr(key === assignment?.role, "selected")}>${label}</option>`)}
+    </select></label>
+    <label class="field"><span>Supervisor direct declaration limit</span><select name="maxLevel">
+      ${[0, 1, 2, 3, 4, 5].map((n) => html`<option value="${n}" ${attr(n === (assignment?.maxLevel || 0), "selected")}>${n ? `Level ${n}` : "Approval for every level"}</option>`)}
+    </select></label>
+    <button class="btn">Save access</button>
+  </form>`);
+};
+
+Forms["security-save-access"] = async (d, f) => {
+  const c = S.church(), actor = S.me().id;
+  if (!securityAdmin() || !S.membership(c.id, d.id) || securityAdmin(d.id)) return;
+  if (!["", "volunteer", "supervisor", "head"].includes(d.role) || !/^[0-5]$/.test(d.maxLevel)) return formError(f, "Choose a valid security role and limit.");
+  const id = `${c.id}:${d.id}`;
+  let assignment = { userId: d.id, role: d.role || null, maxLevel: d.role === "supervisor" ? +d.maxLevel : 0 };
+  if (Backend.on) {
+    const submit = $('button[type="submit"], button:not([type])', f);
+    submit.disabled = true;
+    try {
+      const { data, error } = await Backend.client.rpc("security_assign_access", { c: c.id, person: d.id, role_name: d.role, max_level: +d.maxLevel });
+      if (error) throw error;
+      assignment = data;
+    } catch (error) {
+      return formError(f, error.message || "Could not save security access.");
+    } finally { submit.disabled = false; }
+  }
+  if (S.state.current !== c.id || S.me().id !== actor) return;
+  const current = S.get("securityAccessAssignments", id);
+  if (current) Object.assign(current, assignment);
+  else S.add("securityAccessAssignments", { ...assignment, id });
+  S.save();
+  closeSheet(true);
+  render();
+};
+
+Actions["security-review-request"] = (el) => {
+  if (!canLeadSecurity()) return;
+  const r = S.get("securityProtocolRequests", el.dataset.id);
+  if (!r || r.churchId !== S.state.current || r.status !== "pending") return;
+  const incident = r.incidentId && S.get("securityIncidents", r.incidentId);
+  openSheet(`Review Level ${r.level} request`, html`<p>Requested by ${S.userName(r.requestedBy)}.</p>
+    ${incident ? html`<p><b>${incident.category}</b> · ${incident.room || "Location unavailable"}</p><p>${incident.details || ""}</p>` : html`<p>No incident is attached.</p>`}
+    <div class="btns">
+      <button type="button" class="btn danger" data-act="security-decide-request" data-id="${r.id}" data-choice="approve">Approve and activate</button>
+      <button type="button" class="btn ghost" data-act="security-decide-request" data-id="${r.id}" data-choice="decline">Decline</button>
+    </div>`);
+};
+Actions["security-decide-request"] = async (el) => {
+  if (!canLeadSecurity() || protocolTransitionPending) return;
+  const cid = S.state.current, r = S.get("securityProtocolRequests", el.dataset.id);
+  if (!r || r.churchId !== cid || r.status !== "pending") return;
+  closeSheet(true);
+  if (el.dataset.choice === "approve") {
+    await activateSecurityProtocol(r.level, { incidentId: r.incidentId || "", request: r });
+  } else if (el.dataset.choice === "decline") {
+    if (Backend.on) {
+      protocolTransitionPending = true;
+      try {
+        const { error } = await Backend.client.rpc("security_protocol", { c: cid, action: "decline", request_id: r.id });
+        if (error) throw error;
+      } catch (error) {
+        return toast(error.message || "Could not decline the request.");
+      } finally { protocolTransitionPending = false; }
+    }
+    const current = S.get("securityProtocolRequests", r.id);
+    if (current) current.status = "declined";
+    S.save();
+    toast("Protocol request declined.");
+  }
+  render();
+};
 
 // Tab 3: Assigned Door & Entryway Verification Matrix (Level 4 & General Perimeter Security)
 function renderSecurityDoors(c) {
@@ -1583,6 +1854,7 @@ function renderSecurityProtocolGenerator(c) {
 }
 
 Actions["sec-proto-edit"] = (el) => {
+  if (!canLeadSecurity()) return;
   const c = S.church(), p = (c.securityProtocols || defaultSecurityProtocols()).find((x) => +x.level === +el.dataset.level);
   if (!p) return;
   openSheet(`Customize ${p.code}: ${p.name}`, html`<form data-form="sec-proto-save" novalidate>
@@ -1613,6 +1885,7 @@ Actions["sec-proto-edit"] = (el) => {
 };
 
 Forms["sec-proto-save"] = (d) => {
+  if (!canLeadSecurity()) return;
   const c = S.church(); c.securityProtocols ||= defaultSecurityProtocols();
   const p = c.securityProtocols.find((x) => +x.level === +d.level);
   if (!p) return;
@@ -1636,6 +1909,7 @@ Forms["sec-proto-save"] = (d) => {
 };
 
 Actions["sec-proto-reset"] = () => {
+  if (!canLeadSecurity()) return;
   S.church().securityProtocols = defaultSecurityProtocols();
   S.save(); toast("Protocols reset to default 5-level chart"); render();
 };
@@ -1648,7 +1922,7 @@ Screens["safety-status"] = () => {
     title: "Campus Safety Alert", back: "home",
     body: html`
       ${renderActiveProtocolBanner(alert)}
-      ${alert.requireDoorCheck && (isSecurityMember() || isStaffMember() || myTeams().length) ? renderSecurityDoors(c) : ""}
+      ${alert.requireDoorCheck && securitySections().doors ? renderSecurityDoors(c) : ""}
       ${alert.requireRollCall ? renderSecurityRollCall(c) : ""}
     `,
   };
@@ -1780,6 +2054,7 @@ function isRoleSimulatedInDrill(drill, roleKey, assignedUserId = "") {
 
 /** Runs one autonomous simulation step (simulated staff checking doors, teachers doing headcount, rovers messaging, or random complication injects). */
 function executeSimulatedDrillStep(c = S.church(), { manual = false, forceComplication = false } = {}) {
+  if (!canLeadSecurity()) return;
   const drill = c?.activeDrill;
   if (!drill?.active) return;
   drill.events ||= [];
@@ -2158,16 +2433,19 @@ function renderSecurityDrillSimulator(c) {
 }
 
 Actions["drill-part-mode"] = (el) => {
+  if (!canLeadSecurity()) return;
   const cfg = S.church().drillPlanner ||= defaultDrillPlannerConfig(S.church().id);
   cfg.participationMode = el.dataset.mode;
   S.save(); render();
 };
 Actions["drill-staff-all"] = (el) => {
+  if (!canLeadSecurity()) return;
   const c = S.church(), cfg = c.drillPlanner ||= defaultDrillPlannerConfig(c.id);
   cfg.includedRealStaffIds = +el.dataset.on ? staffAndVolunteersUserIds(c.id) : [];
   S.save(); render();
 };
 Inputs["drill-staff-toggle"] = (el) => {
+  if (!canLeadSecurity()) return;
   const c = S.church(), cfg = c.drillPlanner ||= defaultDrillPlannerConfig(c.id);
   const set = new Set(cfg.includedRealStaffIds || []);
   if (el.checked) set.add(el.value); else set.delete(el.value);
@@ -2175,24 +2453,28 @@ Inputs["drill-staff-toggle"] = (el) => {
   S.save();
 };
 Inputs["drill-role-mode"] = (el) => {
+  if (!canLeadSecurity()) return;
   const c = S.church(), cfg = c.drillPlanner ||= defaultDrillPlannerConfig(c.id);
   cfg.roleModes ||= {};
   cfg.roleModes[el.dataset.role] = el.value;
   S.save();
 };
 Inputs["drill-fn-toggle"] = (el) => {
+  if (!canLeadSecurity()) return;
   const c = S.church(), cfg = c.drillPlanner ||= defaultDrillPlannerConfig(c.id);
   cfg.functions ||= {};
   cfg.functions[el.dataset.fn] = el.checked;
   S.save(); render();
 };
 Inputs["drill-cfg-sync"] = (el) => {
+  if (!canLeadSecurity()) return;
   const c = S.church(), cfg = c.drillPlanner ||= defaultDrillPlannerConfig(c.id);
   if (el.name === "levelMode") cfg.levelMode = el.value;
   if (el.name === "scenarioId") cfg.scenarioId = el.value;
   S.save(); render();
 };
 Actions["drill-fn-preset"] = (el) => {
+  if (!canLeadSecurity()) return;
   const c = S.church(), cfg = c.drillPlanner ||= defaultDrillPlannerConfig(c.id);
   if (el.dataset.preset === "quiet") {
     cfg.functions = { notifications: true, displays: false, homeBanner: false, doors: true, rollCall: true, reunification: true, medical: true, randomInjects: true };
@@ -2205,7 +2487,9 @@ Actions["drill-fn-preset"] = (el) => {
 };
 
 function startConfiguredSafetyDrill(cfg) {
+  if (!canLeadSecurity()) return;
   const c = S.church(); if (!c) return;
+  if (c.activeAlert?.active && !c.activeAlert.isDrill) return toast("Issue All Clear before starting a drill.");
   const chosenLevel = cfg.levelMode === "random"
     ? (1 + Math.floor(Math.random() * 5))
     : clamp(+cfg.levelMode, 1, 5);
@@ -2278,6 +2562,7 @@ function startConfiguredSafetyDrill(cfg) {
 }
 
 Forms["drill-planner-launch"] = (d, f, fd) => {
+  if (!canLeadSecurity()) return;
   const c = S.church(), cfg = c.drillPlanner ||= defaultDrillPlannerConfig(c.id);
   cfg.levelMode = d.levelMode || "random";
   cfg.scenarioId = d.scenarioId || "random";
@@ -2290,6 +2575,7 @@ Forms["drill-planner-launch"] = (d, f, fd) => {
 };
 
 Actions["drill-launch-random"] = () => {
+  if (!canLeadSecurity()) return;
   const c = S.church(), cfg = c.drillPlanner ||= defaultDrillPlannerConfig(c.id);
   cfg.levelMode = "random";
   cfg.scenarioId = "random";
@@ -2305,6 +2591,7 @@ Actions["drill-random-complication"] = () => {
 };
 
 Actions["drill-end-finish"] = () => {
+  if (!canLeadSecurity()) return;
   const c = S.church(), drill = c?.activeDrill;
   if (!drill) return;
   if (drillSimTimer) { clearInterval(drillSimTimer); drillSimTimer = null; }
@@ -2447,9 +2734,18 @@ Actions["reunify-sim-seed"] = () => {
   S.save(); toast("Sample checked-in children added with 4-character pickup codes!"); render();
 };
 
-Actions["reunify-verify-modal"] = (el) => {
-  const k = S.get("checkins", el.dataset.id); if (!k) return;
-  const pickups = pickupsOf(k.by);
+Actions["reunify-verify-modal"] = async (el) => {
+  if (!securitySections().reunify) return;
+  const k = S.get("checkins", el.dataset.id);
+  if (!k || k.churchId !== S.state.current || k.out) return;
+  const me = S.me().id;
+  let pickups = pickupsOf(k.by);
+  if (Backend.on && !S.can("checkin.station") && canSuperviseSecurity()) {
+    const { data, error } = await Backend.client.rpc("security_pickups", { c: k.churchId, checkin_id: k.id });
+    if (S.me().id !== me || S.state.current !== k.churchId || location.hash !== "#security-reunify") return;
+    if (error) return toast("Could not verify authorized pickups. Try again.");
+    pickups = data;
+  }
   openSheet(`Reunify & Release: ${k.childName}`, html`<form data-form="reunify-complete" novalidate>
     <input type="hidden" name="checkinId" value="${k.id}">
     <div class="panel" style="background:var(--sunken);margin-bottom:12px">
@@ -2475,25 +2771,47 @@ Actions["reunify-verify-modal"] = (el) => {
   </form>`);
 };
 
-Forms["reunify-complete"] = (d, f) => {
-  const k = S.get("checkins", d.checkinId); if (!k) return;
+Forms["reunify-complete"] = async (d, f) => {
+  if (!securitySections().reunify) return;
+  const k = S.get("checkins", d.checkinId);
+  if (!k || k.churchId !== S.state.current || k.out) return;
   if (String(d.enteredCode || "").trim().toUpperCase() !== String(k.code || "").trim().toUpperCase()) {
     return formError(f, `Pickup code mismatch! Expected ${k.code}. Do not release child without Security Lead override.`);
   }
   const now = new Date().toISOString();
-  k.out = now;
-  k.outBy = S.me().id;
-  S.add("securityReunifications", {
-    checkinId: k.id,
-    childName: k.childName,
-    room: k.room,
-    code: k.code,
-    guardianName: String(d.guardianName || "").trim() || k.parentName,
-    relation: d.relation || "Parent",
-    idVerified: !!d.idVerified,
-    releasedBy: S.me().name,
-    at: now,
-  });
+  if (Backend.on && !S.can("checkin.station") && canSuperviseSecurity()) {
+    if (!d.idVerified || !d.runnerConfirmed) return formError(f, "Confirm identity verification and the handoff.");
+    const user = S.me().id;
+    const submit = $("button:not([type])", f);
+    submit.disabled = true;
+    try {
+      const { error } = await Backend.client.rpc("security_checkout", {
+        c: k.churchId, checkin_id: k.id, pickup_code: d.enteredCode, guardian_name: d.guardianName, relation_name: d.relation,
+        identity_verified: !!d.idVerified, handoff_confirmed: !!d.runnerConfirmed,
+      });
+      if (error) throw error;
+    } catch (error) {
+      submit.disabled = false;
+      return formError(f, error.message || "Could not complete reunification.");
+    }
+    if (S.state.current !== k.churchId || S.me().id !== user) return;
+    try { await Backend.pull(); } catch { toast("Handoff saved. Refresh to update the reunification list."); }
+    if (S.state.current !== k.churchId || S.me().id !== user) return;
+  } else {
+    k.out = now;
+    k.outBy = S.me().id;
+    S.add("securityReunifications", {
+      checkinId: k.id,
+      childName: k.childName,
+      room: k.room,
+      code: k.code,
+      guardianName: String(d.guardianName || "").trim() || k.parentName,
+      relation: d.relation || "Parent",
+      idVerified: !!d.idVerified,
+      releasedBy: S.me().name,
+      at: now,
+    });
+  }
   // Also mark child safe/reunified in roll call if present
   S.list("securityRollCall").filter((r) => r.name.startsWith(k.childName)).forEach((r) => {
     r.status = "safe";
