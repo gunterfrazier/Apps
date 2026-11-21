@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { getPassage } from "../../core/bible";
 import { AGE_GROUPS, FAMILY_THEMES, type AgeGroup, type FamilyProfile, type FamilySettings } from "../../core/family";
+import { BEGINNINGS_FAMILY_STORIES } from "../../core/family-story-beginnings";
 import { FAMILY_STORIES, type FamilyStory, type StoryActivity } from "../../core/family-stories";
 import { STORY_COLLECTIONS } from "../../core/family-collections";
 import { FAMILY_VIDEO_CHANNELS, familyStoryAnimation, familyStoryVideos } from "../../core/family-videos";
@@ -378,7 +379,8 @@ function KidsStories({ profile, storyId, view }: { profile: FamilyProfile; story
   const story = stories.find(({ id }) => id === storyId);
   const featuredIds = featuredStories[profile.ageGroup];
   const featured = featuredIds.map((id) => stories.find((entry) => entry.id === id)).filter((entry) => entry !== undefined);
-  const more = stories.filter((entry) => !featuredIds.includes(entry.id));
+  const beginnings = BEGINNINGS_FAMILY_STORIES.filter((entry) => entry.editions[profile.ageGroup]);
+  const more = stories.filter((entry) => !featuredIds.includes(entry.id) && !beginnings.includes(entry));
   const space = FAMILY_SPACES[profile.ageGroup];
   return (
     <div className={`kids-app kids-${profile.ageGroup}`} data-kids-theme={profile.theme}>
@@ -399,6 +401,10 @@ function KidsStories({ profile, storyId, view }: { profile: FamilyProfile; story
               </div>
             </header>
             {storyId && <p role="status">That story is unavailable in this age group. Choose a story below.</p>}
+            {beginnings.length > 0 && <section className="kids-catalog-section" aria-labelledby="kids-beginnings">
+              <h2 id="kids-beginnings">Beginnings and Belonging</h2>
+              <StoryCards stories={beginnings} profile={profile} />
+            </section>}
             {(["old", "new"] as const).map((testament) => {
               const matches = featured.filter((entry) => entry.testament === testament);
               if (!matches.length) return null;

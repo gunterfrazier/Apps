@@ -22,9 +22,16 @@ const scenes = {
   zacchaeus: [17, "Zacchaeus looks down from a tree as Jesus greets him."],
   "lost-sheep": [18, "A shepherd carries a small sheep across a green hillside."],
   "wise-builders": [19, "Two houses sit on rocky and sandy ground as water rushes nearby."],
+  "adam-and-eve": [20, "Adam and Eve stand together beside a tree in a lush garden."],
+  "tower-of-babel": [21, "People stand below a tall unfinished brick tower."],
+  "god-calls-abraham": [22, "Abram and Sarai travel along a path with a donkey carrying bags."],
+  "sarah-laughs": [23, "Sarah smiles as she holds baby Isaac by a tent."],
+  "jacob-and-esau": [24, "Jacob and Esau embrace on a path in the hills."],
+  "baby-moses": [25, "A princess kneels by the basket while Moses’s sister watches from the reeds."],
 } as const;
 
 type Scene = (typeof scenes)[keyof typeof scenes];
+const storyArtRows = Math.ceil(Object.keys(scenes).length / 4);
 
 export const FAMILY_SPACES = {
   young: { name: "Story Club", icon: "☀", action: "Read & color" },
@@ -43,7 +50,7 @@ export function FamilyArt({ story, age, variant, grayscale = false, decorative =
   if (!scene) return null;
   const [index, description] = scene;
   // The color atlas stacks the Story Club grid above the Bible Explorers grid.
-  const row = Math.floor(index / 4) + (age !== "young" && variant !== "ink" ? 5 : 0);
+  const row = Math.floor(index / 4) + (age !== "young" && variant !== "ink" ? storyArtRows : 0);
   const alt = variant === "ink" && story.id === "feeding-the-crowd"
     ? "A basket holds loaves of bread and fish."
     : description;
