@@ -173,6 +173,12 @@ const ES = {
   "Teaching here? Scan to present.": "¿Enseñas aquí? Escanea para presentar.",
   "It does this by itself as soon as it can reach the internet. No code needed.": "Lo hace sola en cuanto se conecta a internet. No hace falta ningún código.",
   "There's nothing to read here yet": "Todavía no hay nada que leer aquí", "Listen to the passage": "Escuchar el pasaje", "Listen to the sermon": "Escuchar el sermón",
+  "Read sermon text aloud": "Leer el sermón en voz alta", "Sermon recording": "Grabación del sermón",
+  "Sermon audio": "Audio del sermón", "Watch video": "Ver el video", "Listen to video": "Escuchar el video",
+  "Demo audio": "Audio de muestra", "Open player": "Abrir el reproductor", "Minimize": "Minimizar",
+  "No recording is available.": "No hay una grabación disponible.", "Add a recording": "Agregar una grabación",
+  "Full-screen video": "Video en pantalla completa", "Sermon notes & transcript": "Notas y transcripción del sermón",
+  "This recording could not play. Check the link or try another source.": "No se pudo reproducir la grabación. Revisa el enlace o prueba otra fuente.",
 
   // Serving
   "Your schedule": "Tu horario", "Teams": "Equipos", "Dates you're away": "Fechas en que no estarás", "Add dates": "Agregar fechas", "Join": "Unirme", "Accept": "Aceptar", "Decline": "Rechazar",

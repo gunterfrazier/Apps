@@ -275,6 +275,9 @@ const Player = {
       this.focusReturn = document.activeElement;
       if (this.dialogue.showModal) this.dialogue.showModal();
       else this.dialogue.setAttribute("open", "");
+      // Keep incoming app notifications above the modal and available to open.
+      const alert = $("#foreground-alert");
+      if (alert) this.dialogue.append(alert);
     }
     this.syncUI();
   },
@@ -282,11 +285,14 @@ const Player = {
     if (!this.dialogue?.open) return;
     if (this.dialogue.close) this.dialogue.close();
     else this.dialogue.removeAttribute("open");
+    const alert = $("#foreground-alert", this.dialogue);
+    if (alert) document.body.append(alert);
     if (restoreFocus) {
       const button = this.focusReturn?.isConnected ? this.focusReturn : $(".mp-open");
       button?.focus({ preventScroll: true });
     }
     this.focusReturn = null;
+    queueMicrotask(() => OpeningSummary.show());
   },
   minimize(restoreFocus = true) {
     // Embedded players cannot be left playing invisibly. Direct recordings keep their existing media element.
@@ -347,7 +353,7 @@ const Player = {
     const time = this.currentTime(), duration = this.duration();
     const fill = $("#mini-player .mp-progress i"), sub = $("#mini-player .mp-sub");
     if (fill) fill.style.width = duration ? `${clamp(time / duration * 100, 0, 100)}%` : "0%";
-    if (sub) sub.textContent = this.error || `${this.source.label} · ${tc(time)}${duration ? ` / ${tc(duration)}` : ""}`;
+    if (sub) sub.textContent = this.error || `${tr(this.source.label)} · ${tc(time)}${duration ? ` / ${tc(duration)}` : ""}`;
     if (!this.dialogue) return;
     const range = $(".sac-range", this.dialogue);
     range.disabled = !duration;

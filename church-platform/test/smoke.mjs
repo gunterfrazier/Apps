@@ -1130,12 +1130,28 @@ await step("sermon playback across screens", async () => {
   const player = page.locator("#now-playing");
   const mini = page.getByRole("complementary", { name: "Now playing mini-player" });
   const source = (name) => player.getByRole("button", { name, exact: true });
+  let notificationId;
   try {
     await goTo("sermon-riverside-s0");
     await page.getByRole("button", { name: "Sermon audio", exact: true }).click();
     await player.waitFor();
     await source("Pause").waitFor();
     await player.locator("[data-sac-rem]").getByText("0:12", { exact: true }).waitFor();
+    notificationId = await page.evaluate(() => {
+      const { S } = __app;
+      const n = S.add("notifications", { userId: S.me().id, kind: "security", title: "Test notification",
+        body: "This alert can be read while a sermon is playing.", at: new Date().toISOString() });
+      const banner = document.querySelector("#foreground-alert button");
+      banner.dataset.id = n.id;
+      banner.textContent = n.title;
+      banner.hidden = false;
+      return n.id;
+    });
+    await source("Test notification").click();
+    await page.locator("#scrim").getByText("This alert can be read while a sermon is playing.").waitFor();
+    await mini.getByRole("button", { name: "Pause", exact: true }).waitFor();
+    await page.locator("#scrim").getByRole("button", { name: "Close", exact: true }).click();
+    await mini.getByRole("button", { name: "Open player for Remain in my love" }).click();
     await source("Minimize").click();
     await mini.getByRole("button", { name: "Pause", exact: true }).waitFor();
     await goTo("events");
@@ -1179,7 +1195,10 @@ await step("sermon playback across screens", async () => {
     throw new Error(`#${new URL(page.url()).hash.slice(1)} (${status || "no playback message"}): ${error.message}`);
   } finally {
     await page.locator("#now-playing[open] [data-act=audio-close], #mini-player:visible [data-act=audio-close]").first().click({ timeout: 500 }).catch(() => {});
-    await page.evaluate((sermon) => __app.S.update("sermons", sermon.id, sermon), saved);
+    await page.evaluate(({ sermon, notificationId }) => {
+      __app.S.update("sermons", sermon.id, sermon);
+      if (notificationId) __app.S.remove("notifications", notificationId);
+    }, { sermon: saved, notificationId });
     recordings.clear();
     await page.unroute("https://www.youtube.com/embed/test-sermon");
   }
