@@ -51,6 +51,6 @@ export function FamilyArt({ story, age, variant, grayscale = false, decorative =
 
 export function CraftArt({ tile, alt }: { tile: number; alt: string }) {
   return <span className="family-art-tile kids-craft-art">
-    <img src="family/crafts.webp" alt={alt} loading="lazy" style={{ left: `-${tile * 100}%`, top: 0 }} />
+    <img src="family/crafts.webp" alt={alt} loading="lazy" style={{ left: `-${(tile % 4) * 100}%`, top: `-${Math.floor(tile / 4) * 100}%` }} />
   </span>;
 }

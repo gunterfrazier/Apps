@@ -3,7 +3,7 @@ import { getPassage } from "../../core/bible";
 import { AGE_GROUPS, FAMILY_THEMES, type AgeGroup, type FamilyProfile, type FamilySettings } from "../../core/family";
 import { FAMILY_STORIES, type FamilyStory, type StoryActivity } from "../../core/family-stories";
 import { STORY_COLLECTIONS } from "../../core/family-collections";
-import { FAMILY_VIDEO_CHANNELS, familyStoryVideos } from "../../core/family-videos";
+import { FAMILY_VIDEO_CHANNELS, familyStoryAnimation, familyStoryVideos } from "../../core/family-videos";
 import { account, useAccount } from "../account";
 import { Loading, useAsync } from "../ui";
 import { CraftArt, FamilyArt, FAMILY_SPACES } from "./family-art";
@@ -231,21 +231,26 @@ function StoryCheck({ activity }: { activity: StoryActivity }) {
 
 function StoryWatch({ storyId }: { storyId: string }) {
   const videos = familyStoryVideos(storyId);
+  const animation = familyStoryAnimation(storyId);
   const [showAnimation, setShowAnimation] = useState(false);
   return <>
-    {storyId === "burning-bush" && <details className="kids-original-short" onToggle={(event) => setShowAnimation(event.currentTarget.open)}>
-      <summary>The bush that kept burning · Veritas Logos animated short</summary>
-      {showAnimation && <video controls preload="metadata" playsInline aria-label="The bush that kept burning, a silent animated short with on-screen text">
-        <source src="family/burning-bush-short.mp4" type="video/mp4" />
+    {animation && <details className="kids-original-short" onToggle={(event) => setShowAnimation(event.currentTarget.open)}>
+      <summary>{animation.title} · Veritas Logos {animation.format}</summary>
+      {showAnimation && <video controls preload="metadata" playsInline aria-label={animation.title}>
+        <source src={`family/${animation.file}`} type="video/mp4" />
       </video>}
-      <p className="fine">A short, silent animation with on-screen story text.</p>
+      <p className="fine">{animation.note}</p>
     </details>}
     <p>Creator links open on the publisher’s site or YouTube. Younger children can watch with an adult.</p>
     <ul className="kids-watch-list">
       {videos.map((video) => <li key={video.id}>
         <a className="kids-watch-link" href={video.url ?? `https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer">
           <span className="kids-watch-icon" aria-hidden="true">▶</span>
-          <span><strong>{video.title}</strong><small>{video.creator} · {video.format}</small></span>
+          <span>
+            <strong>{video.title}</strong>
+            <small>{video.creator} · {video.format}</small>
+            {video.creator === "BibleProject" && <small>BibleProject is the author and owner of this video.</small>}
+          </span>
         </a>
       </li>)}
     </ul>
@@ -260,7 +265,8 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
   const collection = STORY_COLLECTIONS[story.id];
   const activity = collection?.play[profile.ageGroup];
   const craft = collection?.craft;
-  const sections = ["Read", "Play", ...(craft ? ["Make"] : []), ...(familyStoryVideos(story.id).length ? ["Watch"] : [])];
+  const craftSteps = craft?.steps[profile.ageGroup];
+  const sections = ["Read", "Play", ...(craftSteps ? ["Make"] : []), ...(familyStoryVideos(story.id).length ? ["Watch"] : [])];
   const storybook = profile.ageGroup !== "teen";
   const paged = storybook && !showAll;
   const last = edition.paragraphs.length - 1;
@@ -319,7 +325,7 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
         {storybook && <StoryCheck activity={story.activity} />}
         <StoryResourceList story={story} age={profile.ageGroup} worksheet={worksheetHash(profile.id, story.id)} />
       </section>
-      {craft && <section className="kids-story-section kids-collection-panel" aria-labelledby="story-make">
+      {craft && craftSteps && <section className="kids-story-section kids-collection-panel" aria-labelledby="story-make">
         <h2 id="story-make" tabIndex={-1}>Make</h2>
         <div className="kids-craft">
           <CraftArt tile={craft.artTile} alt={craft.artAlt} />
@@ -328,7 +334,7 @@ function StoryDetail({ story, profile }: { story: FamilyStory; profile: FamilyPr
             <p className="kids-reference">About {craft.minutes} minutes</p>
             <p><strong>Supplies</strong> · {craft.supplies.join(", ")}</p>
             {profile.ageGroup === "young" && <p>Ask an adult to help with scissors and small supplies.</p>}
-            <ol>{craft.steps[profile.ageGroup].map((step) => <li key={step}>{step}</li>)}</ol>
+            <ol>{craftSteps.map((step) => <li key={step}>{step}</li>)}</ol>
           </div>
         </div>
       </section>}
