@@ -34,6 +34,10 @@ const scenes = {
   "road-to-emmaus": [29, "Jesus shares bread with his two traveling companions at Emmaus."],
   pentecost: [30, "People are gathered with small flame shapes above their heads."],
   "philip-and-the-traveler": [31, "Philip and the Ethiopian traveler read a scroll together beside a chariot."],
+  deborah: [32, "Deborah speaks with Barak near a palm tree in the hills."],
+  naaman: [33, "Naaman stands in the Jordan River with servants nearby."],
+  "friends-through-the-roof": [34, "Four friends lower a man on a mat through the roof as Jesus looks up."],
+  tabitha: [35, "Tabitha shows a tunic she made to two neighbors."],
 } as const;
 
 type Scene = (typeof scenes)[keyof typeof scenes];

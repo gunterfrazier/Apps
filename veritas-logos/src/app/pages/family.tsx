@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { getPassage } from "../../core/bible";
 import { AGE_GROUPS, FAMILY_THEMES, type AgeGroup, type FamilyProfile, type FamilySettings } from "../../core/family";
+import { COURAGE_AND_CARE_FAMILY_STORIES } from "../../core/family-story-courage-and-care";
 import { EARLY_CHURCH_FAMILY_STORIES } from "../../core/family-story-early-church";
 import { BEGINNINGS_FAMILY_STORIES } from "../../core/family-story-beginnings";
 import { FAMILY_STORIES, type FamilyStory, type StoryActivity } from "../../core/family-stories";
 import { FAMILY_HOME_RESOURCES } from "../../core/family-resources";
 import { STORY_COLLECTIONS } from "../../core/family-collections";
-import { FAMILY_VIDEO_CHANNELS, familyStoryAnimation, familyStoryVideos, familyVideoUrl } from "../../core/family-videos";
+import { FAMILY_VIDEO_CHANNELS, familyStoryVideos, familyVideoUrl } from "../../core/family-videos";
 import { account, useAccount } from "../account";
 import { Loading, useAsync } from "../ui";
 import { CraftArt, FamilyArt, FAMILY_SPACES } from "./family-art";
@@ -25,6 +26,7 @@ const featuredStories: Record<AgeGroup, string[]> = {
   teen: ["creation", "burning-bush", "red-sea", "samuel-hears-god", "zacchaeus", "lost-sheep", "wise-builders", "ruth", "esther", "daniel", "samaritan", "prodigal-son", "resurrection"],
 };
 const storyShelves = [
+  { id: "courage-and-care", title: "Courage and Care", stories: COURAGE_AND_CARE_FAMILY_STORIES },
   { id: "early-church", title: "Jesus’ Life and the Early Church", stories: EARLY_CHURCH_FAMILY_STORIES },
   { id: "beginnings", title: "Beginnings and Belonging", stories: BEGINNINGS_FAMILY_STORIES },
 ];
@@ -245,16 +247,7 @@ function StoryCheck({ activity }: { activity: StoryActivity }) {
 
 function StoryWatch({ storyId }: { storyId: string }) {
   const videos = familyStoryVideos(storyId);
-  const animation = familyStoryAnimation(storyId);
-  const [showAnimation, setShowAnimation] = useState(false);
   return <>
-    {animation && <details className="kids-original-short" onToggle={(event) => setShowAnimation(event.currentTarget.open)}>
-      <summary>{animation.title} · Veritas Logos {animation.format}</summary>
-      {showAnimation && <video controls preload="metadata" playsInline aria-label={animation.title}>
-        <source src={`family/${animation.file}`} type="video/mp4" />
-      </video>}
-      <p className="fine">{animation.note}</p>
-    </details>}
     <p>Creator links open on an external video site. Younger children can watch with an adult.</p>
     <ul className="kids-watch-list">
       {videos.map((video) => <li key={video.id}>

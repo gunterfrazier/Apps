@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AGE_GROUPS, type AgeGroup } from "../../core/family";
 import { STORY_COLLECTIONS } from "../../core/family-collections";
-import { familyStoryAnimation, familyStoryVideos } from "../../core/family-videos";
+import { familyStoryVideos } from "../../core/family-videos";
 import { getFamilyResources } from "../../core/family-resources";
 import { FAMILY_STORIES, type FamilyStory } from "../../core/family-stories";
 import { FamilyArt } from "./family-art";
@@ -39,7 +39,7 @@ const resourceTypes = [
   { id: "worksheet", label: "Printables" },
   { id: "play", label: "Activities" },
   { id: "make", label: "Crafts" },
-  { id: "watch", label: "Videos and animations" },
+  { id: "watch", label: "Videos" },
   { id: "publisher", label: "Publisher resources" },
 ] as const;
 
@@ -60,21 +60,19 @@ export function FamilyResourceIndex({ resourceLink }: {
     const activity = includes("play") ? collection?.play[age] : undefined;
     const craft = includes("make") && collection?.craft.steps[age] ? collection.craft : undefined;
     const videos = includes("watch") ? familyStoryVideos(story.id) : [];
-    const animation = includes("watch") ? familyStoryAnimation(story.id) : undefined;
     const publisher = includes("publisher") ? getFamilyResources(story.id, age, true) : [];
     const printable = includes("worksheet");
     if (type === "make" && (!craft || (duration > 0 && craft.minutes > duration))) return [];
-    if (!activity && !craft && !videos.length && !animation && !publisher.length && !printable) return [];
+    if (!activity && !craft && !videos.length && !publisher.length && !printable) return [];
     const terms = [
       story.title, story.reference, story.topic,
       printable ? "worksheet printable coloring page Scripture study sheet" : "",
       activity?.title, craft?.title, ...(craft?.supplies ?? []),
       ...videos.flatMap((video) => [video.title, video.creator]),
-      animation?.title,
       ...publisher.flatMap((item) => [item.title, item.provider, item.format]),
     ];
     if (query && !terms.some((term) => term?.toLowerCase().includes(query))) return [];
-    return [{ story, activity, craft, watchCount: videos.length + Number(Boolean(animation)), printable, hasPublisher: publisher.length > 0 }];
+    return [{ story, activity, craft, watchCount: videos.length, printable, hasPublisher: publisher.length > 0 }];
   });
 
   return <section className="family-section family-resource-index" aria-labelledby="family-print-resources">

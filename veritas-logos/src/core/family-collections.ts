@@ -15,6 +15,82 @@ interface StoryCollection {
 }
 
 export const STORY_COLLECTIONS: Partial<Record<string, StoryCollection>> = {
+  deborah: {
+    craft: {
+      title: "Make a palm tree message stand",
+      minutes: 15,
+      supplies: ["Cardstock", "Scrap paper", "Markers", "Tape", "Scissors"],
+      steps: {
+        young: ["Fold a piece of cardstock in half to make a stand.", "Draw a palm trunk. Ask an adult to cut paper leaves, then tape them to the trunk.", "Draw one way to help a friend on a leaf."],
+        middle: ["Make a folded stand and tape paper palm leaves to it.", "Write a line of support on each leaf, such as ‘I’ll go with you.’", "Give the stand to someone or use it to retell what happened under Deborah’s palm."],
+        teen: ["Make a folded palm-shaped display with a trunk and three leaves.", "Use Judges 4 to write a decision, a person, and a consequence on separate leaves.", "Add a question on the back about what makes leadership worth following."],
+      },
+      artTile: 32,
+      artAlt: "A folded paper palm tree with a message leaf.",
+    },
+    play: {
+      young: { title: "Practice going together", instructions: "Pretend your partner has to ask a question in a new place. Practice saying, ‘I can go with you.’ Swap roles and try it again." },
+      middle: { title: "Who did what?", instructions: "Put Deborah, Barak, and Jael on separate cards. Read Judges 4:6–9 and 4:17–22 with an adult and match one decision to each person." },
+      teen: { title: "Read a story and its song", instructions: "Compare Judges 4:14–16 and 5:19–22. Read them aloud with a partner. Each of you picks one detail the poem emphasizes and explains what it adds." },
+    },
+  },
+  naaman: {
+    craft: {
+      title: "Build a seven-step paper river",
+      minutes: 15,
+      supplies: ["Blue paper", "Scrap paper", "Markers", "Glue stick", "Scissors"],
+      steps: {
+        young: ["Fold blue paper back and forth to make ripples, then open it again.", "Ask an adult to cut seven paper stepping stones. Glue them alongside the river.", "Touch each stone as you count to seven."],
+        middle: ["Fold blue paper to form ripples and glue seven paper stones along the edge.", "Draw the girl, the messenger, and the servants on three stones. Use the other stones for moments you remember.", "Walk a finger along the stones and tell the story in order."],
+        teen: ["Make an accordion-fold paper river and cut seven paper stones.", "Use the stones to map how the message passes from person to person in 2 Kings 5:1–14.", "Mark where Naaman objects and where he listens. Compare your map with a partner’s."],
+      },
+      artTile: 33,
+      artAlt: "Folded blue paper forms a river next to colorful paper stepping stones.",
+    },
+    play: {
+      young: { title: "Count seven ripples", instructions: "Tap the table seven times as if making ripples on the Jordan. Take turns starting the count and name a person who helped Naaman." },
+      middle: { title: "Pass the message", instructions: "With a partner, give the message from the girl, the messenger, and a servant in turn. Pause after each message so your partner can guess who said it." },
+      teen: { title: "Whose advice counts?", instructions: "List the speakers in 2 Kings 5:1–14, then compare their authority with their usefulness. Discuss which person you would cut if you were telling this quickly and what would be lost." },
+    },
+  },
+  "friends-through-the-roof": {
+    craft: {
+      title: "Build a roof and rescue mat",
+      minutes: 20,
+      supplies: ["Shoebox lid or cardboard", "Cardstock", "Yarn", "Tape", "Scissors"],
+      steps: {
+        young: ["Ask an adult to cut an opening in a shoebox lid and cut four short pieces of yarn.", "Tape the yarn to the four corners of a paper mat.", "Hold the lid over the table and lower the paper mat through the opening with an adult."],
+        middle: ["Use cardboard as a roof. Ask an adult to help cut an opening wide enough for a cardstock mat.", "Tape equal lengths of yarn to the mat corners. Test the mat with a small folded paper figure.", "Work with a partner to keep the mat level as you lower it."],
+        teen: ["Use a shoebox lid to model a roof and a cardstock rectangle to model a mat. Get help cutting the opening if needed.", "Tape one yarn line to each mat corner. Try different anchor points with a folded paper load.", "Annotate the model with the barrier, the team’s response, and a question about access in a familiar place."],
+      },
+      artTile: 34,
+      artAlt: "A shoebox roof with a paper mat on four yarn lines.",
+    },
+    play: {
+      young: { title: "Find another way in", instructions: "Set out blocks as a crowded doorway. Move a paper figure to the room by a different path. Tell your partner what the friends did in the story." },
+      middle: { title: "Follow the mat", instructions: "Use a folded paper mat and replay its journey with a partner. Pause at the door, roof, and exit. At each pause, say who is carrying it." },
+      teen: { title: "Walk the entrance", instructions: "Choose a familiar public room. Draw how people reach it and name a barrier you notice. Discuss a change that could make entry easier and connect it to the crowd in Mark 2." },
+    },
+  },
+  tabitha: {
+    craft: {
+      title: "Make a paper tunic kindness card",
+      minutes: 15,
+      supplies: ["Cardstock", "Colored scrap paper", "Markers", "Glue stick", "Scissors"],
+      steps: {
+        young: ["Ask an adult to fold cardstock and cut it into a tunic that opens like a card.", "Draw a pattern on the front and glue paper patches to it.", "Draw a small kindness you can do on the inside."],
+        middle: ["Fold and cut a tunic-shaped card. Draw seams and add paper patches.", "Write one help you can offer and one way to ask what someone actually needs.", "Share your card or use it to remember your plan."],
+        teen: ["Make a cardstock tunic with a short note inside.", "Write a specific task you can offer someone this week and when you can do it.", "Leave space for their preferences. Ask before you act, and revise your plan after you listen."],
+      },
+      artTile: 35,
+      artAlt: "A folded cardstock tunic card decorated with colorful paper patches.",
+    },
+    play: {
+      young: { title: "Guess a helpful job", instructions: "Take turns acting out a helpful job without speaking. Guess the job, then say who it might help." },
+      middle: { title: "Clues from a garment", instructions: "Pick a piece of clothing at home. Imagine how it could help someone in cold or wet weather. Then read Acts 9:39 and discuss why the neighbors showed Peter the clothes." },
+      teen: { title: "Tell a story through an object", instructions: "Choose an object that reminds you of a person who cared for you. Tell a partner the story behind it. Compare how your object and the garments in Acts 9:39 make care visible." },
+    },
+  },
   noah: {
     craft: {
       title: "Make a rainbow promise wheel",
