@@ -97,7 +97,7 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - Payments go through one checkout, with the processor each church picks under Admin, Giving: Stripe, PayPal or Square. A church that already uses Tithe.ly, Pushpay, Givelify or another giving service can link its giving page instead. In the preview and until a processor is connected, checkout runs in test mode and nothing is charged.
 
 **Sermon media and AI help**
-- Sermons with a video link (YouTube, Vimeo, Facebook or a file) and an audio file, played in the app with playback speeds.
+- Choose a sermon’s audio recording or video. Direct recordings use the expanded player and mini-player, with seeking and playback speeds. Minimize a direct video or choose **Listen to video** to keep its sound playing as you browse. Embedded videos such as YouTube and Vimeo use their provider’s controls.
 - Transcripts pasted in, opened from a text, VTT or SRT file, or taken from the live captions of the last presentation. Timed transcripts let people jump to that moment in the audio. Each transcript can be searched on its sermon's page.
 - A searchable archive: the Word tab searches titles, passages, speakers, series, summaries, outlines and every transcript, shows where each match was found, and filters by book of the Bible.
 - A podcast feed (RSS with Apple Podcasts tags) built from every sermon with audio, with a readiness check for cover art, owner email and file sizes, and a download of feed.xml.

@@ -61,7 +61,7 @@ function sermonRow(s) {
       ${typeof sermonArtTile === "function" ? sermonArtTile(s, 52) : html`<span class="lead-ic">${icon("play")}</span>`}
       <span class="body"><span class="t">${s.title}${isLivePew ? html` <span class="tag ok" style="font-size:.7rem">Live Pew Sync</span>` : ""}</span><span class="s">${s.passage} · ${s.speaker}</span><span class="s">${fmtShort(s.date)} · ${s.minutes || 35} min${hasNote ? " · Notes saved" : ""}</span></span>
     </a>
-    <button type="button" class="sr-play" data-act="mini-play" data-id="${s.id}" aria-pressed="${playing}" aria-label="${playing ? `Pause ${s.title}` : `Play ${s.title}`}">${icon(playing ? "pause" : "play")}</button>
+    ${sermonSources(s).length ? html`<button type="button" class="sr-play" data-act="mini-play" data-id="${s.id}" data-title="${s.title}" aria-label="${playing ? `Pause ${s.title}` : `Play ${s.title}`}">${icon(playing ? "pause" : "play")}</button>` : ""}
   </div>`;
 }
 
@@ -380,7 +380,7 @@ Screens.sermon = (id) => {
       ${canAI() ? html`<div class="ai-row"><span class="ai-label">${icon("bolt")}Veritas Logos can draft</span><button class="btn ghost sm" data-act="ai-questions" data-id="${s.id}">Discussion questions</button>${S.can("build.lessons") ? html`<button class="btn ghost sm" data-act="ai-lesson" data-id="${s.id}">A kids lesson</button>` : ""}</div>` : ""}
       ${s.summary ? html`<p class="lead" style="margin-top:18px">${s.summary}</p>` : ""}
       <p><span class="faint">Scripture</span><br><span class="scripture" style="font-size:1.2rem">${s.passage}</span></p>
-      <div class="btns" style="margin-top:0">${listenBtn(`passage:${s.passage}`, "Listen to the passage")}${s.summary || s.transcript?.length ? listenBtn(`sermon:${s.id}`, "Listen to the sermon") : ""}</div>
+      <div class="btns" style="margin-top:0">${listenBtn(`passage:${s.passage}`, "Listen to the passage")}${s.summary || s.transcript?.length ? listenBtn(`sermon:${s.id}`, "Read sermon text aloud") : ""}</div>
       ${veritasPanel(s.passage, s.topic)}
       ${xrefPanel(s.passage)}
       ${pastPanel(s.passage, { sermon: s.id, label: "Also on this passage" })}

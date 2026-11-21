@@ -212,7 +212,7 @@ Screens.home = () => {
             <span class="sc-body"><span class="sc-k">${latest.series}</span><span class="sc-title">${latest.title}</span>
             <span class="sc-meta">${latest.passage} · ${latest.speaker}</span></span>
           </a>
-          <button type="button" class="sc-play-btn" data-act="mini-play" data-id="${latest.id}" aria-label="Play ${latest.title}">${icon(typeof Player !== "undefined" && Player.isPlaying(latest.id) ? "pause" : "play")}</button>
+          ${sermonSources(latest).length ? html`<button type="button" class="sc-play-btn" data-act="mini-play" data-id="${latest.id}" data-title="${latest.title}" aria-label="${Player.isPlaying(latest.id) ? "Pause" : "Play"} ${latest.title}">${icon(Player.isPlaying(latest.id) ? "pause" : "play")}</button>` : ""}
         </div></section>` : ""}
 
       <section class="sec">
