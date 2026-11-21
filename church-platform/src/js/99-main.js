@@ -7,7 +7,6 @@ if (!FORWARDING) {
   window.addEventListener("hashchange", () => { ForegroundAlerts.hide(); closeSheet(true); render(); });
   document.addEventListener("click", () => ForegroundAlerts.unlockAudio());
   document.addEventListener("keydown", () => ForegroundAlerts.unlockAudio());
-  $("#foreground-alert a").addEventListener("click", () => ForegroundAlerts.hide());
   window.addEventListener("pagehide", () => S.flush());
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") S.flush(); });
   document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("presenting")) render(); });

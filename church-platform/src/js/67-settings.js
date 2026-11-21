@@ -370,8 +370,9 @@ const ForegroundAlerts = {
     if (document.visibilityState !== "visible" || thisDevice() || !wantsNotify(n) || this.recent.has(n.id)) return;
     this.recent.add(n.id);
     if (this.recent.size > 100) this.recent.delete(this.recent.values().next().value);
-    const banner = $("#foreground-alert a");
+    const banner = $("#foreground-alert button");
     banner.textContent = n.body ? `${n.title} — ${n.body}` : n.title;
+    banner.dataset.id = n.id;
     banner.hidden = false;
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.hide(), 8000);
@@ -386,9 +387,10 @@ const ForegroundAlerts = {
     tone.stop(now + 0.24);
   },
   hide() {
-    const banner = $("#foreground-alert a");
+    const banner = $("#foreground-alert button");
     banner.hidden = true;
     banner.textContent = "";
+    delete banner.dataset.id;
     clearTimeout(this.timer);
   },
 };

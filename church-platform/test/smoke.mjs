@@ -88,14 +88,14 @@ await step("foreground alerts", async () => {
     Backend.applyChange({
       eventType,
       new: {
-        id, kind: "notifications", owner: mine ? S.me().id : "another-member", church_id: S.state.current,
-        data: { kind: "targeted", title: "Test Chatgpt", body: "Targeted test alert", read: false },
+        id, kind: "notifications", owner: mine ? S.me().id : "another-member", church_id: S.state.current, location_id: null,
+        data: { kind: "targeted", title: "Test Chatgpt", body: "Targeted test alert", read: false, at: new Date().toISOString(), link: "#settings", userId: S.me().id },
       },
     });
     clearTimeout(Backend.refetch);
     Backend.user = user;
   }, { id, mine, eventType });
-  const banner = page.locator("#foreground-alert a");
+  const banner = page.locator("#foreground-alert button");
   await receive("other", false);
   await receive("updated", true, "UPDATE");
   if (await banner.isVisible()) throw new Error("an unrelated notification showed a banner");
@@ -105,9 +105,32 @@ await step("foreground alerts", async () => {
   await page.waitForFunction(() => window.alertChimes === 1);
   await receive("new");
   if (await page.evaluate(() => window.alertChimes) !== 1) throw new Error("duplicate notification played a chime");
+  await receive("still-unread");
+  await receive("open-from-banner");
   await banner.click();
-  await page.waitForURL(/#alerts$/);
+  await page.waitForSelector('#scrim h2:has-text("Test Chatgpt")');
+  await page.waitForSelector('#scrim p:has-text("Targeted test alert")');
   if (await banner.isVisible()) throw new Error("the notification banner stayed open after tapping");
+  if (await page.getAttribute('#scrim a', 'href') !== '#settings') throw new Error("related page link was lost");
+  await page.click('#scrim [data-act="close-sheet"]');
+  await sheetGone();
+  await goTo("alerts");
+  const unopened = page.locator('[data-act="notes-open"][data-id="still-unread"]');
+  const opened = page.locator('[data-act="notes-open"][data-id="open-from-banner"]');
+  if (await opened.getByText("New", { exact: true }).count()) throw new Error("opening the banner did not mark it read");
+  if (!await unopened.getByText("New", { exact: true }).count()) throw new Error("opening the inbox cleared a different alert");
+  await unopened.click();
+  await page.waitForSelector('#scrim p:has-text("Targeted test alert")');
+  await page.click('#scrim [data-act="close-sheet"]');
+  await sheetGone();
+  if (await unopened.getByText("New", { exact: true }).count()) throw new Error("opening the inbox item did not mark it read");
+  await page.evaluate(() => {
+    const { S, Backend } = __app;
+    for (const id of ["new", "still-unread", "open-from-banner"]) {
+      S.remove("notifications", id);
+      Backend.snap.delete(`records:notifications|${id}`);
+    }
+  });
   await goTo("home");
 });
 await step("campus filter", async () => {

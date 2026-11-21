@@ -323,15 +323,25 @@ Screens.alerts = () => {
   const news = newsSorted(), mine = myNotifications().slice(0, 30);
   return {
     title: "Notifications", back: "home", tab: "home",
-    body: html`${mine.length ? html`<section class="sec"><div class="sec-head"><h2>For you</h2>${mine.some((n) => n.read) ? html`<button class="btn ghost sm" data-act="notes-clear">Clear read</button>` : ""}</div><div class="rows">${mine.map((n) => html`<a class="row ${n.read ? "" : "unread"}" href="${n.link || "#alerts"}"><span class="lead-ic">${icon({ serve: "hand", chat: "chat", event: "calendar", give: "give", checkin: "kid" }[n.kind] || "bell")}</span><span class="body"><span class="t">${n.title}</span><span class="s">${n.body}</span><span class="s faint">${ago(n.at)}</span></span>${n.read ? "" : html`<span class="tag brand">New</span>`}</a>`)}</div></section>` : ""}
+    body: html`${mine.length ? html`<section class="sec"><div class="sec-head"><h2>For you</h2>${mine.some((n) => n.read) ? html`<button class="btn ghost sm" data-act="notes-clear">Clear read</button>` : ""}</div><div class="rows">${mine.map((n) => html`<button type="button" class="row ${n.read ? "" : "unread"}" data-act="notes-open" data-id="${n.id}"><span class="lead-ic">${icon({ serve: "hand", chat: "chat", event: "calendar", give: "give", checkin: "kid" }[n.kind] || "bell")}</span><span class="body"><span class="t">${n.title}</span><span class="s">${n.body}</span><span class="s faint">${ago(n.at)}</span></span>${n.read ? "" : html`<span class="tag brand">New</span>`}</button>`)}</div></section>` : ""}
       <section class="sec"><h2 class="sec-head">Announcements</h2><div class="rows">${news.length ? news.map((n) => html`<article class="prayer">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><h2 style="font-size:1.1rem;flex:1">${n.title}</h2>${n.urgent ? html`<span class="tag warn">Important</span>` : ""}${n.locationId ? html`<span class="tag">${locName(n.locationId)}</span>` : ""}${!S.state.seen.includes(n.id) ? html`<span class="tag brand">New</span>` : ""}</div>
       <p>${n.body}</p><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span class="faint">${ago(n.at)}</span>${listenBtn(`news:${n.id}`)}</div></article>`) : empty("No announcements yet.")}</div></section>`,
     after() {
       const ids = news.map((n) => n.id).filter((id) => !S.state.seen.includes(id)); if (ids.length) { S.state.seen.push(...ids); S.save(); }
-      if (mine.some((n) => !n.read)) { mine.forEach((n) => { n.read = true; }); S.save(); }
     },
   };
+};
+Actions["notes-open"] = (el) => {
+  const n = myNotifications().find((item) => item.id === el.dataset.id);
+  if (!n) return;
+  ForegroundAlerts.hide();
+  if (!n.read) { n.read = true; S.save(); }
+  render();
+  const link = n.link?.startsWith("#") && n.link !== "#alerts" ? n.link : "";
+  openSheet(n.title, html`<p style="white-space:pre-wrap;overflow-wrap:anywhere">${n.body || ""}</p>
+    ${link ? html`<div class="btns"><a class="btn" href="${link}">Open related page</a></div>` : ""}`,
+    { focus: '[data-act="close-sheet"]' });
 };
 Actions["notes-clear"] = () => { const me = S.me().id; S.state.notifications = S.state.notifications.filter((n) => !(n.userId === me && n.churchId === S.state.current && n.read)); S.save(); render(); };
 
