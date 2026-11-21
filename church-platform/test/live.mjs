@@ -188,9 +188,8 @@ async function step(name, fn) {
 const appText = () => page.textContent("#app");
 // The opening summary has its own smoke test. Dismiss it when it blocks actions in these flows.
 const openingSummary = page.getByRole("dialog", { name: "Your pending items" });
-await page.addLocatorHandler(openingSummary, async () => {
-  await openingSummary.getByRole("button", { name: "Dismiss" }).click();
-});
+const dismissOpeningSummary = () => openingSummary.getByRole("button", { name: "Dismiss" }).click();
+await page.addLocatorHandler(openingSummary, dismissOpeningSummary);
 
 await step("opens at /Apps/ and asks: new here, or have an account?", async () => {
   await page.goto(base + "?debug");
@@ -241,14 +240,40 @@ await step("adds an announcement, which survives a reload", async () => {
   await page.evaluate(() => { location.hash = "admin-news"; }); await page.waitForTimeout(400);
   const add = await page.$("[data-act=admin-new], [data-act=news-new], button:has-text('Add')"); if (!add) throw new Error("no add button on the announcements screen");
   await add.click(); await page.waitForSelector("#scrim form");
-  await page.fill("#scrim input[name=title]", "Coffee after the service"); const body = await page.$("#scrim textarea[name=body]"); if (body) await body.fill("Join us in the lobby.");
+  await page.fill("#scrim input[name=title]", "Coffee after the service");
+  const announcementBody = "Join us in the lobby. ".repeat(8) + "The full details end here.";
+  await page.fill("#scrim textarea[name=body]", announcementBody);
+  await page.check("#scrim input[name=push]");
   await page.click("#scrim form button.btn:not([type=button]):not(.danger)"); await page.waitForSelector("#scrim", { state: "detached" }); await page.waitForTimeout(1500);
-  if (!(db.records || []).some((r) => r.kind === "news" && /Coffee after the service/.test(JSON.stringify(r.data)))) throw new Error("announcement not saved");
-  await page.reload(); await page.waitForSelector(".home-top, .tabbar, nav", { timeout: 15000 });
-  await page.evaluate(() => { location.hash = "home"; }); await page.waitForTimeout(800);
-  if (!(await appText()).includes("Coffee after the service")) throw new Error("announcement missing after reload");
-  if (!(await appText()).includes("Test Fellowship")) throw new Error("church missing after reload");
-  await shot("5-after-reload");
+  const announcement = (db.records || []).find((r) => r.kind === "news" && r.data.title === "Coffee after the service");
+  if (!announcement) throw new Error("announcement not saved");
+  const link = `#news-${announcement.id}`;
+  const notification = () => (db.records || []).find((r) => r.kind === "notifications" && r.owner === uid && r.data.link === link);
+  if (!notification() || notification().data.announcementId !== announcement.id) throw new Error("announcement notification needs a specific link and ID");
+  await page.evaluate(() => { location.hash = "home"; });
+  await page.waitForURL(/#home$/);
+  await page.removeLocatorHandler(openingSummary);
+  try {
+    await page.reload();
+    await page.waitForSelector(".home-top", { timeout: 15000 });
+    if (!(await appText()).includes("Coffee after the service")) throw new Error("announcement missing after reload");
+    if (!(await appText()).includes("Test Fellowship")) throw new Error("church missing after reload");
+    await shot("5-after-reload");
+    // An announcement opened from the pending-items sheet must save both read markers.
+    await openingSummary.getByRole("link", { name: /Coffee after the service/ }).click();
+  } finally {
+    await page.addLocatorHandler(openingSummary, dismissOpeningSummary);
+  }
+  await page.getByText(/The full details end here/).waitFor();
+  await page.evaluate(() => __app.Backend.push());
+  const prefs = (db.profile_private || []).find((p) => p.user_id === uid)?.data;
+  if (!prefs?.seen?.includes(announcement.id) || !notification().data.read) throw new Error("opening the announcement did not save both read markers");
+  await page.reload();
+  await page.getByText(/The full details end here/).waitFor();
+  await page.evaluate(() => { location.hash = "alerts"; });
+  const announcementRow = page.locator(`a.row[href="${link}"]`);
+  await announcementRow.waitFor();
+  if (await announcementRow.getByText("New", { exact: true }).count()) throw new Error("announcement showed as new after signing back into the app");
 });
 await step("Bible highlights and notes save to the account", async () => {
   await page.evaluate(() => { location.hash = "bible-john-3-16"; }); await page.waitForSelector("#v16", { timeout: 15000 });

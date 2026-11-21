@@ -189,6 +189,63 @@ await step("foreground alerts", async () => {
   });
   await goTo("home");
 });
+await step("reading announcements clears only the matching badges", async () => {
+  const before = await page.evaluate(() => {
+    const { S } = __app;
+    const original = structuredClone(S.state);
+    S.state.notifications = S.state.notifications.filter((n) => n.churchId !== S.state.current);
+    S.state.seen = S.list("news").map((n) => n.id);
+    const at = new Date().toISOString();
+    const body = "This is the full announcement. ".repeat(6) + "Full details at the end.";
+    const first = S.add("news", { id: "read-announcement", title: "Important announcement", urgent: true, body, at });
+    const second = S.add("news", { id: "next-announcement", title: "Lunch announcement", body, at });
+    S.add("news", { id: "last-announcement", title: "Class announcement", body, at });
+    S.add("news", { id: "private-announcement", title: "Private campus update", body: "Private campus details", locationId: "riverside-office", at });
+    S.add("notifications", { id: "legacy-announcement-notice", kind: "news", userId: S.me().id, title: first.title, body: body.slice(0, 140), link: "#alerts", at, read: false });
+    S.add("notifications", { id: "linked-announcement-notice", kind: "news", userId: S.me().id, title: second.title, body: body.slice(0, 140),
+      announcementId: second.id, link: "#news-next-announcement", at, read: false });
+    S.add("notifications", { id: "board-notice", kind: "news", userId: S.me().id, title: first.title, body: body.slice(0, 140), link: "#board", at, read: false });
+    return original;
+  });
+  const bell = (count) => page.getByRole("link", { name: `Notifications, ${count} unread`, exact: true });
+  const notice = (id) => page.locator(`[data-act="notes-open"][data-id="${id}"]`);
+  const row = (id) => page.locator(`a.row[href="#news-${id}"]`);
+  try {
+    await goTo("alerts");
+    await bell(4).waitFor();
+    await row("read-announcement").getByText("New", { exact: true }).waitFor();
+    await goTo("home");
+    await page.locator('a.alert[href="#news-read-announcement"]').click();
+    await page.getByText(/Full details at the end/).waitFor();
+    await bell(3).waitFor();
+    await page.getByRole("link", { name: "Back", exact: true }).click();
+    if (await notice("legacy-announcement-notice").getByText("New", { exact: true }).count()) throw new Error("old announcement notification stayed unread");
+    await notice("board-notice").getByText("New", { exact: true }).waitFor();
+    await notice("linked-announcement-notice").click();
+    await page.getByRole("heading", { name: "Lunch announcement" }).waitFor();
+    await bell(2).waitFor();
+    await page.getByRole("link", { name: "Back", exact: true }).click();
+    await row("last-announcement").click();
+    await page.getByRole("heading", { name: "Class announcement" }).waitFor();
+    await bell(1).waitFor();
+    await page.reload();
+    const summary = page.getByRole("dialog", { name: "Your pending items" });
+    if (await summary.isVisible()) { await summary.getByRole("button", { name: "Dismiss" }).click(); await sheetGone(); }
+    await goTo("alerts");
+    await bell(1).waitFor();
+    if (await page.locator('a.row[href^="#news-"]').getByText("New", { exact: true }).count()) throw new Error("opened announcements reverted to new on reload");
+    await goTo("news-private-announcement");
+    await page.getByRole("heading", { name: "Announcement unavailable" }).waitFor();
+    if (await page.getByText("Private campus details").count()) throw new Error("the announcement ignored campus access");
+    await page.evaluate(() => __app.S.setCurrent("cornerstone"));
+    await goTo("news-last-announcement");
+    await page.getByRole("heading", { name: "Class announcement" }).waitFor();
+    if (await page.evaluate(() => __app.S.state.current) !== "riverside") throw new Error("the announcement deep link stayed in another church");
+  } finally {
+    await page.evaluate((original) => { __app.S.state = original; __app.S.flush(); }, before);
+    await goTo("home");
+  }
+});
 await step("targeted recipient picker", async () => {
   await goTo("me");
   await page.click("[data-act=demo-role]");

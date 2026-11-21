@@ -55,6 +55,12 @@ function churchForRoute(head, tail) {
   if (head === "visit") return S.state.churches[tail] ? tail : null;
   if (head === "map") return Object.values(S.state.churches).find((c) => c.locations?.some((l) => l.id === tail.split("~")[0]))?.id || null;
   if (head === "register") { const [k, ...r] = tail.split("-"); return S.get(k === "event" ? "events" : "gatherings", r.join("-"))?.churchId || null; }
+  if (head === "news") {
+    const announcement = S.get("news", tail);
+    const notice = S.state.notifications.find((n) => n.userId === S.me().id && announcementIdInNotice(n) === tail);
+    const cid = announcement?.churchId || notice?.churchId;
+    return S.state.churches[cid] ? cid : null;
+  }
   const kind = { event: "events", gathering: "gatherings", sermon: "sermons", outline: "docs", plan: "plans" }[head];
   return kind ? S.get(kind, tail)?.churchId || null : null;
 }
@@ -124,7 +130,8 @@ function render() {
 let pendingRoute = null;
 
 function headerIcons() {
-  const unread = S.church() ? unreadNews().length + myNotifications().filter((n) => !n.read).length : 0;
+  const pending = S.church() ? pendingAlerts() : null;
+  const unread = pending ? pending.news.length + pending.alerts.length : 0;
   const chatUnread = S.church() && S.on("chat") && S.can("use.chat") ? unreadChats() : 0;
   return html`
     ${S.church() && S.on("chat") && S.can("use.chat") ? html`<a class="icon-btn" href="#chat" aria-label="Messages${chatUnread ? `, ${chatUnread} unread` : ""}">${icon("chat")}${chatUnread ? html`<span class="dot">${chatUnread}</span>` : ""}</a>` : ""}
