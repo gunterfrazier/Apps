@@ -147,7 +147,10 @@ function notify(userId, n, churchId = S.state.current) {
   const rec = { id: uid(), churchId, userId, at: new Date().toISOString(), read: false, ...n };
   S.state.notifications.unshift(rec);
   S.state.notifications = S.state.notifications.slice(0, 600); S.save();
-  if (mine) Push.local(rec);
+  if (mine) {
+    ForegroundAlerts.show(rec);
+    Push.local(rec);
+  }
 }
 const myNotifications = () => S.state.notifications.filter((n) => n.userId === S.me().id && n.churchId === S.state.current);
 

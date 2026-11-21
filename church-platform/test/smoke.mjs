@@ -71,6 +71,45 @@ await step("join as basic member", async () => {
   await goTo("me"); await expectText("Member");
   if (await page.$('a[href="#admin"]')) throw new Error("a new member should not see Admin");
 });
+await step("foreground alerts", async () => {
+  await goTo("home");
+  await page.evaluate(() => {
+    const original = AudioContext.prototype.createOscillator;
+    AudioContext.prototype.createOscillator = function () {
+      window.alertChimes = (window.alertChimes || 0) + 1;
+      return original.call(this);
+    };
+  });
+  await page.keyboard.press("Shift");
+  const receive = (id, mine = true, eventType = "INSERT") => page.evaluate(({ id, mine, eventType }) => {
+    const { S, Backend } = __app;
+    const user = Backend.user;
+    Backend.user = { id: S.me().id };
+    Backend.applyChange({
+      eventType,
+      new: {
+        id, kind: "notifications", owner: mine ? S.me().id : "another-member", church_id: S.state.current,
+        data: { kind: "targeted", title: "Test Chatgpt", body: "Targeted test alert", read: false },
+      },
+    });
+    clearTimeout(Backend.refetch);
+    Backend.user = user;
+  }, { id, mine, eventType });
+  const banner = page.locator("#foreground-alert a");
+  await receive("other", false);
+  await receive("updated", true, "UPDATE");
+  if (await banner.isVisible()) throw new Error("an unrelated notification showed a banner");
+  await receive("new");
+  await banner.waitFor();
+  if (!(await banner.textContent()).includes("Test Chatgpt")) throw new Error("foreground banner missed the alert");
+  await page.waitForFunction(() => window.alertChimes === 1);
+  await receive("new");
+  if (await page.evaluate(() => window.alertChimes) !== 1) throw new Error("duplicate notification played a chime");
+  await banner.click();
+  await page.waitForURL(/#alerts$/);
+  if (await banner.isVisible()) throw new Error("the notification banner stayed open after tapping");
+  await goTo("home");
+});
 await step("campus filter", async () => {
   await goTo("home"); await page.click(".home-top [data-act=pick-campus]");
   await page.click('#scrim [data-id="riverside-east"]');

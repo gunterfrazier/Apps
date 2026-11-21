@@ -41,7 +41,8 @@ Screens.settings = () => {
           ${toggle("notify.serve", "Serving", "Requests to serve and reminders the day before", p.notify.serve)}
           ${toggle("notify.event", "Events and classes", "Reminders the day before something you signed up for", p.notify.event)}
           ${staff ? toggle("notify.staff", "Staff updates", "New people to follow up, room requests and form responses", p.notify.staff) : ""}
-          ${toggle("quiet", "Quiet at night", "Hold push notifications from 9 PM to 7 AM", p.quiet)}</div></section>
+          ${toggle("alertSound", "In-app alert sound", "Play a chime for new alerts while the app is open", p.alertSound !== false)}
+          ${toggle("quiet", "Quiet at night", "Silence device notifications and in-app chimes from 9 PM to 7 AM", p.quiet)}</div></section>
       ${typeof geofenceOffered === "function" && geofenceOffered() ? html`<section class="sec"><h2 class="sec-head">Location</h2><div class="rows">
           ${toggle("geofenceCheckin", "Check me in when I arrive", `Your phone checks your location while the app is open during a service or event, and marks you as here when you're on campus. Your location is never saved, only that you arrived.`, p.geofenceCheckin === true)}</div></section>` : ""}`,
   };
@@ -350,6 +351,47 @@ Inputs["pref-voice"] = (el) => {
   S.save(); previewVoice(code);
 };
 Inputs["pref-rate"] = (el) => { prefs().rate = +el.value; S.save(); previewVoice(lang()); };
+
+// ----- Foreground alerts -----
+const ForegroundAlerts = {
+  audio: null,
+  timer: 0,
+  recent: new Set(),
+  unlockAudio() {
+    if (prefs().alertSound === false || thisDevice()) return;
+    const Context = window.AudioContext || window.webkitAudioContext;
+    if (!Context) return;
+    try {
+      this.audio ||= new Context();
+      if (this.audio.state === "suspended") this.audio.resume().catch(() => {});
+    } catch { /* The banner is available without audio. */ }
+  },
+  show(n) {
+    if (document.visibilityState !== "visible" || thisDevice() || !wantsNotify(n) || this.recent.has(n.id)) return;
+    this.recent.add(n.id);
+    if (this.recent.size > 100) this.recent.delete(this.recent.values().next().value);
+    const banner = $("#foreground-alert a");
+    banner.textContent = n.body ? `${n.title} — ${n.body}` : n.title;
+    banner.hidden = false;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.hide(), 8000);
+    const h = new Date().getHours(), p = prefs(), audio = this.audio;
+    if (p.alertSound === false || (p.quiet && (h >= 21 || h < 7)) || audio?.state !== "running") return;
+    const tone = audio.createOscillator(), volume = audio.createGain(), now = audio.currentTime;
+    tone.frequency.value = 660;
+    volume.gain.setValueAtTime(0.12, now);
+    volume.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+    tone.connect(volume).connect(audio.destination);
+    tone.start(now);
+    tone.stop(now + 0.24);
+  },
+  hide() {
+    const banner = $("#foreground-alert a");
+    banner.hidden = true;
+    banner.textContent = "";
+    clearTimeout(this.timer);
+  },
+};
 
 // ----- Push notifications (Web Push) -----
 const Push = {
