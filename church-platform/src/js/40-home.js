@@ -324,7 +324,7 @@ const OpeningSummary = {
   pending: true,
   show() {
     if (!this.pending || !this.eligible || document.visibilityState !== "visible" ||
-        !S.church() || !S.me().name || pendingRoute || thisDevice() || $("#scrim") ||
+        !S.church() || !S.me().name || pendingRoute || thisDevice() || SANDBOX || isTrainingChurch() || $("#scrim") ||
         ((Backend.on || Backend.configured()) && !Backend.ready)) return;
     this.pending = false;
 

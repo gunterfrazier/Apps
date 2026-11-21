@@ -186,6 +186,10 @@ async function step(name, fn) {
   catch (e) { failed++; console.log(`FAIL ${name}: ${e.message.split("\n")[0]}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); }
 }
 const appText = () => page.textContent("#app");
+const dismissOpeningSummary = async (p) => {
+  const dismiss = p.getByRole("dialog", { name: "Your pending items" }).getByRole("button", { name: "Dismiss" });
+  if (await dismiss.isVisible()) await dismiss.click();
+};
 
 await step("opens at /Apps/ and asks: new here, or have an account?", async () => {
   await page.goto(base + "?debug");
@@ -253,14 +257,15 @@ await step("Bible highlights and notes save to the account", async () => {
   const priv = (db.profile_private || []).find((r) => r.user_id === uid)?.data || {};
   if (priv.highlights?.["42.3.16"] !== "yellow" || priv.verseNotes?.["42.3.16-16"]?.text !== "For God so loved.") throw new Error("highlights and notes weren't saved to the account");
   // After a reload the note comes back from the account; wait for it rather than a fixed pause (a busy machine is slower).
-  await page.reload(); await page.evaluate(() => { location.hash = "notes"; });
+  await page.goto(base + "?debug#notes"); await page.reload();
   await page.waitForFunction(() => document.querySelector("#app")?.textContent.includes("For God so loved."), null, { timeout: 15000 })
     .catch(() => { throw new Error("the Bible note is missing after a reload"); });
 });
 // For checking the real security rules: the rows the app wrote, as it would send them to Supabase.
 if (process.env.DUMP_DB) (await import("node:fs")).writeFileSync(process.env.DUMP_DB, JSON.stringify({ uid, db }, null, 1));
 await step("pairs a presentation screen as a device", async () => {
-  await page.evaluate(() => { location.hash = "devices"; }); await page.click("[data-act=device-new]");
+  await page.evaluate(() => { location.hash = "devices"; }); await page.waitForSelector("[data-act=device-new]");
+  await dismissOpeningSummary(page); await page.click("[data-act=device-new]");
   await page.locator("#scrim input[name=type][value=display]").evaluate((el) => el.click());
   await page.click("#scrim form button.btn:not([type=button])"); await page.waitForSelector("#scrim .pair-code");
   const code = (await page.textContent("#scrim .pair-code")).trim();
@@ -426,6 +431,7 @@ await step("cancelling at PayPal comes back to the Give screen", async () => {
 let trainingId = "";
 await step("creates a shared training church from a copy of the real one", async () => {
   await page.goto(base + "?debug#admin"); await page.waitForSelector("a[href='#admin-training']", { timeout: 15000 });
+  await dismissOpeningSummary(page);
   await page.click("a[href='#admin-training']"); await page.waitForSelector("form[data-form=training-create]");
   await page.locator("input[name=source][value=copy]").evaluate((el) => el.click());
   await page.click("form[data-form=training-create] button.btn.block");
