@@ -1752,6 +1752,8 @@ body.presenting #mini-player, body.kiosk-mode #mini-player, html.overlay-page #m
 .ecr-main .body .s { color: var(--ink-2); font-size: .92rem; }
 
 /* Security communications dock */
+.sec-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr)); border-radius: 18px; }
+.sec-nav a { display: grid; place-items: center; min-width: 0; min-height: 44px; padding: 6px; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
 .sec-channel-header .sec-head { margin-bottom: 6px; }
 .sec-channel-header .btns { margin: 0; }
 .sec-protocol-options { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-s); }

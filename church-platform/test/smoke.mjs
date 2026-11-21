@@ -213,6 +213,83 @@ await step("targeted recipient picker", async () => {
   await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
   await sheetGone();
 });
+await step("security command navigation on older browsers", async () => {
+  await goTo("me");
+  await page.click("[data-act=demo-role]");
+  await page.click('#scrim [data-act=demo-role-set][data-id="admin"]');
+  await sheetGone();
+  const before = await page.evaluate(() => {
+    const { S } = __app;
+    const snapshot = structuredClone(S.state);
+    const at = new Date().toISOString();
+    S.add("securityIncidents", { id: "nav-test", category: "Test incident", at, details: "Test", status: "open" });
+    for (const [minutes, id] of [[5, "first"], [12, "second"]]) {
+      S.add("securityIncidentEvents", { incidentId: "nav-test", type: "arrive", by: S.me().id, actorName: id,
+        at: new Date(Date.parse(at) + minutes * 60000).toISOString() });
+    }
+    return snapshot;
+  });
+  try {
+    await goTo("home");
+    await page.locator('[data-act="sos-open"]').first().click();
+    await page.getByRole("link", { name: "Open Security Command Center" }).click();
+    await page.waitForURL(/#security$/);
+    await sheetGone();
+    await page.evaluate(() => {
+      window.originalBrowserMethods = { findLast: Array.prototype.findLast, hasOwn: Object.hasOwn };
+      Array.prototype.findLast = undefined;
+      Object.hasOwn = undefined;
+      __app.render();
+    });
+    for (const width of [320, 390, 768, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      const nav = page.getByRole("navigation", { name: "Security Command sections" });
+      for (const [route, title] of [["incidents", "Incident triage"], ["doors", "Assigned Door & Entryway Lock Verification"],
+        ["rollcall", "Classroom & Ministry Area Headcount Checklist"], ["reunify", "Guardian Pickup Code & Identity Verification Gate"],
+        ["medical", /Campus AED & Trauma Kit Locations/], ["protocols", "5-Level Security Protocol Sequence Chart"],
+        ["drill", "Safety Drill Planner & Random Scenario Simulator"], ["access", "Protocol approval requests"]]) {
+        const link = nav.locator(`a[href="#security-${route}"]`);
+        const bounds = await link.boundingBox();
+        if (!bounds || bounds.x < 0 || bounds.x + bounds.width > width) throw new Error(`${route} is outside the viewport at ${width}px`);
+        await link.click();
+        await page.waitForFunction((hash) => location.hash === hash, `#security-${route}`).catch(async () => {
+          throw new Error(`Clicking ${route} at ${width}px left the page at ${page.url()}`);
+        });
+        await page.waitForFunction((hash) => Array.from(document.links).some((a) => a.hash === hash && a.getAttribute("aria-current") === "page"), `#security-${route}`);
+        await page.getByRole("heading", { name: title }).waitFor();
+      }
+      await nav.getByRole("link", { name: "Tactical Comms" }).click();
+      await page.getByRole("heading", { name: "Security channel" }).waitFor();
+    }
+    await page.getByRole("link", { name: /^Incidents/ }).click();
+    const incidentNav = page.getByRole("navigation", { name: "Incident sections" });
+    for (const [link, title] of [["Dashboard", "Incident dashboard"], ["Report queue", "Incident report queue"], ["Report forms", "Incident report forms"]]) {
+      await incidentNav.getByRole("link", { name: link }).click();
+      await page.getByRole("heading", { name: title }).waitFor();
+      if (link === "Dashboard") {
+        await page.getByRole("combobox", { name: "Period" }).selectOption("day");
+        await page.getByRole("heading", { name: "Reported by hour" }).waitFor();
+      }
+    }
+    await goTo("security-incidents-nav-test");
+    const firstArrival = await page.evaluate(() => new Date(__app.S.list("securityIncidentEvents").find((event) => event.actorName === "first").at).toLocaleString());
+    await page.locator(".sec-report-context").getByText(firstArrival, { exact: true }).waitFor();
+  } finally {
+    await page.evaluate((state) => {
+      if (window.originalBrowserMethods) {
+        Array.prototype.findLast = window.originalBrowserMethods.findLast;
+        Object.hasOwn = window.originalBrowserMethods.hasOwn;
+        delete window.originalBrowserMethods;
+      }
+      __app.S.state = state; __app.S.flush();
+    }, before);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await goTo("me");
+    await page.click("[data-act=demo-role]");
+    await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
+    await sheetGone();
+  }
+});
 await step("security communications dock", async () => {
   await goTo("me");
   await page.click("[data-act=demo-role]");

@@ -150,10 +150,10 @@ function tabs(active) {
   return html`<nav class="tabs" aria-label="Main"><div class="wrap" style="grid-template-columns:repeat(${list.length},1fr)">${list.map((t) => html`<a href="#${t.id}" ${attr(t.id === active, 'aria-current="page"')}>${icon(t.icon)}<span>${t.label}</span></a>`)}</div></nav>`;
 }
 
-function seg(items, current) {
+function seg(items, current, { label = "Sections", className = "" } = {}) {
   const list = items.filter((x) => x[2] !== false);
   if (list.length < 2) return "";
-  return html`<nav class="seg ${list.length > 4 ? "seg-many" : ""}" aria-label="Sections">${list.map(([hash, label]) => html`<a href="#${hash}" ${attr(hash === current, 'aria-current="page"')}>${label}</a>`)}</nav>`;
+  return html`<nav class="seg ${list.length > 4 ? "seg-many" : ""} ${className}" aria-label="${label}">${list.map(([hash, text]) => html`<a href="#${hash}" ${attr(hash === current, 'aria-current="page"')}>${text}</a>`)}</nav>`;
 }
 
 /** Location filter chip, shown when the person can see more than one location. */
