@@ -119,6 +119,7 @@ const ADMIN = {
       { name: "name", label: "Name", required: true, max: 60, hint: "Name each class or section, like Preschool, 9:00." },
       { name: "category", label: "Category", type: "suggest", options: ["Sunday school", "Classes", "Small group", "Bible study", "Kids", "Youth", "Care"], get: (r) => r.category || "Sunday school" },
       { name: "description", label: "Description", type: "textarea", max: 600 },
+      { name: "photo", label: "Photo (optional)", type: "image", max: 1200, hint: "Shown on the class or group in lists and at the top of its page." },
       { name: "topic", label: "Topic", max: 60 },
       { name: "locationId", label: "Location", type: "location", allLabel: "Off-site" },
       { name: "room", label: "Room number or place", type: "room", max: 80 },
@@ -140,7 +141,7 @@ const ADMIN = {
     check: (d) => d.kind === "once" && !d.date ? "Pick the date for a one-time class or group."
       : d.kind === "weekly" && !d.days.length ? "Pick at least one day it meets."
       : d.studyPassage && !parseRef(d.studyPassage) ? "The study passage doesn't look like a Bible reference." : null,
-    save: (d, r) => ({ type: d.type || "class", name: d.name, category: d.category || "Classes", description: d.description, topic: d.topic, locationId: d.locationId || null, room: d.room,
+    save: (d, r) => ({ type: d.type || "class", name: d.name, category: d.category || "Classes", description: d.description, photo: d.photo || "", topic: d.topic, locationId: d.locationId || null, room: d.room,
       schedule: d.kind === "once" ? { kind: "once", date: d.date, time: d.time || "09:00", endTime: d.endTime } : { kind: "weekly", days: d.days.map(Number), time: d.time || "09:00", endTime: d.endTime, startDate: d.startDate, endDate: d.endDate },
       registration: d.registration || "open", capacity: Math.max(0, +d.capacity || 0), ageMin: d.ageMin === "" ? null : +d.ageMin, ageMax: d.ageMax === "" ? null : +d.ageMax, leaders: d.leaders,
       study: d.studyPassage ? { passage: d.studyPassage, topic: d.studyTopic } : null, members: r?.members || [], sampleCount: r?.sampleCount || 0 }),
