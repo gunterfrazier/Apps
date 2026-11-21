@@ -56,7 +56,7 @@ const expectText = async (s) => { const t = await text(); if (!t.includes(s)) th
 const sheetSubmit = () => page.click("#scrim form button.btn:not([type=button])");
 const sheetGone = () => page.waitForSelector("#scrim", { state: "detached", timeout: 4000 });
 
-await page.goto(base + "#event-riverside-e1");
+await page.goto(base + "?debug#event-riverside-e1");
 await step("welcome", async () => {
   await shot("01-welcome");
   await page.fill("input[name=name]", "Gunter Frazier");
@@ -123,8 +123,37 @@ await step("prayer and giving", async () => {
   await page.click("#scrim [data-act=pay-test]"); await page.waitForSelector("#scrim [data-to=history]");
   await page.click("[data-act=close-sheet]");
 });
-await step("become primary", async () => {
+await step("become primary and search child reunification", async () => {
   await goTo("me"); await page.click("[data-act=demo-primary]"); await page.waitForSelector("text=Account details"); await shot("06-admin");
+  await goTo("security-reunify");
+  const originalIds = await page.evaluate(() => __app.S.list("checkins").map((k) => k.id));
+  await page.click("[data-act=reunify-sim-seed]");
+  const search = page.locator('[data-input="reunify-search"]');
+  const results = page.locator("#reunify-list");
+  await search.focus();
+  await page.keyboard.type("Liam Carter");
+  if (await search.inputValue() !== "Liam Carter" || !await search.evaluate((el) => document.activeElement === el)) {
+    throw new Error("reunification search lost focus while typing");
+  }
+  if (await results.locator(".row").count() !== 1) throw new Error("expected one matching child");
+  await page.keyboard.press("Backspace");
+  if (await search.inputValue() !== "Liam Carte") throw new Error("reunification search did not accept backspace");
+  await search.fill("4829");
+  if (await results.locator(".row").count() !== 2) throw new Error("expected both children with the pickup code");
+  await search.fill("Chloe Davis");
+  await results.locator('[data-act="reunify-verify-modal"]').click();
+  await page.waitForSelector('#scrim form[data-form="reunify-complete"]');
+  await page.keyboard.press("Escape");
+  await sheetGone();
+  await page.evaluate((originalIds) => {
+    const S = __app.S;
+    for (const k of S.list("checkins")) {
+      if (!originalIds.includes(k.id)) S.remove("checkins", k.id);
+    }
+    S.save();
+  }, originalIds);
+  await goTo("admin");
+
 });
 await step("roles", async () => {
   await goTo("admin-roles"); await shot("07-roles");
