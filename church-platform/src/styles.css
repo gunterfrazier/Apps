@@ -1592,11 +1592,13 @@ body.presenting #mini-player, body.kiosk-mode #mini-player, html.overlay-page #m
 
 /* 5. Targeted Push Segment Builder */
 .seg-builder-panel { display: flex; flex-direction: column; gap: 14px; }
-.seg-group-block { padding-bottom: 10px; border-bottom: 1px solid var(--line); }
-.seg-group-block:last-of-type { border-bottom: 0; padding-bottom: 0; }
-.chip.seg-active { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
-.seg-cnt { display: inline-block; padding: 1px 6px; border-radius: 999px; background: rgba(0,0,0,.12); font-size: .74rem; margin-left: 4px; }
-.seg-preview-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--r-s); background: var(--brand-soft); border: 1px solid var(--brand-line); }
+.push-group-filters { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
+.seg-builder-panel .field, #push-selected-groups p { margin: 0; }
+.push-group-results { max-height: min(16rem, 34vh); overflow-y: auto; }
+.push-group-results .row[aria-pressed="true"] { background: var(--brand-soft); }
+.seg-preview-bar { padding: 12px 14px; border-radius: var(--r-s); background: var(--brand-soft); border: 1px solid var(--brand-line); }
+.seg-preview-bar summary { cursor: pointer; font-weight: 700; }
+.push-recipient-names { max-height: 14rem; overflow-y: auto; margin-bottom: 0; padding-inline-start: 24px; }
 
 /* ---------- Next-Level Differentiators & Musician Stage Control Styles ---------- */
 /* 1. Interactive Fill-in-the-Blank Sermon Notes & Live Pew Sync */

@@ -136,7 +136,10 @@ function buildTargetSegments() {
 }
 
 // ----- Admin Screen: Targeted Push Notifications (#admin-push) -----
-let selectedPushSegments = ["team:Worship"];
+let pushAudienceChurch = null;
+let selectedPushSegments = [];
+let pushGroupQuery = "";
+let pushGroupCategory = "";
 let pushCombineMode = "any"; // "any" (Union) | "all" (Intersection)
 
 function computeMatchedRecipients(segments) {
@@ -152,11 +155,16 @@ function computeMatchedRecipients(segments) {
 AdminScreens.push = () => {
   if (!S.isMember() || !S.canAny(["manage.content", "send.email", "send.texts", "manage.church", "schedule.teams"])) return guard("manage.content");
   const segments = buildTargetSegments();
-  if (!selectedPushSegments.some((k) => segments.some((s) => s.key === k))) {
-    selectedPushSegments = [segments.find((s) => s.key.startsWith("team:"))?.key || "all"];
+  if (pushAudienceChurch !== S.state.current) {
+    pushAudienceChurch = S.state.current;
+    selectedPushSegments = [];
+    pushCombineMode = "any";
+    pushGroupQuery = "";
+    pushGroupCategory = "";
   }
-  const matchedIds = computeMatchedRecipients(segments);
   const groups = [...new Set(segments.map((s) => s.group))];
+  if (!groups.includes(pushGroupCategory)) pushGroupCategory = "";
+  const matchedIds = computeMatchedRecipients(segments);
   const history = (S.state.pushCampaigns || []).filter((p) => p.churchId === S.state.current).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 10);
 
   const deepLinks = [
@@ -173,41 +181,25 @@ AdminScreens.push = () => {
   return {
     title: "Targeted push notifications", back: "admin",
     body: html`
-      <p class="muted" style="margin-top:14px">Send targeted Web Push and in-app notifications to specific segments—such as only parents of 3rd graders, only the Worship team, or a single campus—instead of church-wide blasts.</p>
-
       <section class="sec">
-        <div class="sec-head">
-          <h2>1. Choose target segments</h2>
-          <div class="radios" style="margin:0">
-            <label><input type="radio" name="combine" value="any" data-change="push-combine" ${attr(pushCombineMode === "any", "checked")}><span>Match ANY</span></label>
-            <label><input type="radio" name="combine" value="all" data-change="push-combine" ${attr(pushCombineMode === "all", "checked")}><span>Match ALL</span></label>
-          </div>
-        </div>
-
+        <h2 class="sec-head">1. Choose recipient groups</h2>
         <div class="panel seg-builder-panel">
-          ${groups.map((grp) => html`
-            <div class="seg-group-block">
-              <div class="faint" style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${grp}</div>
-              <div class="chips">
-                ${segments.filter((s) => s.group === grp).map((s) => {
-                  const active = selectedPushSegments.includes(s.key);
-                  return html`<button type="button" class="chip ${active ? "seg-active" : ""}" data-act="push-seg-toggle" data-key="${s.key}" aria-pressed="${active}">
-                    ${s.label} <span class="seg-cnt">${s.ids.length}</span>
-                  </button>`;
-                })}
-              </div>
-            </div>
-          `)}
-
-          <div class="seg-preview-bar">
-            <div>
-              <b>Matched audience: ${plural(matchedIds.length, "member")}</b>
-              <div class="faint" style="font-size:.82rem">
-                ${matchedIds.length ? matchedIds.slice(0, 8).map((u) => S.userName(u)).join(", ") + (matchedIds.length > 8 ? ` + ${matchedIds.length - 8} more` : "") : "No members currently match this segment combination. Add members/children or pick another segment."}
-              </div>
-            </div>
-            ${selectedPushSegments.length > 1 ? html`<button type="button" class="btn ghost sm" data-act="push-seg-clear">Reset</button>` : ""}
+          <div class="push-group-filters">
+            <label class="field"><span>Search groups</span><input type="search" data-input="push-group-search" value="${pushGroupQuery}" placeholder="Worship, 3rd grade, East campus…"></label>
+            <label class="field"><span>Category</span><select data-change="push-group-category"><option value="">All categories</option>
+              ${groups.map((group) => html`<option value="${group}" ${attr(group === pushGroupCategory, "selected")}>${group}</option>`)}
+            </select></label>
           </div>
+          <div id="push-group-results" class="rows push-group-results">${pushGroupResults(segments)}</div>
+          <div id="push-selected-groups">${pushSelectedGroups(segments)}</div>
+          <label class="field"><span>When selecting multiple groups</span><select data-change="push-combine">
+            <option value="any" ${attr(pushCombineMode === "any", "selected")}>Include members in any selected group</option>
+            <option value="all" ${attr(pushCombineMode === "all", "selected")}>Include only members in every selected group</option>
+          </select></label>
+          <details class="seg-preview-bar">
+            <summary id="push-recipient-count" aria-live="polite">${plural(matchedIds.length, "recipient")}</summary>
+            <div id="push-recipient-list">${pushRecipientList(matchedIds)}</div>
+          </details>
         </div>
       </section>
 
@@ -226,7 +218,7 @@ AdminScreens.push = () => {
             </div>
           </fieldset>
 
-          <button class="btn block">${icon("send")}Send to ${plural(matchedIds.length, "targeted member")}</button>
+          <button class="btn block" id="push-send" ${attr(!matchedIds.length, "disabled")}>${icon("send")}<span>Send to ${plural(matchedIds.length, "recipient")}</span></button>
         </form>
       </section>
 
@@ -248,17 +240,62 @@ AdminScreens.push = () => {
   };
 };
 
+function pushGroupResults(segments) {
+  const words = pushGroupQuery.toLowerCase().trim().split(/\s+/);
+  const matches = segments.filter((s) => {
+    const searchable = `${s.label} ${s.group}`.toLowerCase();
+    return (!pushGroupCategory || s.group === pushGroupCategory) && words.every((word) => searchable.includes(word));
+  });
+  return matches.length ? matches.map((s) => html`<button type="button" class="row" data-act="push-seg-toggle" data-key="${s.key}" aria-pressed="${selectedPushSegments.includes(s.key)}">
+    <span class="body"><span class="t">${s.label}</span><span class="s">${s.group}</span></span>
+    <span class="tag">${s.ids.length}</span>
+  </button>`) : empty("No groups match your search.");
+}
+
+function pushSelectedGroups(segments) {
+  const chosen = segments.filter((s) => selectedPushSegments.includes(s.key));
+  return chosen.length ? html`<div class="chips">${chosen.map((s) => html`<button type="button" class="chip" data-act="push-seg-toggle" data-key="${s.key}" aria-label="Remove ${s.label}">${s.label} ${icon("x")}</button>`)}
+    <button type="button" class="chip" data-act="push-seg-clear">Clear selection</button></div>` : html`<p class="faint">No groups selected.</p>`;
+}
+
+function pushRecipientList(ids) {
+  const names = ids.map((id) => S.userName(id)).sort((a, b) => a.localeCompare(b));
+  return names.length ? html`<ul class="push-recipient-names">${names.map((name) => html`<li>${name}</li>`)}</ul>` : html`<p>No members match the selection.</p>`;
+}
+
+function refreshPushAudience() {
+  const segments = buildTargetSegments();
+  const ids = computeMatchedRecipients(segments);
+  for (const button of $$("#push-group-results [aria-pressed]")) {
+    button.setAttribute("aria-pressed", String(selectedPushSegments.includes(button.dataset.key)));
+  }
+  $("#push-selected-groups").innerHTML = flat(pushSelectedGroups(segments));
+  $("#push-recipient-count").textContent = plural(ids.length, "recipient");
+  $("#push-recipient-list").innerHTML = flat(pushRecipientList(ids));
+  $("#push-send span").textContent = `Send to ${plural(ids.length, "recipient")}`;
+  $("#push-send").disabled = !ids.length;
+}
+
 Actions["push-seg-toggle"] = (el) => {
   const k = el.dataset.key;
-  if (selectedPushSegments.includes(k)) {
-    selectedPushSegments = selectedPushSegments.filter((x) => x !== k);
-  } else {
-    selectedPushSegments = [...selectedPushSegments, k];
-  }
-  render();
+  selectedPushSegments = selectedPushSegments.includes(k) ? selectedPushSegments.filter((x) => x !== k) : [...selectedPushSegments, k];
+  refreshPushAudience();
+  if (!el.isConnected) $('[data-input="push-group-search"]').focus();
 };
-Actions["push-seg-clear"] = () => { selectedPushSegments = ["all"]; render(); };
-Inputs["push-combine"] = (el) => { pushCombineMode = el.value; render(); };
+Actions["push-seg-clear"] = () => {
+  selectedPushSegments = [];
+  refreshPushAudience();
+  $('[data-input="push-group-search"]').focus();
+};
+Inputs["push-combine"] = (el) => { pushCombineMode = el.value; refreshPushAudience(); };
+Inputs["push-group-search"] = (el) => {
+  pushGroupQuery = el.value;
+  $("#push-group-results").innerHTML = flat(pushGroupResults(buildTargetSegments()));
+};
+Inputs["push-group-category"] = (el) => {
+  pushGroupCategory = el.value;
+  $("#push-group-results").innerHTML = flat(pushGroupResults(buildTargetSegments()));
+};
 
 Forms["push-targeted-send"] = async (d, f, fd) => {
   const segments = buildTargetSegments();
