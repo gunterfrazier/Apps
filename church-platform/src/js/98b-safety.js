@@ -1063,9 +1063,11 @@ function securitySeg(active) {
 Screens.security = (tail = "") => {
   if (!S.church()) return { redirect: "churches" };
   const incidentRoute = tail.startsWith("incidents-") ? tail.slice("incidents-".length) : "";
-  const sub = incidentRoute ? "incidents" : ["drill", "incidents", "doors", "rollcall", "reunify", "medical", "protocols", "access"].includes(tail) ? tail : "";
+  const accessRoute = ["access", "access-roles", "access-roster", "access-assign"].includes(tail);
+  const sub = incidentRoute ? "incidents" : accessRoute ? "access" : ["drill", "incidents", "doors", "rollcall", "reunify", "medical", "protocols"].includes(tail) ? tail : "";
   if (!sub && !isSecurityMember()) return { redirect: "safety-status" };
   if (sub && !securitySections()[sub]) return { redirect: isSecurityMember() ? "security" : "home" };
+  if (tail === "access-assign" && !securityAdmin()) return { redirect: "security-access-roster" };
   const activeHash = sub ? `security-${sub}` : "security";
   const c = S.church(), alert = c.activeAlert, drill = c.activeDrill;
 
@@ -1083,7 +1085,7 @@ Screens.security = (tail = "") => {
   else if (sub === "reunify") bodyContent = renderSecurityReunification(c);
   else if (sub === "medical") bodyContent = renderSecurityMedical(c);
   else if (sub === "protocols") bodyContent = renderSecurityProtocolGenerator(c);
-  else if (sub === "access") bodyContent = renderSecurityAccess(c);
+  else if (sub === "access") bodyContent = renderSecurityAccess(c, `security-${tail}`);
 
   return {
     title: "Security Command", back: hasAdminTools() ? "admin" : "home",
@@ -1906,83 +1908,133 @@ function requestSecurityProtocol(level, incidentId) {
   render();
 }
 
-function renderSecurityAccess(c) {
-  const manage = securityAdmin();
-  const members = S.members().filter((m) => S.user(m.userId));
-  const people = members.filter((m) => !securityAdmin(m.userId, c.id) && !String(m.roleId).startsWith("device:"))
-    .sort((a, b) => S.userName(a.userId).localeCompare(S.userName(b.userId)));
-  const ranks = ["", "Volunteer", "Supervisor", "Head of security"];
-  const roster = members.map((m) => ({ id: m.userId, rank: securityLevel(m.userId, c.id) }))
-    .filter((p) => p.rank && (canLeadSecurity() || p.id === S.me().id)).sort((a, b) => b.rank - a.rank || S.userName(a.id).localeCompare(S.userName(b.id)));
+const SECURITY_ACCESS_ROLES = [
+  { label: "Volunteer", summary: "Security communications. Access granted by a separate church role, such as check-in, still applies." },
+  { label: "Supervisor", summary: "Communications, incidents and response tools. Can declare protocols up to the assigned limit. Higher levels require approval." },
+  { label: "Head of security", summary: "All Security Command functions, including drills, protocol review and All Clear. Church administrators assign access." },
+];
+
+function securityAccessRole(person, churchId) {
+  const rank = securityLevel(person, churchId);
+  const role = SECURITY_ACCESS_ROLES[rank - 1];
+  return {
+    label: securityAdmin(person, churchId) ? "Church administrator" : role?.label || "No Security Command access",
+    summary: role?.summary || "",
+    limit: rank === 2 ? (securityAssignment(person, churchId)?.maxLevel || 0) : null,
+  };
+}
+
+function canEditSecurityAccess(person) {
+  const member = S.membership(S.state.current, person);
+  return securityAdmin() && !!member && !String(member.roleId || "").startsWith("device:") && !securityAdmin(person);
+}
+
+function renderSecurityAccess(c, selected) {
+  const manage = securityAdmin(), lead = canLeadSecurity();
+  const sections = [
+    ["security-access", "Approvals"],
+    ["security-access-roles", "Roles"],
+    ["security-access-roster", lead ? "Roster" : "Your access"],
+    ["security-access-assign", "Assign access", manage],
+  ];
+  const nav = seg(sections, selected, { label: "Security access sections", className: "sec-nav" });
+  let content;
+  if (selected === "security-access-roles") {
+    content = html`<section class="sec"><h2 class="sec-head">Security roles</h2>
+      <div class="rows">${SECURITY_ACCESS_ROLES.map((role, index) => html`<button type="button" class="row" data-act="security-role-details" data-rank="${index + 1}">
+        <span class="body"><span class="t">${role.label}</span></span>${icon("chev")}
+      </button>`)}</div>
+    </section>`;
+  } else if (selected === "security-access-assign" || selected === "security-access-roster") {
+    const assigning = selected === "security-access-assign";
+    const members = S.members(c.id).filter((member) => S.user(member.userId)).map(({ userId }) => ({
+      id: userId, name: S.userName(userId), rank: securityLevel(userId, c.id),
+    }));
+    const people = assigning ? members.filter(({ id }) => canEditSecurityAccess(id)).sort((a, b) => a.name.localeCompare(b.name))
+      : members.filter(({ id, rank }) => rank && (lead || id === S.me().id)).sort((a, b) => b.rank - a.rank || a.name.localeCompare(b.name));
+    content = html`<section class="sec">
+      <h2 class="sec-head">${assigning ? "Assign access" : lead ? "Security roster" : "Your access"}</h2>
+      ${assigning && people.length ? html`<label class="field"><span>Search church members</span>
+        <input type="search" data-input="filter-rows" data-target="#security-people" data-empty="#security-people-empty" autocomplete="off"></label>` : ""}
+      <div class="rows" id="security-people">${people.length ? people.map(({ id, name }) => {
+        const role = securityAccessRole(id, c.id);
+        return html`<button type="button" class="row" data-act="security-open-person" data-id="${id}" data-search="${name}">
+          <span class="body"><span class="t">${name}</span>
+            <span class="s">${role.label}${role.limit == null ? "" : ` · Direct limit: ${role.limit ? `Level ${role.limit}` : "Approval for every level"}`}</span></span>
+          ${icon("chev")}
+        </button>`;
+      }) : empty(assigning ? "No church members available for assignment." : "No security team members.")}</div>
+      <p class="muted" id="security-people-empty" hidden>No matching names.</p>
+    </section>`;
+  } else {
+    content = renderSecurityRequests(lead);
+  }
+  return html`${nav}${content}`;
+}
+
+const securityRequestStatus = (request) => ({ pending: "Awaiting review", approved: "Approved", declined: "Declined" })[request.status] || "Closed";
+
+function renderSecurityRequests(lead) {
   const requests = S.list("securityProtocolRequests")
-    .filter((r) => canLeadSecurity() || r.requestedBy === S.me().id)
+    .filter((r) => lead || r.requestedBy === S.me().id)
     .sort((a, b) => b.at.localeCompare(a.at));
   return html`
     <section class="sec">
       <h2 class="sec-head">Protocol approval requests</h2>
       <div class="rows">${requests.length ? requests.map((r) => {
         const incident = r.incidentId && S.get("securityIncidents", r.incidentId);
-        return html`<div class="row"><span class="body">
+        return html`<button type="button" class="row" data-act="security-open-request" data-id="${r.id}"><span class="body">
           <span class="t">Level ${r.level} · ${S.userName(r.requestedBy)}</span>
-          <span class="s">${r.status === "pending" ? "Awaiting review" : r.status === "approved" ? "Approved" : "Declined"} · ${ago(r.at)}</span>
+          <span class="s">${securityRequestStatus(r)} · ${ago(r.at)}</span>
           ${incident ? html`<span class="s">${incident.category} · ${incident.room || "Location unavailable"}</span>` : ""}
-          ${canLeadSecurity() && r.status === "pending" ? html`<span class="btns">
-            <button type="button" class="btn sm" data-act="security-review-request" data-id="${r.id}">Review</button>
-          </span>` : ""}
-        </span></div>`;
+        </span>${lead && r.status === "pending" ? html`<span class="tag brand">Review</span>` : ""}${icon("chev")}</button>`;
       }) : empty("No protocol approval requests.")}</div>
     </section>
-    <section class="sec">
-      <h2 class="sec-head">Security access</h2>
-      <div class="rows">
-        <div class="row"><span class="body"><span class="t">Head of security and church administrators</span><span class="s">All Security Command functions, including drills, protocol review and All Clear. Church administrators assign access.</span></span></div>
-        <div class="row"><span class="body"><span class="t">Supervisor</span><span class="s">Communications, incidents and response tools. Declares up to their assigned level. Higher levels require approval.</span></span></div>
-        <div class="row"><span class="body"><span class="t">Volunteer</span><span class="s">Security communications. Access from a separate church role, such as check-in, still applies.</span></span></div>
-      </div>
-    </section>
-    <section class="sec">
-      <h2 class="sec-head">${canLeadSecurity() ? "Security roster" : "Your access"}</h2>
-      <div class="rows">${roster.length ? roster.map(({id, rank}) => html`<div class="row"><span class="body">
-        <span class="t">${S.userName(id)}</span><span class="s">${securityAdmin(id, c.id) ? "Church administrator" : ranks[rank]}
-          ${rank === 2 ? ` · Direct limit: ${securityAssignment(id, c.id)?.maxLevel ? `Level ${securityAssignment(id, c.id).maxLevel}` : "Approval for every level"}` : ""}</span>
-      </span></div>`) : empty("No security team members.")}</div>
-    </section>
-    ${manage && people.length ? html`<section class="sec">
-      <h2 class="sec-head">Assign access</h2>
-      <div class="panel"><label class="field"><span>Church member</span><select id="security-assignee">
-        ${people.map((m) => html`<option value="${m.userId}">${S.userName(m.userId)}</option>`)}
-      </select></label>
-      <button type="button" class="btn" data-act="security-edit-access">Edit access</button></div>
-    </section>` : ""}
   `;
 }
 
-Actions["security-edit-access"] = () => {
-  if (!securityAdmin()) return;
-  const id = $("#security-assignee")?.value;
-  if (!id || !S.membership(S.state.current, id) || securityAdmin(id)) return;
+Actions["security-role-details"] = (el) => {
+  if (!canSuperviseSecurity()) return;
+  const role = SECURITY_ACCESS_ROLES[+el.dataset.rank - 1];
+  if (role) openSheet(role.label, html`<p>${role.summary}</p>`, { focus: '[data-act="close-sheet"]' });
+};
+
+Actions["security-open-person"] = (el) => {
+  if (!canSuperviseSecurity()) return;
+  const id = el.dataset.id;
+  if (!S.membership(S.state.current, id) || !S.user(id)) return;
+  if (canEditSecurityAccess(id)) { openSecurityAccessEditor(id); return; }
+  if (id !== S.me().id && (!canLeadSecurity() || !securityLevel(id))) return;
+  const role = securityAccessRole(id, S.state.current);
+  openSheet(S.userName(id), html`<p><b>${role.label}</b></p>
+    ${role.summary ? html`<p>${role.summary}</p>` : ""}
+    ${role.limit == null ? "" : html`<p><b>Direct limit</b> · ${role.limit ? `Level ${role.limit}` : "Approval for every level"}</p>`}`, { focus: '[data-act="close-sheet"]' });
+};
+
+function openSecurityAccessEditor(id) {
   const assignment = securityAssignment(id, S.state.current);
   const roles = [["", "Use church role and team"], ["volunteer", "Volunteer"], ["supervisor", "Supervisor"], ["head", "Head of security"]];
   openSheet(S.userName(id), html`<form data-form="security-save-access">
     <input type="hidden" name="id" value="${id}">
     <label class="field"><span>Security role</span><select name="role">
-      ${roles.map(([key, label]) => html`<option value="${key}" ${attr(key === assignment?.role, "selected")}>${label}</option>`)}
+      ${roles.map(([key, label]) => html`<option value="${key}" ${attr(key === (assignment?.role || ""), "selected")}>${label}</option>`)}
     </select></label>
     <label class="field"><span>Supervisor direct declaration limit</span><select name="maxLevel">
       ${[0, 1, 2, 3, 4, 5].map((n) => html`<option value="${n}" ${attr(n === (assignment?.maxLevel || 0), "selected")}>${n ? `Level ${n}` : "Approval for every level"}</option>`)}
     </select></label>
-    <button class="btn">Save access</button>
+    <button class="btn" type="submit">Save access</button>
   </form>`);
-};
+}
 
 Forms["security-save-access"] = async (d, f) => {
   const c = S.church(), actor = S.me().id;
-  if (!securityAdmin() || !S.membership(c.id, d.id) || securityAdmin(d.id)) return;
+  if (!c || !canEditSecurityAccess(d.id)) return formError(f, "You no longer have permission to edit access for this person.");
   if (!["", "volunteer", "supervisor", "head"].includes(d.role) || !/^[0-5]$/.test(d.maxLevel)) return formError(f, "Choose a valid security role and limit.");
   const id = `${c.id}:${d.id}`;
   let assignment = { userId: d.id, role: d.role || null, maxLevel: d.role === "supervisor" ? +d.maxLevel : 0 };
   if (Backend.on) {
-    const submit = $('button[type="submit"], button:not([type])', f);
+    const submit = $('button[type="submit"]', f);
+    if (submit.disabled) return;
     submit.disabled = true;
     try {
       const { data, error } = await Backend.client.rpc("security_assign_access", { c: c.id, person: d.id, role_name: d.role, max_level: +d.maxLevel });
@@ -1997,21 +2049,28 @@ Forms["security-save-access"] = async (d, f) => {
   if (current) Object.assign(current, assignment);
   else S.add("securityAccessAssignments", { ...assignment, id });
   S.save();
-  closeSheet(true);
-  render();
+  if (f.isConnected) {
+    closeSheet(true);
+    render();
+    $$('[data-act="security-open-person"]').find((button) => button.dataset.id === d.id)?.focus({ preventScroll: true });
+    toast("Security access saved.");
+  } else if (!$("#scrim")) render();
 };
 
-Actions["security-review-request"] = (el) => {
-  if (!canLeadSecurity()) return;
+Actions["security-open-request"] = (el) => {
+  if (!canSuperviseSecurity()) return;
   const r = S.get("securityProtocolRequests", el.dataset.id);
-  if (!r || r.churchId !== S.state.current || r.status !== "pending") return;
+  const lead = canLeadSecurity();
+  if (!r || r.churchId !== S.state.current || (!lead && r.requestedBy !== S.me().id)) return;
   const incident = r.incidentId && S.get("securityIncidents", r.incidentId);
-  openSheet(`Review Level ${r.level} request`, html`<p>Requested by ${S.userName(r.requestedBy)}.</p>
+  const canReview = lead && r.status === "pending";
+  openSheet(`${canReview ? "Review " : ""}Level ${r.level} request`, html`<p>Requested by ${S.userName(r.requestedBy)}.</p>
+    <p><b>${securityRequestStatus(r)}</b></p>
     ${incident ? html`<p><b>${incident.category}</b> · ${incident.room || "Location unavailable"}</p><p>${incident.details || ""}</p>` : html`<p>No incident is attached.</p>`}
-    <div class="btns">
+    ${canReview ? html`<div class="btns">
       <button type="button" class="btn danger" data-act="security-decide-request" data-id="${r.id}" data-choice="approve">Approve and activate</button>
       <button type="button" class="btn ghost" data-act="security-decide-request" data-id="${r.id}" data-choice="decline">Decline</button>
-    </div>`);
+    </div>` : ""}`, { focus: '[data-act="close-sheet"]' });
 };
 Actions["security-decide-request"] = async (el) => {
   if (!canLeadSecurity() || protocolTransitionPending) return;
