@@ -186,6 +186,11 @@ async function step(name, fn) {
   catch (e) { failed++; console.log(`FAIL ${name}: ${e.message.split("\n")[0]}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); }
 }
 const appText = () => page.textContent("#app");
+// The opening summary has its own smoke test. Dismiss it when it blocks actions in these flows.
+const openingSummary = page.getByRole("dialog", { name: "Your pending items" });
+await page.addLocatorHandler(openingSummary, async () => {
+  await openingSummary.getByRole("button", { name: "Dismiss" }).click();
+});
 
 await step("opens at /Apps/ and asks: new here, or have an account?", async () => {
   await page.goto(base + "?debug");
@@ -253,7 +258,7 @@ await step("Bible highlights and notes save to the account", async () => {
   const priv = (db.profile_private || []).find((r) => r.user_id === uid)?.data || {};
   if (priv.highlights?.["42.3.16"] !== "yellow" || priv.verseNotes?.["42.3.16-16"]?.text !== "For God so loved.") throw new Error("highlights and notes weren't saved to the account");
   // After a reload the note comes back from the account; wait for it rather than a fixed pause (a busy machine is slower).
-  await page.reload(); await page.evaluate(() => { location.hash = "notes"; });
+  await page.goto(base + "?debug#notes"); await page.reload();
   await page.waitForFunction(() => document.querySelector("#app")?.textContent.includes("For God so loved."), null, { timeout: 15000 })
     .catch(() => { throw new Error("the Bible note is missing after a reload"); });
 });

@@ -71,6 +71,48 @@ await step("join as basic member", async () => {
   await goTo("me"); await expectText("Member");
   if (await page.$('a[href="#admin"]')) throw new Error("a new member should not see Admin");
 });
+await step("opening summary", async () => {
+  await goTo("home");
+  const before = await page.evaluate(() => {
+    const { S } = __app;
+    const original = structuredClone(S.state);
+    const me = S.me().id, at = new Date().toISOString();
+    S.add("services", { title: "Upcoming service", date: "2099-01-01", time: "09:00",
+      assignments: [{ id: "summary-assignment", position: "Greeter", userId: me, status: "pending" }] });
+    S.add("notifications", { id: "summary-alert", userId: me, title: "Read this update", body: "Full text of the alert", at, read: false });
+    S.add("notifications", { id: "summary-read", userId: me, title: "Already opened", at, read: true });
+    S.add("channels", { id: "summary-chat", members: [me, "u-dana"] });
+    S.state.messages.push({ id: "summary-message", channelId: "summary-chat", by: "u-dana", text: "Hello", at });
+    S.flush();
+    return original;
+  });
+  await page.reload();
+  const summary = page.getByRole("dialog", { name: "Your pending items" });
+  await summary.waitFor();
+  await summary.getByRole("link", { name: /Greeter/ }).waitFor();
+  await summary.getByText("Unread messages", { exact: true }).waitFor();
+  await summary.locator('a[href="#thread-summary-chat"]').waitFor();
+  if (await summary.getByText("Already opened").count()) throw new Error("read notification appeared in pending items");
+  await summary.getByRole("button", { name: "Read this update" }).click();
+  await page.getByRole("dialog", { name: "Read this update" }).getByText("Full text of the alert").waitFor();
+  await page.keyboard.press("Escape");
+  await sheetGone();
+  await goTo("me");
+  if (await summary.count()) throw new Error("opening summary repeated during a visit");
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    delete document.visibilityState;
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await summary.waitFor();
+  if (await summary.getByText("Read this update").count()) throw new Error("opened notification reappeared on return");
+  await summary.locator('a[href="#thread-summary-chat"]').click();
+  await page.waitForURL(/#thread-summary-chat$/);
+  await sheetGone();
+  await page.evaluate((initial) => { __app.S.state = initial; __app.S.flush(); }, before);
+  await goTo("home");
+});
 await step("foreground alerts", async () => {
   await goTo("home");
   await page.evaluate(() => {

@@ -319,6 +319,42 @@ Forms["connect-card"] = (d, f) => {
   closeSheet(); toast(`Sent to ${S.church().name}`);
 };
 
+const OpeningSummary = {
+  eligible: false,
+  pending: true,
+  show() {
+    if (!this.pending || !this.eligible || document.visibilityState !== "visible" ||
+        !S.church() || !S.me().name || pendingRoute || thisDevice() || SANDBOX || isTrainingChurch() || $("#scrim") ||
+        ((Backend.on || Backend.configured()) && !Backend.ready)) return;
+    this.pending = false;
+
+    const serving = pendingAsks();
+    const followups = canFollow() ? S.list("followups").filter((f) =>
+      f.assignedTo === S.me().id && ["new", "contacted"].includes(f.status)) : [];
+    const alerts = myNotifications().filter((n) => !n.read);
+    const news = unreadNews().length;
+    const chats = myChannels().filter(isUnread);
+    if (!(serving.length || followups.length || alerts.length || news || chats.length)) return;
+
+    const row = (href, title, detail = "") => html`<a class="row" href="${href}" data-act="go" data-to="${href.slice(1)}"><span class="body"><span class="t">${title}</span>
+      ${detail ? html`<span class="s">${detail}</span>` : ""}</span>${icon("chev")}</a>`;
+    openSheet("Your pending items", html`
+      ${serving.length || followups.length ? html`<section class="sec"><h3>Tasks</h3><div class="rows">
+        ${serving.map(([p, a]) => row("#serving", a.position, planLabel(p)))}
+        ${followups.map((f) => row(`#guest-${f.id}`, `Follow up with ${f.name}`, f.reason))}
+      </div></section>` : ""}
+      ${alerts.length || news ? html`<section class="sec"><h3>Notifications</h3><div class="rows">
+        ${alerts.map((n) => html`<button type="button" class="row" data-act="notes-open" data-id="${n.id}"><span class="body"><span class="t">${n.title}</span></span>${icon("chev")}</button>`)}
+        ${news ? row("#alerts", plural(news, "unread announcement")) : ""}
+      </div></section>` : ""}
+      ${chats.length ? html`<section class="sec"><h3>Unread messages</h3><div class="rows">
+        ${chats.map((ch) => row(`#thread-${ch.id}`, ch.name, ch.sub))}
+      </div></section>` : ""}
+      <div class="btns"><button type="button" class="btn ghost" data-act="close-sheet">Dismiss</button></div>
+    `, { focus: '[data-act="close-sheet"]' });
+  },
+};
+
 Screens.alerts = () => {
   const news = newsSorted(), mine = myNotifications().slice(0, 30);
   return {

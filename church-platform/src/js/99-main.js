@@ -8,7 +8,12 @@ if (!FORWARDING) {
   document.addEventListener("click", () => ForegroundAlerts.unlockAudio());
   document.addEventListener("keydown", () => ForegroundAlerts.unlockAudio());
   window.addEventListener("pagehide", () => S.flush());
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") S.flush(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      S.flush();
+      OpeningSummary.pending = true;
+    } else OpeningSummary.show();
+  });
   document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("presenting")) render(); });
   render();
   Backend.start();
