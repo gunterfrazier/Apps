@@ -101,7 +101,6 @@ export function FamilyWorksheet({ story, age, back }: { story: FamilyStory; age:
           <FamilyArt story={story} age={age} />
           <WorksheetPrompt heading="Compare the art and the text" prompt="What moment did the artist choose? Cite a verse and describe a detail that the words add to the image." lines={3} />
         </section>
-        {story.image && <p className="worksheet-credit">{story.image.credit}</p>}
         <WorksheetPrompt heading="Reflect" prompt={edition.question} lines={3} />
         <WorksheetPrompt heading="Apply" prompt="Describe one action or conversation this passage could lead to this week." lines={3} />
       </>}

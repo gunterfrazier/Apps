@@ -16,6 +16,7 @@ const scenes = {
   jonah: [11, "Jonah is in the sea beside a great fish."],
   esther: [12, "Queen Esther approaches the king as he holds out a scepter."],
   daniel: [13, "Daniel sits with lions in the den."],
+  "burning-bush": [14, "Moses kneels beside a bush whose leaves glow with fire."],
 } as const;
 
 type Scene = (typeof scenes)[keyof typeof scenes];
@@ -33,14 +34,11 @@ export function FamilyArt({ story, age, variant, grayscale = false, decorative =
   grayscale?: boolean;
   decorative?: boolean;
 }) {
-  const historical = age === "teen" && variant !== "ink" ? story.image : undefined;
-  if (historical) return <img className="family-historical-art" src={`family/${historical.file}`}
-    alt={decorative ? "" : historical.alt} loading={decorative ? "lazy" : "eager"} />;
   const scene: Scene | undefined = scenes[story.id as keyof typeof scenes];
   if (!scene) return null;
   const [index, description] = scene;
   // The color atlas stacks the Story Club grid above the Bible Explorers grid.
-  const row = Math.floor(index / 4) + (age === "middle" && variant !== "ink" ? 4 : 0);
+  const row = Math.floor(index / 4) + (age !== "young" && variant !== "ink" ? 4 : 0);
   const alt = variant === "ink" && story.id === "feeding-the-crowd"
     ? "A basket holds loaves of bread and fish."
     : description;
@@ -48,5 +46,11 @@ export function FamilyArt({ story, age, variant, grayscale = false, decorative =
     <img src={`family/story-${variant === "ink" ? "ink" : "color"}.webp`} alt={decorative ? "" : alt}
       loading={decorative ? "lazy" : "eager"}
       style={{ left: `-${(index % 4) * 100}%`, top: `-${row * 100}%` }} />
+  </span>;
+}
+
+export function CraftArt({ tile, alt }: { tile: number; alt: string }) {
+  return <span className="family-art-tile kids-craft-art">
+    <img src="family/crafts.webp" alt={alt} loading="lazy" style={{ left: `-${tile * 100}%`, top: 0 }} />
   </span>;
 }
