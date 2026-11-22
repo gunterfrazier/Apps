@@ -40,8 +40,11 @@ function docSlides(d, withTitle = true) {
     out.push(...flush(slides));
   });
   if (pending.length && out.length) out[out.length - 1].notes = [out[out.length - 1].notes, ...pending].filter(Boolean).join("\n");
+  if (d.bg) out.forEach((x) => { if (BG_KINDS.includes(x.kind) && !x.bg) x.bg = d.bg; });
   return out;
 }
+/** Slides that show words, which can sit on a photo or motion background. */
+const BG_KINDS = ["title", "lyrics", "scripture", "keynote", "point", "question", "text", "countdown"];
 function serviceSlides(p) {
   const c = S.church(), out = [{ kind: "logo", section: "Before the service", notes: p.notes || "" }];
   const startAt = fromIsoDay(p.date, p.time || "10:00").getTime();
@@ -58,7 +61,8 @@ function serviceSlides(p) {
     else if (t === "countdown") slides = [{ kind: "countdown", title: s.title, body: cnt.text, to: cnt.to || "start", startAt, notes: lead }];
     else if (s.type === "offering") slides = [{ kind: "qr", title: s.title, body: cnt.text, url: appLink(`give-${S.state.current}`), notes: lead }];
     else slides = textSlides(s.title, cnt.text, lead, cnt.text ? "text" : "title");
-    slides.forEach((x) => { Object.assign(x, { section: s.title, segIndex, minutes: +s.minutes || 0 }); });
+    const bg = cnt.bg || p.bg || "";
+    slides.forEach((x) => { Object.assign(x, { section: s.title, segIndex, minutes: +s.minutes || 0 }); if (bg && BG_KINDS.includes(x.kind) && !x.bg) x.bg = bg; });
     out.push(...slides);
   });
   out.push({ kind: "logo", section: "After the service", notes: "" });
@@ -81,14 +85,16 @@ function slideHtml(s, c = S.church()) {
       case "point": return html`<div class="slide-center"><div class="slide-point">${s.body}</div></div>`;
       case "question": return html`<div class="slide-center"><div class="slide-kicker">Think about it</div><div class="slide-point">${s.body}</div></div>`;
       case "text": return html`<div class="slide-text">${s.title ? html`<div class="slide-title small">${s.title}</div>` : ""}<div class="slide-body">${s.body}</div></div>`;
-      case "media": return s.image ? html`<img class="slide-image" src="${s.image}" alt="${s.body || ""}">${s.body ? html`<div class="slide-caption">${s.body}</div>` : ""}` : html`<div class="slide-center"><div class="slide-mono">${icon("play")}</div><div class="slide-sub">${s.body || "Video"}</div></div>`;
+      case "media": if (!s.image && isVideoUrl(s.url)) return html`<video class="slide-image" src="${s.url}" autoplay muted loop playsinline aria-label="${s.body || "Video"}"></video>${s.body ? html`<div class="slide-caption">${s.body}</div>` : ""}`;
+        return s.image ? html`<img class="slide-image" src="${s.image}" alt="${s.body || ""}">${s.body ? html`<div class="slide-caption">${s.body}</div>` : ""}` : html`<div class="slide-center"><div class="slide-mono">${icon("play")}</div><div class="slide-sub">${s.body || "Video"}</div></div>`;
       case "countdown": { const end = s.end || s.startAt; return html`<div class="slide-center"><div class="slide-countdown" data-cd-end="${end}">${cdText((end - Date.now()) / 1000)}</div>${s.body ? html`<div class="slide-sub">${s.body}</div>` : ""}</div>`; }
       case "qr": return html`<div class="slide-qr"><div class="qr-box">${raw(qrSvg(s.url, { size: 400 }))}</div><div><div class="slide-title small">${s.title}</div>${s.body ? html`<div class="slide-body">${s.body}</div>` : ""}<div class="slide-sub">Scan with your phone's camera</div></div></div>`;
       default: return "";
     }
   })();
   const bg = s.kind === "logo" ? raw(` style="--b:${esc(c.color)};background:${esc(bannerBackground(bannerOf(c), c.color))}"`) : "";
-  return html`<div class="slide k-${s.kind}"${bg}>${body}${s.footer ? html`<div class="slide-foot">${s.footer}</div>` : ""}</div>`;
+  const back = s.bg && BG_KINDS.includes(s.kind) ? s.bg : "";
+  return html`<div class="slide k-${s.kind} ${back ? "has-bg" : ""}"${bg}>${back ? (isVideoUrl(back) ? html`<video class="slide-bg" src="${back}" autoplay muted loop playsinline aria-hidden="true"></video>` : html`<img class="slide-bg" src="${back}" alt="" aria-hidden="true">`) : ""}${body}${s.footer ? html`<div class="slide-foot">${s.footer}</div>` : ""}</div>`;
 }
 
 // live: a song section the operator picked that isn't next in the plan ({ label, i, returnTo, slides }). It plays, then the plan carries on after returnTo.

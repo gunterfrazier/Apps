@@ -110,7 +110,7 @@ function segmentEditor(where, s) {
   if (t.content === "sermon") content = html`<label class="field"><span>Sermon from the builder</span><select name="docId"><option value="">None</option>${S.list("docs").filter((d) => d.kind === "sermon").sort((a, b) => b.date.localeCompare(a.date)).map((d) => html`<option value="${d.id}" ${attr(d.id === c.docId, "selected")}>${d.title}, ${fmtShort(fromIsoDay(d.date))}</option>`)}</select>
       <small>${c.blocks ? `This segment holds ${plural(c.blocks.length, "saved item")}. Choosing a sermon here replaces them with that sermon's slides.` : "Its on-screen items become slides in this service, in the order set in the builder."}</small></label>
       ${c.docId && S.get("docs", c.docId) && canEditDoc(S.get("docs", c.docId)) ? html`<p><a href="#build-${c.docId}">${icon("edit")}Reorder or edit the sermon's items in the builder</a></p>` : ""}`;
-  if (t.content === "media") content = html`${imageField("image", "Picture or graphic", c.image, "", 1920)}<label class="field"><span>Video link</span><input type="url" name="url" value="${c.url || ""}"></label><label class="field"><span>Caption</span><input type="text" name="caption" value="${c.caption || ""}"></label>`;
+  if (t.content === "media") content = html`${imageField("image", "Picture or graphic", c.image, "", 1920)}<label class="field"><span>Video link</span><input type="url" name="url" value="${c.url || ""}"></label><div class="btns" style="margin-top:-4px">${mediaFindBtn("url", "video", 1920, "Find a video")}</div><label class="field"><span>Caption</span><input type="text" name="caption" value="${c.caption || ""}"></label>`;
   if (t.content === "none") content = html`<p class="faint">Shows the church's current announcements, one per slide.</p>`;
   if (t.content === "countdown") content = html`<label class="field"><span>Count down to</span><select name="to"><option value="start" ${attr(c.to !== "length", "selected")}>The service start time</option><option value="length" ${attr(c.to === "length", "selected")}>The end of this segment, from when it's shown</option></select><small>Put it first and count down to the start time for a pre-service countdown.</small></label>
     <label class="field"><span>Words under the timer</span><input type="text" name="text" value="${c.text ?? "We'll begin shortly"}" maxlength="80"></label>`;
@@ -122,6 +122,7 @@ function segmentEditor(where, s) {
       <label class="field"><span>Minutes</span><input type="number" name="minutes" value="${s.minutes ?? 3}" min="0" max="180"></label></div>
     <label class="field"><span>Led by</span><input type="text" name="leader" value="${s.leader || ""}" maxlength="60"></label>
     ${content}
+    ${["song", "scripture", "text", "countdown", "sermon"].includes(t.content) ? bgField(c, "Background for this part (optional)", "Leave empty to use the service's background. Pick a photo or a motion background that loops silently.") : ""}
     <label class="check"><input type="checkbox" name="show" ${attr(s.show !== false, "checked")}><span>Show on screen</span></label>
     <label class="field"><span>Notes for the team (private)</span><textarea name="notes" style="min-height:70px">${s.notes || ""}</textarea></label>
     ${!inLib ? (() => { const n = S.get("services", where.plan).segments.length; return positionField(where.i >= 0 ? n : n + 1, where.i >= 0 ? where.i : n); })() : ""}
@@ -142,6 +143,7 @@ Forms["seg-save"] = (d, f, fd) => {
   if (t.content === "sermon") { content.docId = d.docId; if (prev?.content?.blocks && prev.content.docId === d.docId) Object.assign(content, { blocks: prev.content.blocks, title: prev.content.title }); }
   if (t.content === "countdown") Object.assign(content, { to: d.to === "length" ? "length" : "start", text: d.text });
   if (t.content === "media") { if (d.url && !isUrl(d.url)) return formError(f, "The video link should start with https://"); Object.assign(content, { image: d.image, url: d.url, caption: d.caption }); }
+  if (d.bg) content.bg = d.bg;
   const seg = { type: d._type, title: d.title, minutes: Math.max(0, +d.minutes || 0), leader: d.leader, show: !!d.show, notes: d.notes, content };
   if (d._lib !== "-") {
     seg.name = d.name || d.title;
@@ -162,9 +164,10 @@ Actions["plan-details"] = (el) => {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Date</span><input type="date" name="date" value="${p.date}"></label><label class="field"><span>Time</span><input type="time" name="time" value="${p.time}"></label></div>
     <label class="field"><span>Location</span><select name="locationId">${locationOptions(p.locationId)}</select></label>
     <label class="field"><span>Notes for the team (private)</span><textarea name="notes">${p.notes || ""}</textarea></label>
+    ${bgField(p, "Background behind lyrics and words (optional)", "A photo or a motion background that loops silently behind songs, Scripture and text. Any part can use its own instead.")}
     <div class="btns"><button class="btn">Save</button><button type="button" class="btn danger" data-act="plan-delete" data-id="${p.id}">Delete plan</button></div></form>`);
 };
-Forms["plan-details"] = (d, f) => { if (!d.title) return formError(f, "Name the service."); S.update("services", d.id, { title: d.title, date: d.date, time: d.time, locationId: d.locationId || null, notes: d.notes }); closeSheet(); render(); };
+Forms["plan-details"] = (d, f) => { if (!d.title) return formError(f, "Name the service."); S.update("services", d.id, { title: d.title, date: d.date, time: d.time, locationId: d.locationId || null, notes: d.notes, bg: d.bg || "" }); closeSheet(); render(); };
 Actions["plan-delete"] = (el) => { S.remove("services", el.dataset.id); closeSheet(true); toast("Plan deleted"); go("services"); };
 Actions["plan-dup"] = (el) => {
   const p = S.get("services", el.dataset.id);

@@ -424,5 +424,6 @@ function imageField(name, label, value, hint, max) {
   return html`<div class="field"><span>${label}</span><input type="hidden" name="${name}" value="${value || ""}">
     <div class="img-preview" data-preview="${name}">${value ? html`<img src="${value}" alt="">` : ""}</div>
     <div class="btns" style="margin-top:6px"><label class="btn ghost sm">${icon("image")}Choose image<input type="file" accept="image/*" class="sr" data-change="pick-image" data-field="${name}" ${attr(max, `data-max="${max}"`)}></label>
+    ${mediaFindBtn(name, "image", max || 1400)}
     <button type="button" class="btn ghost sm" data-act="clear-image" data-field="${name}">Remove</button></div>${hint ? html`<small>${hint}</small>` : ""}</div>`;
 }

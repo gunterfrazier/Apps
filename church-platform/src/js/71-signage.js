@@ -16,6 +16,7 @@ const SIGN_TYPES = {
   qr: ["QR code", "qr", "Any link in the app: a form, the connect card, an event"],
   text: ["Message", "note", "Your own title and words"],
   image: ["Picture or graphic", "image", "A flyer or photo you upload"],
+  video: ["Video or motion background", "play", "A looping video, silent, with optional words over it"],
 };
 const canSignage = () => S.isMember() && S.can("manage.devices");
 const SIGN_THEMES = { brand: "Church color", dark: "Dark", light: "Light" };
@@ -26,7 +27,7 @@ function signageSlides(pl, now = new Date()) {
   const inLoc = (x) => !pl.locationId || !x.locationId || x.locationId === pl.locationId;
   for (const s of pl.slides || []) {
     if ((s.from && today < s.from) || (s.until && today > s.until)) continue;
-    const base = { id: s.id, kind: s.type, seconds: dur(s) };
+    const base = { id: s.id, kind: s.type, seconds: dur(s), bg: s.bg || "" };
     switch (s.type) {
       case "welcome": out.push({ ...base, title: s.title || bannerOf(c).text.headline || `Welcome to ${c.name}`, body: s.body || bannerOf(c).text.sub || "" }); break;
       case "services": { const list = upcomingServices(c, 8, pl.locationId || "all").filter((x) => x.start - now < 7 * DAY); if (list.length) out.push({ ...base, services: list.slice(0, 6) }); break; }
@@ -44,6 +45,7 @@ function signageSlides(pl, now = new Date()) {
       case "qr": if (s.target) out.push({ ...base, title: s.title, body: s.body, target: s.target }); break;
       case "text": out.push({ ...base, title: s.title, body: s.body }); break;
       case "image": if (s.image) out.push({ ...base, image: s.image, caption: s.caption, fit: s.fit || "cover" }); break;
+      case "video": if (s.video) out.push({ ...base, video: s.video, title: s.title, body: s.body }); break;
     }
   }
   return out;
@@ -78,10 +80,17 @@ function signSlideHtml(s, pl) {
       case "qr": return html`<div class="sg-pad sg-split"><div><div class="sg-title">${s.title || ""}</div>${s.body ? html`<div class="sg-body">${s.body}</div>` : ""}</div><div class="sg-qrwrap">${qr(s.target)}<span>Scan with your phone's camera</span></div></div>`;
       case "text": return html`<div class="sg-pad sg-center"><div class="sg-big">${s.title || ""}</div>${s.body ? html`<div class="sg-body">${s.body}</div>` : ""}</div>`;
       case "image": return html`<img class="sg-image ${s.fit}" src="${s.image}" alt="${s.caption || ""}">${s.caption ? html`<div class="sg-caption">${s.caption}</div>` : ""}`;
+      case "video": return html`${s.title || s.body ? html`<div class="sg-pad sg-center sg-over"><div class="sg-big">${s.title || ""}</div>${s.body ? html`<div class="sg-body">${s.body}</div>` : ""}</div>` : ""}`;
       default: return "";
     }
   })();
-  return html`<div class="sg-slide k-${s.kind}">${body}</div>`;
+  const bg = s.kind === "video" ? s.video : s.bg;
+  return html`<div class="sg-slide k-${s.kind} ${bg ? "has-bg" : ""}">${bg ? signBg(bg) : ""}${body}</div>`;
+}
+/** A photo or a silent, looping video behind a slide (a "motion background"). */
+const isVideoUrl = (u) => /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(u || "") || /^blob:|^data:video\//.test(u || "");
+function signBg(url) {
+  return isVideoUrl(url) ? html`<video class="sg-bg" src="${url}" autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>` : html`<img class="sg-bg" src="${url}" alt="" aria-hidden="true">`;
 }
 function signFrame(pl, slide, { live = false } = {}) {
   return html`<div class="sg-stage ${pl.orientation === "portrait" ? "portrait" : ""} theme-${pl.theme || "brand"}" translate="no">
@@ -191,10 +200,13 @@ function signSlideEditor(plId, i, s) {
     announcements: html`<label class="field"><span>How many</span><input type="number" name="count" min="1" max="8" value="${s.count || 3}"></label>`,
     events: html`<label class="field"><span>How many</span><input type="number" name="count" min="1" max="8" value="${s.count || 4}"></label>
       <fieldset class="field" style="border:0;padding:0"><legend class="flabel">Show them</legend><div class="radios"><label><input type="radio" name="style" value="list" ${attr(s.style !== "each", "checked")}><span>As one list</span></label><label><input type="radio" name="style" value="each" ${attr(s.style === "each", "checked")}><span>One per slide, with a QR code</span></label></div></fieldset>`,
-    verse: html`<label class="field"><span>Passage</span><input type="text" name="ref" value="${s.ref || ""}" placeholder="Psalm 46:1-3" maxlength="40"><small>Keep it to a few verses so it reads from across the room.</small></label>`,
-    give: html`${t("title", "Title", s.title, "Give")}${area("body", "Words", s.body, "Thank you for your generosity.")}`,
+    verse: html`<label class="field"><span>Passage</span><input type="text" name="ref" value="${s.ref || ""}" placeholder="Psalm 46:1-3" maxlength="40"><small>Keep it to a few verses so it reads from across the room.</small></label>${bgField(s)}`,
+    give: html`${t("title", "Title", s.title, "Give")}${area("body", "Words", s.body, "Thank you for your generosity.")}${bgField(s)}`,
     qr: html`${t("title", "Title", s.title, "New here? Tell us hello")}${area("body", "Words", s.body)}<label class="field"><span>Link to</span><select name="target">${qrTargetGroups().map(([g, items]) => html`<optgroup label="${g}">${items.map(([k, l]) => html`<option value="${k}" ${attr(k === s.target, "selected")}>${l}</option>`)}</optgroup>`)}</select></label>`,
-    text: html`${t("title", "Title", s.title, "", 60)}${area("body", "Words", s.body)}`,
+    text: html`${t("title", "Title", s.title, "", 60)}${area("body", "Words", s.body)}${bgField(s)}`,
+    video: html`<label class="field"><span>Video</span><input type="url" name="video" value="${s.video || ""}" placeholder="https:// ... .mp4"><small>An .mp4 or .webm file. It plays silently and loops.</small></label>
+      <div class="btns" style="margin-top:-4px">${mediaFindBtn("video", "video", 1920, "Find a video")}</div>
+      ${t("title", "Words over it (optional)", s.title, "", 60)}${area("body", "Smaller words (optional)", s.body)}`,
     map: signMapFields(s, S.get("signage", plId)),
     image: html`${imageField("image", "Picture", s.image, "Landscape 1920 × 1080 or portrait 1080 × 1920 fits best.", 1920)}${t("caption", "Caption (optional)", s.caption)}
       <fieldset class="field" style="border:0;padding:0"><legend class="flabel">Fit</legend><div class="radios"><label><input type="radio" name="fit" value="cover" ${attr(s.fit !== "contain", "checked")}><span>Fill the screen</span></label><label><input type="radio" name="fit" value="contain" ${attr(s.fit === "contain", "checked")}><span>Show all of it</span></label></div></fieldset>`,
@@ -208,11 +220,20 @@ function signSlideEditor(plId, i, s) {
 Forms["sign-slide-save"] = (d, f) => {
   if (d.type === "verse" && !parseRef(d.ref)) return formError(f, "That passage doesn't look like a Bible reference.");
   if (d.type === "image" && !d.image) return formError(f, "Choose a picture.");
+  if (d.type === "video" && !isVideoUrl(d.video)) return formError(f, "Add a video file: a link ending in .mp4 or .webm, or use Find a video.");
+  if (d.bg && !isUrl(d.bg) && !/^data:image\//.test(d.bg)) return formError(f, "The background should be a picture or video from Find media, or a link.");
   if (d.type === "text" && !d.title && !d.body) return formError(f, "Write a title or some words.");
   if (d.until && d.from && d.until < d.from) return formError(f, "The last day has to be after the first.");
-  const pl = S.get("signage", d.pl), keep = ["title", "body", "count", "style", "ref", "target", "image", "caption", "fit", "loc", "spot", "qr"];
+  const pl = S.get("signage", d.pl), keep = ["title", "body", "count", "style", "ref", "target", "image", "caption", "fit", "loc", "spot", "qr", "video", "bg"];
   const s = { id: d.id, type: d.type, seconds: d.seconds, from: d.from, until: d.until, ...Object.fromEntries(keep.filter((k) => d[k] !== undefined).map((k) => [k, k === "ref" ? refLabel(parseRef(d.ref)) : d[k]])) };
   if (+d.i < 0) pl.slides.push(s); else pl.slides[+d.i] = s;
   S.save(); closeSheet(); render();
 };
+/** Optional picture or motion background behind a slide's words. */
+function bgField(s, label = "Background (optional)", hint = "A photo, or a worship motion background that loops silently. The words stay on top.") {
+  return html`<div class="field"><span>${label}</span><input type="hidden" name="bg" value="${s.bg || ""}">
+    <div class="img-preview" data-preview="bg">${s.bg ? (isVideoUrl(s.bg) ? html`<video src="${s.bg}" muted playsinline loop autoplay></video>` : html`<img src="${s.bg}" alt="">`) : ""}</div>
+    <div class="btns" style="margin-top:6px">${mediaFindBtn("bg", "any", 1920, "Find a background")}<button type="button" class="btn ghost sm" data-act="clear-image" data-field="bg">Remove</button></div>
+    <small>${hint}</small></div>`;
+}
 Actions["sign-slide-delete"] = (el) => { S.get("signage", el.dataset.pl).slides.splice(+el.dataset.i, 1); S.save(); closeSheet(); render(); };

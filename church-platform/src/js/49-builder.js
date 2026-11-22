@@ -157,6 +157,7 @@ function blockEditor(docId, i, b) {
       <button type="button" class="btn ghost sm" data-act="fill-bible">${icon("word")}Fill from the Bible</button>`; break;
     case "media": fields = html`${imageField("image", "Picture or graphic", b.image, "", 1920)}
       <label class="field"><span>Video or link (optional)</span><input type="url" name="url" value="${b.url || ""}" placeholder="https://youtube.com/watch?v=..."></label>
+      <div class="btns" style="margin-top:-4px">${mediaFindBtn("url", "video", 1920, "Find a video")}</div><small class="faint">A video file (.mp4) plays on the slide, silent and looping, like a motion background. A YouTube link opens as a button.</small>
       <label class="field"><span>Caption</span><input type="text" name="caption" value="${b.caption || ""}" maxlength="120"></label>`; break;
     case "text": fields = html`<label class="field"><span>Heading</span><input type="text" name="title" value="${b.title || ""}" maxlength="90"></label><label class="field"><span>Text</span><textarea name="text">${b.text || ""}</textarea></label>`; break;
     case "action": fields = html`<label class="field"><span>Cue</span><input type="text" name="label" value="${b.label || "Cue"}" list="cue-list" maxlength="40"><datalist id="cue-list">${CUES.map((c) => html`<option value="${c}">`)}</datalist></label>
@@ -200,6 +201,7 @@ Actions["doc-details"] = (el) => {
     <label class="field"><span>Topic</span><input type="text" name="topic" value="${d.topic || ""}" maxlength="30"><small>Used for the Veritas Logos study guide link.</small></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Date</span><input type="date" name="date" value="${d.date}"></label><label class="field"><span>Time</span><input type="time" name="time" value="${d.time || ""}"></label></div>
     ${d.kind === "sermon" ? html`<label class="field"><span>Location</span><select name="locationId">${locationOptions(d.locationId)}</select></label>` : ""}
+    ${bgField(d, "Background behind the slides (optional)", "A photo or a motion background that loops silently behind points, Scripture and text.")}
     ${d.kind === "lesson" ? html`<label class="check"><input type="checkbox" name="shareWithParents" ${attr(d.shareWithParents, "checked")}><span>Share the on-screen parts with parents</span></label>` : ""}
     <div class="btns"><button class="btn">Save</button><button type="button" class="btn danger" data-act="doc-delete" data-id="${d.id}">Delete</button></div></form>`);
 };
@@ -207,7 +209,7 @@ Forms["doc-details"] = (d, f) => {
   if (!d.title) return formError(f, "Give it a title.");
   if (d.passage && !parseRef(d.passage)) return formError(f, "That passage doesn't look like a Bible reference.");
   const doc = S.get("docs", d.id);
-  Object.assign(doc, { title: d.title, passage: d.passage ? refLabel(parseRef(d.passage)) : "", topic: d.topic, date: d.date || doc.date, time: d.time, ...(doc.kind === "sermon" ? { locationId: d.locationId || null } : {}), ...(doc.kind === "lesson" ? { shareWithParents: !!d.shareWithParents } : {}) });
+  Object.assign(doc, { bg: d.bg || "", title: d.title, passage: d.passage ? refLabel(parseRef(d.passage)) : "", topic: d.topic, date: d.date || doc.date, time: d.time, ...(doc.kind === "sermon" ? { locationId: d.locationId || null } : {}), ...(doc.kind === "lesson" ? { shareWithParents: !!d.shareWithParents } : {}) });
   touch(doc); closeSheet(); render();
 };
 Actions["doc-delete"] = (el) => { const d = S.get("docs", el.dataset.id); S.remove("docs", d.id); closeSheet(true); toast("Deleted"); go(`docs-${d.kind}`); };

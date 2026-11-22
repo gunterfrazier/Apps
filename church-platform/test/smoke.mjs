@@ -808,7 +808,7 @@ await step("features and defaults", async () => {
 });
 await step("account and landing page", async () => {
   await goTo("admin-account"); await page.setInputFiles('input[data-field="logo"]', join(root, "icons", "icon-192.png"));
-  await page.waitForSelector('[data-preview="logo"] img'); await page.fill('input[name="s_instagram"]', "https://instagram.com/example"); await page.click("form[data-form=admin-account] button.btn");
+  await page.waitForSelector('[data-preview="logo"] img'); await page.fill('input[name="s_instagram"]', "https://instagram.com/example"); await page.click("form[data-form=admin-account] button.btn:not([type=button])");
   await goTo("admin-page"); await page.click("[data-act=block-add]"); await page.click('[data-act=block-new][data-type="hero"]');
   await page.setInputFiles('#scrim input[data-field="image"]', join(root, "icons", "icon-512.png")); await page.waitForSelector('#scrim [data-preview="image"] img');
   await page.fill("#scrim input[name=title]", "Welcome home"); await page.fill("#scrim input[name=buttonLabel]", "Plan a visit"); await page.fill("#scrim input[name=buttonUrl]", "not a link");
@@ -1784,6 +1784,17 @@ await step("dashboard and detailed reports", async () => {
   await asRole("member"); await goTo("dashboard"); await page.waitForTimeout(150);
   if (await page.$(".dash-widget")) throw new Error("a member can open the dashboard");
   await page.evaluate((s) => { __app.S.state = JSON.parse(s); __app.S.save(); location.hash = "home"; __app.render(); }, before);
+});
+await step("media library and Find media", async () => {
+  // Openverse stands in for the outside photo sites, which the test can't reach.
+  const jpg = readFileSync(join(root, "demo", "bible-autumn.jpg")), cors = { "access-control-allow-origin": "*" };
+  await page.route("https://api.openverse.org/**", (r) => r.fulfill({ headers: cors, contentType: "application/json", body: JSON.stringify({ results: [{ id: "t1", url: "https://cdn.example.org/t1.jpg", thumbnail: "https://cdn.example.org/t1-t.jpg", title: "Test sunrise", creator: "Ana", license: "cc0", provider: "flickr", foreign_landing_url: "https://flickr.example/t1" }] }) }));
+  await page.route("https://cdn.example.org/**", (r) => r.fulfill({ headers: cors, contentType: "image/jpeg", body: jpg }));
+  await goTo("medialib"); await expectText("Free photo and video sites"); await expectText("MotionBolt");
+  await page.click("[data-act=medialib-find]"); await page.click('#media-finder [data-act=mf-tab][data-tab="photos"]');
+  await page.fill("#mf-q", "sunrise"); await page.press("#mf-q", "Enter"); await page.click("#media-finder .mf-tile");
+  await page.waitForSelector("#media-finder", { state: "hidden" }); await page.waitForSelector(".lib-item:has-text('Test sunrise')"); await shot("90-media-library");
+  await page.unroute("https://api.openverse.org/**"); await page.unroute("https://cdn.example.org/**");
 });
 await step("deactivating a church account", async () => {
   if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
