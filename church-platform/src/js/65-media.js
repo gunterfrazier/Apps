@@ -88,7 +88,57 @@ Inputs["sermon-search"] = (el) => { sermonQuery = el.value; $("#sermon-list").in
 Actions["sermon-book"] = (el) => { sermonBook = el.dataset.book === sermonBook ? "" : el.dataset.book; render(); };
 
 // ----- Persistent sermon audio and video player -----
-const AUDIO_RATES = [1, 1.25, 1.5, 2];
+const AUDIO_RATES = [0.75, 1, 1.25, 1.5, 2];
+const SLEEP_CHOICES = [[15, "15 minutes"], [30, "30 minutes"], [45, "45 minutes"], [60, "1 hour"], ["end", "End of this sermon"]];
+
+// Where each listener stopped, so a sermon picks up there next time. Kept on this device only.
+const LISTEN_POS_KEY = "of.listen.positions";
+const listenPositions = () => { try { return JSON.parse(localStorage.getItem(LISTEN_POS_KEY)) || {}; } catch { return {}; } };
+function savedListenPosition(id, kind) { const t = +listenPositions()[`${id}:${kind}`]; return t > 10 ? t : 0; }
+function writeListenPosition(id, kind, time) {
+  try {
+    const all = listenPositions(), key = `${id}:${kind}`;
+    if (time > 10) all[key] = Math.round(time); else delete all[key];
+    const keys = Object.keys(all); if (keys.length > 200) delete all[keys[0]];
+    localStorage.setItem(LISTEN_POS_KEY, JSON.stringify(all));
+  } catch { /* Storage may be full or blocked. */ }
+}
+
+// A deep color picked from the artwork tints the full player and the mini player.
+const artTints = new Map();
+function artworkTint(url) {
+  if (!url) return Promise.resolve("");
+  if (artTints.has(url)) return artTints.get(url);
+  const job = new Promise((resolve) => {
+    const img = new Image();
+    if (!url.startsWith("data:")) img.crossOrigin = "anonymous";
+    img.onerror = () => resolve("");
+    img.onload = () => {
+      try {
+        const n = 24, canvas = document.createElement("canvas"); canvas.width = canvas.height = n;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true }); ctx.drawImage(img, 0, 0, n, n);
+        const px = ctx.getImageData(0, 0, n, n).data; let r = 0, g = 0, b = 0, w = 0;
+        for (let i = 0; i < px.length; i += 4) {
+          const max = Math.max(px[i], px[i + 1], px[i + 2]), min = Math.min(px[i], px[i + 1], px[i + 2]);
+          const weight = 0.15 + (max ? (max - min) / max : 0) * (max > 24 && max < 245 ? 1 : 0.2);
+          r += px[i] * weight; g += px[i + 1] * weight; b += px[i + 2] * weight; w += weight;
+        }
+        resolve(w ? deepTint(r / w, g / w, b / w) : "");
+      } catch { resolve(""); }   // Artwork from another site that doesn't allow reading its pixels.
+    };
+    img.src = url;
+  });
+  artTints.set(url, job);
+  return job;
+}
+/** The same hue, dark enough for white text. */
+function deepTint(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min; let h = 0;
+  if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  const l = (max + min) / 2, sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  return `hsl(${Math.round((h * 60 + 360) % 360)} ${Math.round(Math.min(sat, 0.62) * 100)}% ${Math.round(clamp(l, 0.26, 0.34) * 100)}%)`;
+}
 function isSermonVideoFile(url) {
   try { return /\.(mp4|m4v|webm|ogv|mov|m3u8)$/i.test(new URL(url).pathname); }
   catch { return false; }
@@ -151,18 +201,24 @@ const Player = {
     dialog.setAttribute("aria-labelledby", "np-title");
     dialog.innerHTML = flat(html`<div class="np-shell">
       <header class="np-head">
-        <button type="button" class="btn ghost sm" data-act="player-minimize">Minimize</button>
-        <button type="button" class="icon-btn" data-act="audio-close" aria-label="Close player">${icon("x")}</button>
+        <button type="button" class="np-icon" data-act="player-minimize" aria-label="Minimize">${icon("down")}</button>
+        <div class="np-from"><span class="np-from-k">Playing from</span><span class="np-from-t"></span></div>
+        <button type="button" class="np-icon" data-act="audio-close" aria-label="Close player">${icon("x")}</button>
       </header>
       <div class="np-art"></div>
       <div class="np-visual"><video preload="metadata" playsinline></video><div class="np-frame"></div>
-        <button type="button" class="btn ghost sm np-fullscreen" data-act="player-fullscreen">${icon("expand")}Full-screen video</button></div>
-      <div class="np-info"><h2 id="np-title"></h2><p class="muted np-byline"></p></div>
-      <div class="np-sources"></div>
-      <p class="np-status" role="status"></p>
+        <button type="button" class="np-pill np-fullscreen" data-act="player-fullscreen">${icon("expand")}Full-screen video</button></div>
+      <div class="np-info"><div class="np-titles"><h2 id="np-title"></h2><p class="np-byline"></p></div><span class="np-save"></span></div>
       <div class="np-controls">${playbackControls()}</div>
-      <a class="np-provider-link btn ghost sm" target="_blank" rel="noopener" hidden>Open video on provider site</a>
-      <a class="np-notes btn ghost sm" data-act="player-notes">Sermon notes &amp; transcript</a>
+      <p class="np-status" role="status"></p>
+      <div class="np-sleep-menu" role="group" aria-label="Sleep timer" hidden></div>
+      <div class="np-row"><div class="np-sources"></div><button type="button" class="np-icon np-cast" data-act="audio-cast" aria-label="Cast recording">${icon("cast")}</button></div>
+      <section class="np-card np-tx" hidden><h3>Transcript</h3><div class="np-tx-body"></div></section>
+      <section class="np-card np-next" hidden><h3>Up next</h3><div class="np-next-body"></div></section>
+      <div class="np-links">
+        <a class="np-provider-link np-pill" target="_blank" rel="noopener" hidden>Open video on provider site</a>
+        <a class="np-notes np-pill" data-act="player-notes">${icon("note")}Sermon notes</a>
+      </div>
     </div>`);
     document.body.append(dialog);
     this.dialogue = dialog;
@@ -171,7 +227,7 @@ const Player = {
     this.audio.preload = "metadata";
     for (const media of [this.audio, this.video]) {
       const refresh = () => { if (media === this.media()) this.syncUI(); };
-      media.addEventListener("timeupdate", () => { if (media === this.media()) this.tick(); });
+      media.addEventListener("timeupdate", () => { if (media === this.media()) { this.running = !media.paused; this.tick(); } });
       media.addEventListener("durationchange", () => { if (media === this.media()) this.tick(); });
       media.addEventListener("loadedmetadata", () => {
         if (media !== this.media()) return;
@@ -180,7 +236,11 @@ const Player = {
       });
       for (const type of ["play", "pause", "ended", "playing"]) media.addEventListener(type, refresh);
       media.addEventListener("ended", () => {
-        if (media === this.media()) this.advancePlaylist();
+        if (media !== this.media()) return;
+        const s = this.sermon(); if (s) writeListenPosition(s.id, this.source.kind, 0);
+        if (this.sleep === "end") { this.setSleep(null); return; }
+        if (this.playlist) this.advancePlaylist();
+        else if (this.running) this.advanceSeries();
       });
       media.addEventListener("error", () => {
         if (media === this.media() && media.error) {
@@ -222,6 +282,28 @@ const Player = {
     return Number.isFinite(duration) && duration > 0 ? duration : 0;
   },
   currentTime() { return this.pendingSeek ?? this.media()?.currentTime ?? 0; },
+  /** The playlist still to play or, without one, the later messages in the same series. */
+  upNext() {
+    const s = this.sermon(); if (!s) return [];
+    if (this.playlist) return this.playlist.filter((id) => audioPlaylist().includes(id)).map(listeningTrack).filter(Boolean);
+    if (!s.series) return [];
+    return S.list("sermons", s.churchId).filter((x) => x.series === s.series && x.id !== s.id && x.date > s.date && listeningTrack(x.id))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  },
+  advanceSeries() {
+    if (this.scope !== this.scopeKey()) return;
+    const next = this.upNext()[0];
+    if (next) this.select(next, preferredSermonSource(next, true), { expand: this.dialogue?.open, startAt: 0 });
+  },
+  playNext(id) {
+    const queue = this.upNext(), i = queue.findIndex((x) => x.id === id); if (i < 0) return;
+    const next = queue[i], playlist = this.playlist ? queue.slice(i + 1).map((x) => x.id) : null;
+    this.select(next, preferredSermonSource(next, true), { expand: this.dialogue?.open, startAt: 0, playlist });
+  },
+  setSleep(choice) {
+    this.sleep = choice === "end" ? "end" : choice ? Date.now() + choice * 60000 : null;
+    this.syncUI();
+  },
   advancePlaylist() {
     if (!this.playlist?.length || this.scope !== this.scopeKey()) return;
     const remaining = this.playlist;
@@ -238,16 +320,18 @@ const Player = {
     if (!s || !source) return;
     this.init();
     this.playlist = playlist;
+    this.notice = "";
     const sameSermon = s.id === this.sermonId && this.scope === this.scopeKey();
     const previous = this.source, previousMedia = this.media();
     const sameMedia = sameSermon && previous?.kind === source.kind && previous.url === source.url;
-    const time = startAt ?? (sameSermon ? this.currentTime() : 0);
+    const time = startAt ?? (sameSermon ? this.currentTime() : savedListenPosition(s.id, source.kind));
     this.sermonId = s.id;
     this.scope = this.scopeKey();
     this.source = source;
     if (!sameMedia) {
       this.revision++;
       this.pendingSeek = null;
+      this.savedAt = null;
       this.error = "";
       previousMedia?.pause();
       previousMedia?.removeAttribute("src");
@@ -262,6 +346,10 @@ const Player = {
       }
     }
     if (this.media() && (startAt !== null || (!sameMedia && time > 0))) this.seek(time);
+    if (!sameSermon && startAt === null && time > 0) {
+      const notice = this.notice = `Picking up where you left off at ${tc(time)}.`;
+      setTimeout(() => { if (this.notice === notice) { this.notice = ""; this.syncUI(); } }, 6000);
+    }
     if (expand || source.key === "video") this.expand();
     if (play && this.media() && !this.isPlaying()) this.play();
     this.syncMediaSession();
@@ -343,6 +431,8 @@ const Player = {
     this.pendingSeek = null;
     this.sermonId = null;
     this.playlist = null;
+    this.sleep = null;
+    this.notice = "";
     this.source = null;
     this.error = "";
     this.hideExpanded(restoreFocus);
@@ -378,9 +468,10 @@ const Player = {
     } catch { /* A browser may reject a particular artwork URL. */ }
     for (const [action, handler] of Object.entries({
       play: () => this.play(), pause: () => this.pause(), seekbackward: () => this.skip(-15),
-      seekforward: () => this.skip(15), seekto: (event) => this.seek(event.seekTime),
+      seekforward: () => this.skip(30), seekto: (event) => this.seek(event.seekTime),
+      nexttrack: this.upNext().length ? () => this.playNext(this.upNext()[0].id) : null,
     })) {
-      try { session.setActionHandler(action, active ? handler : null); } catch { /* The device doesn't offer that control. */ }
+      try { session.setActionHandler(action, active && handler ? handler : null); } catch { /* The device doesn't offer that control. */ }
     }
   },
   tick() {
@@ -389,13 +480,22 @@ const Player = {
     const fill = $("#mini-player .mp-progress i"), sub = $("#mini-player .mp-sub");
     if (fill) fill.style.width = duration ? `${clamp(time / duration * 100, 0, 100)}%` : "0%";
     if (sub) sub.textContent = this.error || `${tr(this.source.label)} · ${tc(time)}${duration ? ` / ${tc(duration)}` : ""}`;
+    if (typeof this.sleep === "number" && Date.now() >= this.sleep) { this.sleep = null; this.pause(); toast("Sleep timer ended. Paused."); }
+    // Remember the spot every few seconds; forget it near the end so a finished sermon starts over.
+    if (this.media() && duration && Math.abs(time - (this.savedAt ?? -99)) >= 5) {
+      this.savedAt = time;
+      writeListenPosition(s.id, this.source.kind, duration - time > 20 ? time : 0);
+    }
     if (!this.dialogue) return;
     const range = $(".sac-range", this.dialogue);
     range.disabled = !duration;
     range.max = duration || 0;
     range.value = time;
+    range.style.setProperty("--pct", `${duration ? clamp(time / duration * 100, 0, 100) : 0}%`);
     $("[data-sac-cur]", this.dialogue).textContent = tc(time);
-    $("[data-sac-rem]", this.dialogue).textContent = duration ? tc(duration) : "–";
+    $("[data-sac-rem]", this.dialogue).textContent = duration ? `-${tc(Math.max(0, duration - time))}` : "–";
+    this.syncTranscript(time);
+    this.syncSleepLabel();
   },
   syncExpanded() {
     const s = this.sermon(), dialog = this.dialogue;
@@ -404,9 +504,11 @@ const Player = {
     dialog.dataset.mode = source.kind === "embed" ? "embed" : source.key;
     const provider = source.kind === "embed";
     $("#np-title", dialog).textContent = s.title;
-    $(".np-byline", dialog).textContent = [s.speaker, s.series].filter(Boolean).join(" · ");
+    $(".np-byline", dialog).textContent = [s.speaker, s.passage].filter(Boolean).join(" · ");
+    $(".np-from-t", dialog).textContent = this.playlist ? "Your playlist" : s.series || "Sermons";
     $(".np-notes", dialog).href = `#sermon-${s.id}`;
-    $("[data-act=player-minimize]", dialog).textContent = provider ? "Back" : "Minimize";
+    $("[data-act=player-minimize]", dialog).setAttribute("aria-label", provider ? "Back" : "Minimize");
+    this.applyTint(s);
     const providerLink = $(".np-provider-link", dialog);
     providerLink.hidden = !provider;
     if (provider) providerLink.href = source.url;
@@ -415,12 +517,69 @@ const Player = {
       this.expandedKey = contentKey;
       $(".np-art", dialog).innerHTML = flat(sermonArtTile(s, 220));
       $(".np-sources", dialog).innerHTML = flat(sourceButtons(s));
+      this.buildTranscript(s);
     }
+    const saved = audioPlaylist().includes(s.id), listenable = !!listeningTrack(s.id);
+    const saveKey = `${s.id}:${saved}:${listenable}`;
+    if (this.saveKey !== saveKey) {
+      this.saveKey = saveKey;
+      $(".np-save", dialog).innerHTML = listenable ? flat(html`<button type="button" class="np-icon np-save-btn" data-act="${saved ? "player-unsave" : "playlist-add"}" data-id="${s.id}"
+        aria-pressed="${saved}" aria-label="${saved ? `Remove ${s.title} from playlist` : `Add ${s.title} to playlist`}">${icon(saved ? "check" : "plus")}</button>`) : "";
+    }
+    const queue = this.upNext().slice(0, 5), nextKey = queue.map((x) => x.id).join();
+    if (this.nextKey !== nextKey) {
+      this.nextKey = nextKey;
+      $(".np-next", dialog).hidden = !queue.length;
+      $(".np-next-body", dialog).innerHTML = flat(queue.map((x) => html`<button type="button" class="np-next-row" data-act="player-next" data-id="${x.id}" aria-label="Play ${x.title} next">
+        ${sermonArtTile(x, 44)}<span class="np-next-meta"><span class="np-next-t">${x.title}</span><span class="np-next-s">${x.speaker} · ${fmtShort(x.date)}</span></span></button>`));
+    }
+    const rate = $(".np-rate", dialog);
+    rate.textContent = `${this.rate}×`;
+    rate.setAttribute("aria-label", `Playback speed ${this.rate}×. Change speed`);
+    this.syncSleepLabel();
     updateSourceButtons(dialog, source, s.id);
     $(".np-controls", dialog).hidden = !this.media();
     updatePlayButton($(".sac-play", dialog), this.isPlaying());
     $$("[data-act=audio-rate]", dialog).forEach((button) => button.setAttribute("aria-pressed", +button.dataset.r === this.rate));
-    $(".np-status", dialog).textContent = this.error || (provider ? "Use the provider’s controls. To keep listening while browsing, choose sermon audio when available." : "");
+    $(".np-status", dialog).textContent = this.error || (provider ? "Use the provider’s controls. To keep listening while browsing, choose sermon audio when available." : this.notice || "");
+  },
+  applyTint(s) {
+    const art = sermonArtwork(s);
+    if (this.tintFor === art) return;
+    this.tintFor = art; this.tint = "";
+    const paint = () => {
+      for (const el of [this.dialogue, $("#mini-player")]) if (el) {
+        if (this.tint) el.style.setProperty("--np-tint", this.tint); else el.style.removeProperty("--np-tint");
+      }
+      $("#mini-player")?.classList.toggle("tinted", !!this.tint);
+    };
+    paint();
+    artworkTint(art).then((tint) => { if (this.tintFor === art) { this.tint = tint; paint(); } });
+  },
+  buildTranscript(s) {
+    const lines = (s.transcript || []).filter((p) => p.t != null);
+    this.txLines = lines; this.txIndex = -1;
+    const card = $(".np-tx", this.dialogue);
+    card.hidden = !lines.length;
+    $(".np-tx-body", this.dialogue).innerHTML = flat(lines.map((p, i) => html`<button type="button" class="np-tx-line" data-act="seek" data-id="${s.id}" data-t="${p.t}" data-i="${i}" aria-label="Play from ${tc(p.t)}"><span>${p.text}</span></button>`));
+  },
+  syncTranscript(time) {
+    const lines = this.txLines; if (!lines?.length || !this.dialogue?.open || this.source?.kind === "embed") return;
+    let i = -1; for (let n = 0; n < lines.length && lines[n].t <= time + 0.5; n++) i = n;
+    if (i === this.txIndex) return;
+    this.txIndex = i;
+    const body = $(".np-tx-body", this.dialogue);
+    $$(".np-tx-line", body).forEach((el) => { const n = +el.dataset.i; el.classList.toggle("now", n === i); el.classList.toggle("past", n < i); });
+    const cur = $(`.np-tx-line[data-i="${i}"]`, body);
+    if (cur) body.scrollTo({ top: cur.offsetTop - body.offsetTop - 12, behavior: "smooth" });
+  },
+  syncSleepLabel() {
+    const button = this.dialogue && $(".np-sleep", this.dialogue); if (!button) return;
+    const left = typeof this.sleep === "number" ? Math.max(1, Math.ceil((this.sleep - Date.now()) / 60000)) : 0;
+    const text = this.sleep === "end" ? "End" : left ? `${left}m` : "";
+    $(".np-sleep-left", button).textContent = text;
+    button.classList.toggle("on", !!this.sleep);
+    button.setAttribute("aria-label", this.sleep ? `Sleep timer on, ${this.sleep === "end" ? "stops at the end of this sermon" : `${left} minutes left`}` : "Sleep timer");
   },
   syncUI() {
     const s = this.sermon();
@@ -448,12 +607,14 @@ const Player = {
               <span class="mp-meta"><span class="mp-title">${s.title}</span><span class="mp-sub"></span></span></button>
             <div class="mp-btns">
               <button type="button" class="mp-btn play" data-act="audio-toggle"></button>
-              <button type="button" class="mp-btn mp-hide-xs" data-act="audio-skip" data-sec="15" aria-label="Skip forward 15 seconds">${icon("skipFwd")}</button>
+              <button type="button" class="mp-btn mp-hide-xs" data-act="audio-skip" data-sec="30" aria-label="Skip forward 30 seconds">${icon("skipFwd")}</button>
               <button type="button" class="mp-btn" data-act="audio-close" aria-label="Close mini-player">${icon("x")}</button>
             </div>
           </div>`);
       }
       updatePlayButton($("[data-act=audio-toggle]", bar), this.isPlaying());
+      if (this.tint) bar.style.setProperty("--np-tint", this.tint); else bar.style.removeProperty("--np-tint");
+      bar.classList.toggle("tinted", !!this.tint);
     }
     $$(".sermon-audio-card").forEach((card) => {
       const current = card.dataset.id === s?.id;
@@ -492,16 +653,12 @@ function playbackControls() {
       <input type="range" class="sac-range" min="0" max="0" value="0" step="any" data-input="audio-scrub" aria-label="Seek recording" disabled>
       <div class="sac-times"><span data-sac-cur>0:00</span><span data-sac-rem>–</span></div>
     </div>
-    <div class="sac-controls">
-      <div class="sac-transport">
-        <button type="button" class="sac-skip" data-act="audio-skip" data-sec="-15" aria-label="Skip back 15 seconds">${icon("skipBack")}15s</button>
-        <button type="button" class="sac-play" data-act="audio-toggle" aria-label="Play">${icon("play")}</button>
-        <button type="button" class="sac-skip" data-act="audio-skip" data-sec="15" aria-label="Skip forward 15 seconds">15s${icon("skipFwd")}</button>
-      </div>
-      <div class="sac-actions" role="group" aria-label="Playback speed">
-        ${AUDIO_RATES.map((rate) => html`<button type="button" class="chip" data-act="audio-rate" data-r="${rate}" aria-pressed="${rate === 1}">${rate}×</button>`)}
-        <button type="button" class="icon-btn" data-act="audio-cast" aria-label="Cast recording">${icon("cast")}</button>
-      </div>
+    <div class="np-transport">
+      <button type="button" class="np-side np-rate" data-act="audio-rate-next">1×</button>
+      <button type="button" class="np-skip" data-act="audio-skip" data-sec="-15" aria-label="Skip back 15 seconds">${icon("skipBack")}<span>15</span></button>
+      <button type="button" class="sac-play" data-act="audio-toggle" aria-label="Play">${icon("play")}</button>
+      <button type="button" class="np-skip" data-act="audio-skip" data-sec="30" aria-label="Skip forward 30 seconds">${icon("skipFwd")}<span>30</span></button>
+      <button type="button" class="np-side np-sleep" data-act="sleep-menu" aria-label="Sleep timer">${icon("moon")}<span class="np-sleep-left"></span></button>
     </div>`;
 }
 
@@ -556,6 +713,23 @@ Actions["seek"] = (el) => {
   Player.select(s, source, { startAt: +el.dataset.t || 0 });
 };
 Actions["audio-rate"] = (el) => Player.setRate(+el.dataset.r);
+Actions["audio-rate-next"] = () => Player.setRate(AUDIO_RATES[(AUDIO_RATES.indexOf(Player.rate) + 1) % AUDIO_RATES.length]);
+Actions["sleep-menu"] = () => {
+  const menu = $(".np-sleep-menu", Player.dialogue); if (!menu) return;
+  if (!menu.hidden) { menu.hidden = true; return; }
+  menu.innerHTML = flat(html`<span class="np-sleep-k">Stop playing after</span>
+    ${SLEEP_CHOICES.map(([v, label]) => html`<button type="button" class="np-pill" data-act="sleep-set" data-v="${v}">${label}</button>`)}
+    ${Player.sleep ? html`<button type="button" class="np-pill" data-act="sleep-set" data-v="">Turn off the sleep timer</button>` : ""}`);
+  menu.hidden = false;
+};
+Actions["sleep-set"] = (el) => {
+  const v = el.dataset.v;
+  Player.setSleep(v === "end" ? "end" : +v || null);
+  $(".np-sleep-menu", Player.dialogue).hidden = true;
+  toast(!v ? "Sleep timer off" : v === "end" ? "Stops at the end of this sermon" : `Stops in ${SLEEP_CHOICES.find(([x]) => String(x) === v)[1]}`);
+};
+Actions["player-next"] = (el) => Player.playNext(el.dataset.id);
+Actions["player-unsave"] = (el) => writeAudioPlaylist(audioPlaylist().filter((id) => id !== el.dataset.id));
 Actions["audio-cast"] = () => Player.cast();
 Actions["audio-close"] = () => Player.close();
 Actions["player-expand"] = () => Player.expand();

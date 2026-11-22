@@ -1702,7 +1702,7 @@ await step("sermon playback across screens", async () => {
     await page.getByRole("button", { name: "Sermon audio", exact: true }).click();
     await player.waitFor();
     await source("Pause").waitFor();
-    await player.locator("[data-sac-rem]").getByText("0:30", { exact: true }).waitFor();
+    await player.locator("[data-sac-rem]").getByText("-0:30", { exact: true }).waitFor();
     notificationId = await page.evaluate(() => {
       const { S } = __app;
       const n = S.add("notifications", { userId: S.me().id, kind: "security", title: "Test notification",
@@ -1770,6 +1770,67 @@ await step("sermon playback across screens", async () => {
     }, { sermon: saved, notificationId });
     recordings.clear();
     await page.unroute("https://www.youtube.com/embed/test-sermon");
+  }
+});
+await step("now playing extras", async () => {
+  const wav = (secs) => {
+    const b = Buffer.alloc(44 + 8000 * 2 * secs);
+    b.write("RIFF", 0); b.writeUInt32LE(b.length - 8, 4); b.write("WAVEfmt ", 8);
+    b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+    b.writeUInt32LE(8000, 24); b.writeUInt32LE(16000, 28); b.writeUInt16LE(2, 32);
+    b.writeUInt16LE(16, 34); b.write("data", 36); b.writeUInt32LE(b.length - 44, 40);
+    return b;
+  };
+  recordings.set("/np-a.wav", { type: "audio/wav", body: wav(40) });
+  recordings.set("/np-b.wav", { type: "audio/wav", body: wav(40) });
+  const original = await page.evaluate(() => {
+    const { S } = __app, a = S.get("sermons", "riverside-s0"), orig = structuredClone(a);
+    const c = document.createElement("canvas"); c.width = c.height = 240;
+    const g = c.getContext("2d"), grad = g.createLinearGradient(0, 0, 240, 240);
+    grad.addColorStop(0, "#1e6f5c"); grad.addColorStop(1, "#7fd1b9"); g.fillStyle = grad; g.fillRect(0, 0, 240, 240);
+    g.fillStyle = "#fff"; g.font = "bold 40px sans-serif"; g.fillText("ABIDE", 58, 135);
+    const art = c.toDataURL();
+    S.update("sermons", a.id, { audioUrl: location.origin + "/np-a.wav", videoUrl: "", mediaUrl: "", artwork: art, series: "Abide", date: "2026-01-04",
+      transcript: [{ t: 0, text: "Good morning, church." }, { t: 4, text: "Turn with me to John 15." }, { t: 9, text: "Jesus says, remain in my love." }, { t: 25, text: "Let's pray." }] });
+    S.state.sermons.push({ ...orig, id: "np-next", title: "Bear much fruit", series: "Abide", date: "2026-01-11", audioUrl: location.origin + "/np-b.wav", videoUrl: "", mediaUrl: "", artwork: art, transcript: [] });
+    S.save();
+    return orig;
+  });
+  const player = page.locator("#now-playing");
+  try {
+    await goTo("sermon-riverside-s0");
+    await page.getByRole("button", { name: "Sermon audio", exact: true }).click();
+    await player.getByRole("button", { name: "Pause", exact: true }).waitFor();
+    await player.getByRole("button", { name: "Play Bear much fruit next" }).waitFor();
+    await player.locator(".np-tx-line.now").waitFor();
+    await page.waitForFunction(() => document.querySelector("#now-playing").style.getPropertyValue("--np-tint"));
+    await player.getByRole("button", { name: /Playback speed 1×/ }).click();
+    await player.getByRole("button", { name: /Playback speed 1\.25×/ }).waitFor();
+    await player.getByRole("button", { name: "Sleep timer", exact: true }).click();
+    await player.getByRole("button", { name: "30 minutes" }).click();
+    await player.getByRole("button", { name: /Sleep timer on, 30 minutes left/ }).waitFor();
+    await player.getByRole("slider", { name: "Seek recording" }).evaluate((input) => { input.value = "12"; input.dispatchEvent(new Event("input", { bubbles: true })); });
+    await page.waitForFunction(() => document.querySelector(".np-tx-line.now")?.dataset.i === "2");
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: join(shots, "41-now-playing.png") });
+    await player.getByRole("button", { name: "Pause", exact: true }).click();
+    await player.getByRole("button", { name: "Close player" }).click();
+    await page.getByRole("button", { name: "Sermon audio", exact: true }).click();
+    await player.getByRole("status").getByText(/Picking up where you left off at 0:1\d/).waitFor();
+    await player.getByRole("button", { name: "Play Bear much fruit next" }).click();
+    await player.getByRole("heading", { name: "Bear much fruit" }).waitFor();
+    await player.getByRole("button", { name: "Minimize", exact: true }).click();
+    await page.locator("#mini-player.tinted").waitFor();
+    await page.screenshot({ path: join(shots, "42-mini-player.png") });
+  } finally {
+    await page.evaluate((orig) => {
+      const { S, Player } = __app;
+      Player.close(false); Player.setRate(1); Player.setSleep(null);
+      S.state.sermons = S.state.sermons.filter((x) => x.id !== "np-next");
+      S.update("sermons", orig.id, orig);
+      localStorage.removeItem("of.listen.positions");
+    }, original);
+    recordings.clear();
   }
 });
 await step("sermon archive, transcript and podcast", async () => {
