@@ -1525,7 +1525,7 @@ body.presenting #mini-player, body.kiosk-mode #mini-player, html.overlay-page #m
   border: 0; background: var(--canvas); color: var(--ink); overflow: auto; overscroll-behavior: contain;
 }
 #now-playing:not([open]) { display: none; }
-body:has(#now-playing[open]) { overflow: hidden; }
+body:has(#now-playing[open]:not([data-docked])) { overflow: hidden; }
 .np-shell { display: grid; gap: 16px; width: min(100%, 640px); margin: 0 auto; padding: 14px 20px 28px; }
 .np-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .np-art { display: grid; place-items: center; padding: 14px 0; }
@@ -1539,10 +1539,52 @@ body:has(#now-playing[open]) { overflow: hidden; }
 .np-visual video, .np-frame .embed { display: block; width: 100%; aspect-ratio: 16/9; max-height: 50vh; border-radius: var(--r-m); background: #111; }
 .np-visual video { object-fit: contain; }
 .np-fullscreen { margin-top: 8px; }
-#now-playing:not([data-mode="video"]) .np-visual video, #now-playing:not([data-mode="video"]) .np-fullscreen,
-#now-playing:not([data-mode="embed"]) .np-frame,
-#now-playing:not([data-mode="video"]):not([data-mode="embed"]) .np-visual,
-#now-playing[data-mode="video"] .np-art, #now-playing[data-mode="embed"] .np-art { display: none; }
+#now-playing:not([data-mode="video"]) :is(.np-video-stage, .np-fullscreen),
+#now-playing:not([data-mode="embed"], [data-mode="youtube"]) .np-frame,
+#now-playing:not([data-mode="video"], [data-mode="embed"], [data-mode="youtube"]) .np-visual,
+#now-playing:is([data-mode="video"], [data-mode="embed"], [data-mode="youtube"]) .np-art { display: none; }
+#now-playing[data-mode="youtube"] .np-frame .embed { height: auto; min-width: 200px; min-height: 200px; border: 0; }
+
+#now-playing[data-docked] {
+  inset: auto max(12px, calc((100vw - 1040px) / 2)) calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 12px) auto;
+  width: min(360px, calc(100% - 24px)); height: auto; padding: 0;
+  border: 1px solid var(--line); border-radius: var(--r-m); box-shadow: var(--sh-2); z-index: 26;
+  background: var(--surface);
+}
+#now-playing[data-docked] .np-shell { width: 100%; gap: 0; padding: 0; }
+#now-playing[data-docked] .np-shell > :not(.np-visual, .np-dock-actions) { display: none; }
+.np-dock-actions { display: flex; justify-content: space-between; align-items: center; padding: 3px 8px; }
+#now-playing[data-docked] .np-frame .embed { border-radius: 0; }
+body.has-floating-video #app { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 270px); }
+body.has-floating-video .composer { bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 265px); }
+body.presenting #now-playing[data-docked], body.kiosk-mode #now-playing[data-docked], html.overlay-page #now-playing[data-docked] { display: none; }
+
+.np-video-reveal, .np-video-controls { display: none; }
+.np-video-stage:fullscreen { display: grid; place-items: center; background: #000; }
+.np-video-stage:fullscreen video { width: 100%; height: 100%; max-height: none; border-radius: 0; }
+.np-video-stage:fullscreen .np-video-reveal {
+  display: block; position: absolute; inset: 0; overflow: hidden; text-indent: -9999px;
+  border: 0; background: transparent; cursor: pointer;
+}
+.np-video-stage:fullscreen .np-video-controls {
+  display: grid; position: absolute; inset: 0; grid-template-rows: auto 1fr auto;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: linear-gradient(#0009, transparent 28%, transparent 58%, #000d);
+  color: #fff; pointer-events: none; visibility: hidden; opacity: 0; transition: opacity .18s ease;
+}
+.np-video-stage:fullscreen.show-controls .np-video-controls { visibility: visible; opacity: 1; }
+.np-video-stage:fullscreen .np-exit-fullscreen {
+  justify-self: end; pointer-events: auto; color: #fff; background: #222;
+}
+.np-video-stage:fullscreen .np-controls {
+  grid-row: 3; justify-self: center; width: min(100%, 640px); pointer-events: auto;
+  --ink: #fff; --ink-2: #eee; --surface: #292929; --sunken: #686868;
+}
+.np-video-stage:fullscreen [data-act=audio-cast] { display: none; }
+.sermon-thumbnail { margin: 0 0 12px; }
+.sermon-thumbnail img { display: block; width: min(100%, 240px); aspect-ratio: 16/9; object-fit: cover; border-radius: var(--r-m); }
+.sermon-thumbnail [role=status]:empty { display: none; }
 .np-controls .sac-controls { gap: 14px; }
 .np-controls .sac-play { width: 56px; height: 56px; }
 
@@ -1834,6 +1876,7 @@ body.has-mini-player #app:has(.sec-chat-form) { padding-bottom: calc(var(--tab-h
 /* The radio stays above navigation and the sermon mini-player. */
 body { --radio-space: 0px; --player-space: 0px; }
 body.has-mini-player { --player-space: 72px; }
+body.has-floating-video { --player-space: 255px; }
 body.has-security-radio { --radio-space: 102px; }
 #security-radio-dock {
   position: fixed; z-index: 27; left: 50%; transform: translateX(-50%);

@@ -52,9 +52,26 @@ function searchSermons(q, list = sermonsSorted()) {
     return { s, score, snippet };
   }).filter(Boolean).sort((a, b) => b.score - a.score || new Date(b.s.date) - new Date(a.s.date));
 }
+function youtubeSermonId(url) {
+  try {
+    const link = new URL(url);
+    const host = link.hostname.replace(/^(?:www|m|music)\./, "");
+    if (link.protocol !== "https:") return "";
+    const id = host === "youtu.be" ? link.pathname.split("/")[1]
+      : ["youtube.com", "youtube-nocookie.com"].includes(host)
+        ? (link.pathname === "/watch" ? link.searchParams.get("v") : /^\/(?:embed|shorts|live)\/([^/]+)\/?$/.exec(link.pathname)?.[1]) : "";
+    return /^[\w-]{11}$/.test(id || "") ? id : "";
+  } catch { return ""; }
+}
+
+const youtubeThumbnailUrl = (id) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+const sermonThumbnail = (s) => s.youtubeThumbnail && s.youtubeThumbnail === youtubeSermonId(sermonVideo(s)) ? youtubeThumbnailUrl(s.youtubeThumbnail) : "";
+
 // ----- Series artwork helpers -----
 function sermonArtwork(s) {
   if (!s) return "";
+  const thumbnail = sermonThumbnail(s);
+  if (thumbnail) return thumbnail;
   if (s.artwork) return s.artwork;
   const peer = S.list("sermons", s.churchId).find((x) => x.series === s.series && x.artwork);
   if (peer?.artwork) return peer.artwork;
@@ -101,8 +118,9 @@ function sermonSources(s) {
   // Sample sermons have placeholder URLs. Play a clearly labeled sample in the demo.
   if (isUrl(audio) && !(demo && /\.example\//i.test(audio))) sources.push({ key: "audio", kind: "audio", label: "Sermon audio", url: audio });
   if (isUrl(video)) {
-    const kind = isSermonVideoFile(video) ? "video" : "embed";
-    sources.push({ key: "video", kind, label: "Watch video", url: video });
+    const youtubeId = youtubeSermonId(video);
+    const kind = youtubeId ? "youtube" : isSermonVideoFile(video) ? "video" : "embed";
+    sources.push({ key: "video", kind, label: "Watch video", url: video, ...(youtubeId ? { youtubeId } : {}) });
     if (kind === "video") sources.push({ key: "video-audio", kind, label: "Listen to video", url: video });
   }
   if (demo && !sources.length) sources.push({ key: "sample", kind: "audio", label: "Demo audio" });
@@ -113,6 +131,7 @@ function preferredSermonSource(s, forListening = false) {
   const sources = sermonSources(s);
   return forListening ? sources.find((source) => source.key !== "video") : sources[0];
 }
+const seekableSermonSource = (s) => preferredSermonSource(s, true) || sermonSources(s).find((source) => source.kind === "youtube");
 
 let demoWavUrl = "";
 function getDemoAudioUrl() {
@@ -129,6 +148,118 @@ function getDemoAudioUrl() {
   }
   demoWavUrl = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
   return demoWavUrl;
+}
+
+// Keep YouTube’s own player visible and use its API for the sermon player's adjacent transport.
+let youtubeApi;
+function loadYouTubeApi() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (youtubeApi) return youtubeApi;
+  youtubeApi = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://www.youtube.com/iframe_api";
+    script.async = true;
+    const previous = window.onYouTubeIframeAPIReady;
+    const finish = (error) => {
+      clearTimeout(timeout);
+      window.onYouTubeIframeAPIReady = previous;
+      if (error) { script.remove(); reject(error); }
+      else resolve(window.YT);
+    };
+    const timeout = setTimeout(() => finish(new Error("YouTube API timed out")), 12000);
+    script.onerror = () => finish(new Error("YouTube API blocked"));
+    window.onYouTubeIframeAPIReady = () => {
+      finish();
+      previous?.();
+    };
+    document.head.append(script);
+  }).catch((error) => { youtubeApi = null; throw error; });
+  return youtubeApi;
+}
+
+class YouTubeSermon extends EventTarget {
+  constructor(frame, title, videoId) {
+    super();
+    this.videoId = videoId;
+    this.readyState = 0;
+    this.wantsPlay = false;
+    this.error = null;
+    this.rate = 1;
+    this.iframe = document.createElement("iframe");
+    const params = new URLSearchParams({ enablejsapi: "1", playsinline: "1", rel: "0", origin: location.origin });
+    this.iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?${params}`;
+    this.iframe.title = `${title} on YouTube`;
+    this.iframe.className = "embed";
+    this.iframe.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+    this.iframe.allowFullscreen = true;
+    this.iframe.referrerPolicy = "strict-origin-when-cross-origin";
+    frame.append(this.iframe);
+    loadYouTubeApi().then((api) => {
+      if (!this.iframe.isConnected) return;
+      this.player = new api.Player(this.iframe, { events: {
+        onReady: ({ target }) => {
+          if (!this.iframe.isConnected) return;
+          clearTimeout(this.readyTimer);
+          this.player = target;
+          this.readyState = 1;
+          this.playbackRate = this.rate;
+          this.dispatchEvent(new Event("loadedmetadata"));
+          if (this.wantsPlay) target.playVideo();
+          this.clock = setInterval(() => this.dispatchEvent(new Event("timeupdate")), 300);
+        },
+        onStateChange: ({ data }) => {
+          this.state = data;
+          if (data === 0 || data === 2) this.wantsPlay = false;
+          if (data === 1) { this.wantsPlay = true; this.error = null; }
+          this.dispatchEvent(new Event(data === 0 ? "ended" : data === 1 ? "playing" : "pause"));
+          this.dispatchEvent(new Event("timeupdate"));
+        },
+        onAutoplayBlocked: () => {
+          this.wantsPlay = false;
+          this.dispatchEvent(new Event("blocked"));
+        },
+        onPlaybackRateChange: () => this.dispatchEvent(new Event("ratechange")),
+        onError: () => {
+          clearTimeout(this.readyTimer);
+          this.wantsPlay = false;
+          this.error = new Error("YouTube could not play this video here.");
+          this.dispatchEvent(new Event("error"));
+        },
+      } });
+      if (!this.readyState) this.readyTimer = setTimeout(() => this.dispatchEvent(new Event("unavailable")), 10000);
+    }).catch(() => {
+      if (this.iframe.isConnected) this.dispatchEvent(new Event("unavailable"));
+    });
+  }
+  get paused() { return this.state !== 1 && !(this.state === 3 && this.wantsPlay); }
+  get ended() { return this.state === 0; }
+  get duration() { return this.readyState ? this.player.getDuration() : 0; }
+  get currentTime() { return this.readyState ? this.player.getCurrentTime() : 0; }
+  set currentTime(time) {
+    if (!this.wantsPlay && (this.state == null || this.state === -1 || this.state === 5)) {
+      this.player.cueVideoById({ videoId: this.videoId, startSeconds: time });
+    } else this.player.seekTo(time, true);
+  }
+  get speeds() { return this.readyState ? this.player.getAvailablePlaybackRates() || [] : []; }
+  set playbackRate(rate) {
+    this.rate = rate;
+    if (this.speeds.includes(rate)) this.player.setPlaybackRate(rate);
+  }
+  play() {
+    this.wantsPlay = true;
+    if (this.readyState) this.player.playVideo();
+    return Promise.resolve();
+  }
+  pause() {
+    this.wantsPlay = false;
+    if (this.readyState) this.player.pauseVideo();
+  }
+  destroy() {
+    clearInterval(this.clock);
+    clearTimeout(this.readyTimer);
+    this.player?.destroy();
+    this.iframe.remove();
+  }
 }
 
 const Player = {
@@ -155,7 +286,19 @@ const Player = {
         <button type="button" class="icon-btn" data-act="audio-close" aria-label="Close player">${icon("x")}</button>
       </header>
       <div class="np-art"></div>
-      <div class="np-visual"><video preload="metadata" playsinline></video><div class="np-frame"></div>
+      <div class="np-dock-actions" hidden>
+        <button type="button" class="btn ghost sm" data-act="player-expand">Expand video</button>
+        <button type="button" class="icon-btn" data-act="audio-close" aria-label="Close floating video">${icon("x")}</button>
+      </div>
+      <div class="np-visual">
+        <div class="np-video-stage">
+          <video preload="metadata" playsinline></video>
+          <button type="button" class="np-video-reveal" data-act="player-show-video-controls">Show video controls</button>
+          <div class="np-video-controls">
+            <button type="button" class="btn ghost sm np-exit-fullscreen" data-act="player-exit-fullscreen">${icon("x")}Exit full screen</button>
+          </div>
+        </div>
+        <div class="np-frame"></div>
         <button type="button" class="btn ghost sm np-fullscreen" data-act="player-fullscreen">${icon("expand")}Full-screen video</button></div>
       <div class="np-info"><h2 id="np-title"></h2><p class="muted np-byline"></p></div>
       <div class="np-sources"></div>
@@ -169,31 +312,22 @@ const Player = {
     this.video = $("video", dialog);
     this.audio = new Audio();
     this.audio.preload = "metadata";
-    for (const media of [this.audio, this.video]) {
-      const refresh = () => { if (media === this.media()) this.syncUI(); };
-      media.addEventListener("timeupdate", () => { if (media === this.media()) this.tick(); });
-      media.addEventListener("durationchange", () => { if (media === this.media()) this.tick(); });
-      media.addEventListener("loadedmetadata", () => {
-        if (media !== this.media()) return;
-        if (this.pendingSeek !== null) this.seek(this.pendingSeek);
-        this.tick();
-      });
-      for (const type of ["play", "pause", "ended", "playing"]) media.addEventListener(type, refresh);
-      media.addEventListener("ended", () => {
-        if (media === this.media()) this.advancePlaylist();
-      });
-      media.addEventListener("error", () => {
-        if (media === this.media() && media.error) {
-          this.error = "This recording could not play. Check the link or try another source.";
-          this.syncUI();
-        }
-      });
+    for (const media of [this.audio, this.video]) this.bindMedia(media);
+    this.stage = $(".np-video-stage", dialog);
+    for (const event of ["pointermove", "pointerdown", "keydown", "focusin"]) {
+      this.stage.addEventListener(event, () => this.revealVideoControls());
     }
-    dialog.addEventListener("cancel", (event) => { event.preventDefault(); this.minimize(); });
+    document.addEventListener("visibilitychange", () => this.syncUI());
+    dialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      if (document.fullscreenElement === this.stage) document.exitFullscreen()?.catch(() => {});
+      else if (this.docked) this.close();
+      else this.minimize();
+    });
     // Swipe down from the top of the player to shrink it back to the mini bar, like other phone players.
     let drag = null;
     dialog.addEventListener("touchstart", (e) => {
-      if (e.touches.length !== 1 || dialog.scrollTop > 0 || e.target.closest("input, video, .np-controls, .np-frame")) { drag = null; return; }
+      if (!this.expanded() || e.touches.length !== 1 || dialog.scrollTop > 0 || e.target.closest("input, video, .np-controls, .np-frame")) { drag = null; return; }
       drag = { y: e.touches[0].clientY, x: e.touches[0].clientX, dy: 0 };
     }, { passive: true });
     dialog.addEventListener("touchmove", (e) => {
@@ -208,11 +342,85 @@ const Player = {
       dialog.style.transition = "transform .18s ease-out"; dialog.style.transform = "";
       if (far) this.minimize();
     });
-    document.addEventListener("fullscreenchange", () => { this.video.controls = document.fullscreenElement === this.video; });
+    document.addEventListener("fullscreenchange", () => {
+      clearTimeout(this.controlsTimer);
+      const fullscreen = document.fullscreenElement === this.stage;
+      const controls = $(".np-controls", dialog);
+      if (fullscreen) {
+        $(".np-video-controls", this.stage).append(controls);
+        this.revealVideoControls();
+      } else {
+        $(".np-provider-link", dialog).before(controls);
+        this.stage.classList.remove("show-controls");
+      }
+    });
+  },
+  bindMedia(media) {
+    const current = () => media === this.media();
+    const refresh = () => {
+      if (!current()) return;
+      if (media === this.youtube) this.syncYouTubeVisibility();
+      else this.revealVideoControls();
+      this.syncUI();
+    };
+    for (const event of ["timeupdate", "durationchange"]) media.addEventListener(event, () => { if (current()) this.tick(); });
+    media.addEventListener("loadedmetadata", () => {
+      if (!current()) return;
+      if (this.pendingSeek !== null) this.seek(this.pendingSeek);
+      this.syncUI();
+    });
+    for (const event of ["play", "pause", "ended", "ratechange"]) media.addEventListener(event, refresh);
+    media.addEventListener("playing", () => { if (current()) { this.error = ""; refresh(); } });
+    media.addEventListener("ended", () => { if (current()) this.advancePlaylist(); });
+    media.addEventListener("error", () => {
+      if (!current() || !media.error) return;
+      this.error = media === this.youtube ? "YouTube could not play this video here. Open it on YouTube or choose sermon audio." : "This recording could not play. Check the link or try another source.";
+      this.syncUI();
+    });
+    media.addEventListener("blocked", () => {
+      if (!current()) return;
+      this.error = "Tap Play to start this video.";
+      this.syncUI();
+    });
+    media.addEventListener("unavailable", () => {
+      if (!current()) return;
+      this.error = "Use the controls on the YouTube video.";
+      this.syncUI();
+    });
   },
   scopeKey() { return JSON.stringify([S.state.current, S.me().id]); },
   sermon() { return this.sermonId ? S.get("sermons", this.sermonId) : null; },
-  media() { return this.source?.kind === "video" ? this.video : this.source?.kind === "audio" ? this.audio : null; },
+  media() { return ({ video: this.video, audio: this.audio, youtube: this.youtube })[this.source?.kind] || null; },
+  expanded() { return !!this.dialogue?.open && !this.docked; },
+  canShowYouTube() {
+    return !document.hidden && !document.body.matches(".presenting, .kiosk-mode") &&
+      !document.documentElement.classList.contains("overlay-page");
+  },
+  syncYouTubeVisibility() {
+    if (!this.youtube || this.canShowYouTube()) return;
+    if (this.youtube.readyState) {
+      if (this.youtube.wantsPlay || this.isPlaying()) this.youtube.pause();
+    } else this.close(false);
+  },
+  revealVideoControls() {
+    if (document.fullscreenElement !== this.stage) return;
+    this.stage.classList.add("show-controls");
+    clearTimeout(this.controlsTimer);
+    if (this.isPlaying()) this.controlsTimer = setTimeout(() => {
+      if (!this.stage.querySelector(".np-video-controls :focus-visible")) this.stage.classList.remove("show-controls");
+    }, 3000);
+  },
+  releaseSource(media) {
+    if (media === this.youtube && media) {
+      this.youtube = null;
+      media.destroy();
+    } else if (media) {
+      media.pause();
+      media.removeAttribute("src");
+      media.load();
+    }
+    if (this.dialogue) $(".np-frame", this.dialogue).replaceChildren();
+  },
   isPlaying(id = this.sermonId) {
     const media = this.media();
     return !!(id && id === this.sermonId && media && !media.paused && !media.ended && !media.error);
@@ -231,7 +439,7 @@ const Player = {
     if (nextIndex < 0) return;
     const next = listeningTrack(remaining[nextIndex]);
     this.select(next, preferredSermonSource(next, true), {
-      playlist: remaining.slice(nextIndex + 1), expand: this.dialogue?.open,
+      playlist: remaining.slice(nextIndex + 1), expand: this.expanded(),
     });
   },
   select(s, source, { expand = false, startAt = null, play = true, playlist = null } = {}) {
@@ -249,12 +457,13 @@ const Player = {
       this.revision++;
       this.pendingSeek = null;
       this.error = "";
-      previousMedia?.pause();
-      previousMedia?.removeAttribute("src");
-      previousMedia?.load();
-      $(".np-frame", this.dialogue).replaceChildren();
-      if (source.kind === "embed") {
-        $(".np-frame", this.dialogue).innerHTML = flat(embedView(source.url, s.title, { video: true }));
+      this.releaseSource(previousMedia);
+      const frame = $(".np-frame", this.dialogue);
+      if (source.kind === "youtube") {
+        this.youtube = new YouTubeSermon(frame, s.title, source.youtubeId);
+        this.bindMedia(this.youtube);
+      } else if (source.kind === "embed") {
+        frame.innerHTML = flat(embedView(source.url, s.title, { video: true }));
       } else {
         const media = this.media();
         media.src = source.url || getDemoAudioUrl();
@@ -264,15 +473,16 @@ const Player = {
     if (this.media() && (startAt !== null || (!sameMedia && time > 0))) this.seek(time);
     if (expand || source.key === "video") this.expand();
     if (play && this.media() && !this.isPlaying()) this.play();
+    else if (!play && sameMedia) this.pause();
     this.syncMediaSession();
     this.syncUI();
   },
   play() {
     const media = this.media();
-    if (!media) return;
+    if (!media || (media === this.youtube && !this.canShowYouTube())) return;
     const revision = ++this.revision;
     this.error = "";
-    if (media.error) media.load();
+    if (media.error && media !== this.youtube) media.load();
     media.play().catch((error) => {
       if (this.revision !== revision || media !== this.media() || error.name === "AbortError") return;
       this.error = error.name === "NotAllowedError" ? "Tap Play to start this recording." : "This recording could not play. Check the link or try another source.";
@@ -304,6 +514,7 @@ const Player = {
     if (!this.sermon()) return;
     this.init();
     this.route = location.hash;
+    if (this.docked) this.closeDialog();
     this.syncExpanded();
     if (!this.dialogue.open) {
       this.focusReturn = document.activeElement;
@@ -315,10 +526,18 @@ const Player = {
     }
     this.syncUI();
   },
-  hideExpanded(restoreFocus = true) {
-    if (!this.dialogue?.open) return;
+  closeDialog() {
+    if (!this.dialogue) return;
+    if (document.fullscreenElement === this.stage) document.exitFullscreen()?.catch(() => {});
     if (this.dialogue.close) this.dialogue.close();
     else this.dialogue.removeAttribute("open");
+    this.docked = false;
+    delete this.dialogue.dataset.docked;
+    this.dialogue.setAttribute("aria-modal", "true");
+  },
+  hideExpanded(restoreFocus = true) {
+    if (!this.dialogue?.open) return;
+    this.closeDialog();
     const alert = $("#foreground-alert", this.dialogue);
     if (alert) document.body.append(alert);
     if (restoreFocus) {
@@ -329,13 +548,22 @@ const Player = {
     queueMicrotask(() => OpeningSummary.show());
   },
   minimize(restoreFocus = true) {
-    // Embedded players cannot be left playing invisibly. Direct recordings keep their existing media element.
+    if (!this.expanded()) return;
     if (this.source?.kind === "embed") { this.close(restoreFocus); return; }
-    if (this.source?.key === "video") this.source = { ...this.source, key: "video-audio", label: "Listen to video" };
     const button = this.focusReturn;
     this.hideExpanded(false);
+    if (this.source?.kind === "youtube") {
+      this.docked = true;
+      this.dialogue.dataset.docked = "";
+      this.dialogue.setAttribute("aria-modal", "false");
+      if (this.dialogue.show) this.dialogue.show();
+      else this.dialogue.setAttribute("open", "");
+    } else if (this.source?.key === "video") {
+      this.source = { ...this.source, key: "video-audio", label: "Listen to video" };
+    }
     this.syncUI();
-    if (restoreFocus) (button?.isConnected ? button : $(".mp-open"))?.focus({ preventScroll: true });
+    if (restoreFocus) (this.docked ? $(".np-dock-actions [data-act=player-expand]", this.dialogue)
+      : button?.isConnected ? button : $(".mp-open"))?.focus({ preventScroll: true });
   },
   close(restoreFocus = true) {
     const media = this.media();
@@ -346,8 +574,7 @@ const Player = {
     this.source = null;
     this.error = "";
     this.hideExpanded(restoreFocus);
-    if (media) { media.pause(); media.removeAttribute("src"); media.load(); }
-    if (this.dialogue) $(".np-frame", this.dialogue).replaceChildren();
+    this.releaseSource(media);
     this.syncMediaSession();
     this.syncUI();
   },
@@ -369,7 +596,7 @@ const Player = {
   syncMediaSession() {
     const session = navigator.mediaSession, s = this.sermon();
     if (!session || typeof MediaMetadata === "undefined") return;
-    const active = s && this.media(), art = active ? sermonArtwork(s) : "";
+    const active = s && this.media() && !this.youtube, art = active ? sermonArtwork(s) : "";
     try {
       session.metadata = active ? new MediaMetadata({
         title: s.title, artist: s.speaker, album: s.series || "",
@@ -390,26 +617,31 @@ const Player = {
     if (fill) fill.style.width = duration ? `${clamp(time / duration * 100, 0, 100)}%` : "0%";
     if (sub) sub.textContent = this.error || `${tr(this.source.label)} · ${tc(time)}${duration ? ` / ${tc(duration)}` : ""}`;
     if (!this.dialogue) return;
-    const range = $(".sac-range", this.dialogue);
-    range.disabled = !duration;
-    range.max = duration || 0;
-    range.value = time;
-    $("[data-sac-cur]", this.dialogue).textContent = tc(time);
-    $("[data-sac-rem]", this.dialogue).textContent = duration ? tc(duration) : "–";
+    $$(".sac-range", this.dialogue).forEach((range) => {
+      range.disabled = !duration;
+      range.max = duration || 0;
+      range.value = time;
+    });
+    $$("[data-sac-cur]", this.dialogue).forEach((label) => { label.textContent = tc(time); });
+    $$("[data-sac-rem]", this.dialogue).forEach((label) => { label.textContent = duration ? tc(duration) : "–"; });
   },
   syncExpanded() {
     const s = this.sermon(), dialog = this.dialogue;
     if (!s || !dialog) return;
     const source = this.source;
-    dialog.dataset.mode = source.kind === "embed" ? "embed" : source.key;
-    const provider = source.kind === "embed";
+    dialog.dataset.mode = ["embed", "youtube"].includes(source.kind) ? source.kind : source.key;
+    const provider = source.kind === "embed" || source.kind === "youtube";
+    $(".np-dock-actions", dialog).hidden = !this.docked;
     $("#np-title", dialog).textContent = s.title;
     $(".np-byline", dialog).textContent = [s.speaker, s.series].filter(Boolean).join(" · ");
     $(".np-notes", dialog).href = `#sermon-${s.id}`;
-    $("[data-act=player-minimize]", dialog).textContent = provider ? "Back" : "Minimize";
+    $("[data-act=player-minimize]", dialog).textContent = source.kind === "embed" ? "Back" : "Minimize";
     const providerLink = $(".np-provider-link", dialog);
     providerLink.hidden = !provider;
-    if (provider) providerLink.href = source.url;
+    if (provider) {
+      providerLink.href = source.url;
+      providerLink.textContent = source.kind === "youtube" ? "Open on YouTube" : "Open video on provider site";
+    }
     const contentKey = JSON.stringify([s.id, sermonSources(s), sermonArtwork(s)]);
     if (contentKey !== this.expandedKey) {
       this.expandedKey = contentKey;
@@ -417,16 +649,27 @@ const Player = {
       $(".np-sources", dialog).innerHTML = flat(sourceButtons(s));
     }
     updateSourceButtons(dialog, source, s.id);
-    $(".np-controls", dialog).hidden = !this.media();
-    updatePlayButton($(".sac-play", dialog), this.isPlaying());
-    $$("[data-act=audio-rate]", dialog).forEach((button) => button.setAttribute("aria-pressed", +button.dataset.r === this.rate));
-    $(".np-status", dialog).textContent = this.error || (provider ? "Use the provider’s controls. To keep listening while browsing, choose sermon audio when available." : "");
+    $(".np-controls", dialog).hidden = !this.media() || (!!this.youtube && !this.youtube.readyState);
+    const playing = this.isPlaying();
+    $$(".sac-play", dialog).forEach((button) => updatePlayButton(button, playing));
+    const youtubeSpeeds = this.youtube?.speeds;
+    const playbackRate = this.youtube?.readyState ? this.youtube.player.getPlaybackRate() : this.rate;
+    $$("[data-act=audio-rate]", dialog).forEach((button) => {
+      const rate = +button.dataset.r;
+      button.hidden = !!youtubeSpeeds && !youtubeSpeeds.includes(rate);
+      button.setAttribute("aria-pressed", rate === playbackRate);
+    });
+    $("[data-act=audio-cast]", dialog).hidden = !!this.youtube;
+    $(".np-status", dialog).textContent = this.error || (source.kind === "embed" ? "Use the controls on the video." : "");
   },
   syncUI() {
     const s = this.sermon();
     if (this.sermonId && (!s || this.scope !== this.scopeKey())) { this.close(false); return; }
-    if (this.dialogue?.open && this.route !== location.hash) { this.minimize(false); return; }
+    if (this.expanded() && this.route !== location.hash) { this.minimize(false); return; }
+    this.syncYouTubeVisibility();
+    if (s && !this.sermonId) return;
     this.syncExpanded();
+    document.body.classList.toggle("has-floating-video", !!this.docked && this.canShowYouTube());
     const show = !!(s && this.media() && !this.dialogue?.open && !document.body.matches(".presenting, .kiosk-mode") &&
       !document.documentElement.classList.contains("overlay-page"));
     document.body.classList.toggle("has-mini-player", show);
@@ -522,7 +765,7 @@ function sermonMedia(s) {
 }
 function transcriptSection(s) {
   if (!s.transcript?.length) return "";
-  const canSeek = !!preferredSermonSource(s, true);
+  const canSeek = !!seekableSermonSource(s);
   return html`<section class="sec"><details class="transcript"><summary><h2>Transcript</h2><span class="faint">${plural(s.transcript.reduce((n, p) => n + p.text.split(/\s+/).length, 0), "word")}</span></summary>
     <label class="field"><span class="sr">Search the transcript</span><input type="search" placeholder="Search the transcript" data-input="transcript-search"></label>
     <div class="tx-body">${s.transcript.map((p) => {
@@ -545,14 +788,16 @@ Actions["mini-play"] = (el) => {
 };
 Actions["audio-source"] = (el) => {
   const s = S.get("sermons", el.dataset.id);
-  Player.select(s, sermonSources(s).find((source) => source.key === el.dataset.source), { expand: true });
+  const source = sermonSources(s).find((item) => item.key === el.dataset.source);
+  const switching = Player.sermonId === s?.id && source?.key !== Player.source?.key;
+  Player.select(s, source, { expand: true, play: !switching || Player.isPlaying() || !!Player.youtube?.wantsPlay });
 };
 Actions["audio-toggle"] = () => Player.toggle();
 Actions["audio-skip"] = (el) => Player.skip(+el.dataset.sec || 0);
 Inputs["audio-scrub"] = (el) => Player.seek(+el.value || 0);
 Actions["seek"] = (el) => {
   const s = S.get("sermons", el.dataset.id || splitRoute().tail);
-  const source = Player.sermonId === s?.id && Player.media() ? Player.source : preferredSermonSource(s, true);
+  const source = Player.sermonId === s?.id && Player.media() ? Player.source : seekableSermonSource(s);
   Player.select(s, source, { startAt: +el.dataset.t || 0 });
 };
 Actions["audio-rate"] = (el) => Player.setRate(+el.dataset.r);
@@ -566,18 +811,19 @@ Actions["player-notes"] = () => {
   if (sermon) go(`sermon-${sermon.id}`);
 };
 Actions["player-fullscreen"] = async () => {
-  const video = Player.video;
-  if (!video) return;
+  if (Player.source?.kind !== "video") return;
   try {
-    if (video.requestFullscreen) await video.requestFullscreen();
-    else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+    if (Player.stage.requestFullscreen) await Player.stage.requestFullscreen();
+    else if (Player.video.webkitEnterFullscreen) Player.video.webkitEnterFullscreen();
     else throw new Error("Fullscreen unavailable");
   } catch {
     $(".np-status", Player.dialogue).textContent = "Full-screen video isn’t available on this device.";
   }
 };
+Actions["player-exit-fullscreen"] = () => document.exitFullscreen()?.catch(() => {});
+Actions["player-show-video-controls"] = () => Player.revealVideoControls();
 window.addEventListener("hashchange", () => {
-  if (Player.dialogue?.open && Player.route !== location.hash) Player.minimize(false);
+  if (Player.expanded() && Player.route !== location.hash) Player.minimize(false);
 });
 
 // ----- Media editor for staff -----
@@ -591,7 +837,16 @@ Screens.media = (id) => {
     body: html`<h1 style="margin-top:16px">${s.title}</h1><p class="muted" style="margin-top:4px">${s.speaker}, ${fmtShort(s.date)}</p>
       <form data-form="media-save" class="panel" novalidate><input type="hidden" name="id" value="${s.id}">
         ${imageField("artwork", "Series or sermon square artwork", s.artwork, "Square 1:1 album art shown on sermon series cards and in the persistent mini-player.", 1000)}
-        <label class="field"><span>Video link</span><input type="url" name="videoUrl" value="${sermonVideo(s)}" placeholder="https://youtu.be/..."><small>YouTube, Vimeo or Facebook, or an MP4 file.</small></label>
+        <label class="field"><span>Video link</span><input type="url" name="videoUrl" value="${sermonVideo(s)}" data-input="sermon-video-link" placeholder="https://youtu.be/..."><small>YouTube, Vimeo or Facebook, or an MP4 file.</small></label>
+        <div class="sermon-thumbnail" ${attr(!youtubeSermonId(sermonVideo(s)), "hidden")}>
+          <input type="hidden" name="youtubeThumbnail" value="${sermonThumbnail(s) ? s.youtubeThumbnail : ""}">
+          <img ${sermonThumbnail(s) ? html`src="${sermonThumbnail(s)}"` : "hidden"} alt="YouTube thumbnail preview">
+          <div class="btns">
+            <button type="button" class="btn ghost sm" data-act="sermon-thumbnail-use">Use YouTube thumbnail</button>
+            <button type="button" class="btn ghost sm" data-act="sermon-thumbnail-remove" ${attr(!sermonThumbnail(s), "hidden")}>Remove thumbnail</button>
+          </div>
+          <p class="faint" role="status"></p>
+        </div>
         <label class="field"><span>Audio file for the podcast</span><input type="url" name="audioUrl" value="${sermonAudio(s)}" placeholder="https://.../sermon.mp3"><small>An MP3 or M4A link. Podcast apps need one.</small></label>
         <div class="btns"><label class="btn ghost sm">${icon("download")}Upload audio or video<input type="file" class="sr" accept="audio/*,video/*" data-change="media-upload" data-id="${s.id}"></label></div>
         ${live ? "" : html`<p class="faint">Uploads go to your own storage once the app is on your website with Supabase connected. Until then, paste a link.</p>`}
@@ -606,10 +861,45 @@ Screens.media = (id) => {
         <button class="btn ghost sm" data-act="ai-recap" data-id="${s.id}">${icon("bolt")}Draft a summary and outline</button></div></section>` : ""}`,
   };
 };
+function setSermonThumbnail(form, id, message = "") {
+  form.elements.youtubeThumbnail.value = id;
+  const section = $(".sermon-thumbnail", form), preview = $("img", section);
+  if (id) preview.src = youtubeThumbnailUrl(id);
+  else preview.removeAttribute("src");
+  preview.hidden = !id;
+  $("[data-act=sermon-thumbnail-remove]", section).hidden = !id;
+  $("[role=status]", section).textContent = message;
+}
+Inputs["sermon-video-link"] = (input) => {
+  const id = youtubeSermonId(input.value);
+  $(".sermon-thumbnail", input.form).hidden = !id;
+  if (input.form.elements.youtubeThumbnail.value !== id) setSermonThumbnail(input.form, "");
+};
+Actions["sermon-thumbnail-remove"] = (button) => setSermonThumbnail(button.form, "");
+Actions["sermon-thumbnail-use"] = async (button) => {
+  const form = button.form, id = youtubeSermonId(form.elements.videoUrl.value);
+  if (!id) return;
+  const status = $(".sermon-thumbnail [role=status]", form);
+  status.textContent = "Loading thumbnail…";
+  button.disabled = true;
+  const image = new Image();
+  const available = await new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve(false), 8000);
+    image.onload = () => { clearTimeout(timeout); resolve(image.naturalWidth >= 320); };
+    image.onerror = () => { clearTimeout(timeout); resolve(false); };
+    image.src = youtubeThumbnailUrl(id);
+  });
+  button.disabled = false;
+  if (!form.isConnected || youtubeSermonId(form.elements.videoUrl.value) !== id) return;
+  if (available) setSermonThumbnail(form, id, "Thumbnail ready. Save to use it.");
+  else status.textContent = "YouTube didn’t return a thumbnail for this link.";
+};
 Forms["media-save"] = (d, f) => {
   for (const k of ["videoUrl", "audioUrl"]) if (d[k] && !isUrl(d[k])) return formError(f, "Links should start with https://");
   const s = S.get("sermons", d.id);
-  Object.assign(s, { artwork: d.artwork || "", videoUrl: d.videoUrl, audioUrl: d.audioUrl, mediaUrl: d.videoUrl || d.audioUrl, minutes: Math.max(1, +d.minutes || s.minutes), audioBytes: d.audioMb ? Math.round(+d.audioMb * 1048576) : s.audioBytes || 0, transcript: parseTranscript(d.transcript) });
+  if (!s || !canMedia()) return;
+  const youtubeThumbnail = d.youtubeThumbnail === youtubeSermonId(d.videoUrl) ? d.youtubeThumbnail : "";
+  Object.assign(s, { artwork: d.artwork || "", youtubeThumbnail, videoUrl: d.videoUrl, audioUrl: d.audioUrl, mediaUrl: d.videoUrl || d.audioUrl, minutes: Math.max(1, +d.minutes || s.minutes), audioBytes: d.audioMb ? Math.round(+d.audioMb * 1048576) : s.audioBytes || 0, transcript: parseTranscript(d.transcript) });
   S.save(); toast("Saved"); go(`sermon-${s.id}`);
 };
 Inputs["transcript-file"] = (el) => {
@@ -626,7 +916,9 @@ Inputs["media-upload"] = async (el) => {
   const form = el.closest("form"), isAudio = file.type.startsWith("audio/");
   try {
     toast("Uploading..."); const url = await Backend.upload(file, `sermons/${el.dataset.id}/${Date.now()}-${file.name.replace(/[^\w.-]+/g, "-")}`);
-    form[isAudio ? "audioUrl" : "videoUrl"].value = url; if (isAudio) form.audioMb.value = (file.size / 1048576).toFixed(1);
+    form[isAudio ? "audioUrl" : "videoUrl"].value = url;
+    if (isAudio) form.audioMb.value = (file.size / 1048576).toFixed(1);
+    else Inputs["sermon-video-link"](form.elements.videoUrl);
     toast("Uploaded. Save to keep it.");
   } catch (e) { toast(`Upload failed: ${e.message || "try again"}`); }
 };
