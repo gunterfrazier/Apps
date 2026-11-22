@@ -2026,3 +2026,6 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
   .stage-mon.full .sm-now { font-size: clamp(1rem, 4dvh, 2rem); }
   .stage-mon.full .sm-next { font-size: clamp(.85rem, 3dvh, 1.3rem); }
 }
+
+.playlist-track { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+.playlist-track-actions { grid-column: 2; margin: 0; }

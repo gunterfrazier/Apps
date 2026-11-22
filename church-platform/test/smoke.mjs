@@ -1462,6 +1462,60 @@ await step("room booking", async () => {
   await page.click("#scrim [data-act=room-switch] >> nth=0"); await page.waitForSelector("#scrim .room-msg.ok"); await sheetSubmit(); await sheetGone();
   await expectText("Parent meeting"); await shot("38-rooms");
 });
+await step("Watch service archive and audio playlist", async () => {
+  await goTo("home");
+  const initial = await page.evaluate(() => {
+    const { S } = __app;
+    const sample = S.get("sermons", "riverside-s0");
+    const original = S.state.audioPlaylists;
+    S.state.audioPlaylists = {};
+    for (let n = 0; n < 8; n++) {
+      S.state.sermons.push({ ...sample, id: `watch-test-${n}`, title: `Archived service ${n}`, date: `2025-01-0${n + 1}`, audioUrl: "", videoUrl: "", mediaUrl: "" });
+    }
+    S.save();
+    return original || {};
+  });
+  const player = page.locator("#now-playing");
+  try {
+    await page.locator('.quick a[href="#live"]').click();
+    await page.locator("#watch-past").waitFor();
+    const headings = await page.locator("#watch-upcoming, #watch-past").allTextContents();
+    if (headings.join("|") !== "Upcoming services|Past services") throw new Error("Watch sections are out of order");
+    await page.getByRole("link", { name: /Archived service 0/ }).waitFor();
+    await page.getByRole("link", { name: "Podcasts & audio" }).click();
+    await page.getByRole("button", { name: "Add Archived service 0 to playlist" }).click();
+    await page.getByRole("button", { name: "Add Archived service 1 to playlist" }).click();
+    await page.getByRole("link", { name: "My playlist" }).click();
+    await page.getByRole("button", { name: "Move Archived service 1 earlier" }).click();
+    await page.waitForFunction(() => Object.values(localStorage).some((raw) => {
+      try { return JSON.parse(raw)?.audioPlaylists?.riverside?.join() === "watch-test-1,watch-test-0"; }
+      catch { return false; }
+    }));
+    await page.reload();
+    const summary = page.getByRole("dialog", { name: "Your pending items" });
+    await page.addLocatorHandler(summary, () => summary.getByRole("button", { name: "Dismiss" }).click(), { times: 1 });
+    await page.getByRole("button", { name: "Play playlist" }).click();
+    await player.getByRole("heading", { name: "Archived service 1" }).waitFor();
+    const seek = player.getByRole("slider", { name: "Seek recording" });
+    await page.waitForFunction(() => Number(document.querySelector("#now-playing .sac-range")?.max) > 0);
+    await seek.evaluate((input) => {
+      input.value = String(Number(input.max) - 0.15);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await player.getByRole("heading", { name: "Archived service 0" }).waitFor();
+    await player.getByRole("button", { name: "Close player" }).click();
+    await page.getByRole("button", { name: "Remove Archived service 0 from playlist" }).click();
+    if (await page.getByRole("button", { name: "Remove Archived service 0 from playlist" }).count()) throw new Error("Removed track stayed in the playlist");
+  } finally {
+    await page.evaluate((original) => {
+      const { S } = __app;
+      S.state.sermons = S.state.sermons.filter((item) => !item.id.startsWith("watch-test-"));
+      S.state.audioPlaylists = original;
+      S.save();
+    }, initial);
+    await goTo("home");
+  }
+});
 await step("sermon playback across screens", async () => {
   const videoBody = await page.evaluate(async () => {
     const canvas = document.createElement("canvas");
