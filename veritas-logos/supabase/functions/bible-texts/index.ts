@@ -25,6 +25,11 @@
 // and as the connector's verse_of_the_day tool. The apps show the verse from their own public-domain BSB. Any page may
 // ask, since it's only a reference, and each day is looked up once per server instance.
 //
+// And it lets the website sync a reader's highlights with their YouVersion account ("Sign in with YouVersion"), at
+// .../bible-texts/yv/... (authorize, token, highlights, bibles). Those answer only the website's own pages, like /web.
+// The app key stays here: the service adds it to the token exchange and to each highlights request. Only the sign-in
+// link carries it, as YouVersion's sign-in requires. The reader's YouVersion tokens are kept in their own browser.
+//
 // The terms it keeps: all three services are for non-commercial use; nothing is stored here; each chapter goes back
 // with its copyright notice; API.Bible's Fair Use (FUMS) is reported for each chapter shown.
 
@@ -339,10 +344,10 @@ function allowedOrigin(origin: string | null): boolean {
 // A few chapters a minute for each visitor. Kept in this instance's memory only, so it's a brake, not a wall.
 const PER_MINUTE = 12;
 const recent = new Map<string, number[]>();
-function tooMany(visitor: string): boolean {
+function tooMany(visitor: string, perMinute = PER_MINUTE): boolean {
   const now = Date.now();
   const times = (recent.get(visitor) ?? []).filter((t) => now - t < 60_000);
-  if (times.length >= PER_MINUTE) { recent.set(visitor, times); return true; }
+  if (times.length >= perMinute) { recent.set(visitor, times); return true; }
   times.push(now);
   recent.set(visitor, times);
   if (recent.size > 5000) for (const [k, v] of recent) if (!v.some((t) => now - t < 60_000)) recent.delete(k);
@@ -382,9 +387,90 @@ async function votdWeb(req: Request, url: URL): Promise<Response> {
   }
 }
 
+// ----- Sign in with YouVersion and highlights: .../bible-texts/yv/<route> -----
+
+const YV_HOST = "https://api.youversion.com";
+/** The pieces of a JWT's payload, unchecked: used only to show the reader's own name back to them. */
+function jwtClaims(token: unknown): Record<string, unknown> {
+  try {
+    const part = String(token ?? "").split(".")[1] ?? "";
+    return JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=")));
+  } catch { return {}; }
+}
+async function yvRoute(req: Request, url: URL, route: string): Promise<Response> {
+  const origin = req.headers.get("Origin");
+  const ok = allowedOrigin(origin);
+  const headers: Record<string, string> = { "Content-Type": "application/json", "Cache-Control": "no-store", Vary: "Origin" };
+  if (ok) Object.assign(headers, { "Access-Control-Allow-Origin": origin!, "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization", "Access-Control-Max-Age": "86400" });
+  const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers });
+  if (req.method === "OPTIONS") return new Response(null, { status: ok ? 204 : 403, headers });
+  if (!ok) return reply({ error: "This address only answers the Veritas Logos website." }, 403);
+  const key = Deno.env.get("YVP_APP_KEY");
+  if (!key) return reply({ error: "YouVersion isn't set up on this service." }, 503);
+  const visitor = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  if (tooMany(`yv:${visitor}`, 60)) return reply({ error: "That's a lot at once. Wait a minute and try again." }, 429);
+  const q = url.searchParams;
+  try {
+    if (route === "authorize" && req.method === "GET") {
+      // The return address must be the website itself, as registered with YouVersion.
+      const redirect = q.get("redirect_uri") ?? "";
+      if (redirect !== origin) return reply({ error: "The return address must be this website." }, 400);
+      const p = new URLSearchParams({ response_type: "code", client_id: key, redirect_uri: redirect, nonce: q.get("nonce") ?? "", state: q.get("state") ?? "",
+        code_challenge: q.get("code_challenge") ?? "", code_challenge_method: "S256", scope: "profile", requested_permissions: "highlights" });
+      if (![...p.values()].every(Boolean)) return reply({ error: "Missing sign-in details." }, 400);
+      return reply({ url: `${YV_HOST}/auth/authorize?${p}` });
+    }
+    if (route === "token" && req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      const p = body.refresh_token
+        ? new URLSearchParams({ grant_type: "refresh_token", refresh_token: String(body.refresh_token), client_id: key })
+        : new URLSearchParams({ grant_type: "authorization_code", code: String(body.code ?? ""), code_verifier: String(body.code_verifier ?? ""), redirect_uri: String(body.redirect_uri ?? ""), client_id: key });
+      if (!body.refresh_token && body.redirect_uri !== origin) return reply({ error: "The return address must be this website." }, 400);
+      const res = await fetch(`${YV_HOST}/auth/token`, { method: "POST", body: p, headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+      const t = await res.json().catch(() => ({}));
+      if (!res.ok || !t.access_token) return reply({ error: "YouVersion didn't accept the sign-in. Try connecting again." }, res.status === 400 || res.status === 401 ? 401 : 502);
+      const claims = jwtClaims(t.id_token);
+      return reply({ access_token: t.access_token, refresh_token: t.refresh_token, expires_in: Number(t.expires_in) || 3600,
+        name: typeof claims.name === "string" ? claims.name : undefined, scope: t.scope });
+    }
+    if (route === "bibles" && req.method === "GET") {
+      const data = await youversion(`/bibles?${new URLSearchParams({ "language_ranges[]": "en", page_size: "99" })}`);
+      return reply({ bibles: (data.data ?? []).map((b: any) => ({ id: b.id, abbreviation: b.abbreviation ?? b.localized_abbreviation, title: b.title ?? b.localized_title })) });
+    }
+    if (route === "highlights") {
+      const auth = req.headers.get("Authorization") ?? "";
+      if (!/^Bearer \S+$/.test(auth)) return reply({ error: "Connect YouVersion first." }, 401);
+      const bible = Number(q.get("bible_id")), passage = String(q.get("passage_id") ?? "");
+      if (!Number.isInteger(bible) || bible < 1 || !/^[1-3]?[A-Z]{2,3}\.\d+(\.\d+(-\d+)?)?$/.test(passage)) return reply({ error: "bible_id and passage_id are needed." }, 400);
+      let target = `${YV_HOST}/v1/highlights?${new URLSearchParams({ bible_id: String(bible), passage_id: passage })}`;
+      const init: RequestInit = { method: req.method, headers: { "X-YVP-App-Key": key, Authorization: auth, Accept: "application/json" } };
+      if (req.method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        const color = String(body.color ?? "").toLowerCase();
+        if (!/^[0-9a-f]{6}$/.test(color)) return reply({ error: "color must be 6 hex digits." }, 400);
+        target = `${YV_HOST}/v1/highlights`;
+        init.body = JSON.stringify({ request_id: crypto.randomUUID(), highlight: { bible_id: bible, passage_id: passage, color } });
+        (init.headers as Record<string, string>)["Content-Type"] = "application/json";
+      } else if (req.method === "DELETE") {
+        target = `${YV_HOST}/v1/highlights/${encodeURIComponent(passage)}?${new URLSearchParams({ bible_id: String(bible) })}`;
+      } else if (req.method !== "GET") return reply({ error: "Use GET, POST or DELETE." }, 405);
+      const res = await fetch(target, init);
+      const text = await res.text();
+      if (res.status === 401) return reply({ error: "YouVersion sign-in expired.", code: "expired" }, 401);
+      if (res.status === 403) return reply({ error: "YouVersion hasn't been given permission to share highlights.", code: "permission" }, 403);
+      if (!res.ok) return reply({ error: `YouVersion answered ${res.status}.` }, 502);
+      return new Response(text || JSON.stringify({ data: [] }), { status: 200, headers });
+    }
+    return reply({ error: "Not found." }, 404);
+  } catch (e) {
+    return reply({ error: e instanceof ToolError ? e.message : "YouVersion couldn't be reached." }, 502);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const parts = url.pathname.split("/").filter(Boolean);
+  if (parts[parts.length - 2] === "yv") return yvRoute(req, url, parts[parts.length - 1]);
   if (parts[parts.length - 1] === "web") return web(req, url);
   if (parts[parts.length - 1] === "votd") return votdWeb(req, url);
   const token = Deno.env.get("BIBLE_CONNECTOR_TOKEN");

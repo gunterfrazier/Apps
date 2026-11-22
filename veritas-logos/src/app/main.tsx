@@ -33,6 +33,7 @@ import { prepareOffline } from "./offline";
 import { localTranslation } from "../core/bible";
 import { initJobs } from "./ai-jobs";
 import { initOnlineBible } from "./online-bible";
+import { finishYouVersionReturn } from "./youversion";
 
 class Boundary extends Component<{ children: ReactNode; route: string }, { failed: boolean }> {
   state = { failed: false };
@@ -272,6 +273,7 @@ createRoot(document.getElementById("root")!).render(<App />);
 connectCloud();
 initAccounts();
 initOnlineBible();
+finishYouVersionReturn();
 
 // Small lookups used everywhere load quietly once the app is idle, so later screens open at once.
 const idle = (window as any).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 1200));

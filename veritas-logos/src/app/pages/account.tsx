@@ -3,6 +3,7 @@ import { ACCOUNTS_ON, IN_CLAUDE, account, currentHash, deleteAccount, signOut, u
 import { toast, useData, useSyncState } from "../store";
 import { useAsync } from "../ui";
 import { SyncLine } from "./library";
+import { YouVersionSection } from "../youversion";
 
 /** Sign in, or see and manage the account, on the website. */
 export function AccountPage() {
@@ -24,6 +25,7 @@ export function AccountPage() {
       {acct.status === "unavailable" && <p>Sign-in couldn't load. Check your connection and reload the page. Your work is still kept in this browser.</p>}
       {acct.status === "signed-out" && <SignIn />}
       {acct.status === "signed-in" && acct.user && <Details key={acct.user.id} email={acct.user.email} providers={acct.user.providers} />}
+      <YouVersionSection />
       <PrivacyNote />
     </div>
   );

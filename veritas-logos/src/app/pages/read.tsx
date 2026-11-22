@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useChapterRead, useMemorizing, toggleChapterRead, toggleMemory } from "./practice";
+import { pushHighlights, syncChapter } from "../youversion";
 import { chapterCount, getChapter, getVerseIn, isOnline, onlineNotice, OnlineTextError, GROUP_NAMES, OFFERED, refOf, translationInfo, verseCount, DEFAULT_TRANSLATION, type TranslationId } from "../../core/bible";
 import { getCrossRefs, decodeMorph, getVerseWords, normalizeStrongs, type WordTuple } from "../../core/lexicon";
 import { getSectionHeadings, readingWords, wordDifferences } from "../../core/reader-text";
@@ -369,6 +370,7 @@ function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, docked, i
       }
       return { ...d, highlights: h };
     });
+    pushHighlights(book, chapter, Array.from({ length: end - verse + 1 }, (_, i) => verse + i), c);
   };
   const add = () => addSectionsToGuide([{ id: newId(), kind: "passage", heading: reference, origin: "assembled", ref: reference }], reference, guides, activeGuideId, prefs.translation, prefs.lens);
   const passage = readHash({ book, chapter, verse, verseEnd: end }).slice(5);
@@ -539,7 +541,8 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   useEffect(() => {
     if (route?.translation && route.translation !== prefs.translation) setPref("translation", route.translation);
   }, [route?.translation]);
-  useEffect(() => { update((d) => (d.lastRead.book === book && d.lastRead.chapter === chapter ? d : { ...d, lastRead: { book, chapter } })); }, [book, chapter]);
+  useEffect(() => { update((d) => (d.lastRead.book === book && d.lastRead.chapter === chapter ? d : { ...d, lastRead: { book, chapter } })); }, [book, chapter])
+  useEffect(() => { syncChapter(book, chapter); }, [book, chapter]);;
   useEffect(() => {
     const verse = route?.verse;
     setSheet(verse && wide ? { verse, end: route.verseEnd } : null);
