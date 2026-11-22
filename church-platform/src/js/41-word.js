@@ -87,14 +87,14 @@ Screens.word = () => {
         <span class="body"><span class="t">Live in the Sanctuary: ${liveSermon.title}</span><span class="s">Tap to follow interactive fill-in-the-blank notes &amp; live Scripture sync</span></span>
         ${icon("chev")}
       </a>` : ""}
-      <form class="panel" style="margin-top:12px" data-form="bible-lookup" novalidate>
+      <label class="field" style="margin-top:12px"><span class="sr">Search sermons</span><input type="search" placeholder="Search sermons or passages" data-input="sermon-search" value="${sermonQuery}"></label>
+      ${books.length > 1 ? html`<div class="chips" role="group" aria-label="Filter by book">${books.map((b) => html`<button class="chip" data-act="sermon-book" data-book="${b}" aria-pressed="${b === sermonBook}">${b}</button>`)}</div>` : ""}
+      <div id="sermon-list">${sermonResults()}</div>
+      <form class="panel" style="margin-top:22px" data-form="bible-lookup" novalidate>
         <label class="field" style="margin-top:0"><span>Look up a passage</span>
         <div style="display:flex;gap:8px"><input type="search" name="ref" placeholder="John 3:16" data-input="bible-ref" autocomplete="off"><button class="btn" id="bible-open">Open</button></div>
         <small id="bible-hint">${lookupHint("")}</small></label></form>
       ${S.on("live") ? html`<a class="row panel" href="#live" style="margin-top:12px;padding:12px 16px"><span class="lead-ic">${icon("live")}</span><span class="body"><span class="t">Watch live</span><span class="s">Stream services as they happen</span></span>${icon("chev")}</a>` : ""}
-      <label class="field"><span class="sr">Search sermons</span><input type="search" placeholder="Search titles, passages, speakers and what was said" data-input="sermon-search" value="${sermonQuery}"></label>
-      ${books.length > 1 ? html`<div class="chips" role="group" aria-label="Filter by book">${books.map((b) => html`<button class="chip" data-act="sermon-book" data-book="${b}" aria-pressed="${b === sermonBook}">${b}</button>`)}</div>` : ""}
-      <div id="sermon-list">${sermonResults()}</div>
       ${canMedia() ? html`<div class="btns"><a class="btn ghost sm" href="#podcast">${icon("music")}Podcast feed</a></div>` : ""}`,
   };
 };

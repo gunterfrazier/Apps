@@ -37,7 +37,7 @@ function applyDemoPhotos(st) {
   if (!c?.sample) return;
   const generated = (v) => !v || String(v).startsWith("data:image/svg+xml");
   if (!c.banner || (c.banner.bg?.type !== "image" && !c.demoPhotos)) {
-    c.banner = { ...bannerOf(c), bg: { type: "image", preset: "aurora", color: c.color, image: DEMO("campus-cross"), dim: 38 }, graphics: [] };
+    c.banner = { ...bannerOf(c), bg: { type: "image", preset: "aurora", color: c.color, image: DEMO("campus-cross"), dim: 38 } };
   }
   const blocks = c.landing?.blocks;
   if (blocks && !blocks.some((b) => b.id === "b0-hero") && !c.demoPhotos) blocks.unshift({ id: "b0-hero", type: "hero", image: DEMO("worship-crowd"), title: "You belong here", text: "A family of ordinary people following Jesus by the river." });
