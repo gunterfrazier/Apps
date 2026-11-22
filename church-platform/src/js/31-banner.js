@@ -46,13 +46,16 @@ function bannerBackground(b, color) {
   if (b.bg.type === "color") return b.bg.color || color;
   return (BANNER_PRESETS[b.bg.preset] || BANNER_PRESETS.aurora).css;
 }
-/** The banner itself. mini: no text (for church cards); slide: fills a presentation stage. */
+const bannerLogoAsset = (b) => (b.logos || []).find((logo) => logo.id === b.logo.assetId);
+const bannerLogoSrc = (c, b) => bannerLogoAsset(b)?.src || c.logo || "";
+
+/** The banner itself. mini: no text (for church cards). */
 function bannerHtml(c, b = bannerOf(c), { mini = false, name = false } = {}) {
   const color = b.bg.type === "color" ? b.bg.color || c.color : c.color;
   const ink = bannerTextColor(b, c.color);
   const words = String(b.text.headline || "").trim().split(/\s+/).filter(Boolean);
-  // The whole logo always shows: inside a white tile, or on its own at its own shape.
-  const logo = b.logo.size !== "off" ? (c.logo ? html`<img class="bn-logo ${b.logo.size} ${b.logo.frame === "none" ? "bare" : ""}" src="${c.logo}" alt="">` : html`<span class="bn-logo mono ${b.logo.size}" style="background:${onColor(c.color) === "#ffffff" ? "#ffffff" : "#111827"};color:${c.color}">${initials(c.name)}</span>`) : "";
+  const logoSrc = bannerLogoSrc(c, b);
+  const logo = b.logo.size !== "off" ? (logoSrc ? html`<img class="bn-logo ${b.logo.size} ${b.logo.frame === "none" ? "bare" : ""}" src="${logoSrc}" alt="">` : html`<span class="bn-logo mono ${b.logo.size}" style="background:${onColor(c.color) === "#ffffff" ? "#ffffff" : "#111827"};color:${c.color}">${initials(c.name)}</span>`) : "";
   return html`<div class="banner ${mini ? "mini" : b.height || "tall"} align-${b.text.align || "left"}" style="--b:${color};--bink:${ink};background:${raw(esc(bannerBackground(b, color)))}" role="img" aria-label="${[c.name, b.text.headline, b.text.sub].filter(Boolean).join(". ")}">
     ${(b.graphics || []).map((g) => html`<img class="bn-graphic" alt="" src="${graphicSrc(g)}" style="left:${g.x}%;top:${g.y}%;width:${g.size}%;opacity:${(g.opacity ?? 100) / 100};transform:translate(-50%,-50%) rotate(${g.rotate || 0}deg)">`)}
     ${b.logo.align === "top" && !mini && logo ? html`<div class="bn-top">${logo}</div>` : ""}
@@ -65,19 +68,43 @@ function bannerHtml(c, b = bannerOf(c), { mini = false, name = false } = {}) {
 }
 
 // ---------- The banner designer ----------
-let bannerDraft = null, bannerDraftFor = null;
-AdminScreens.banner = () => {
+const BANNER_SECTIONS = { background: "Background", logo: "Logo", text: "Text", graphics: "Graphics", layout: "Layout" };
+let bannerDraft = null, bannerDraftFor = "", bannerSection = "background", bannerPhonePreview = false;
+const bannerScope = () => JSON.stringify([S.church()?.id, S.me().id]);
+const bannerForm = () => $('form[data-form="banner-save"]');
+function renderBannerEditor(back = "admin") {
   const blocked = guard("manage.page"); if (blocked) return blocked;
   const c = S.church();
-  if (bannerDraftFor !== c.id || !bannerDraft) { bannerDraft = JSON.parse(JSON.stringify(bannerOf(c))); bannerDraftFor = c.id; }
+  if (bannerDraftFor !== bannerScope() || !bannerDraft) {
+    bannerDraft = structuredClone(bannerOf(c));
+    bannerDraft.logos ||= [];
+    bannerDraftFor = bannerScope();
+    bannerSection = "background";
+  }
   const b = bannerDraft;
+  const pane = (name, content) => html`<section class="banner-pane" id="banner-${name}" data-banner-pane="${name}" ${attr(bannerSection !== name, "hidden")}>
+    <h2 class="sec-head">${BANNER_SECTIONS[name]}</h2>${content}</section>`;
   const opt = (name, value, label, cur) => html`<label><input type="radio" name="${name}" value="${value}" ${attr(cur === value, "checked")}><span>${label}</span></label>`;
   const range = (name, label, value, min, max, unit = "") => html`<label class="range"><span>${label}</span><input type="range" name="${name}" min="${min}" max="${max}" value="${value}"><output>${value}${unit}</output></label>`;
   return {
-    title: "Home banner", back: "admin",
-    body: html`<div class="banner-preview" id="banner-preview">${bannerHtml(c, b)}</div>
-      <form data-form="banner-save" data-input="banner-live" class="banner-form" novalidate>
-        <section class="sec"><h2 class="sec-head">Text art</h2><div class="panel">
+    title: "Home banner", back,
+    body: html`<form data-form="banner-save" data-input="banner-live" class="banner-form" novalidate>
+      <input type="hidden" name="returnTo" value="${back}">
+      <div class="banner-workspace">
+        <aside class="banner-preview-shell" aria-label="Banner preview">
+          <div class="banner-preview-head"><h2>Live preview</h2>
+            <div class="banner-preview-width" role="group" aria-label="Preview width">
+              <button type="button" class="chip" data-act="banner-preview-width" data-width="phone" aria-pressed="${bannerPhonePreview}">Phone</button>
+              <button type="button" class="chip" data-act="banner-preview-width" data-width="wide" aria-pressed="${!bannerPhonePreview}">Wide</button>
+            </div>
+          </div>
+          <div class="banner-preview" id="banner-preview" data-width="${bannerPhonePreview ? "phone" : "wide"}">${bannerHtml(c, b)}</div>
+          <p class="faint">Used on Home and your public landing page.</p>
+        </aside>
+        <div class="banner-tools">
+          <nav class="banner-sections" aria-label="Banner settings">${Object.entries(BANNER_SECTIONS).map(([key, label]) =>
+            html`<button type="button" class="chip" data-act="banner-section" data-section="${key}" aria-controls="banner-${key}" aria-pressed="${bannerSection === key}">${label}</button>`)}</nav>
+        ${pane("text", html`<div class="panel">
           <label class="field" style="margin-top:0"><span>Headline</span><input type="text" name="headline" value="${b.text.headline}" maxlength="40"></label>
           <label class="field"><span>Smaller line</span><input type="text" name="sub" value="${b.text.sub}" maxlength="80" placeholder="Sundays at 9 and 11"></label>
           <fieldset class="field" style="border:0;padding:0"><legend>Style</legend><div class="style-picks">${Object.entries(TEXT_STYLES).map(([k, l]) => html`<label><input type="radio" name="style" value="${k}" ${attr(b.text.style === k, "checked")}><span class="st-${k}"><span class="${k === "highlight" ? "mark" : ""}">${l}</span></span></label>`)}</div></fieldset>
@@ -85,23 +112,39 @@ AdminScreens.banner = () => {
             <fieldset class="field" style="border:0;padding:0"><legend>Line up</legend><div class="radios">${opt("align", "left", "Left", b.text.align)}${opt("align", "center", "Center", b.text.align)}</div></fieldset></div>
           <fieldset class="field" style="border:0;padding:0"><legend>Text color</legend><div class="radios">${opt("color", "auto", "Automatic", b.text.color)}${opt("color", "white", "White", b.text.color)}${opt("color", "dark", "Dark", b.text.color)}${opt("color", "brand", "Church color", b.text.color)}</div></fieldset>
           <label class="check"><input type="checkbox" name="shadow" ${attr(b.text.shadow, "checked")}><span>Soft shadow behind the text</span></label>
-        </div></section>
+        </div>`)}
 
-        <section class="sec"><h2 class="sec-head">Background</h2><div class="panel">
+        ${pane("background", html`<div class="panel">
           <div class="radios">${opt("bgType", "gradient", "Gradient", b.bg.type)}${opt("bgType", "color", "Color", b.bg.type)}${opt("bgType", "image", "Photo", b.bg.type)}</div>
           <div class="preset-picks" ${attr(b.bg.type !== "gradient", "hidden")}>${Object.entries(BANNER_PRESETS).map(([k, p]) => html`<label><input type="radio" name="preset" value="${k}" ${attr(b.bg.preset === k, "checked")}><span style="--b:${c.color};background:${raw(esc(p.css))}"></span><small>${p.label}</small></label>`)}</div>
           <label class="field bg-color" ${attr(b.bg.type !== "color", "hidden")}><span>Color</span><input type="color" name="bgColor" value="${b.bg.color || c.color}"></label>
           <div class="bg-image" ${attr(b.bg.type !== "image", "hidden")}>${imageField("bgImage", "Photo", b.bg.image, "A wide photo works best. It's resized so it loads fast.", 1800)}${range("dim", "Darken the photo", b.bg.dim ?? 35, 0, 75, "%")}</div>
-        </div></section>
+        </div>`)}
 
-        <section class="sec"><h2 class="sec-head">Logo</h2><div class="panel">
-          <div class="radios">${opt("logoSize", "off", "Hide", b.logo.size)}${opt("logoSize", "sm", "Small", b.logo.size)}${opt("logoSize", "md", "Medium", b.logo.size)}${opt("logoSize", "lg", "Large", b.logo.size)}</div>
-          <div class="radios" style="margin-top:8px">${opt("logoAlign", "left", "With the text", b.logo.align)}${opt("logoAlign", "top", "Top corner", b.logo.align)}</div>
-          ${c.logo ? html`<div class="radios" style="margin-top:8px">${opt("logoFrame", "tile", "On a white tile", b.logo.frame || "tile")}${opt("logoFrame", "none", "No frame", b.logo.frame || "tile")}</div>` : ""}
-          <p class="faint" style="margin-bottom:0">${c.logo ? "Uses the logo from Account details. The whole logo always shows; a wide logo looks best with No frame." : html`No logo uploaded yet, so your initials show. <a href="#admin-account">Upload a logo</a>.`}</p>
-        </div></section>
+        ${pane("logo", html`<div class="panel">
+          <div class="banner-logo-library-head">
+            <label class="btn sm banner-logo-upload">${icon("image")}Upload logos<input type="file" accept="image/*" multiple class="sr" data-change="banner-logo-upload"></label>
+            <span class="faint" data-logo-status role="status"></span>
+          </div>
+          <fieldset class="banner-logo-library"><legend>Logo library</legend><div class="banner-logo-choices">
+            ${[{ id: "", name: c.logo ? "Account logo" : "Church initials", src: c.logo || "" }, ...b.logos].map((asset) =>
+              html`<label class="banner-logo-choice"><input type="radio" name="logoAsset" value="${asset.id}" ${attr((bannerLogoAsset(b)?.id || "") === asset.id, "checked")}>
+                <span class="banner-logo-option">
+                  <span class="banner-logo-swatch" aria-hidden="true">${asset.src ? html`<img src="${asset.src}" alt="">` : initials(c.name)}</span>
+                  <span class="banner-logo-name">${asset.name}</span>
+                </span>
+              </label>`)}
+          </div></fieldset>
+          <div class="btns banner-logo-actions">
+            <button type="button" class="btn ghost sm" data-act="banner-logo-clean" ${attr(!bannerLogoSrc(c, b), "hidden")}>Remove background</button>
+            <button type="button" class="btn ghost sm" data-act="banner-logo-remove" ${attr(!bannerLogoAsset(b), "hidden")}>Remove from library</button>
+          </div>
+          <fieldset class="field"><legend>Size</legend><div class="radios">${opt("logoSize", "off", "Hide", b.logo.size)}${opt("logoSize", "sm", "Small", b.logo.size)}${opt("logoSize", "md", "Medium", b.logo.size)}${opt("logoSize", "lg", "Large", b.logo.size)}</div></fieldset>
+          <fieldset class="field"><legend>Position</legend><div class="radios">${opt("logoAlign", "left", "With the text", b.logo.align)}${opt("logoAlign", "top", "Top of banner", b.logo.align)}</div></fieldset>
+          <fieldset class="field" data-logo-frame ${attr(!bannerLogoSrc(c, b), "hidden")}><legend>Frame</legend><div class="radios">${opt("logoFrame", "none", "No frame", b.logo.frame || "tile")}${opt("logoFrame", "tile", "White tile", b.logo.frame || "tile")}</div></fieldset>
+        </div>`)}
 
-        <section class="sec"><h2 class="sec-head">Graphics</h2>
+        ${pane("graphics", html`
           ${(b.graphics || []).map((g, i) => html`<div class="panel graphic-row"><div class="graphic-head"><img src="${graphicSrc({ ...g, color: g.kind === "builtin" ? (g.color === "#ffffff" ? "#667085" : g.color) : g.color })}" alt=""><b>${g.kind === "builtin" ? GRAPHICS[g.builtin]?.label : "Your graphic"}</b>
               <button type="button" class="icon-btn" data-act="banner-graphic-remove" data-i="${i}" aria-label="Remove graphic">${icon("trash")}</button></div>
             ${range(`g${i}_size`, "Size", g.size, 4, 120, "%")}${range(`g${i}_x`, "Left to right", g.x, 0, 100, "%")}${range(`g${i}_y`, "Top to bottom", g.y, 0, 100, "%")}${range(`g${i}_rotate`, "Turn", g.rotate || 0, -180, 180, "°")}${range(`g${i}_opacity`, "Strength", g.opacity ?? 100, 5, 100, "%")}
@@ -109,19 +152,36 @@ AdminScreens.banner = () => {
           </div>`)}
           <div class="panel"><b>Add a graphic</b><div class="graphic-picks">${Object.entries(GRAPHICS).map(([k, g]) => html`<button type="button" data-act="banner-graphic-add" data-builtin="${k}" aria-label="Add ${g.label}"><img src="${graphicSrc({ kind: "builtin", builtin: k, color: "#475467" })}" alt=""><small>${g.label}</small></button>`)}</div>
             <label class="btn ghost sm" style="margin-top:10px">${icon("image")}Upload your own<input type="file" accept="image/*" class="sr" data-change="banner-graphic-upload"></label><small class="faint" style="display:block;margin-top:6px">PNG files with a see-through background work best.</small></div>
-        </section>
+        `)}
 
-        <section class="sec"><h2 class="sec-head">Height</h2><div class="panel"><div class="radios">${opt("height", "compact", "Compact", b.height)}${opt("height", "tall", "Tall", b.height)}</div></div></section>
-        <div class="btns sticky-save"><button class="btn">Save banner</button><button type="button" class="btn ghost" data-act="banner-discard">Discard changes</button></div>
+        ${pane("layout", html`<div class="panel"><fieldset class="field"><legend>Banner height</legend><div class="radios">${opt("height", "compact", "Compact", b.height)}${opt("height", "tall", "Tall", b.height)}</div></fieldset></div>`)}
+        </div>
+      </div>
+      <div class="btns sticky-save banner-save-bar"><button class="btn">Save banner</button><button type="button" class="btn ghost" data-act="banner-discard">Discard changes</button></div>
       </form>`,
   };
+}
+AdminScreens.banner = () => renderBannerEditor();
+AdminScreens["banner-from-page"] = () => renderBannerEditor("admin-page");
+
+function showBannerSection(form, section) {
+  if (!Object.prototype.hasOwnProperty.call(BANNER_SECTIONS, section)) return;
+  bannerSection = section;
+  $$("[data-banner-pane]", form).forEach((pane) => { pane.hidden = pane.dataset.bannerPane !== section; });
+  $$("[data-act=banner-section]", form).forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.section === section)));
+}
+Actions["banner-section"] = (button) => showBannerSection(button.form, button.dataset.section);
+Actions["banner-preview-width"] = (button) => {
+  bannerPhonePreview = button.dataset.width === "phone";
+  $("#banner-preview").dataset.width = button.dataset.width;
+  $$("[data-act=banner-preview-width]", button.form).forEach((option) => option.setAttribute("aria-pressed", String(option === button)));
 };
 /** Reads the designer form into the draft and refreshes the preview, without re-rendering the form. */
 function bannerFromForm(f) {
   const fd = new FormData(f), v = (k) => fd.get(k), b = bannerDraft;
   b.text = { headline: v("headline") || "", sub: v("sub") || "", style: v("style") || "bold", size: v("size") || "l", align: v("align") || "left", color: v("color") || "auto", shadow: !!v("shadow") };
   b.bg = { type: v("bgType") || "gradient", preset: v("preset") || b.bg.preset, color: v("bgColor") || b.bg.color, image: v("bgImage") || "", dim: +(v("dim") ?? b.bg.dim) };
-  b.logo = { size: v("logoSize") || "md", align: v("logoAlign") || "left", frame: v("logoFrame") || b.logo.frame || "tile" };
+  b.logo = { assetId: v("logoAsset") || "", size: v("logoSize") || "md", align: v("logoAlign") || "left", frame: v("logoFrame") || b.logo.frame || "tile" };
   b.height = v("height") || "tall";
   b.graphics.forEach((g, i) => { ["size", "x", "y", "rotate", "opacity"].forEach((k) => { if (fd.has(`g${i}_${k}`)) g[k] = +fd.get(`g${i}_${k}`); }); if (fd.has(`g${i}_color`)) g.color = fd.get(`g${i}_color`); });
   return b;
@@ -130,16 +190,27 @@ Inputs["banner-live"] = (form, e) => {
   if (e?.target?.type === "range") { const o = e.target.nextElementSibling; if (o) o.textContent = e.target.value + (/opacity|size|_x|_y|dim/.test(e.target.name) ? "%" : /rotate/.test(e.target.name) ? "°" : ""); }
   const b = bannerFromForm(form);
   $(".preset-picks", form).hidden = b.bg.type !== "gradient"; $(".bg-color", form).hidden = b.bg.type !== "color"; $(".bg-image", form).hidden = b.bg.type !== "image";
-  $("#banner-preview").innerHTML = flat(bannerHtml(S.church(), b));
+  const c = S.church(), hasLogo = !!bannerLogoSrc(c, b);
+  $("[data-logo-frame]", form).hidden = !hasLogo;
+  $("[data-act=banner-logo-clean]", form).hidden = !hasLogo;
+  $("[data-act=banner-logo-remove]", form).hidden = !bannerLogoAsset(b);
+  $("#banner-preview").innerHTML = flat(bannerHtml(c, b));
 };
 document.addEventListener("change", (e) => { const f = e.target.closest?.('form[data-input="banner-live"]'); if (f && e.target.type === "radio") Inputs["banner-live"](f, e); });
 Forms["banner-save"] = (d, f) => {
+  if (guard("manage.page") || bannerDraftFor !== bannerScope()) return;
   const b = bannerFromForm(f);
-  if (b.bg.type === "image" && !b.bg.image) return formError(f, "Choose a photo, or pick a gradient or color.");
-  S.updateChurch({ banner: JSON.parse(JSON.stringify(b)) }); bannerDraft = null; toast("Banner saved"); go("home");
+  if (b.bg.type === "image" && !b.bg.image) {
+    showBannerSection(f, "background");
+    return formError(f, "Choose a background photo, or pick a gradient or color.");
+  }
+  S.updateChurch({ banner: structuredClone(b) });
+  bannerDraft = null;
+  toast("Banner saved");
+  go(d.returnTo === "admin-page" ? "admin-page" : "home");
 };
 Actions["banner-discard"] = () => { bannerDraft = null; render(); toast("Changes discarded"); };
-const keepDraft = () => { const f = $('form[data-form="banner-save"]'); if (f) bannerFromForm(f); };
+const keepDraft = () => { const f = bannerForm(); if (f) bannerFromForm(f); };
 Actions["banner-graphic-add"] = (el) => {
   keepDraft();
   bannerDraft.graphics.push({ id: uid(), kind: "builtin", builtin: el.dataset.builtin, color: "#ffffff", x: 80, y: 30, size: 22, rotate: 0, opacity: 80 });
@@ -151,4 +222,174 @@ Inputs["banner-graphic-upload"] = async (el) => {
   keepDraft();
   try { const src = await readImage(file, 900); bannerDraft.graphics.push({ id: uid(), kind: "upload", src, x: 78, y: 40, size: 30, rotate: 0, opacity: 100 }); const y = window.scrollY; render(); window.scrollTo(0, y); toast("Graphic added"); }
   catch (e) { toast(e.message); }
+};
+
+// ----- Logo library and transparent copies -----
+function activeBannerDraft(draft) {
+  return draft && draft === bannerDraft && bannerDraftFor === bannerScope() && S.isMember() && S.can("manage.page") && bannerForm();
+}
+
+function refreshBannerLogo(id) {
+  const y = window.scrollY;
+  render();
+  window.scrollTo(0, y);
+  const selector = id ? 'input[name="logoAsset"]:checked' : "[data-change=banner-logo-upload]";
+  $(selector, bannerForm())?.focus({ preventScroll: true });
+}
+
+function addBannerLogos(draft, logos) {
+  keepDraft();
+  draft.logos.push(...logos);
+  draft.logo.assetId = logos[0].id;
+  draft.logo.frame = "none";
+  if (draft.logo.size === "off") draft.logo.size = "md";
+  refreshBannerLogo(logos[0].id);
+}
+
+Inputs["banner-logo-upload"] = async (input) => {
+  const draft = bannerDraft, form = activeBannerDraft(draft), files = [...(input.files || [])];
+  if (!form || !files.length) return;
+  const status = $("[data-logo-status]", form), save = $(".banner-save-bar button:not([type])", form);
+  input.disabled = true;
+  save.disabled = true;
+  status.textContent = "Reading logos…";
+  const logos = [];
+  let failed = 0;
+  for (const file of files) {
+    try {
+      const src = await readImage(file, 512, .94, { preserveTransparency: true });
+      const name = file.name.replace(/\.[^.]+$/, "").trim().slice(0, 100) || "Uploaded logo";
+      logos.push({ id: uid(), name, src });
+    } catch { failed++; }
+  }
+  input.value = "";
+  input.disabled = false;
+  save.disabled = false;
+  status.textContent = "";
+  if (!activeBannerDraft(draft)) return;
+  if (logos.length) addBannerLogos(draft, logos);
+  if (failed) toast(logos.length ? `${plural(failed, "logo")} could not be read. The other logos were added.` : "Those logos could not be read. Choose image files.");
+};
+Actions["banner-logo-remove"] = () => {
+  const draft = bannerDraft;
+  if (!activeBannerDraft(draft)) return;
+  keepDraft();
+  if (!bannerLogoAsset(draft)) return;
+  draft.logos = draft.logos.filter((logo) => logo.id !== draft.logo.assetId);
+  draft.logo.assetId = "";
+  refreshBannerLogo("");
+};
+
+async function bannerLogoPixels(src) {
+  const img = new Image();
+  if (isUrl(src)) img.crossOrigin = "anonymous";
+  img.src = src;
+  await img.decode();
+  const scale = Math.min(1, 512 / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return { canvas, ctx, original: ctx.getImageData(0, 0, canvas.width, canvas.height) };
+}
+
+const logoColorDistance = (pixels, offset, [r, g, b]) => Math.max(
+  Math.abs(pixels[offset] - r), Math.abs(pixels[offset + 1] - g), Math.abs(pixels[offset + 2] - b),
+);
+function logoBackgroundColor({ data, width, height }) {
+  const corners = [0, width - 1, width * (height - 1), width * height - 1];
+  const colors = corners.map((i) => i * 4).filter((i) => data[i + 3] >= 240).map((i) => [...data.slice(i, i + 3)]);
+  const matches = (c) => colors.filter((other) => logoColorDistance(other, 0, c) <= 20).length;
+  const best = colors.sort((a, b) => matches(b) - matches(a))[0];
+  return best && matches(best) >= 2 ? best : null;
+}
+
+/** Clear only matching pixels connected to an edge. Matching colors enclosed by the logo stay intact. */
+function makeLogoTransparent(edit, tolerance) {
+  const { canvas, ctx, original, background } = edit;
+  const { width, height } = original, count = width * height;
+  const output = ctx.createImageData(width, height), pixels = output.data;
+  pixels.set(original.data);
+  const queue = new Uint32Array(count), seen = new Uint8Array(count);
+  let read = 0, end = 0, removed = 0;
+  function visit(index) {
+    if (seen[index]) return;
+    seen[index] = 1;
+    const offset = index * 4, alpha = pixels[offset + 3];
+    if (alpha && logoColorDistance(pixels, offset, background) > tolerance) return;
+    queue[end++] = index;
+    if (alpha) { pixels[offset + 3] = 0; removed++; }
+  }
+  for (let x = 0; x < width; x++) { visit(x); visit(count - width + x); }
+  for (let y = 0; y < height; y++) { visit(y * width); visit(y * width + width - 1); }
+  while (read < end) {
+    const i = queue[read++], x = i % width;
+    if (x > 0) visit(i - 1);
+    if (x < width - 1) visit(i + 1);
+    if (i >= width) visit(i - width);
+    if (i < count - width) visit(i + width);
+  }
+  if (!removed || removed >= edit.visiblePixels) return "";
+  ctx.putImageData(output, 0, 0);
+  return canvas.toDataURL("image/webp", .94);
+}
+
+let bannerLogoEdit;
+Actions["banner-logo-clean"] = async (button) => {
+  const draft = bannerDraft;
+  if (!activeBannerDraft(draft)) return;
+  keepDraft();
+  const asset = bannerLogoAsset(draft), src = bannerLogoSrc(S.church(), draft);
+  if (!src) return;
+  button.disabled = true;
+  try {
+    const edit = await bannerLogoPixels(src);
+    if (!activeBannerDraft(draft) || !button.isConnected || bannerLogoSrc(S.church(), draft) !== src) return;
+    const background = logoBackgroundColor(edit.original);
+    if (!background) {
+      toast("No solid background was detected. Transparent logos can use No frame.");
+      return;
+    }
+    let visiblePixels = 0;
+    for (let i = 3; i < edit.original.data.length; i += 4) {
+      if (edit.original.data[i]) visiblePixels++;
+    }
+    bannerLogoEdit = { ...edit, draft, background, visiblePixels, src, result: "" };
+    const name = asset?.name || "Account logo";
+    openSheet("Remove logo background", html`<form data-form="banner-logo-copy">
+      <div class="banner-logo-comparison">
+        <figure><div class="banner-logo-swatch"><img src="${src}" alt="Original logo"></div><figcaption>Original</figcaption></figure>
+        <figure><div class="banner-logo-swatch"><img alt="Transparent logo" hidden data-logo-result></div><figcaption>Transparent preview</figcaption></figure>
+      </div>
+      <label class="range"><span>Color tolerance</span><input type="range" min="4" max="75" value="24" data-input="banner-logo-tolerance"><output>24</output></label>
+      <p class="faint" data-logo-copy-status role="status"></p>
+      <label class="field"><span>Copy name</span><input type="text" name="name" value="${name.slice(0, 86)} (transparent)" maxlength="100" required></label>
+      <button type="submit" class="btn">Save transparent copy</button>
+    </form>`);
+    Inputs["banner-logo-tolerance"]($('#scrim [data-input="banner-logo-tolerance"]'));
+  } catch {
+    if (activeBannerDraft(draft)) toast("This logo could not be edited. Try uploading the original image to the banner.");
+  } finally { button.disabled = false; }
+};
+
+Inputs["banner-logo-tolerance"] = (input) => {
+  const edit = bannerLogoEdit;
+  if (!edit || !activeBannerDraft(edit.draft)) return;
+  input.nextElementSibling.value = input.value;
+  edit.result = makeLogoTransparent(edit, +input.value);
+  const preview = $("[data-logo-result]", input.form);
+  if (edit.result) preview.src = edit.result;
+  preview.hidden = !edit.result;
+  $('button[type="submit"]', input.form).disabled = !edit.result;
+  $("[data-logo-copy-status]", input.form).textContent = edit.result ? "Solid colors connected to an edge are removed." : "Try a different tolerance to keep the logo visible.";
+};
+Forms["banner-logo-copy"] = (data, form) => {
+  const edit = bannerLogoEdit;
+  if (!edit?.result || !activeBannerDraft(edit.draft) || bannerLogoSrc(S.church(), edit.draft) !== edit.src) return;
+  const name = data.name.trim();
+  if (!name) return formError(form, "Name the transparent copy.");
+  bannerLogoEdit = null;
+  closeSheet(true);
+  addBannerLogos(edit.draft, [{ id: uid(), name, src: edit.result }]);
 };

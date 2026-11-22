@@ -78,15 +78,16 @@ AdminScreens.page = () => {
   const c = S.church(), blocks = c.landing.blocks;
   return {
     title: "Landing page", back: "admin",
-    body: html`<p class="muted" style="margin-top:16px">Build the page visitors see when they find ${c.name} or scan your QR code. Add your own graphics, logos, links and information.</p>
+    body: html`<p class="muted" style="margin-top:16px">Build the page visitors see when they find ${c.name} or scan your QR code.</p>
       <label class="check panel" style="padding:12px 16px"><input type="checkbox" data-change="landing-home" ${attr(c.landing.showOnHome, "checked")}><span><b>Also show these blocks on members' Home screen</b><br><span class="faint">Service times, sermon and contact blocks stay on the public page only, since Home already has them.</span></span></label>
-      <div class="btns"><a class="btn ghost sm" href="#page-${c.id}">${icon("eye")}Preview page</a>${S.can("qr.create") ? html`<button class="btn ghost sm" data-act="qr-for" data-target="page-${c.id}" data-label="${c.name}">${icon("qr")}QR code</button>` : ""}<a class="btn ghost sm" href="#admin-account">${icon("image")}Logo and links</a></div>
-      <section class="sec"><h2 class="sec-head">Blocks, top to bottom</h2>
+      <div class="btns"><a class="btn ghost sm" href="#page-${c.id}">${icon("eye")}Preview public page</a>${S.can("qr.create") ? html`<button class="btn ghost sm" data-act="qr-for" data-target="page-${c.id}" data-label="${c.name}">${icon("qr")}QR code</button>` : ""}<a class="btn ghost sm" href="#admin-banner-from-page">${icon("image")}Edit shared banner</a>
+        ${S.can("manage.church") ? html`<a class="btn ghost sm" href="#admin-account">${icon("link")}Website and social links</a>` : ""}</div>
+      <section class="sec"><div class="landing-blocks-head"><h2 class="sec-head">Page blocks</h2>
+      <button type="button" class="btn sm" data-act="block-add">${icon("plus")}Add a block</button></div>
       <div class="rows">${blocks.length ? blocks.map((b, i) => html`<div class="row"><span class="lead-ic">${icon(BLOCK_TYPES[b.type]?.icon || "note")}</span>
         <span class="body"><span class="t">${BLOCK_TYPES[b.type]?.label || b.type}</span><span class="s">${b.title || b.caption || b.text?.slice(0, 50) || b.url || ""}</span></span>
         <span class="row-tools"><button class="icon-btn" data-act="block-move" data-i="${i}" data-dir="-1" aria-label="Move up" ${attr(i === 0, "disabled")}>${icon("up")}</button><button class="icon-btn" data-act="block-move" data-i="${i}" data-dir="1" aria-label="Move down" ${attr(i === blocks.length - 1, "disabled")}>${icon("down")}</button>
-        <button class="icon-btn" data-act="block-edit" data-i="${i}" aria-label="Edit">${icon("edit")}</button></span></div>`) : empty("No blocks yet. Add a banner to start.")}</div>
-      <div class="btns"><button class="btn" data-act="block-add">${icon("plus")}Add a block</button></div></section>`,
+        <button class="icon-btn" data-act="block-edit" data-i="${i}" aria-label="Edit">${icon("edit")}</button></span></div>`) : empty("No blocks yet.")}</div></section>`,
   };
 };
 Inputs["landing-home"] = (el) => { S.church().landing.showOnHome = el.checked; S.save(); toast(el.checked ? "Shown on Home" : "Public page only"); };

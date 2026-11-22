@@ -16,6 +16,14 @@ const shots = join(here, "..", ".shots");
 mkdirSync(shots, { recursive: true });
 const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".webmanifest": "application/manifest+json" };
 const recordings = new Map();
+function silentWav(seconds) {
+  const audio = Buffer.alloc(44 + 8000 * 2 * seconds);
+  audio.write("RIFF", 0); audio.writeUInt32LE(audio.length - 8, 4); audio.write("WAVEfmt ", 8);
+  audio.writeUInt32LE(16, 16); audio.writeUInt16LE(1, 20); audio.writeUInt16LE(1, 22);
+  audio.writeUInt32LE(8000, 24); audio.writeUInt32LE(16000, 28); audio.writeUInt16LE(2, 32);
+  audio.writeUInt16LE(16, 34); audio.write("data", 36); audio.writeUInt32LE(audio.length - 44, 40);
+  return audio;
+}
 const server = createServer((req, res) => {
   const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
   const recording = recordings.get(path);
@@ -399,7 +407,7 @@ await step("security command navigation on older browsers", async () => {
     for (const width of [320, 390, 768, 1280]) {
       await page.setViewportSize({ width, height: 844 });
       const nav = page.getByRole("navigation", { name: "Security Command sections" });
-      for (const [route, title] of [["incidents", "Incident triage"], ["doors", "Assigned Door & Entryway Lock Verification"],
+      for (const [route, title] of [["incidents", "Incident triage"], ["doors", "Doors & Entryways"],
         ["rollcall", "Classroom & Ministry Area Headcount Checklist"], ["reunify", "Guardian Pickup Code & Identity Verification Gate"],
         ["medical", /Campus AED & Trauma Kit Locations/], ["protocols", "5-Level Security Protocol Sequence Chart"],
         ["drill", "Safety Drill Planner & Random Scenario Simulator"], ["access", "Protocol approval requests"]]) {
@@ -443,6 +451,76 @@ await step("security command navigation on older browsers", async () => {
     await page.click("[data-act=demo-role]");
     await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
     await sheetGone();
+  }
+});
+await step("security door setup and active checks", async () => {
+  const before = await page.evaluate(() => {
+    const { S } = __app;
+    const snapshot = structuredClone(S.state);
+    S.add("securityAccessAssignments", { userId: S.me().id, role: "head" });
+    return snapshot;
+  });
+  const row = (name) => page.locator(".sec-entryway").filter({ hasText: name });
+  const testDoor = "West classroom courtyard entryway";
+  try {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await goTo("security-doors");
+    await page.getByRole("heading", { name: "Doors & Entryways" }).waitFor();
+    if (await page.getByRole("button", { name: "Confirm locked" }).count()) throw new Error("Verification appeared during normal operation");
+    if (await page.getByText("Pending check", { exact: true }).count()) throw new Error("Old verification status appeared in setup");
+    await page.getByRole("button", { name: "Add entryway" }).click();
+    await page.getByLabel("Entryway name").fill(testDoor);
+    await page.getByLabel("Building or zone").fill("Education building");
+    await page.getByRole("button", { name: "Save entryway" }).click();
+    await sheetGone();
+    await row(testDoor).getByText("Unassigned", { exact: true }).waitFor();
+    await row(testDoor).getByRole("button", { name: /^Assign/ }).click();
+    const sheet = page.locator("#scrim");
+    await sheet.getByRole("searchbox", { name: "Search church members" }).fill(before.me.name);
+    await sheet.getByRole("button", { name: before.me.name, exact: true }).click();
+    await sheet.getByRole("button", { name: "Save assignment" }).click();
+    await sheetGone();
+    await row(testDoor).getByText(before.me.name, { exact: true }).waitFor();
+    await row(testDoor).getByRole("button", { name: /^Edit/ }).click();
+    await page.getByRole("checkbox", { name: "Requires lock check" }).uncheck();
+    await page.getByRole("button", { name: "Save entryway" }).click();
+    await sheetGone();
+    await row(testDoor).getByText("No lock check", { exact: true }).waitFor();
+
+    await page.evaluate((name) => {
+      const { S, render } = __app;
+      const church = S.church();
+      const door = church.securityDoors.find((d) => d.name === name);
+      church.securityDoors.push({ ...door, id: "active-door", name: "Assigned test door", requiresCheck: true });
+      church.activeAlert = { active: true, requireDoorCheck: true, startedAt: new Date().toISOString(), level: 3, code: "Test", name: "Test protocol" };
+      render();
+    }, testDoor);
+    await page.getByRole("heading", { name: "Door Check Progress" }).waitFor();
+    if (await row(testDoor).count()) throw new Error("An entryway without required checks appeared in progress");
+    await page.evaluate(() => {
+      const { S, render } = __app;
+      S.state.securityAccessAssignments = S.state.securityAccessAssignments.filter((a) => a.userId !== S.me().id);
+      render();
+    });
+    await page.getByRole("heading", { name: "My Door Checks" }).waitFor();
+    if (await page.locator(".sec-entryway").count() !== 1) throw new Error("An assignee saw someone else's door");
+    await row("Assigned test door").getByRole("button", { name: "Report an issue" }).click();
+    await page.getByLabel("What’s the issue?").fill("Latch sticks");
+    await page.getByRole("button", { name: "Send to security" }).click();
+    await sheetGone();
+    await row("Assigned test door").getByText("Issue reported", { exact: true }).waitFor();
+    await row("Assigned test door").getByRole("button", { name: "Confirm locked" }).click();
+    await row("Assigned test door").getByText("Locked", { exact: true }).waitFor();
+    await page.evaluate(() => {
+      const { S, render } = __app;
+      S.church().activeAlert.startedAt = new Date(Date.now() + 1000).toISOString();
+      render();
+    });
+    await row("Assigned test door").getByText("Pending check", { exact: true }).waitFor();
+  } finally {
+    await page.evaluate((state) => { __app.S.state = state; __app.S.flush(); }, before);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await goTo("home");
   }
 });
 await step("security communications dock", async () => {
@@ -1009,14 +1087,19 @@ await step("account and landing page", async () => {
 });
 await step("banner designer", async () => {
   await goTo("admin-banner"); await page.waitForSelector("#banner-preview .banner");
-  await page.fill("input[name=headline]", "Come home"); await page.fill("input[name=sub]", "Sundays at 9 and 11");
+  const section = (name) => page.getByRole("navigation", { name: "Banner settings" }).getByRole("button", { name, exact: true }).click();
   const jsClick = (sel) => page.$eval(sel, (el) => el.click());
-  await jsClick('input[name=style][value=script]'); await jsClick('input[name=preset][value=dusk]');
+  await jsClick('input[name=preset][value=dusk]');
+  await section("Text");
+  await page.fill("input[name=headline]", "Come home"); await page.fill("input[name=sub]", "Sundays at 9 and 11");
+  await jsClick('input[name=style][value=script]');
   if (!(await page.textContent("#banner-preview .bn-head")).includes("Come home")) throw new Error("preview didn't update");
+  await section("Graphics");
   await page.click('[data-act=banner-graphic-add][data-builtin="cross"]'); await page.waitForSelector('input[name="g2_size"]');
   if ((await page.inputValue("input[name=headline]")) !== "Come home") throw new Error("unsaved edits were lost when adding a graphic");
   await page.fill('input[name="g2_size"]', "40"); await page.dispatchEvent('input[name="g2_size"]', "input");
   await page.setInputFiles("input[data-change=banner-graphic-upload]", join(root, "icons", "icon-192.png")); await page.waitForSelector('input[name="g3_size"]');
+  await section("Background");
   await jsClick('input[name=bgType][value=image]');
   if (await page.$('[data-act=clear-image][data-field="bgImage"]')) await jsClick('[data-act=clear-image][data-field="bgImage"]');   // the sample church already has a photo
   await page.click("form[data-form=banner-save] button.btn:not([type=button])");
@@ -1026,6 +1109,100 @@ await step("banner designer", async () => {
   await page.click("form[data-form=banner-save] button.btn:not([type=button])"); await page.waitForSelector(".home-banner .banner");
   if (!(await page.textContent(".home-banner .bn-head")).includes("Come home")) throw new Error("banner not saved");
   await shot("23-home-new-banner");
+});
+await step("banner logo library and transparency", async () => {
+  const before = await page.evaluate(() => {
+    const church = __app.S.church(), membership = __app.S.membership();
+    const original = structuredClone({ banner: church.banner, logo: church.logo, role: membership.roleId });
+    church.logo = "";
+    if (church.banner) {
+      delete church.banner.logos;
+      delete church.banner.logo.assetId;
+    }
+    membership.roleId = "admin";
+    return original;
+  });
+  const samples = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#244c64";
+    ctx.fillRect(14, 14, 36, 36);
+    const transparent = canvas.toDataURL();
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(26, 26, 12, 12);
+    ctx.globalCompositeOperation = "destination-over";
+    ctx.fillRect(0, 0, 64, 64);
+    return [transparent, canvas.toDataURL()];
+  });
+  const files = samples.map((sample, i) => ({
+    name: i ? "White background.png" : "Transparent logo.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(sample.split(",")[1], "base64"),
+  }));
+  const library = page.getByRole("group", { name: "Logo library" });
+  const logo = page.locator("#banner-preview img.bn-logo");
+  const section = (name) => page.getByRole("navigation", { name: "Banner settings" }).getByRole("button", { name, exact: true }).click();
+  const pixelAlpha = async (locator) => locator.evaluate(async (img) => {
+    await img.decode();
+    const c = document.createElement("canvas");
+    c.width = c.height = 64;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0, 64, 64);
+    return [ctx.getImageData(0, 0, 1, 1).data[3], ctx.getImageData(32, 32, 1, 1).data[3]];
+  });
+  try {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await goTo("admin-page");
+    await page.getByRole("link", { name: "Edit shared banner" }).click();
+    await section("Logo");
+    await library.getByRole("radio", { name: "Church initials" }).waitFor();
+    await page.locator("[data-change=banner-logo-upload]").setInputFiles(files);
+    await library.getByRole("radio", { name: "White background", exact: true }).waitFor();
+    await logo.waitFor();
+    if ((await pixelAlpha(logo)).join() !== "0,255") throw new Error("Upload flattened the transparent logo");
+    if (!(await logo.getAttribute("class")).includes("bare")) throw new Error("New logo should be frameless");
+    const width = await page.evaluate(() => document.documentElement.scrollWidth);
+    if (width > 320) throw new Error("Banner editor overflows a narrow phone");
+    await library.getByText("White background", { exact: true }).click();
+    await page.getByRole("button", { name: "Remove background", exact: true }).click();
+    const sheet = page.locator("#scrim");
+    const result = sheet.getByRole("img", { name: "Transparent logo", exact: true });
+    await result.waitFor();
+    if ((await pixelAlpha(result)).join() !== "0,255") throw new Error("Removing the background erased the enclosed part of the logo");
+    await sheet.getByRole("button", { name: "Save transparent copy" }).click();
+    await sheetGone();
+    await library.getByRole("radio", { name: "White background (transparent)", exact: true }).waitFor();
+    if ((await library.getByRole("radio").count()) !== 4) throw new Error("The original logo was lost");
+    await page.getByRole("button", { name: "Save banner", exact: true }).click();
+    await page.waitForURL(/#admin-page$/);
+    await page.getByRole("link", { name: "Preview public page" }).click();
+    const publicLogo = page.locator(".public-page img.bn-logo");
+    await publicLogo.waitFor();
+    if ((await pixelAlpha(publicLogo)).join() !== "0,255") throw new Error("The published page did not use the transparent copy");
+    await goTo("home");
+    await page.locator(".home-banner img.bn-logo.bare").waitFor();
+    await goTo("admin-banner");
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.getByRole("button", { name: "Phone", exact: true }).click();
+    if ((await page.locator("#banner-preview").boundingBox()).width > 360) throw new Error("Phone preview did not narrow");
+    await section("Logo");
+    await page.getByRole("button", { name: "Remove from library", exact: true }).click();
+    await page.getByRole("button", { name: "Discard changes" }).click();
+    await section("Logo");
+    await library.getByRole("radio", { name: "White background (transparent)", exact: true }).waitFor();
+  } finally {
+    const sheet = page.locator('#scrim [data-act="close-sheet"]').first();
+    if (await sheet.isVisible()) await sheet.click();
+    await page.evaluate(({ banner, logo, role }) => {
+      Object.assign(__app.S.church(), { banner, logo });
+      __app.S.membership().roleId = role;
+      __app.S.save();
+    }, before);
+    if (await page.getByRole("button", { name: "Discard changes" }).isVisible()) await page.getByRole("button", { name: "Discard changes" }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await goTo("admin");
+  }
 });
 await step("appearance, Home layout and tabs", async () => {
   await goTo("admin"); await page.click('a.row[href="#admin-appearance"]'); await page.waitForSelector(".ap-preview");
@@ -1668,7 +1845,7 @@ await step("sermon playback across screens", async () => {
     const done = new Promise((resolve) => { recorder.onstop = resolve; });
     recorder.start();
     // Leave enough recording after the route change to observe it playing in a loaded test browser.
-    for (let index = 0; index < 50; index++) {
+    for (let index = 0; index < 75; index++) {
       frame.fillStyle = index % 2 ? "#123" : "#569";
       frame.fillRect(0, 0, 96, 54);
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1679,14 +1856,9 @@ await step("sermon playback across screens", async () => {
     await audio.close();
     return Array.from(new Uint8Array(await new Blob(chunks).arrayBuffer()));
   });
-  const audio = Buffer.alloc(44 + 8000 * 2 * 30);
-  audio.write("RIFF", 0); audio.writeUInt32LE(audio.length - 8, 4); audio.write("WAVEfmt ", 8);
-  audio.writeUInt32LE(16, 16); audio.writeUInt16LE(1, 20); audio.writeUInt16LE(1, 22);
-  audio.writeUInt32LE(8000, 24); audio.writeUInt32LE(16000, 28); audio.writeUInt16LE(2, 32);
-  audio.writeUInt16LE(16, 34); audio.write("data", 36); audio.writeUInt32LE(audio.length - 44, 40);
   recordings.set("/test-recording.webm", { type: "video/webm", body: Buffer.from(videoBody) });
-  recordings.set("/test-recording.wav", { type: "audio/wav", body: audio });
-  await page.route("https://www.youtube.com/embed/test-sermon", (route) => route.fulfill({ contentType: "text/html", body: "Embedded video" }));
+  recordings.set("/test-recording.wav", { type: "audio/wav", body: silentWav(30) });
+  await page.route("https://player.vimeo.com/video/123456789", (route) => route.fulfill({ contentType: "text/html", body: "Embedded video" }));
   const saved = await page.evaluate(() => {
     const { S } = __app;
     const original = structuredClone(S.get("sermons", "riverside-s0"));
@@ -1734,6 +1906,12 @@ await step("sermon playback across screens", async () => {
     await page.getByRole("button", { name: "Watch video", exact: true }).click();
     await player.locator("video").waitFor();
     await page.waitForFunction(() => document.querySelector("#now-playing video").currentTime > 0.05);
+    await source("Full-screen video").click();
+    await page.waitForFunction(() => document.fullscreenElement?.classList.contains("np-video-stage"));
+    await player.locator(".np-video-controls").waitFor({ state: "hidden" });
+    await player.locator(".np-video-reveal").click();
+    await source("Exit full screen").click();
+    await page.waitForFunction(() => !document.fullscreenElement);
     await source("Listen to video").click();
     await player.locator("video").waitFor({ state: "hidden" });
     await source("Minimize").click();
@@ -1748,14 +1926,14 @@ await step("sermon playback across screens", async () => {
     await mini.waitFor({ state: "hidden" });
 
     await page.evaluate(() => __app.S.update("sermons", "riverside-s0", {
-      audioUrl: location.origin + "/missing-recording.mp3", videoUrl: "https://youtu.be/test-sermon",
+      audioUrl: location.origin + "/missing-recording.mp3", videoUrl: "https://vimeo.com/123456789",
     }));
     await goTo("sermon-riverside-s0");
     await page.getByRole("button", { name: "Sermon audio", exact: true }).click();
     await player.getByRole("status").getByText(/could not play/).waitFor();
     await source("Play").waitFor();
     await source("Watch video").click();
-    await player.locator('iframe[src="https://www.youtube.com/embed/test-sermon"]').waitFor();
+    await player.locator('iframe[src="https://player.vimeo.com/video/123456789"]').waitFor();
     await player.getByRole("slider", { name: "Seek recording" }).waitFor({ state: "hidden" });
     await source("Back").click();
     if (await player.locator("iframe").count()) throw new Error("embedded video still mounted after closing");
@@ -1769,7 +1947,112 @@ await step("sermon playback across screens", async () => {
       if (notificationId) __app.S.remove("notifications", notificationId);
     }, { sermon: saved, notificationId });
     recordings.clear();
-    await page.unroute("https://www.youtube.com/embed/test-sermon");
+    await page.unroute("https://player.vimeo.com/video/123456789");
+  }
+});
+await step("YouTube sermon playback and thumbnail", async () => {
+  const videoId = "M7lc1UVf-VE";
+  const apiUrl = "https://www.youtube.com/iframe_api";
+  const embed = `https://www.youtube-nocookie.com/embed/${videoId}*`;
+  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  await page.route(apiUrl, (route) => route.fulfill({ contentType: "text/javascript", body: `
+    window.YT = { Player: class {
+      constructor(iframe, { events }) {
+        this.events = events;
+        this.time = 0;
+        this.rate = 1;
+        this.iframe = iframe;
+        queueMicrotask(() => events.onReady({ target: this }));
+      }
+      getCurrentTime() { return this.time + (this.playedAt ? (performance.now() - this.playedAt) / 1000 : 0); }
+      getDuration() { return 30; }
+      getAvailablePlaybackRates() { return [1, 1.5, 2]; }
+      getPlaybackRate() { return this.rate; }
+      setPlaybackRate(rate) { this.rate = rate; this.events.onPlaybackRateChange({ data: rate }); }
+      seekTo(time) { this.time = time; if (this.playedAt) this.playedAt = performance.now(); }
+      cueVideoById({ startSeconds }) { this.seekTo(startSeconds); }
+      playVideo() { this.playedAt = performance.now(); this.events.onStateChange({ data: 1 }); }
+      pauseVideo() {
+        this.time = this.getCurrentTime();
+        this.playedAt = 0;
+        this.events.onStateChange({ data: 2 });
+      }
+      destroy() { this.iframe.remove(); }
+    } };
+    window.onYouTubeIframeAPIReady();
+  ` }));
+  await page.route(embed, (route) => route.fulfill({ contentType: "text/html", body: "YouTube video" }));
+  await page.route(thumbnail, (route) => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360"><rect width="480" height="360" fill="#38526a"/></svg>' }));
+  const before = await page.evaluate((videoId) => {
+    const { S } = __app;
+    const sermon = S.get("sermons", "riverside-s0");
+    const membership = S.membership();
+    const saved = { sermon: structuredClone(sermon), role: membership.roleId };
+    membership.roleId = "admin";
+    Object.assign(sermon, { videoUrl: "https://www.youtube.com/shorts/" + videoId, audioUrl: location.origin + "/test-youtube-audio.wav" });
+    return saved;
+  }, videoId);
+  recordings.set("/test-youtube-audio.wav", { type: "audio/wav", body: silentWav(30) });
+  const player = page.locator("#now-playing");
+  const button = (name) => player.getByRole("button", { name, exact: true });
+  try {
+    await goTo("media-riverside-s0");
+    await page.getByRole("button", { name: "Use YouTube thumbnail" }).click();
+    await page.getByText("Thumbnail ready. Save to use it.").waitFor();
+    await page.getByRole("img", { name: "YouTube thumbnail preview" }).waitFor();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.locator(`.sermon-audio-card img[src="${thumbnail}"]`).waitFor();
+
+    await page.getByRole("button", { name: "Watch video", exact: true }).click();
+    await button("Pause").waitFor();
+    const frame = player.locator("iframe");
+    await frame.waitFor();
+    await button("Pause").click();
+    await button("Play").waitFor();
+    await player.getByRole("slider", { name: "Seek recording" }).fill("12");
+    await player.getByText("0:12", { exact: true }).waitFor();
+    await button("Sermon audio").click();
+    await button("Play").waitFor();
+    await player.getByText("0:12", { exact: true }).waitFor();
+    await button("Watch video").click();
+    await button("Play").waitFor();
+    await player.getByText("0:12", { exact: true }).waitFor();
+    await button("Play").click();
+    await button("Pause").waitFor();
+    await frame.evaluate((element) => { element.dataset.sameFrame = "yes"; });
+    await button("Minimize").click();
+    await goTo("events");
+    await button("Expand video").waitFor();
+    const rect = await frame.boundingBox();
+    if (!rect || rect.width < 200 || rect.height < 200) throw new Error("Docked YouTube video was too small");
+    if (await frame.getAttribute("data-same-frame") !== "yes") throw new Error("Docking recreated the video");
+    await button("Expand video").click();
+    await button("Pause").waitFor();
+    await page.waitForFunction(() => Number(document.querySelector("#now-playing .sac-range").value) > 12.2);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { configurable: true, value: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      delete document.hidden;
+    });
+    await button("Play").waitFor();
+    await button("Close player").click();
+    if (await frame.count()) throw new Error("Closing left YouTube mounted");
+
+    await goTo("media-riverside-s0");
+    await page.getByRole("textbox", { name: /^Video link/ }).fill("https://youtu.be/abcdefghijk");
+    if (await page.getByRole("img", { name: "YouTube thumbnail preview" }).isVisible()) throw new Error("Old thumbnail survived a video change");
+  } finally {
+    await page.evaluate(({ sermon, role }) => {
+      document.querySelector('#now-playing [data-act=audio-close]')?.click();
+      __app.S.update("sermons", sermon.id, { videoUrl: "", audioUrl: "", youtubeThumbnail: "", ...sermon });
+      __app.S.membership().roleId = role;
+      __app.S.save();
+    }, before);
+    recordings.delete("/test-youtube-audio.wav");
+    await page.unroute(apiUrl);
+    await page.unroute(embed);
+    await page.unroute(thumbnail);
+    await goTo("word");
   }
 });
 await step("now playing extras", async () => {
