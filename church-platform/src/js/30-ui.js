@@ -36,7 +36,8 @@ function normHex(v, fallback = PLATFORM.color) {
 }
 function applyBrand() {
   const c = S.church();
-  const color = normHex(c?.color, PLATFORM.color);
+  // The church's look (Admin, Appearance): fonts, corners, header, page color and its default mode; then its color.
+  const color = typeof applyLook === "function" ? applyLook(c) : normHex(c?.color, PLATFORM.color);
   document.documentElement.style.setProperty("--brand", color);
   document.documentElement.style.setProperty("--on-brand", onColor(color));
   const theme = document.documentElement.dataset.theme || "auto";
@@ -118,6 +119,7 @@ function render() {
   app.innerHTML = view.page ? flat(view.page) : flat(html`<a class="skip" href="#main" data-act="skip">${lang() === "es" ? "Saltar al contenido" : "Skip to content"}</a>
     ${view.present || view.kiosk ? "" : SANDBOX ? sandboxBar() : isTrainingChurch() ? trainingChurchBar(S.church()) : ""}
     ${view.band ? view.band : bar(view.title, view.back)}
+    ${typeof lookDraftBar === "function" ? lookDraftBar() : ""}
     <main class="view" id="main" tabindex="-1">${view.body}</main>
     ${tabs(view.tab)}`);
   if (route !== lastRoute) {
@@ -161,7 +163,11 @@ function churchMark(c, size = 44) {
 function tabs(active) {
   if (!S.church()) return "";
   const list = tabsFor();
-  return html`<nav class="tabs" aria-label="Main"><div class="wrap" style="grid-template-columns:repeat(${list.length},1fr)">${list.map((t) => html`<a href="#${t.id}" ${attr(t.id === active, 'aria-current="page"')}>${icon(t.icon)}<span>${t.label}</span></a>`)}</div></nav>`;
+  // The current tab: the one the screen names, or failing that the tab that covers this screen (a church can pick Groups as a tab).
+  const head = splitRoute().head, current = list.some((t) => t.id === active) ? active : list.find((t) => t.screens?.includes(head))?.id;
+  return html`<nav class="tabs" aria-label="Main"><div class="wrap" style="grid-template-columns:repeat(${list.length},1fr)">${list.map((t) => t.id === "more"
+    ? html`<a href="#" role="button" data-act="tab-more">${icon(t.icon)}<span>${t.label}</span></a>`
+    : html`<a href="#${t.route || t.id}" ${attr(t.id === current, 'aria-current="page"')}>${icon(t.icon)}<span>${t.label}</span></a>`)}</div></nav>`;
 }
 
 function seg(items, current, { label = "Sections", className = "" } = {}) {
