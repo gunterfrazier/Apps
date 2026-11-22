@@ -4,7 +4,7 @@
 // Preachers and the tech booth can toggle Live Pew Sync to push the active Scripture slide, outline point, or a live
 // congregation poll to everyone currently viewing the sermon or in Sanctuary Mode.
 
-const wordSeg = () => [["word", "Sermons", S.on("sermons")], ["bible", "Bible", true], ["plans", "Reading plans", S.on("plans")], ["notes", "My notes", true]];
+const wordSeg = () => [["word", "Sermons", S.on("sermons")], ["listen", "Audio", S.on("sermons")], ["bible", "Bible", true], ["plans", "Reading plans", S.on("plans")], ["notes", "My notes", true]];
 
 // Ensure sample sermons have bracketed fill-in-the-blank outline examples if none contain brackets yet
 {

@@ -179,6 +179,9 @@ const Player = {
         this.tick();
       });
       for (const type of ["play", "pause", "ended", "playing"]) media.addEventListener(type, refresh);
+      media.addEventListener("ended", () => {
+        if (media === this.media()) this.advancePlaylist();
+      });
       media.addEventListener("error", () => {
         if (media === this.media() && media.error) {
           this.error = "This recording could not play. Check the link or try another source.";
@@ -219,9 +222,22 @@ const Player = {
     return Number.isFinite(duration) && duration > 0 ? duration : 0;
   },
   currentTime() { return this.pendingSeek ?? this.media()?.currentTime ?? 0; },
-  select(s, source, { expand = false, startAt = null, play = true } = {}) {
+  advancePlaylist() {
+    if (!this.playlist?.length || this.scope !== this.scopeKey()) return;
+    const remaining = this.playlist;
+    this.playlist = null;
+    const saved = audioPlaylist();
+    const nextIndex = remaining.findIndex((id) => saved.includes(id) && listeningTrack(id));
+    if (nextIndex < 0) return;
+    const next = listeningTrack(remaining[nextIndex]);
+    this.select(next, preferredSermonSource(next, true), {
+      playlist: remaining.slice(nextIndex + 1), expand: this.dialogue?.open,
+    });
+  },
+  select(s, source, { expand = false, startAt = null, play = true, playlist = null } = {}) {
     if (!s || !source) return;
     this.init();
+    this.playlist = playlist;
     const sameSermon = s.id === this.sermonId && this.scope === this.scopeKey();
     const previous = this.source, previousMedia = this.media();
     const sameMedia = sameSermon && previous?.kind === source.kind && previous.url === source.url;
@@ -245,7 +261,7 @@ const Player = {
         media.playbackRate = this.rate;
       }
     }
-    if (this.media() && (!sameMedia || startAt !== null) && time > 0) this.seek(time);
+    if (this.media() && (startAt !== null || (!sameMedia && time > 0))) this.seek(time);
     if (expand || source.key === "video") this.expand();
     if (play && this.media() && !this.isPlaying()) this.play();
     this.syncMediaSession();
@@ -326,6 +342,7 @@ const Player = {
     this.revision++;
     this.pendingSeek = null;
     this.sermonId = null;
+    this.playlist = null;
     this.source = null;
     this.error = "";
     this.hideExpanded(restoreFocus);
@@ -499,7 +516,7 @@ function sermonMedia(s) {
         <span class="sac-sub">${s.speaker} · ${s.minutes || 35} min</span>
       </div>
     </div>
-    ${sources.length ? sourceButtons(s) : html`<p class="muted">No recording is available.${canMedia() ? html` <a href="#media-${s.id}">Add a recording</a>` : ""}</p>`}
+    ${sources.length ? html`${sourceButtons(s)}${preferredSermonSource(s, true) ? playlistButton(s) : ""}` : html`<p class="muted">No recording is available.${canMedia() ? html` <a href="#media-${s.id}">Add a recording</a>` : ""}</p>`}
     <button type="button" class="btn ghost sm sac-open" data-act="player-expand" hidden>${icon("expand")}Open player</button>
   </div>`;
 }
@@ -667,7 +684,7 @@ Screens.podcast = () => {
   const c = S.church(), p = podcastOf(c), url = feedUrl(c);
   return {
     title: "Podcast", back: "admin-sermons",
-    body: html`<form data-form="podcast-save" class="panel" style="margin-top:16px" novalidate>
+    body: html`<div class="btns"><a class="btn ghost" href="#listen">Podcasts &amp; audio playlists</a></div><form data-form="podcast-save" class="panel" style="margin-top:16px" novalidate>
         <label class="field" style="margin-top:0"><span>Show name</span><input type="text" name="title" value="${p.title}" required maxlength="100"></label>
         <label class="field"><span>Description</span><textarea name="description" maxlength="1000" style="min-height:70px">${p.description}</textarea></label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Author</span><input type="text" name="author" value="${p.author}" maxlength="80"></label>
@@ -685,3 +702,63 @@ Forms["podcast-save"] = (d, f) => {
   S.church().podcast = { title: d.title, description: d.description, author: d.author, email: d.email, artwork: d.artwork }; S.save(); toast("Saved"); render();
 };
 Actions["podcast-download"] = () => saveFile("feed.xml", podcastXml());
+
+// ----- Personal listening playlist -----
+const audioPlaylist = () => S.state.audioPlaylists?.[S.state.current] || [];
+const listeningTrack = (id) => {
+  const s = S.get("sermons", id);
+  return s?.churchId === S.state.current && S.inScope(s, { ignoreCampus: true }) && preferredSermonSource(s, true) ? s : null;
+};
+function writeAudioPlaylist(ids) {
+  S.state.audioPlaylists ||= {};
+  S.state.audioPlaylists[S.state.current] = ids;
+  S.save();
+  render();
+}
+function playlistButton(s) {
+  const saved = audioPlaylist().includes(s.id);
+  return saved
+    ? html`<a class="btn ghost sm" href="#listen-playlist">In your playlist</a>`
+    : html`<button class="btn ghost sm" data-act="playlist-add" data-id="${s.id}" aria-label="Add ${s.title} to playlist">${icon("plus")}Add to playlist</button>`;
+}
+Screens.listen = (section) => {
+  if (!S.on("sermons")) return { redirect: "home" };
+  const saved = section === "playlist", ids = audioPlaylist();
+  const all = S.visible("sermons", { ignoreCampus: true }).filter((s) => preferredSermonSource(s, true))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const tracks = saved ? ids.map(listeningTrack).filter(Boolean) : all;
+  return { title: "Podcasts & audio", back: "word", tab: "word", body: html`
+    ${seg([["listen", "All audio", true], ["listen-playlist", "My playlist", true]], saved ? "listen-playlist" : "listen")}
+    ${saved && tracks.length ? html`<div class="btns"><button class="btn" data-act="playlist-play">${icon("play")}Play playlist</button></div>` : ""}
+    <section class="sec"><div class="rows">${tracks.length ? tracks.map((s) => html`
+      <div class="row playlist-track">
+        <button class="icon-btn" data-act="${saved ? "playlist-play" : "mini-play"}" data-id="${s.id}" aria-label="Play ${s.title}">${icon("play")}</button>
+        <a class="body" href="#sermon-${s.id}"><span class="t">${s.title}</span><span class="s">${s.speaker} · ${fmtDay(fromIsoDay(s.date))}</span></a>
+        <div class="btns playlist-track-actions">${saved ? html`
+          <button class="btn ghost sm" data-act="playlist-move" data-id="${s.id}" data-step="-1" aria-label="Move ${s.title} earlier" ${attr(s.id === tracks[0].id, "disabled")}>↑</button>
+          <button class="btn ghost sm" data-act="playlist-move" data-id="${s.id}" data-step="1" aria-label="Move ${s.title} later" ${attr(s.id === tracks.at(-1).id, "disabled")}>↓</button>
+          <button class="btn ghost sm" data-act="playlist-remove" data-id="${s.id}" aria-label="Remove ${s.title} from playlist">Remove</button>
+        ` : playlistButton(s)}</div>
+      </div>`) : empty(saved ? "Add audio from All audio or a sermon to start your playlist." : "No audio recordings are available.")}</div></section>` };
+};
+Actions["playlist-add"] = (el) => {
+  const id = el.dataset.id, ids = audioPlaylist();
+  if (listeningTrack(id) && !ids.includes(id)) writeAudioPlaylist([...ids, id]);
+};
+Actions["playlist-remove"] = (el) => writeAudioPlaylist(audioPlaylist().filter((id) => id !== el.dataset.id));
+Actions["playlist-move"] = (el) => {
+  const ids = [...audioPlaylist()], visible = ids.filter(listeningTrack);
+  const index = visible.indexOf(el.dataset.id);
+  const neighbor = index >= 0 && visible[index + Number(el.dataset.step)];
+  if (!neighbor) return;
+  const a = ids.indexOf(el.dataset.id), b = ids.indexOf(neighbor);
+  [ids[a], ids[b]] = [ids[b], ids[a]];
+  writeAudioPlaylist(ids);
+};
+Actions["playlist-play"] = (el) => {
+  const ids = audioPlaylist().filter(listeningTrack);
+  const index = el.dataset.id ? ids.indexOf(el.dataset.id) : 0;
+  if (index < 0 || !ids.length) return;
+  const s = listeningTrack(ids[index]);
+  Player.select(s, preferredSermonSource(s, true), { expand: true, startAt: 0, playlist: ids.slice(index + 1) });
+};

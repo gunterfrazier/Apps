@@ -491,31 +491,55 @@ let liveLocation = null;
 Screens.live = () => {
   const c = S.church();
   const locs = S.visibleLocations().filter((l) => l.services?.length || l.liveUrl);
-  const services = upcomingServices(c, 6);
+  const services = upcomingServices(c, Infinity, "all");
   const liveNow = services.find((s) => s.live);
   const chosen = locs.find((l) => l.id === liveLocation) || liveNow?.location || locs.find((l) => l.liveUrl) || locs[0];
   const url = chosen?.liveUrl || c.liveUrl || "";
-  const svcForLoc = services.filter((s) => !chosen || s.location.id === chosen.id);
-  const nowSvc = svcForLoc.find((s) => s.live);
+  const nowSvc = services.find((s) => s.live && s.location.id === chosen?.id);
+  const past = S.visible("sermons", { ignoreCampus: true })
+    .filter((s) => s.date <= isoDay(new Date()) && sermonSources(s).length)
+    .sort((a, b) => b.date.localeCompare(a.date));
   const plan = nowSvc && S.list("services").find((p) => p.date === isoDay(nowSvc.start) && p.time === nowSvc.time && (!p.locationId || p.locationId === nowSvc.location.id))
     || S.list("services").filter((p) => p.date >= isoDay(new Date()) && (!chosen || !p.locationId || p.locationId === chosen.id)).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))[0];
-  const sermonDoc = plan?.segments.find((s) => s.type === "sermon" && s.content.docId);
+  const sermonDoc = plan?.segments?.find((s) => s.type === "sermon" && s.content.docId);
   return {
-    title: nowSvc ? "Live now" : "Watch live", back: "home", tab: "word",
+    title: "Watch", back: "home", tab: "word",
     body: html`
+      <div class="btns">${url ? html`<button class="btn ghost sm" data-act="watch-stream">Livestream</button>` : ""}${S.on("sermons") ? html`<a class="btn ghost sm" href="#listen">Podcasts &amp; audio</a>` : ""}</div>
+      <section class="sec" aria-labelledby="watch-upcoming"><h2 class="sec-head" id="watch-upcoming">Upcoming services</h2>
+        <div class="rows">${services.length ? services.map((s) => html`<div class="row">
+          <span class="lead-ic">${icon(s.live ? "live" : "clock")}</span>
+          <span class="body"><span class="t">${s.label || "Service"}</span><span class="s">${fmtWhen(s.start)} · ${s.location.name}</span></span>
+          ${s.live && (s.location.liveUrl || c.liveUrl) ? html`<button class="btn sm" data-act="live-loc" data-id="${s.location.id}" data-focus-stream="1">Watch live</button>` : ""}
+        </div>`) : empty("No services scheduled.")}</div></section>
+      <section class="sec" aria-labelledby="watch-past"><h2 class="sec-head" id="watch-past">Past services</h2>
+        <div class="rows">${past.length ? past.map((s) => {
+          const sources = sermonSources(s);
+          const source = sources.find((item) => item.key === "video") || sources[0];
+          return html`<div class="row"><a class="body" href="#sermon-${s.id}"><span class="t">${s.title}</span>
+            <span class="s">${fmtDay(fromIsoDay(s.date))}${s.speaker ? ` · ${s.speaker}` : ""}</span></a>
+            <button class="btn ghost sm" data-act="audio-source" data-id="${s.id}" data-source="${source.key}" aria-label="${source.key === "video" ? "Watch" : "Listen to"} ${s.title}">${icon("play")}${source.key === "video" ? "Watch" : "Listen"}</button></div>`;
+        }) : empty("No past service recordings are available.")}</div></section>
+      <section class="sec" id="watch-stream" tabindex="-1"><h2 class="sec-head">Livestream</h2>
       ${locs.length > 1 ? html`<div class="chips" role="group" aria-label="Location" style="margin-top:12px">${locs.map((l) => html`<button class="chip" data-act="live-loc" data-id="${l.id}" aria-pressed="${l.id === chosen?.id}">${l.name}</button>`)}</div>` : ""}
       ${url ? html`<div style="margin-top:14px">${embedView(url, `${c.name} livestream`, { video: true })}</div>` : ""}
       <div class="player" ${attr(url, 'style="margin-top:12px"')}>
         ${url ? html`<a class="play" href="${url}" target="_blank" rel="noopener" aria-label="Open the livestream">${icon(nowSvc ? "live" : "play")}</a>` : html`<span class="play" aria-disabled="true">${icon("live")}</span>`}
-        <div><b>${nowSvc ? `${nowSvc.label || "Service"} is live` : svcForLoc[0] ? `Next live: ${fmt(svcForLoc[0].start, { weekday: "long" })} at ${fmtTime(svcForLoc[0].start)}` : "No services scheduled"}</b>
+        <div><b>${nowSvc ? `${nowSvc.label || "Service"} is live` : chosen?.name || c.name}</b>
         <small>${url ? "Opens the stream in its own player" : "This location hasn't added a livestream link yet. Admins add it under Locations."}</small></div>
       </div>
       <div class="btns">${S.on("giving") ? html`<a class="btn ghost sm" href="#give">${icon("give")}Give</a>` : ""}${sermonDoc ? html`<a class="btn ghost sm" href="#outline-${sermonDoc.content.docId}">${icon("note")}Sermon outline</a>` : ""}</div>
       ${plan ? html`<section class="sec"><h2 class="sec-head">Order of service</h2><div class="rows">${plan.segments.filter((s) => s.show).map((s) => html`<div class="row"><span class="lead-ic">${icon(SEGMENT_TYPES[s.type]?.icon || "list")}</span><span class="body"><span class="t">${s.title}</span>${s.leader ? html`<span class="s">${s.leader}</span>` : ""}</span></div>`)}</div></section>` : ""}
-      <section class="sec"><h2 class="sec-head">Upcoming services</h2><div class="rows">${svcForLoc.length ? svcForLoc.map((s) => html`<div class="row"><span class="lead-ic">${icon(s.live ? "live" : "clock")}</span><span class="body"><span class="t">${s.label || "Service"}</span><span class="s">${fmtDay(s.start)} at ${fmtTime(s.start)}</span></span>${s.live ? html`<span class="tag warn">Live</span>` : ""}</div>`) : empty("No services scheduled here.")}</div></section>`,
+      </section>`,
   };
 };
-Actions["live-loc"] = (el) => { liveLocation = el.dataset.id; render(); };
+Actions["live-loc"] = (el) => {
+  liveLocation = el.dataset.id;
+  render();
+  if (el.dataset.focusStream) Actions["watch-stream"]();
+};
+
+Actions["watch-stream"] = () => $("#watch-stream")?.focus();
 
 function socialRow(c) {
   const links = churchLinks(c);
