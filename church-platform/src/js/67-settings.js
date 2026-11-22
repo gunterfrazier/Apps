@@ -419,8 +419,9 @@ const Push = {
     if (perm !== "granted") { toast("Notifications are blocked. You can allow them in your browser's settings."); return false; }
     try {
       const reg = await navigator.serviceWorker.ready;
-      if (PLATFORM.vapidPublicKey && typeof Backend !== "undefined" && Backend.on) {
-        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey(PLATFORM.vapidPublicKey) });
+      const key = typeof Backend !== "undefined" && Backend.on ? PLATFORM.vapidPublicKey || await Backend.pushKey() : "";
+      if (key) {
+        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey(key) });
         await Backend.savePush(sub.toJSON());
       }
     } catch (e) { console.warn("push subscribe", e); }
