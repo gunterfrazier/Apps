@@ -196,28 +196,36 @@ Forms["start-church"] = (d, f, fd) => {
 };
 
 // ---------- Home ----------
+const quickTile = ([href, ic, label]) => html`<a href="${href}"><span class="ic">${icon(ic)}</span>${label}</a>`;
 function quickActions() {
+  // Two rows at most; the rest are a tap away under More.
+  const items = quickItems(), shown = items.length > 8 ? items.slice(0, 7) : items;
+  return html`<div class="quick">${shown.map(quickTile)}${items.length > 8 ? html`<button type="button" data-act="quick-more"><span class="ic">${icon("list")}</span>More</button>` : ""}</div>`;
+}
+function quickItems() {
   const c = S.church(), member = S.isMember();
   const live = upcomingServices(c, 3).find((s) => s.live);
   const hasKidsRegs = S.list("gatherings").some((g) => kidsIn(g).length) || S.list("events").some((e) => myRegistration(e)?.kids?.length);
   const items = [
+    // What everyone uses first, then the tools of each person's role.
+    S.on("live") && ["#live", live ? "live" : "play", live ? "Watch live" : "Watch"],
+    S.on("giving") && ["#give", "give", "Give"],
+    S.on("prayer") && ["#connect", "pray", "Prayer"],
+    S.on("checkin") && member && S.can("use.checkin") && ["#checkin", "kid", "Check in"],
+    S.on("classes") && ["#classes", "door", "Classes"],
+    S.on("parents") && member && hasKidsRegs && ["#parents", "kid", "Parents"],
     member && S.can("present") && ["#presenter", "screen", "Presenter"],
     member && (S.list("services").some((p) => (p.assignments || []).some((a) => a.userId === S.me().id && a.status !== "declined")) || myTeams().length) && ["#serving", "hand", "Serving"],
     member && S.can("checkin.station") && S.on("checkin") && ["#station", "kid", "Check-in station"],
     member && S.can("schedule.teams") && ["#teams", "people", "Schedule teams"],
     hasMinistryTools() && ["#ministry", "layers", "Ministry"],
     hasAdminTools() && ["#admin", "shield", "Admin"],
-    S.on("checkin") && member && S.can("use.checkin") && ["#checkin", "kid", "Check in"],
-    S.on("giving") && ["#give", "give", "Give"],
-    S.on("prayer") && ["#connect", "pray", "Prayer"],
-    S.on("live") && ["#live", live ? "live" : "play", live ? "Watch live" : "Watch"],
-    S.on("classes") && ["#classes", "door", "Classes"],
-    S.on("parents") && member && hasKidsRegs && ["#parents", "kid", "Parents"],
     ["#scan", "scan", "Scan"],
   ].filter(Boolean);
-  return html`<div class="quick">${items.map(([href, ic, label]) => html`<a href="${href}"><span class="ic">${icon(ic)}</span>${label}</a>`)}</div>`;
+  return items;
 }
 
+Actions["quick-more"] = () => openSheet("Shortcuts", html`<div class="quick in-sheet">${quickItems().map(quickTile)}</div>`);
 Screens.home = () => {
   const c = S.church();
   const services = upcomingServices(c, 8).filter((s, i) => i === 0 || s.start - Date.now() < 7 * DAY).slice(0, 4);
@@ -233,20 +241,20 @@ Screens.home = () => {
       <button class="switcher" data-act="open-switcher" aria-label="Switch church">${churchMark(c, 40)}<span><strong>${c.name}</strong><small>${churchCity(c) || "Your church"} ${icon("down")}</small></span></button>
       ${headerIcons()}
     </div>
-    ${bannerHtml(c)}
     ${campusChip()}
   </div></header>`;
 
-  return {
-    tab: "home", band,
-    body: html`
-      ${!S.isMember() ? html`<div class="panel join-card"><p style="margin-top:0"><b>You're looking around ${c.name}.</b> Join to post prayer requests, register for classes, chat with your groups and check in your kids.</p><button class="btn block" data-act="join-church" data-id="${c.id}">Join ${c.name}</button></div>` : ""}
-      ${(() => { const asks = pendingAsks(); return asks.length ? html`<a class="alert ask" href="#serving">${icon("hand")}<div><b>Can you serve?</b><span>${asks[0][1].position}, ${planLabel(asks[0][0])}${asks.length > 1 ? ` and ${plural(asks.length - 1, "more request")}` : ""}</span></div></a>` : ""; })()}
-      ${deactAlerts()}
-      ${urgent.map((n) => html`<a class="alert" href="#news-${n.id}">${icon("bell")}<div><b>${n.title}</b><span>${n.body}</span></div></a>`)}
-      ${quickActions()}
-      ${c.landing?.showOnHome && c.landing.blocks.length ? html`<div class="landing">${landingBlocks(c, { home: true })}</div>` : ""}
-
+  const greet = () => { const h = new Date().getHours(), first = (S.me().name || "").split(" ")[0];
+    return html`<div class="greeting"><h1>${h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"}${first ? `, ${first}` : ""}</h1><p>${fmt(new Date(), { weekday: "long", month: "long", day: "numeric" })}</p></div>`; };
+  // Each section of Home, by its ID in Admin, Home screen (homeLayout). A section with nothing to show is left out.
+  const sections = {
+    banner: () => html`<div class="home-banner">${bannerHtml(c)}</div>`,
+    greeting: () => (S.isMember() ? greet() : ""),
+    hero: () => homeHero(c, services[0], when),
+    quick: () => quickActions(),
+    landing: () => html`
+      ${c.landing?.blocks?.length ? html`<div class="landing">${landingBlocks(c, { home: true })}</div>` : ""}`,
+    latest: () => html`
       ${latest ? html`<section class="sec"><div class="sec-head"><h2>Latest message</h2><a href="#word">All sermons</a></div>
         <div class="sermon-card modern">
           <a href="#sermon-${latest.id}" style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:16px;flex:1;min-width:0">
@@ -255,31 +263,58 @@ Screens.home = () => {
             <span class="sc-meta">${latest.passage} · ${latest.speaker}</span></span>
           </a>
           ${sermonSources(latest).length ? html`<button type="button" class="sc-play-btn" data-act="mini-play" data-id="${latest.id}" data-title="${latest.title}" aria-label="${Player.isPlaying(latest.id) ? "Pause" : "Play"} ${latest.title}">${icon(Player.isPlaying(latest.id) ? "pause" : "play")}</button>` : ""}
-        </div></section>` : ""}
-
+        </div></section>` : ""}`,
+    gather: () => html`
       <section class="sec">
         <div class="sec-head"><h2>Gather with us</h2>${S.on("live") ? html`<a href="#live">Watch live</a>` : ""}</div>
         <div class="rows">${services.length ? services.map((s) => html`<a class="row" href="#live"><span class="lead-ic">${icon(s.live ? "live" : "clock")}</span><span class="body"><span class="t">${s.label || "Service"}${s.live ? html` <span class="tag warn">Live now</span>` : ""}</span><span class="s">${when(s)}${multiCampus() ? `, ${s.location.name}` : ""}</span></span>${icon("chev")}</a>`) : empty("Service times haven't been added yet.")}</div>
-      </section>
-
+      </section>`,
+    events: () => html`
       ${S.on("events") ? html`<section class="sec"><div class="sec-head"><h2>Coming up</h2><a href="#events">All events</a></div>
-        ${events.length ? html`${featuredEvent(events[0])}${events.length > 1 ? html`<div class="carousel" style="margin-top:14px">${events.slice(1).map(eventCard)}</div>` : ""}` : html`<div class="rows">${empty("No events on the calendar yet.")}</div>`}</section>` : ""}
-      ${homeGroups()}
-
+        ${events.length ? html`${featuredEvent(events[0])}${events.length > 1 ? html`<div class="carousel" style="margin-top:14px">${events.slice(1).map(eventCard)}</div>` : ""}` : html`<div class="rows">${empty("No events on the calendar yet.")}</div>`}</section>` : ""}`,
+    groups: () => homeGroups(),
+    plans: () => html`
       ${plans.length ? html`<section class="sec"><div class="sec-head"><h2>Daily reading</h2><a href="#plans">Plans</a></div>
         ${active ? planTodayRow(active) : html`<div class="rows"><a class="row" href="#plans"><span class="lead-ic">${icon("book")}</span><span class="body"><span class="t">Start a reading plan</span><span class="s">${plural(plans.length, "plan")} from ${c.name}</span></span>${icon("chev")}</a></div>`}
-      </section>` : ""}
-
+      </section>` : ""}`,
+    news: () => html`
       ${news.length ? html`<section class="sec"><div class="sec-head"><h2>Announcements</h2><a href="#alerts">See all</a></div>
-        <div class="rows">${news.slice(0, 3).map(announcementRow)}</div></section>` : ""}
-
+        <div class="rows">${news.slice(0, 3).map(announcementRow)}</div></section>` : ""}`,
+    connect: () => html`
       <section class="sec"><div class="rows">
         <button class="row" data-act="connect-card"><span class="lead-ic">${icon("inbox")}</span><span class="body"><span class="t">Connect card</span><span class="s">New here, have a question, or want to talk with a pastor?</span></span>${icon("chev")}</button>
         <button class="row" data-act="invite"><span class="lead-ic">${icon("share")}</span><span class="body"><span class="t">Invite a friend</span><span class="s">Text, email or share an invitation with service times and directions</span></span>${icon("chev")}</button>
-      </div></section>
-      ${socialRow(c)}`,
+      </div></section>`,
+    social: () => socialRow(c),
+  };
+  return {
+    tab: "home", band,
+    body: html`
+      ${!S.isMember() ? html`<div class="panel join-card"><p style="margin-top:0"><b>You're looking around ${c.name}.</b> Join to post prayer requests, register for classes, chat with your groups and check in your kids.</p><button class="btn block" data-act="join-church" data-id="${c.id}">Join ${c.name}</button></div>` : ""}
+      ${(() => { const asks = pendingAsks(); return asks.length ? html`<a class="alert ask" href="#serving">${icon("hand")}<div><b>Can you serve?</b><span>${asks[0][1].position}, ${planLabel(asks[0][0])}${asks.length > 1 ? ` and ${plural(asks.length - 1, "more request")}` : ""}</span></div></a>` : ""; })()}
+      ${deactAlerts()}
+      ${urgent.map((n) => html`<a class="alert" href="#news-${n.id}">${icon("bell")}<div><b>${n.title}</b><span>${n.body}</span></div></a>`)}
+      ${homeLayout(c).filter((x) => x.on && sections[x.id]).map((x) => sections[x.id]())}`,
   };
 };
+/** "Up next": the next service, or the live stream while it's on, over the church's photo. */
+function homeHero(c, s, when) {
+  if (!s) return "";
+  // Its own photo (Admin, Home screen), else the banner's when the banner isn't also on Home, else the accent color.
+  const bannerOn = homeLayout(c).find((x) => x.id === "banner")?.on;
+  const bg = c.heroPhoto || (!bannerOn && c.banner?.bg?.type === "image" && c.banner.bg.image) || "";
+  const addr = s.location?.address;
+  return html`<section class="sec"><div class="hero-card">
+    ${bg ? html`<img src="${bg}" alt="" decoding="async">` : ""}
+    <span class="hero-k ${s.live ? "live" : ""}">${s.live ? "Live now" : "Up next"}</span>
+    <h2 class="hero-title">${s.label || "Sunday worship"}</h2>
+    <p class="hero-meta">${when(s)}${multiCampus() && s.location ? ` · ${s.location.name}` : ""}</p>
+    <div class="hero-btns">
+      ${S.on("live") ? html`<a class="hero-btn" href="#live">${icon(s.live ? "live" : "play")}${s.live ? "Watch live" : "Watch online"}</a>` : ""}
+      ${!S.isMember() || isFirstVisitSoon() ? html`<a class="hero-btn ${S.on("live") ? "glass" : ""}" href="#visit">${icon("star")}Plan your visit</a>` : addr ? html`<a class="hero-btn glass" href="${mapLink(addr)}" target="_blank" rel="noopener">${icon("pin")}Directions</a>` : ""}
+    </div></div></section>`;
+}
+const isFirstVisitSoon = () => false;
 /** The next event as a full-width photo card: who's going, and the next step (sign up, or directions). */
 function featuredEvent(e) {
   const reg = myRegistration(e), d = new Date(e.start), going = (e.registrations || []).filter((r) => r.by !== S.me().id);

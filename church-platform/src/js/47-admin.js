@@ -275,6 +275,9 @@ Screens.admin = (section) => {
       ${sec("Visitors and your front door", "", [
         item("manage.church", "admin-visitpage", "star", "Plan your visit page", "What first-time guests see: campus, people to meet, kids, map, beliefs"),
         item("manage.church", "admin-welcome", "give", "Welcome for new visitors", "The first-visit question, visitor card and welcome message"),
+        item("manage.church", "admin-appearance", "image", "Appearance", "Colors, fonts, corners, header, and light or dark", null, "theme branding style colors design look"),
+        item(["manage.page", "manage.church"], "admin-homelayout", "home", "Home screen", "Choose and order the sections on Home", null, "layout sections builder"),
+        item("manage.church", "admin-tabs", "layers", "Tabs", "The buttons along the bottom of the app", null, "navigation menu"),
         item("manage.page", "admin-banner", "star", "Home banner", "Background, logo, graphics and text art at the top of Home"),
         item("manage.page", "admin-page", "image", "Landing page", `${plural(c.landing.blocks.length, "block")}${c.landing.showOnHome ? ", shown on Home" : ""}`),
         item("manage.locations", "admin-map", "pin", "Campus map", "Draw a layout so visitors can find their way", null, "wayfinding"),

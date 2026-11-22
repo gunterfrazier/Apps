@@ -87,6 +87,7 @@ Screens.word = () => {
         <span class="body"><span class="t">Live in the Sanctuary: ${liveSermon.title}</span><span class="s">Tap to follow interactive fill-in-the-blank notes &amp; live Scripture sync</span></span>
         ${icon("chev")}
       </a>` : ""}
+      ${wordHero(list[0])}
       <label class="field" style="margin-top:12px"><span class="sr">Search sermons</span><input type="search" placeholder="Search sermons or passages" data-input="sermon-search" value="${sermonQuery}"></label>
       ${books.length > 1 ? html`<div class="chips" role="group" aria-label="Filter by book">${books.map((b) => html`<button class="chip" data-act="sermon-book" data-book="${b}" aria-pressed="${b === sermonBook}">${b}</button>`)}</div>` : ""}
       <div id="sermon-list">${sermonResults()}</div>
@@ -98,6 +99,15 @@ Screens.word = () => {
       ${canMedia() ? html`<div class="btns"><a class="btn ghost sm" href="#podcast">${icon("music")}Podcast feed</a></div>` : ""}`,
   };
 };
+/** The newest message, big, with its artwork and a play button. */
+function wordHero(sm) {
+  if (!sm || sermonQuery || sermonBook) return "";
+  const art = sermonArtwork(sm);
+  return html`<div class="media-hero">${art ? html`<img src="${art}" alt="" decoding="async">` : ""}
+    <a class="mh-body" href="#sermon-${sm.id}" style="color:inherit;text-decoration:none"><span class="mh-k">Latest message${sm.series ? ` · ${sm.series}` : ""}</span>
+      <span class="mh-title">${sm.title}</span><span class="mh-meta">${[sm.passage, sm.speaker].filter(Boolean).join(" · ")}</span></a>
+    ${sermonSources(sm).length ? html`<button type="button" class="mh-play" style="border:0;cursor:pointer" data-act="mini-play" data-id="${sm.id}" data-title="${sm.title}" aria-label="${Player.isPlaying(sm.id) ? "Pause" : "Play"} ${sm.title}">${icon(Player.isPlaying(sm.id) ? "pause" : "play")}</button>` : ""}</div>`;
+}
 const lookupWhere = () => ({ app: "the Bible here", veritas: "Veritas Logos", logos: "Logos" })[bibleOpen()];
 function lookupHint(v) { const r = v && parseRef(v); return !v ? `Opens in ${lookupWhere()}.` : r ? `Opens ${refLabel(r)} in ${lookupWhere()}.` : "Try a reference like John 3:16 or Psalm 23."; }
 Inputs["bible-ref"] = (el) => { $("#bible-hint").textContent = lookupHint(el.value.trim()); };

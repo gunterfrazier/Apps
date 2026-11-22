@@ -1021,9 +1021,38 @@ await step("banner designer", async () => {
   await page.waitForSelector("form[data-form=banner-save] .err");
   await page.setInputFiles('input[data-field="bgImage"]', join(root, "icons", "icon-512.png")); await page.waitForFunction(() => document.querySelector("#banner-preview .banner").style.background.includes("url"));
   await shot("22-banner-designer");
-  await page.click("form[data-form=banner-save] button.btn:not([type=button])"); await page.waitForSelector(".home-top .banner");
-  if (!(await page.textContent(".home-top .bn-head")).includes("Come home")) throw new Error("banner not saved");
+  await page.click("form[data-form=banner-save] button.btn:not([type=button])"); await page.waitForSelector(".home-banner .banner");
+  if (!(await page.textContent(".home-banner .bn-head")).includes("Come home")) throw new Error("banner not saved");
   await shot("23-home-new-banner");
+});
+await step("appearance, Home layout and tabs", async () => {
+  await goTo("admin"); await page.click('a.row[href="#admin-appearance"]'); await page.waitForSelector(".ap-preview");
+  const before = await page.evaluate(() => __app.S.church().color);
+  // A change is a draft: only the editor sees it, until it's published.
+  await page.click('[data-act=look-color][data-color="#be185d"]'); await page.check('input[name=font][value=classic]', { force: true });
+  await page.waitForSelector(".draft-bar");
+  if ((await page.evaluate(() => [document.documentElement.dataset.font, __app.S.church().color])).join() !== `classic,${before}`) throw new Error("the draft should preview without publishing");
+  await goTo("home"); await page.waitForSelector(".draft-bar");
+  await page.click(".draft-bar [data-act=look-publish]");
+  const pub = await page.evaluate(() => [__app.S.church().color, __app.S.church().theme.font, !!__app.S.church().themeDraft]);
+  if (pub.join() !== "#be185d,classic,false") throw new Error(`publish didn't save the look: ${pub}`);
+  if (await page.$(".draft-bar")) throw new Error("the draft bar should go away after publishing");
+  // Home sections: hide Announcements, move Shortcuts to the top.
+  await goTo("admin-homelayout"); await page.waitForSelector("#home-build");
+  await page.uncheck('[data-change=home-toggle][data-id="news"]');
+  for (let i = 0; i < 3; i++) await page.click('[data-act=home-move][data-id="quick"][data-dir="-1"]');
+  if ((await page.evaluate(() => [...document.querySelectorAll("#home-build [data-id]")].map((x) => x.dataset.id)[0])) !== "quick") throw new Error("Shortcuts didn't move to the top");
+  await goTo("home"); await page.waitForSelector(".quick");
+  if (await page.$('.sec-head:has-text("Announcements")')) throw new Error("hidden Announcements still on Home");
+  // Tabs: swap Give for Prayer, rename it, and a More tab lists the rest.
+  await goTo("admin-tabs"); await page.click('[data-act=tab-remove][data-id="give"]'); await page.click('[data-act=tab-add][data-id="prayer"]');
+  await page.fill('[data-change=tab-rename][data-id="prayer"]', "Pray"); await page.press('[data-change=tab-rename][data-id="prayer"]', "Tab");
+  await page.waitForSelector('.tabs a[href="#connect"]:has-text("Pray")');
+  await page.click('[data-act=tab-remove][data-id="connect"]'); await page.click('[data-act=tab-add][data-id="more"]');
+  await page.click(".tabs [data-act=tab-more]"); await page.waitForSelector('#scrim a.row[href="#give"]'); await shot("21-tabs-more"); await page.click('#scrim a.row[href="#give"]');
+  await page.waitForFunction(() => location.hash === "#give");
+  await goTo("admin-tabs"); await page.click("[data-act=tabs-reset]"); await goTo("admin-homelayout"); await page.click("[data-act=home-reset]");
+  await page.evaluate((c) => { __app.S.updateChurch({ color: c, theme: null }); __app.render(); }, before);
 });
 await step("webhooks and embeds", async () => {
   await goTo("admin-integrations"); await page.click("[data-act=hook-edit]:not([data-id])");
@@ -1162,8 +1191,11 @@ await step("presenter shortcut and long stage lyrics", async () => {
       const song = S.get("songs", "riverside-song-amazing");
       song.lyrics += "\n\n[Verse 4]\n" + Array(12).fill("This is a very long next line for the stage display preview").join("\n");
       song.order += ", Verse 4";
+      // An earlier step may have picked sections for this song in the plan; play the whole song here.
+      for (const seg of S.get("services", "riverside-svc-1")?.segments || []) if (seg.content?.songId === song.id) delete seg.content.sections;
       S.save(); __app.render();
     });
+    if (!(await page.$('.quick a[href="#presenter"]'))) await page.click(".quick [data-act=quick-more]");
     await page.click('.quick a[href="#presenter"]');
     await page.waitForSelector('a[href="#present-doc-riverside-doc-vine"]');
     await goTo("present-service-riverside-svc-1");
@@ -2170,7 +2202,7 @@ await step("campus map, first-time visitors and the welcome message", async () =
   // Someone joins: asked if it's their first visit, fills in the card, lands on Plan your visit with the welcome.
   await page.evaluate(() => { const S = __app.S, c = S.church(); c.ownerId = "someone-else"; S.state.memberships = S.state.memberships.filter((m) => !(m.churchId === c.id && m.userId === S.me().id)); S.state.cards = S.state.cards.filter((x) => !x.firstVisit); sessionStorage.setItem("our-faithful-presence-asked", JSON.stringify(["x"])); S.me().prefs && (S.me().prefs.askPresence = false); S.save(); });
   await goTo("church-riverside"); await page.evaluate(() => __app.render()); await page.click("[data-act=join-church]");
-  await page.waitForSelector("#scrim [data-act=visit-first]", { timeout: 5000 }); await shot("92-first-visit-question"); await page.click("#scrim [data-act=visit-first]");
+  await page.waitForSelector('#scrim [data-act=join-with-status][data-status="first"]', { timeout: 5000 }); await shot("92-first-visit-question"); await page.click('#scrim [data-act=join-with-status][data-status="first"]');
   await page.waitForSelector("form[data-form=visitor-card]"); await page.fill("form[data-form=visitor-card] input[name=phone]", "(770) 555-0100"); await page.fill("form[data-form=visitor-card] input[name=adults]", "Sam"); await page.fill("form[data-form=visitor-card] textarea[name=children]", "Ella, 7\nNoah, 4");
   await shot("93-visitor-card"); await page.click("form[data-form=visitor-card] button.btn:not(.ghost)");
   await page.waitForFunction(() => location.hash === "#visit"); await page.waitForFunction(() => { const t = document.querySelector("#scrim")?.textContent || ""; return t.includes("Hello from Riverside Community Church") && t.includes("Our website"); }); await shot("94-welcome-message");

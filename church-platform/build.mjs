@@ -8,7 +8,8 @@ const root = dirname(fileURLToPath(import.meta.url));
 const src = join(root, "src");
 const out = join(root, "dist");
 
-const css = readFileSync(join(src, "styles.css"), "utf8");
+// design.css (the design system and each church's Appearance settings) comes after styles.css, so it sets the look.
+const css = readFileSync(join(src, "styles.css"), "utf8") + "\n" + readFileSync(join(src, "design.css"), "utf8");
 const vendor = readdirSync(join(src, "vendor")).filter((f) => f.endsWith(".js")).sort().map((f) => readFileSync(join(src, "vendor", f), "utf8")).join("\n");
 const js = readdirSync(join(src, "js")).filter((f) => f.endsWith(".js")).sort()
   .map((f) => `// ===== ${f} =====\n${readFileSync(join(src, "js", f), "utf8")}`).join("\n");

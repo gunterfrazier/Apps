@@ -44,6 +44,7 @@ function applyDemoPhotos(st) {
   (st.sermons || []).filter((s) => s.churchId === R).forEach((s) => { const p = DEMO_PHOTOS.series[s.series]; if (p && generated(s.artwork)) s.artwork = DEMO(p); });
   (st.events || []).filter((e) => e.churchId === R).forEach((e) => { const p = DEMO_PHOTOS.events[e.id.replace(`${R}-`, "")]; if (p && generated(e.image)) e.image = DEMO(p); });
   (st.gatherings || []).filter((g) => g.churchId === R).forEach((g) => { const p = DEMO_PHOTOS.groups[g.id.replace(`${R}-`, "")]; if (p && !g.photo) g.photo = DEMO(p); });
+  if (!("heroPhoto" in c)) c.heroPhoto = DEMO("worship-stage");
   c.demoPhotos = true;
 }
 const hueOf = (s) =>[...String(s)].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 360, 7);
