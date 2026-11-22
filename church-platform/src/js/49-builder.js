@@ -111,7 +111,8 @@ Screens.build = (id) => {
         <button class="btn ghost sm" data-act="doc-details" data-id="${d.id}">${icon("edit")}Details</button>
         <button class="btn ghost sm" data-act="layout-save" data-kind="doc" data-id="${d.id}">${icon("layers")}Save as layout</button>
         <button class="btn ghost sm" data-act="doc-publish" data-id="${d.id}">${d.published ? "Unpublish" : "Publish"}</button>
-        ${d.kind === "lesson" && canEditDoc(d) ? html`<a class="btn ${d.blocks.some((b) => b.type !== "scripture") ? "ghost " : ""}sm" href="#storylesson-${d.id}">${icon("book")}${d.storyId ? "Bible stories" : "Start from a Bible story"}</a>` : ""}
+        ${d.kind === "lesson" && canEditDoc(d) ? html`<a class="btn ${d.blocks.some((b) => b.type !== "scripture") ? "ghost " : ""}sm" href="#storylesson-${d.id}">${icon("book")}${d.storyId ? "Bible stories" : "Start from a Bible story"}</a>
+          <a class="btn ghost sm" href="#lessonschurch-${d.id}">${icon("book")}Start from Lessons.church</a>` : ""}
         ${canAI() ? html`<button class="btn ghost sm" data-act="ai-build" data-id="${d.id}">${icon("bolt")}${d.kind === "lesson" && !d.blocks.some((b) => b.type !== "scripture") ? "Draft this lesson" : "Draft questions"}</button>` : ""}
       </div>
       ${d.passage ? pastPanel(d.passage, { doc: d.id, label: "You've preached or taught on this before", max: 3 }) : ""}

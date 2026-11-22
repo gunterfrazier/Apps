@@ -1981,6 +1981,17 @@ await step("lesson from a Bible story", async () => {
   await page.click('a[href^="#storylesson-"]'); await page.fill("#story-q", "Barnabas"); await page.waitForSelector("[data-act=story-passage]");
   await page.click("[data-act=story-passage]"); await page.waitForFunction(() => location.hash.startsWith("#build-"));
   if (!(await page.evaluate(() => __app.S.state.docs.find((x) => x.storyId === "david").passage)).startsWith("Acts")) throw new Error("a person's passage should become the lesson's passage");
+  // Start from Lessons.church, with its public API standing in: program > study > lesson > version > outline.
+  const lc = (body) => (r) => r.fulfill({ headers: { "access-control-allow-origin": "*" }, contentType: "application/json", body: JSON.stringify(body) });
+  await page.route("https://api.lessons.church/programs/public", lc([{ id: "p1", name: "Kids Church", slug: "kids", age: "Elementary", shortDescription: "Weekly lessons" }]));
+  await page.route("https://api.lessons.church/studies/public/program/p1", lc([{ id: "s1", name: "Heroes of Faith", slug: "heroes", lessonCount: 1 }]));
+  await page.route("https://api.lessons.church/lessons/public/study/s1", lc([{ id: "l1", name: "Week 1", title: "Brave Esther", slug: "esther", verse: "Esther 4:14", bottomLine: "God puts us where we can help.", parentQuestion: "When did you help someone this week?" }]));
+  await page.route("https://api.lessons.church/venues/public/lesson/l1", lc([{ id: "v1", name: "Elementary", sections: [{ id: "x2", name: "Large group", sort: 2, materials: "" }, { id: "x1", name: "Welcome game", sort: 1, materials: "Balloons, tape" }] }, { id: "v2", name: "Preschool", sections: [] }]));
+  await page.click('a[href^="#lessonschurch-"]'); await page.click("[data-act=lc-program]"); await page.click("[data-act=lc-study]"); await page.click("[data-act=lc-lesson]");
+  await page.waitForSelector("form[data-form=lc-use]"); await page.check('form[data-form=lc-use] input[name=mode][value=add]').catch(() => {});
+  await page.click("form[data-form=lc-use] button.btn"); await page.waitForFunction(() => location.hash.startsWith("#build-"));
+  const lcDoc = await page.evaluate(() => { const d = __app.S.state.docs.find((x) => x.lessonsChurch?.lessonId === "l1"); return d && d.blocks.map((b) => [b.type, b.label || b.title || "", b.text || b.ref || ""].join("|")); });
+  if (!lcDoc || !lcDoc.some((b) => b.includes("lessons.church/kids/heroes/esther/")) || !lcDoc.some((b) => b.startsWith("keynote|") && b.includes("God puts us")) || lcDoc.findIndex((b) => b.includes("Welcome game")) > lcDoc.findIndex((b) => b.includes("Large group")) || !lcDoc.some((b) => b.includes("Balloons"))) throw new Error("Lessons.church outline: " + JSON.stringify(lcDoc));
 });
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");
