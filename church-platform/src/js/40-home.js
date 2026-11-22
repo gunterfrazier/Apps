@@ -124,11 +124,16 @@ function startLocRow(i) {
     <div class="radios" style="margin-top:6px"><label><input type="radio" name="locVis${i}" value="public" checked><span>Public</span></label><label><input type="radio" name="locVis${i}" value="private"><span>Private</span></label></div>
   </fieldset>`;
 }
-Screens.start = () => {
+Screens.start = (mode) => {
   startLocRows = 1;
+  const guided = mode === "guided";
   return {
     title: "Register your church", back: S.church() ? "churches" : null,
-    body: html`<form data-form="start-church" novalidate>
+    body: html`<div class="btns">
+      ${guided ? html`<a class="btn ghost" href="#start">Set up manually</a>` : html`<a class="btn" href="#start-guided">${icon("list")}Use setup wizard</a>`}
+    </div><form data-form="start-church" ${attr(guided, 'data-guided-registration data-setup-step="0"')} novalidate>
+      ${guided ? html`<p class="setup-progress" data-setup-progress tabindex="-1">Step 1 of 4 · Church details</p>` : ""}
+      <section data-setup-stage="0">
       <p class="muted" style="margin-top:12px">This creates a church account, separate from your own. You'll be its <b>primary account holder</b>: you choose its roles, features and defaults, and can hand the account to someone else later.</p>
       <h2 style="margin-top:20px">Church account</h2>
       <label class="field"><span>Church name</span><input type="text" name="name" required maxlength="60" data-input="suggest-handle"></label>
@@ -141,36 +146,53 @@ Screens.start = () => {
       <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Brand color</legend>
         <div class="swatches">${BRAND_COLORS.map((col, i) => html`<label><input type="radio" name="color" value="${col}" data-change="brand-swatch" ${attr(i === 0, "checked")}><span style="background:${col}"></span><span class="sr">${col}</span></label>`)}</div>
         <div class="hex-row"><input type="color" value="${BRAND_COLORS[0]}" data-input="brand-picker" aria-label="Pick custom brand color"><input type="text" name="customColor" value="${BRAND_COLORS[0]}" maxlength="7" placeholder="#4250d6" data-input="brand-hex" aria-label="Brand hex code"><small class="faint" style="margin:0">Pick a swatch or enter your church's exact hex color.</small></div></fieldset>
+      </section><section data-setup-stage="1" ${attr(guided, "hidden")}>
       <h2 style="margin-top:20px">Campuses and locations</h2>
       <p class="faint">Give each location a unique ID, like MAIN or EAST. Private locations only show to people you give access.</p>
       <div id="loc-rows">${startLocRow(0)}</div>
       <button type="button" class="btn ghost sm" style="margin-top:10px" data-act="add-start-loc">${icon("plus")}Add another location</button>
-      <div class="btns"><button class="btn block">Create church account</button></div>
+      </section>
+      ${guided ? html`<section data-setup-stage="2" hidden>
+        <h2>Choose features</h2><p>Pick the features you want to launch with. You can turn features on later from Admin and add other guides to your checklist.</p>
+        ${setupFeaturePicker([...MODULES.map(([id]) => id), "visitors"])}
+      </section><section data-setup-stage="3" hidden>
+        ${setupExportButtons()}
+        <div data-setup-review></div>
+      </section>` : ""}
+      <div class="btns">
+        ${guided ? html`<button type="button" class="btn ghost" data-act="setup-back" hidden>Back</button>
+          <button type="button" class="btn" data-act="setup-next">Continue</button>` : ""}
+        <button class="btn" data-setup-create ${attr(guided, "hidden")}>Create church account</button>
+      </div>
     </form>`,
   };
 };
 Inputs["suggest-handle"] = (el) => { const h = $("input[name=handle]", el.form); if (!h.dataset.touched) h.value = slugify(el.value).slice(0, 30); };
 document.addEventListener("input", (e) => { if (e.target.name === "handle") e.target.dataset.touched = "1"; });
 Actions["add-start-loc"] = () => { $("#loc-rows").insertAdjacentHTML("beforeend", flat(startLocRow(startLocRows++))); $(`input[name=locName${startLocRows - 1}]`).focus(); };
-Forms["start-church"] = (d, f) => {
-  if (!d.name) return formError(f, "Enter your church's name.");
+Forms["start-church"] = (d, f, fd) => {
+  const guided = f.hasAttribute("data-guided-registration");
+  if (guided && Number(f.dataset.setupStep) < 3) return Actions["setup-next"]({ form: f });
+  if (!d.name) return registrationFieldError(f, 0, "Enter your church's name.");
   const handle = slugify(d.handle || d.name);
-  if (S.churches().some((c) => c.handle === handle)) return formError(f, `The church ID "${handle}" is taken. Try another.`);
+  if (S.churches().some((c) => c.handle === handle)) return registrationFieldError(f, 0, `The church ID "${handle}" is taken. Try another.`);
   const locations = [], codes = new Set();
   for (let i = 0; i < 20; i++) {
     if (!(`locName${i}` in d)) break;
     if (!d[`locName${i}`] && !d[`locCode${i}`]) continue;
     const code = (d[`locCode${i}`] || d[`locName${i}`]).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
-    if (!code) return formError(f, `Give location ${i + 1} a unique ID.`);
-    if (codes.has(code)) return formError(f, `Two locations use the ID ${code}. Each needs its own.`);
+    if (!code) return registrationFieldError(f, 1, `Give location ${i + 1} a unique ID.`);
+    if (codes.has(code)) return registrationFieldError(f, 1, `Two locations use the ID ${code}. Each needs its own.`);
     codes.add(code);
     locations.push({ code, name: d[`locName${i}`] || code, address: d[`locAddress${i}`] || "", visibility: d[`locVis${i}`] || "public", rooms: [], liveUrl: "",
       services: d[`locTime${i}`] ? [svc(+d[`locDay${i}`], d[`locTime${i}`], "Worship service")] : [] });
   }
   if (!locations.length) locations.push({ code: "MAIN", name: "Main campus", address: "", visibility: "public", rooms: [], liveUrl: "", services: [svc(0, "10:00", "Worship service")] });
   const chosenColor = /^#[0-9a-fA-F]{6}$/.test(d.customColor || "") ? d.customColor.toLowerCase() : (d.color || BRAND_COLORS[0]);
-  const c = S.createChurch({ name: d.name, handle, email: d.email || "", phone: d.phone || "", city: d.city || "", tagline: d.tagline || "", color: chosenColor, sign: ["Welcome", d.tagline || ""], locations });
-  toast(`${c.name} is ready. You're its primary account holder.`); go("admin");
+  const selected = guided ? chosenSetupTopics(fd.getAll("setupTopic")) : [];
+  const setup = guided ? { modules: Object.fromEntries(MODULES.map(([id]) => [id, selected.includes(id)])), setupGuide: { selected, done: {} } } : {};
+  const c = S.createChurch({ ...setup, name: d.name, handle, email: d.email || "", phone: d.phone || "", city: d.city || "", tagline: d.tagline || "", color: chosenColor, sign: ["Welcome", d.tagline || ""], locations });
+  toast(`${c.name} is ready. You're its primary account holder.`); go(guided ? "admin-setupguide" : "admin");
 };
 
 // ---------- Home ----------

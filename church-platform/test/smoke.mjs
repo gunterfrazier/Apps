@@ -1843,6 +1843,64 @@ await step("admin content and roster", async () => {
   for (const k of ["checkin", "giving", "prayer", "cards", "people"]) await goTo(`admin-${k}`);
   await goTo("live"); await goTo("ministry"); await shot("16-ministry");
 });
+await step("guided church registration and reusable setup checklist", async () => {
+  const previous = await page.evaluate(() => __app.S.state.current);
+  let created;
+  try {
+    await goTo("start");
+    await page.getByRole("link", { name: "Use setup wizard" }).click();
+    await page.locator("[data-guided-registration]").waitFor();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("alert").filter({ hasText: "Enter your church's name." }).waitFor();
+    await page.fill("input[name=name]", "Wizard Test Church");
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.fill("input[name=locName0]", "Main campus");
+    await page.fill("input[name=locAddress0]", "100 Main Street");
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.uncheck('input[value="giving"][name="setupTopic"]');
+    await page.check('input[value="printers"][name="setupTopic"]');
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    const checklist = page.locator("#setup-checklist");
+    await checklist.getByRole("heading", { name: "Wizard Test Church setup checklist" }).waitFor();
+    await checklist.getByRole("link", { name: "QZ Tray download" }).first().waitFor();
+    if (await checklist.getByRole("heading", { name: "Giving", exact: true }).count()) throw new Error("An excluded feature is in the checklist");
+    await page.evaluate(() => {
+      window.print = () => {
+        const printed = document.querySelector("#print-setup-checklist");
+        window.__printedSetup = printed?.textContent.includes("Wizard Test Church");
+        window.dispatchEvent(new Event("afterprint"));
+      };
+    });
+    await page.getByRole("button", { name: "Print or save as PDF" }).click();
+    if (!(await page.evaluate(() => window.__printedSetup))) throw new Error("Print did not receive the selected checklist");
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download checklist" }).click()]);
+    if (download.suggestedFilename() !== "wizard-test-church-setup-checklist.html") throw new Error("Unexpected checklist download name");
+    if (!readFileSync(await download.path(), "utf8").includes("https://qz.io/download/")) throw new Error("Provider link missing from downloaded checklist");
+    await page.getByRole("button", { name: "Create church account" }).click();
+    await page.getByRole("heading", { name: "Church setup wizard" }).waitFor();
+    created = await page.evaluate(() => __app.S.state.current);
+    if (await page.evaluate(() => __app.S.on("giving"))) throw new Error("Giving was enabled despite being excluded");
+    await page.getByRole("link", { name: /Giving Open setup guide/ }).click();
+    await page.getByRole("link", { name: "Stripe" }).waitFor();
+    await page.getByRole("button", { name: "Add to checklist" }).click();
+    await page.locator('[data-change="setup-complete"]').first().check();
+    await page.getByRole("button", { name: "Enable feature for members" }).click();
+    await goTo("admin-setupchecklist");
+    await checklist.getByRole("heading", { name: "Giving", exact: true }).waitFor();
+    if (!(await checklist.textContent()).includes("☑ Create giving funds")) throw new Error("Completed step missing from checklist");
+    if (!(await page.evaluate(() => __app.S.on("giving")))) throw new Error("Feature did not enable");
+  } finally {
+    await page.evaluate(({ previous, created }) => {
+      const { S } = __app;
+      if (created) {
+        delete S.state.churches[created];
+        S.state.memberships = S.state.memberships.filter((m) => m.churchId !== created);
+      }
+      S.setCurrent(previous);
+    }, { previous, created });
+    await goTo("home");
+  }
+});
 await step("register a church", async () => {
   await goTo("start"); await page.fill("input[name=name]", "Grace Point Church");
   await page.fill("input[name=locName0]", "Downtown"); await page.fill("input[name=locCode0]", "DT");

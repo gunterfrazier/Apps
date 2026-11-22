@@ -665,6 +665,22 @@ body.kiosk-mode #app { padding-bottom: 0; }
   #print-labels .label { box-shadow: none; border-radius: 0; break-after: page; page-break-after: always; }
 }
 
+.setup-progress { font-weight: 700; margin: 1rem 0; }
+[data-guided-registration] [hidden] { display: none !important; }
+.setup-requirements { margin: .75rem 0; }
+.setup-requirements dt { font-weight: 700; }
+.setup-requirements dd { margin: 0 0 .6rem; overflow-wrap: anywhere; }
+.setup-checklist-topic h2 { margin-bottom: .5rem; }
+.setup-checklist-topic ul { list-style: none; padding-left: 0; }
+.setup-checklist-topic li { margin-bottom: .3rem; }
+#print-setup-checklist { display: none; }
+@media print {
+  body.print-setup > :not(#print-setup-checklist) { display: none !important; }
+  body.print-setup #print-setup-checklist { display: block; color: #000; background: #fff; }
+  #print-setup-checklist a { color: #000; }
+  .setup-checklist-topic { break-inside: avoid; }
+}
+
 /* ---------- Reports and charts ---------- */
 .viz { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; position: relative; margin: 14px 0 0; background: var(--surface); border-radius: var(--r-l); box-shadow: var(--sh-1); padding: 14px 14px 10px; }
 .segbar, .viz-legend { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; }
