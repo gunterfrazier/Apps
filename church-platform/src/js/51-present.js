@@ -21,10 +21,10 @@ function scriptureSlides(ref, text, title, translation, notes) {
 const textSlides = (title, text, notes, kind = "text") => { const parts = String(text || "").split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean); return (parts.length ? parts : [""]).map((p, i) => ({ kind, title, body: p, notes: i === 0 ? notes : "" })); };
 
 function docSlides(d, withTitle = true) {
-  const out = withTitle ? [{ kind: "title", title: d.title, body: d.passage, notes: d.resource || "" }] : [];
+  const out = withTitle ? [{ kind: "title", editKey: "title", title: d.title, body: d.passage, notes: d.resource || "" }] : [];
   let pending = [];
   const flush = (slides) => { if (pending.length && slides[0]) slides[0].notes = [slides[0].notes, ...pending].filter(Boolean).join("\n"); pending = []; return slides; };
-  d.blocks.forEach((b) => {
+  d.blocks.forEach((b, blockIndex) => {
     if (!b.show || b.type === "note") { pending.push(`${b.type === "note" ? "Note" : b.label || "Cue"}: ${b.text || b.title || ""}${b.notes ? ` (${b.notes})` : ""}`); return; }
     let slides;
     switch (b.type) {
@@ -37,36 +37,49 @@ function docSlides(d, withTitle = true) {
       case "action": slides = b.target ? [{ kind: "qr", title: b.text || b.label, url: appLink(b.target), notes: b.notes }] : [{ kind: "text", title: b.label, body: b.text, notes: b.notes }]; break;
       default: slides = [];
     }
-    out.push(...flush(slides));
+    out.push(...flush(slides).map((slide, index) => ({ ...slide, editKey: `block:${b.id || blockIndex}:${index}` })));
   });
   if (pending.length && out.length) out[out.length - 1].notes = [out[out.length - 1].notes, ...pending].filter(Boolean).join("\n");
   if (d.bg) out.forEach((x) => { if (BG_KINDS.includes(x.kind) && !x.bg) x.bg = d.bg; });
-  return out;
+  return applySlideDesign(out, d.slideDesign);
 }
 /** Slides that show words, which can sit on a photo or motion background. */
 const BG_KINDS = ["title", "lyrics", "scripture", "keynote", "point", "question", "text", "countdown"];
 function serviceSlides(p) {
-  const c = S.church(), out = [{ kind: "logo", section: "Before the service", notes: p.notes || "" }];
+  const c = S.church(), out = [{ kind: "logo", editKey: "before", section: "Before the service", notes: p.notes || "" }];
   const startAt = fromIsoDay(p.date, p.time || "10:00").getTime();
   p.segments.forEach((s, segIndex) => {
     const cnt = s.content || {}, lead = [s.leader ? `Led by ${s.leader}` : "", s.notes].filter(Boolean).join(". ");
     let slides = [];
     if (!s.show) { const last = out[out.length - 1]; last.notes = [last.notes, `Next, not on screen: ${s.title}${lead ? ` (${lead})` : ""}`].filter(Boolean).join("\n"); return; }
     const t = SEGMENT_TYPES[s.type]?.content;
-    if (t === "song") { const song = S.get("songs", cnt.songId); slides = song ? songSlides(song, cnt.sections) : [{ kind: "title", title: s.title }]; if (slides[0]) slides[0].notes = lead; }
+    if (t === "song") { const song = S.get("songs", cnt.songId); slides = song ? songSlides(song, cnt.sections) : [{ kind: "title", title: s.title }]; if (slides[0]) slides[0].notes = lead;
+      const repeats = new Map();
+      slides.forEach((slide) => {
+        if (!slide.label) return;
+        if (!slide.chunk) repeats.set(slide.label, (repeats.get(slide.label) || 0) + 1);
+        slide.editKey = `song:${slide.songId}:${slide.label}:${repeats.get(slide.label)}:${slide.chunk}`;
+      });
+    }
     else if (t === "scripture") slides = cnt.text || cnt.ref ? scriptureSlides(cnt.ref, cnt.text, s.title, cnt.translation, lead) : textSlides(s.title, "", lead, "title");
     else if (t === "sermon") { const d = cnt.blocks ? { title: cnt.title || s.title, passage: "", resource: "", blocks: cnt.blocks } : S.get("docs", cnt.docId); slides = d ? docSlides(d) : [{ kind: "title", title: s.title, notes: lead }]; if (slides[0]) slides[0].notes = [lead, slides[0].notes].filter(Boolean).join("\n"); }
     else if (t === "media") slides = [{ kind: "media", image: cnt.image, url: cnt.url, body: cnt.caption, notes: lead }];
-    else if (t === "none") { const news = newsSorted().slice(0, 5); slides = news.length ? news.map((n, i) => ({ kind: "text", title: n.title, body: n.body, notes: i === 0 ? lead : "" })) : [{ kind: "title", title: s.title, notes: lead }]; }
+    else if (t === "none") { const news = newsSorted().slice(0, 5); slides = news.length ? news.map((n, i) => ({ kind: "text", editKey: `news:${n.id}`, title: n.title, body: n.body, notes: i === 0 ? lead : "" })) : [{ kind: "title", title: s.title, notes: lead }]; }
     else if (t === "countdown") slides = [{ kind: "countdown", title: s.title, body: cnt.text, to: cnt.to || "start", startAt, notes: lead }];
     else if (s.type === "offering") slides = [{ kind: "qr", title: s.title, body: cnt.text, url: appLink(`give-${S.state.current}`), notes: lead }];
     else slides = textSlides(s.title, cnt.text, lead, cnt.text ? "text" : "title");
     const bg = cnt.bg || p.bg || "";
-    slides.forEach((x) => { Object.assign(x, { section: s.title, segIndex, minutes: +s.minutes || 0 }); if (bg && BG_KINDS.includes(x.kind) && !x.bg) x.bg = bg; });
+    slides.forEach((x, index) => { Object.assign(x, { editKey: `segment:${s.id || segIndex}:${x.editKey || index}`, section: s.title, segIndex, minutes: +s.minutes || 0 }); if (bg && BG_KINDS.includes(x.kind) && !x.bg) x.bg = bg; });
     out.push(...slides);
   });
-  out.push({ kind: "logo", section: "After the service", notes: "" });
-  void c; return out;
+  out.push({ kind: "logo", editKey: "after", section: "After the service", notes: "" });
+  void c; return applySlideDesign(out, p.slideDesign);
+}
+function applySlideDesign(slides, designs) {
+  return slides.map((slide) => {
+    const design = designs?.[slide.editKey];
+    return design ? { ...slide, bg: design.bg || slide.bg, showLogo: design.showLogo } : slide;
+  });
 }
 function slidesFor(kind, id) {
   if (kind === "doc") { const d = S.get("docs", id); return d ? { title: d.title, slides: docSlides(d).map((s) => ({ ...s, section: s.section || d.title })), back: canEditDoc(d) ? `build-${d.id}` : "ministry" } : null; }
@@ -78,7 +91,7 @@ function slideHtml(s, c = S.church()) {
   if (!s) return html`<div class="slide k-black"></div>`;
   const body = (() => {
     switch (s.kind) {
-      case "logo": return html`<div class="slide-center">${c.logo ? html`<img class="slide-logo" src="${c.logo}" alt="">` : html`<div class="slide-mono">${initials(c.name)}</div>`}<div class="slide-church">${c.name}</div></div>`;
+      case "logo": return html`<div class="slide-center">${showSlideLogo(c, s.bg, s.showLogo) ? (c.logo ? html`<img class="slide-logo" src="${c.logo}" alt="">` : html`<div class="slide-mono">${initials(c.name)}</div>`) : ""}<div class="slide-church">${c.name}</div></div>`;
       case "title": return html`<div class="slide-center"><div class="slide-title">${s.title}</div>${s.body ? html`<div class="slide-sub">${s.body}</div>` : ""}</div>`;
       case "lyrics": return html`<div class="slide-center"><div class="slide-lyrics">${typeof stripInlineChords === "function" ? stripInlineChords(s.body) : s.body}</div></div>`;
       case "scripture": return html`<div class="slide-scripture">${s.title ? html`<div class="slide-kicker">${s.title}</div>` : ""}<div class="slide-verses">${s.verses.map((v) => { const m = v.match(/^(\d+)\s([\s\S]*)$/); return m ? html`<sup>${m[1]}</sup>${m[2]} ` : html`${v} `; })}</div><div class="slide-ref">${s.ref}</div></div>`;
@@ -93,8 +106,8 @@ function slideHtml(s, c = S.church()) {
       default: return "";
     }
   })();
-  const bg = s.kind === "logo" ? raw(` style="--b:${esc(c.color)};background:${esc(bannerBackground(bannerOf(c), c.color))}"`) : "";
-  const back = s.bg && BG_KINDS.includes(s.kind) ? s.bg : "";
+  const bg = s.kind === "logo" && !s.bg ? raw(` style="--b:${esc(c.color)};background:${esc(bannerBackground(bannerOf(c), c.color))}"`) : "";
+  const back = s.bg || "";
   return html`<div class="slide k-${s.kind} ${back ? "has-bg" : ""}"${bg}>${back ? (isVideoUrl(back) ? html`<video class="slide-bg" src="${back}" autoplay muted loop playsinline aria-hidden="true"></video>` : html`<img class="slide-bg" src="${back}" alt="" aria-hidden="true">`) : ""}${body}${s.footer ? html`<div class="slide-foot">${s.footer}</div>` : ""}</div>`;
 }
 
@@ -176,6 +189,7 @@ Screens.present = (tail) => {
       : html`<div class="present-main">
         ${stageMode ? stageMonitor(data, pres) : html`<div class="stage" id="stage" aria-live="polite" aria-label="Slide ${pres.index + 1} of ${slides.length}">${slideHtml(shown)}</div>`}
         <div class="present-controls">
+          ${!L && cur?.editKey && editableSlideDeck(kind, id) ? html`<button type="button" class="btn ghost" data-act="slide-design" data-kind="${kind}" data-id="${id}" data-key="${cur.editKey}">${icon("image")}Edit slide</button>` : ""}
           ${orientationSelect()}
           <button class="btn ghost" data-act="pres-go" data-d="-1" aria-label="Previous slide" ${attr(!L && pres.index === 0, "disabled")}>${icon("prev")}</button>
           <span class="present-count">${L ? html`<b class="live-tag">${L.label}</b> ${L.i + 1} / ${L.slides.length}` : `${pres.index + 1} / ${slides.length}`}</span>
@@ -235,7 +249,12 @@ Actions["pres-section"] = (el) => {
   if (ahead >= 0) { pres.live = null; pres.index = ahead; }
   else {
     const p = songParts(song).find((x) => sameLabel(x.label, label)); if (!p) return;
-    const extra = songPartSlides(song, p).map((x, chunk) => ({ ...x, chunk, section: cur?.section, segIndex: seg, minutes: cur?.minutes }));
+    const nearby = slides.filter((s) => s.segIndex === seg && s.songId === song.id && sameLabel(s.label, label));
+    const occurrence = onNow ? cur.occ : nearby.findLast((s) => slides.indexOf(s) <= here)?.occ;
+    const extra = songPartSlides(song, p).map((x, chunk) => ({
+      ...x, chunk, occ: occurrence, section: cur?.section, segIndex: seg, minutes: cur?.minutes,
+      bg: nearby.find((s) => s.occ === occurrence && s.chunk === chunk)?.bg,
+    }));
     pres.live = { label: p.label, i: 0, returnTo: pres.live ? pres.live.returnTo : end, slides: extra };
   }
   render();
@@ -291,4 +310,46 @@ Screens.presenter = () => {
   return { title: "Presenter", back: "home", body: html`
     <section class="sec"><h2>Upcoming services</h2><div class="rows">${plans.length ? plans.map((p) => row("service", p, p.date)) : empty("No upcoming presentations.")}</div></section>
     <section class="sec"><h2>Sermons</h2><div class="rows">${sermons.length ? sermons.map((s) => row("doc", s, s.passage)) : empty("No sermon presentations.")}</div></section>` };
+};
+
+function editableSlideDeck(kind, id) {
+  const item = kind === "doc" ? S.get("docs", id) : kind === "service" ? S.get("services", id) : null;
+  if (!item || item.churchId !== S.state.current || thisDevice()) return null;
+  return (kind === "doc" ? canEditDoc(item) : canPlan()) ? item : null;
+}
+Screens.slides = (tail) => {
+  const [kind, ...parts] = tail.split("-"), id = parts.join("-");
+  const item = editableSlideDeck(kind, id);
+  if (!item) return { redirect: "ministry" };
+  const { slides, back } = slidesFor(kind, id);
+  return { title: "Slide backgrounds", back, body: html`
+    <div class="rows">${slides.map((slide, index) => html`<button class="row" data-act="slide-design" data-kind="${kind}" data-id="${id}" data-key="${slide.editKey}">
+      <span class="body"><span class="t">${index + 1}. ${slide.section || item.title} · ${slideLabel(slide)}</span></span>${icon("edit")}
+    </button>`)}</div>` };
+};
+Actions["slide-design"] = (el) => {
+  const { kind, id, key } = el.dataset, item = editableSlideDeck(kind, id);
+  const slide = item && slidesFor(kind, id).slides.find((s) => s.editKey === key);
+  if (!slide) return;
+  const design = item.slideDesign?.[key] || {};
+  openSheet("Edit slide", html`<form data-form="slide-design" novalidate>
+    <input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${id}"><input type="hidden" name="key" value="${key}">
+    ${bgField(design, "Slide background", "Remove a custom background to use the default for this slide.")}
+    ${slide.kind === "logo" ? slideLogoField(design.showLogo) : ""}
+    <button class="btn">Save slide</button></form>`);
+};
+Forms["slide-design"] = (d, form) => {
+  const item = editableSlideDeck(d.kind, d.id);
+  const slide = item && slidesFor(d.kind, d.id).slides.find((s) => s.editKey === d.key);
+  if (!slide) return formError(form, "This slide is no longer available.");
+  if (!validSlideBackground(d.bg)) return formError(form, "Choose an image or a background from the media library.");
+  const designs = { ...item.slideDesign };
+  if (d.bg || (slide.kind === "logo" && !d.showLogo)) {
+    designs[d.key] = { bg: d.bg || "", showLogo: slide.kind !== "logo" || !!d.showLogo };
+  } else delete designs[d.key];
+  item.slideDesign = designs;
+  if (d.kind === "doc") item.updated = new Date().toISOString();
+  S.flush();
+  closeSheet(true);
+  render();
 };

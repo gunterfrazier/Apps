@@ -62,7 +62,7 @@ Screens.service = (id) => {
     body: html`${planHead(p)}
       <p class="muted" style="margin-top:4px">${plural(p.segments.length, "segment")}, ${planMinutes(p)} minutes.</p>
       <div class="btns">${S.can("present") ? html`<a class="btn sm" href="#present-service-${p.id}">${icon("screen")}Present</a>` : ""}
-        ${edit ? html`<button class="btn ghost sm" data-act="plan-details" data-id="${p.id}">${icon("edit")}Details</button><button class="btn ghost sm" data-act="layout-save" data-kind="service" data-id="${p.id}">${icon("layers")}Save as layout</button><button class="btn ghost sm" data-act="plan-dup" data-id="${p.id}">${icon("copy")}Copy to next week</button>` : ""}</div>
+        ${edit ? html`<a class="btn ghost sm" href="#slides-service-${p.id}">${icon("image")}Edit slides</a><button class="btn ghost sm" data-act="plan-details" data-id="${p.id}">${icon("edit")}Details</button><button class="btn ghost sm" data-act="layout-save" data-kind="service" data-id="${p.id}">${icon("layers")}Save as layout</button><button class="btn ghost sm" data-act="plan-dup" data-id="${p.id}">${icon("copy")}Copy to next week</button>` : ""}</div>
       ${p.notes ? html`<p class="panel" style="margin-top:12px">${icon("lock")} ${p.notes}</p>` : ""}
       <section class="sec"><div class="sec-head"><h2>Order of service</h2>${edit && p.segments.length > 1 ? html`<span class="faint">Drag ${icon("grip")} to reorder</span>` : ""}</div>
       <div class="blocks" id="sort-list">${p.segments.length ? p.segments.map((s, i) => {
@@ -172,8 +172,15 @@ Actions["plan-delete"] = (el) => { S.remove("services", el.dataset.id); closeShe
 Actions["plan-dup"] = (el) => {
   const p = S.get("services", el.dataset.id);
   const date = isoDay(new Date(fromIsoDay(p.date).getTime() + 7 * DAY));
-  const n = S.add("services", { ...JSON.parse(JSON.stringify(p)), id: undefined, date, segments: p.segments.map((s) => ({ ...JSON.parse(JSON.stringify(s)), id: uid() })) });
-  n.id = uid(); S.save(); toast(`Copied to ${fmtShort(fromIsoDay(date))}`); go(`service-${n.id}`);
+  const copy = JSON.parse(JSON.stringify(p));
+  const oldSegments = copy.segments;
+  const segments = oldSegments.map((s) => ({ ...s, id: uid() }));
+  const slideDesign = Object.fromEntries(Object.entries(copy.slideDesign || {}).map(([key, value]) => {
+    const [type, oldId, ...rest] = key.split(":");
+    const index = type === "segment" ? oldSegments.findIndex((s, i) => String(s.id || i) === oldId) : -1;
+    return [index < 0 ? key : ["segment", segments[index].id, ...rest].join(":"), value];
+  }));
+  const n = S.add("services", { ...copy, id: uid(), date, segments, slideDesign }); toast(`Copied to ${fmtShort(fromIsoDay(date))}`); go(`service-${n.id}`);
 };
 
 // ----- Saved segments -----

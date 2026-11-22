@@ -2005,6 +2005,13 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 @media (max-width: 520px) { .mf-dialog { width: 100vw; max-width: 100vw; max-height: 92vh; margin: auto 0 0; border-radius: 22px 22px 0 0; } .mf-grid { grid-template-columns: repeat(2, 1fr); } }
 .slide.has-bg { background: #000; }
 .slide.has-bg > :not(.slide-bg) { position: relative; z-index: 2; }
+
+.sg-slide.has-bg > .sg-welcome { position: absolute; }
+.sg-slide.has-bg:is(.k-image, .k-video) > .sg-image { position: absolute; inset: 8%; width: 84%; height: 84%; background: transparent; }
+.sg-slide.has-bg.k-image > .sg-caption { position: absolute; }
+.slide.has-bg.k-media > .slide-image { position: absolute; inset: 8%; width: 84%; height: 84%; }
+.slide.has-bg.k-media > .slide-caption { position: absolute; }
+
 .slide.has-bg .slide-title, .slide.has-bg .slide-lyrics, .slide.has-bg .slide-verses, .slide.has-bg .slide-point, .slide.has-bg .slide-keynote, .slide.has-bg .slide-body, .slide.has-bg .slide-sub, .slide.has-bg .slide-kicker, .slide.has-bg .slide-countdown { text-shadow: 0 0.3cqw 2cqw rgba(0, 0, 0, .55); }
 
 /* Keep lyrics and previews inside the stage panel so they cannot displace controls. */
