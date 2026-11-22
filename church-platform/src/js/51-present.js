@@ -70,6 +70,7 @@ function serviceSlides(p) {
 }
 function slidesFor(kind, id) {
   if (kind === "doc") { const d = S.get("docs", id); return d ? { title: d.title, slides: docSlides(d).map((s) => ({ ...s, section: s.section || d.title })), back: canEditDoc(d) ? `build-${d.id}` : "ministry" } : null; }
+  if (kind !== "service") return null;
   const p = S.get("services", id); return p ? { title: p.title, slides: serviceSlides(p), back: `service-${p.id}` } : null;
 }
 
@@ -150,7 +151,8 @@ window.addEventListener("hashchange", (e) => {
 });
 Screens.present = (tail) => {
   const [kind, ...rest] = tail.split("-"); const id = rest.join("-");
-  const data = slidesFor(kind, id);
+  const item = S.get(kind === "doc" ? "docs" : "services", id);
+  const data = item?.churchId === S.state.current ? slidesFor(kind, id) : null;
   if (!data || !S.isMember() || !(S.can("present") || (kind === "doc" && canEditDoc(S.get("docs", id))) || (pres.room && pres.key === tail))) return { redirect: "ministry" };
   if (pres.key !== tail) Object.assign(pres, { key: tail, index: 0, live: null, black: false, logo: false, msg: "", startedAt: Date.now(), segKey: "" });
   const { slides } = data;
@@ -166,7 +168,7 @@ Screens.present = (tail) => {
   let lastSection = null;
   return {
     present: true,
-    page: html`<div class="present ${pres.mode}">
+    page: html`<div class="present ${stageMode ? "operator-stage" : pres.mode}">
       <header class="present-bar"><a class="icon-btn" href="#${thisDevice() ? "booth" : inRoom ? `roompresent-${roomKey(pres.room.loc, pres.room.room)}` : data.back}" aria-label="Back">${icon("back")}</a><b class="present-title">${data.title}</b>
         <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a>${inRoom ? "" : html`<a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a>`}</nav></header>
       ${inRoom ? roomStrip() : ""}${mediaStrip()}
@@ -174,6 +176,7 @@ Screens.present = (tail) => {
       : html`<div class="present-main">
         ${stageMode ? stageMonitor(data, pres) : html`<div class="stage" id="stage" aria-live="polite" aria-label="Slide ${pres.index + 1} of ${slides.length}">${slideHtml(shown)}</div>`}
         <div class="present-controls">
+          ${orientationSelect()}
           <button class="btn ghost" data-act="pres-go" data-d="-1" aria-label="Previous slide" ${attr(!L && pres.index === 0, "disabled")}>${icon("prev")}</button>
           <span class="present-count">${L ? html`<b class="live-tag">${L.label}</b> ${L.i + 1} / ${L.slides.length}` : `${pres.index + 1} / ${slides.length}`}</span>
           <button class="btn" data-act="pres-go" data-d="1" aria-label="Next slide" ${attr(!next, "disabled")}>${icon("next")}Next</button>
@@ -240,7 +243,7 @@ Actions["pres-section"] = (el) => {
 Actions["pres-black"] = () => { pres.black = !pres.black; pres.logo = false; render(); };
 Actions["pres-logo"] = () => { pres.logo = !pres.logo; pres.black = false; render(); };
 Actions["pres-mode"] = (el) => { pres.mode = el.dataset.mode; render(); };
-Actions["pres-full"] = async () => { const st = $("#stage"); try { await st.requestFullscreen(); } catch { toast("Full screen isn't available here"); } };
+Actions["pres-full"] = async () => { const st = $("#stage") || $(".operator-stage"); try { await st.requestFullscreen(); } catch { toast("Full screen isn't available here"); } };
 Actions["pres-window"] = (el) => {
   const w = window.open(`${location.pathname}#display-${el.dataset.key}`, "our-faithful-display", "popup,width=1280,height=720");
   if (!w) toast("Allow pop-ups to open the display window"); else setTimeout(presBroadcast, 800);
@@ -278,4 +281,14 @@ Screens.display = (tail) => {
   draw();
   if (Backend.on) Backend.onBroadcast((m) => presChannel?.onmessage?.({ data: m }));
   if (presChannel) presChannel.onmessage = (e) => { if (!e.data?.room && mediaIntercept(e.data, () => draw(last))) return; if (e.data?.key === tail && !e.data.room && location.hash === `#display-${tail}`) { S.load(); if (e.data.church) S.state.current = e.data.church; draw(e.data); } };
+};
+
+Screens.presenter = () => {
+  if (!S.isMember() || !S.can("present")) return { redirect: "home" };
+  const sermons = S.visible("docs").filter((d) => d.kind === "sermon").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const plans = plansInView().filter((p) => p.date >= isoDay(new Date()) && slidesFor("service", p.id));
+  const row = (kind, item, details) => html`<a class="row" href="#present-${kind}-${item.id}"><span class="lead-ic">${icon("screen")}</span><span class="body"><span class="t">${item.title}</span><span class="s">${details}</span></span>${icon("chev")}</a>`;
+  return { title: "Presenter", back: "home", body: html`
+    <section class="sec"><h2>Upcoming services</h2><div class="rows">${plans.length ? plans.map((p) => row("service", p, p.date)) : empty("No upcoming presentations.")}</div></section>
+    <section class="sec"><h2>Sermons</h2><div class="rows">${sermons.length ? sermons.map((s) => row("doc", s, s.passage)) : empty("No sermon presentations.")}</div></section>` };
 };

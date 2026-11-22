@@ -115,6 +115,7 @@ Screens.gathering = (id) => {
       ${g.description ? html`<p class="lead">${g.description}</p>` : ""}
       ${g.topic ? html`<p><span class="faint">Topic</span><br><b>${g.topic}</b></p>` : ""}
       ${registrationPanel(g, entries)}
+      ${arrivalCheckin?.church === S.state.current && arrivalCheckin.user === S.me().id ? html`<p><a href="#checkin">Return to kids check-in</a></p>` : ""}
       <div class="btns">
         ${next ? ext(gcalLink(g.name, next, new Date(next.getTime() + 90 * 60e3), g.description, fullAddress(g)), "Add to Google Calendar", "btn ghost sm", "calendar") : ""}
         ${(isIn(g) || isLeader(g)) && S.on("chat") && S.can("use.chat") ? html`<a class="btn ghost sm" href="#thread-g-${g.id}">${icon("chat")}${g.type === "class" ? "Class chat" : "Group chat"}</a>` : ""}

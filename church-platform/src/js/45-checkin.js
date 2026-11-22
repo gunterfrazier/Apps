@@ -5,11 +5,12 @@ const kids = () => S.me().household.filter((p) => p.kind === "child");
 const familyOf = (userId) => (userId === S.me().id ? S.me().household : S.user(userId)?.family) || [];
 const pickupsOf = (userId) => (userId === S.me().id ? S.me().pickups : S.user(userId)?.pickups) || [];
 /** Allergy first and loud, then any other care notes. */
-const careHtml = (k) => html`${k.allergies ? html`<b class="allergy">${icon("info")}Allergy: ${k.allergies}</b>` : ""}${k.notes ? html`<span class="care">${k.notes}</span>` : ""}`;
+const careHtml = (k) => html`${k.allergies ? html`<b class="allergy">${icon("info")}Allergy: ${k.allergies}</b>` : ""}${k.notes ? html`<span class="care">${k.notes}</span>` : ""}${Object.entries(k.care || {}).map(([key, value]) => html`<span class="care"><b>${CHILD_INTAKE[key]}</b> ${value}</span>`)}`;
 const myActiveCheckins = () => {
   const today = isoDay(new Date());
   return S.list("checkins").filter((c) => c.by === S.me().id && !c.out && c.serviceKey.slice(0, 10) >= today).sort((a, b) => a.serviceKey.localeCompare(b.serviceKey));
 };
+let arrivalCheckin = null;
 let checkinOnly = null; // set by the parent portal to pre-select one child
 
 function kidTags(active) {
@@ -25,24 +26,46 @@ Screens.checkin = () => {
   if (!S.on("checkin")) return { redirect: "home" };
   if (!S.isMember()) return { title: "Check in", back: "home", body: needMember("check in your kids") };
   if (!S.can("use.checkin")) return { title: "Check in", back: "home", body: noAccess("kids check-in") };
-  const services = upcomingServices(c, 4);
+  const arrival = arrivalCheckin?.church === c.id && arrivalCheckin.user === S.me().id ? arrivalCheckin : null;
+  const nearby = upcomingServices(c, 4);
+  const arrivalService = arrival && findService(arrival.key, 16);
+  const services = arrivalService ? [arrivalService, ...nearby.filter((s) => serviceKey(s) !== arrival.key)] : nearby;
   const active = myActiveCheckins();
   const list = kids();
+  const classOptions = arrival && arrivalService && S.on("classes") ? S.visible("gatherings", { ignoreCampus: true }).filter((g) =>
+    g.type === "class" && g.ageMin != null && g.registration !== "none"
+    && (!g.locationId || g.locationId === arrivalService.location?.id) && nextMeeting(g)
+    && list.some((child) => {
+      const age = ageFrom(child.birth);
+      return arrival.kids.includes(child.id) && age != null && age >= g.ageMin && age <= g.ageMax
+        && !myEntries(g).some((entry) => entry.childId === child.id);
+    })
+  ) : [];
   const only = checkinOnly; checkinOnly = null;
   return {
     title: "Check in", back: "home",
+    after() {
+      if (arrival?.addChild) { arrival.addChild = false; Actions["arrival-add-child"](); }
+    },
     body: html`
       ${active.length ? html`<section class="sec" style="margin-top:16px"><h2 class="sec-head">Checked in</h2>${kidTags(active)}
         <p class="faint">Show these at the kids check-in desk. Staff match the code before your kids leave.</p></section>` : ""}
 
       <section class="sec" style="margin-top:16px"><h2 class="sec-head">Check in kids</h2>
+      ${arrival ? html`<div class="btns"><button class="btn ghost" data-act="arrival-add-child">Register a child</button>
+        ${S.on("classes") ? html`<a class="btn ghost" href="#classes">Find class registration</a>` : ""}</div>` : ""}
+      ${classOptions.length ? html`<details class="panel">
+        <summary>Class registration options for your group</summary>
+        <p>These classes require registration and match the ages of selected children who have no registration for that class.</p>
+        <div class="rows">${classOptions.map(gatheringRow)}</div>
+      </details>` : ""}
       ${!list.length ? html`<div class="panel"><p style="margin-top:0">Add your kids once, then check them in from your phone before you get to church.</p><a class="btn" href="#household">${icon("plus")}Add your kids</a></div>`
         : !services.length ? html`<div class="panel">${empty("No services are scheduled.")}</div>`
         : html`<form data-form="checkin" class="panel" novalidate>
           <fieldset class="field" style="border:0;padding:0;margin-top:0"><legend style="font-weight:700;margin-bottom:6px">Service</legend>
             ${services.map((s, i) => html`<label class="check" style="padding:6px 0"><input type="radio" name="service" value="${serviceKey(s)}" ${attr(i === 0, "checked")}><span>${serviceName(s)}${s.live ? html` <span class="tag warn">Now</span>` : ""}</span></label>`)}</fieldset>
           <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Who's coming?</legend>
-            ${list.map((k) => { const room = roomFor(c, k.birth); return html`<label class="check"><input type="checkbox" name="kids" value="${k.id}" ${attr(!only || only === k.id, "checked")}><span><b>${k.name}</b><br><span class="faint">${room.name}${ageFrom(k.birth) != null ? `, age ${ageFrom(k.birth)}` : ""}</span>${careHtml(k)}</span></label>`; })}</fieldset>
+            ${list.map((k) => { const room = roomFor(c, k.birth); return html`<label class="check"><input type="checkbox" name="kids" value="${k.id}" ${attr(arrival ? arrival.kids.includes(k.id) : !only || only === k.id, "checked")}><span><b>${k.name}</b><br><span class="faint">${room.name}${ageFrom(k.birth) != null ? `, age ${ageFrom(k.birth)}` : ""}</span>${careHtml(k)}</span></label>`; })}</fieldset>
           <button class="btn block">Check in</button>
           <p class="faint" style="margin-bottom:0"><a href="#household">Edit your household</a>${S.on("parents") ? html`, or open the <a href="#parents">parent portal</a>` : ""}</p>
         </form>`}
@@ -55,7 +78,7 @@ function findService(key, count = 6) { return upcomingServices(S.church(), count
 /** Checks in kids from one family. via: "phone" (a parent's own phone), "kiosk" or "staff". */
 function checkInKids(ids, key, familyId = S.me().id, via = "phone") {
   const c = S.church(), parent = S.user(familyId), fam = familyOf(familyId);
-  const svc = findService(key, 10);
+  const svc = findService(key, 16);
   if (!svc) return { error: "Choose a service." };
   const existing = S.list("checkins").filter((x) => x.by === familyId && x.serviceKey === key && !x.out);
   const code = existing[0]?.code || securityCode();
@@ -63,7 +86,7 @@ function checkInKids(ids, key, familyId = S.me().id, via = "phone") {
   ids.forEach((id) => {
     const k = fam.find((p) => p.id === id);
     if (!k || existing.some((x) => x.childId === id)) return;
-    const rec = S.add("checkins", { by: familyId, parentName: parent?.name || "Parent", childId: id, childName: k.name, birth: k.birth || "", allergies: k.allergies || "", notes: k.notes || "", room: roomFor(c, k.birth).name, code, serviceKey: key, serviceName: serviceName(svc), locationId: svc.location?.id || null, at: new Date().toISOString(), out: null, via });
+    const rec = S.add("checkins", { by: familyId, parentName: parent?.name || "Parent", childId: id, childName: k.name, birth: k.birth || "", allergies: k.allergies || "", notes: k.notes || "", care: k.care || {}, room: roomFor(c, k.birth).name, code, serviceKey: key, serviceName: serviceName(svc), locationId: svc.location?.id || null, at: new Date().toISOString(), out: null, via });
     emit("checkin.created", { child: rec.childName, room: rec.room, service: rec.serviceName, parent: rec.parentName, allergies: rec.allergies });
     added.push(rec);
   });
@@ -74,6 +97,7 @@ Forms.checkin = (d, f, fd) => {
   if (!ids.length) return formError(f, "Choose at least one child.");
   const r = checkInKids(ids, d.service);
   if (r.error) return formError(f, r.error);
+  arrivalCheckin = null;
   toast(r.added ? `Checked in. Pickup code ${r.code}` : "Already checked in");
   render();
 };
@@ -109,10 +133,10 @@ Screens.household = () => {
   const people = S.me().household;
   return {
     title: "Your household", back: "me",
-    body: html`<p class="muted" style="margin-top:16px">Kids added here can be registered for classes and events and checked in at any church you belong to. Care notes print on their name tag.</p>
+    body: html`<p class="muted" style="margin-top:16px">Kids added here can be registered for classes and events and checked in at any church you belong to. Allergies print on name tags. Care instructions are available to authorized check-in staff.</p>
       <div class="rows">${people.length ? people.map((p) => html`<button class="row" data-act="person-edit" data-id="${p.id}">${avatar(p)}<span class="body"><span class="t">${p.name}</span><span class="s">${p.kind === "child" ? `Child${ageFrom(p.birth) != null ? `, age ${ageFrom(p.birth)}` : ""}` : "Adult"}</span>${careHtml(p)}</span>${icon("edit")}</button>`)
         : empty("Nobody added yet.")}</div>
-      <div class="btns"><button class="btn" data-act="person-edit">${icon("plus")}Add someone</button>${kids().length && S.on("parents") ? html`<a class="btn ghost" href="#parents">Parent portal</a>` : ""}</div>
+      <div class="btns"><button class="btn" data-act="person-edit">${icon("plus")}Add someone</button><a class="btn ghost" href="#familylinks">Linked family accounts</a>${kids().length && S.on("parents") ? html`<a class="btn ghost" href="#parents">Parent portal</a>` : ""}</div>
       ${kids().length ? html`<section class="sec"><div class="sec-head"><h2>Who can pick up your kids</h2><button class="btn ghost sm" data-act="pickup-edit">${icon("plus")}Add</button></div>
         <p class="faint" style="margin-top:-4px">You can always pick up your own kids. Add anyone else, with a photo, so staff can check who they're handing your kids to.</p>
         <div class="rows">${(S.me().pickups || []).length ? S.me().pickups.map((p) => html`<button class="row" data-act="pickup-edit" data-id="${p.id}">${pickupFace(p)}<span class="body"><span class="t">${p.name}</span><span class="s">${[p.relation, p.phone].filter(Boolean).join(", ")}</span></span>${icon("edit")}</button>`) : empty("Nobody else added.")}</div></section>` : ""}`,
@@ -141,10 +165,11 @@ Actions["person-edit"] = (el) => {
   openSheet(p.id ? `Edit ${p.name}` : "Add to your household", html`<form data-form="person-save" novalidate><input type="hidden" name="id" value="${p.id || ""}">
     <label class="field"><span>Name</span><input type="text" name="name" value="${p.name || ""}" required maxlength="60"></label>
     <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">This person is</legend><div class="radios">
-      <label><input type="radio" name="kind" value="child" ${attr(p.kind === "child", "checked")}><span>A child</span></label>
-      <label><input type="radio" name="kind" value="adult" ${attr(p.kind === "adult", "checked")}><span>An adult</span></label></div></fieldset>
+      <label><input type="radio" name="kind" data-change="person-kind" value="child" ${attr(p.kind === "child", "checked")}><span>A child</span></label>
+      <label><input type="radio" name="kind" data-change="person-kind" value="adult" ${attr(p.kind === "adult", "checked")}><span>An adult</span></label></div></fieldset>
     ${birthdayField("birth", "Birthday", p.birth || "", "Used to find the right classes and kids room.")}
     <label class="field"><span>Allergies</span><input type="text" name="allergies" value="${p.allergies || ""}" maxlength="60" placeholder="Peanuts, tree nuts"><small>Printed in bold on name tags and shown to teachers.</small></label>
+    <div data-child-intake ${attr(p.kind !== "child", "hidden")}>${childIntakeFields(p.care)}</div>
     <label class="field"><span>Other care notes</span><input type="text" name="notes" value="${p.notes || ""}" maxlength="80" placeholder="Has an inhaler in her bag"></label>
     <div class="btns"><button class="btn">${p.id ? "Save" : "Add"}</button>${p.id ? html`<button type="button" class="btn danger" data-act="person-remove" data-id="${p.id}">Remove</button>` : ""}</div></form>`);
 };
@@ -153,7 +178,35 @@ Forms["person-save"] = (d, f) => {
   const bad = birthdayProblem(f, "birth"); if (bad) return formError(f, `Birthday: ${bad}`);
   const list = S.me().household;
   const rec = { name: d.name, kind: d.kind || "child", birth: d.birth || "", allergies: d.allergies || "", notes: d.notes || "" };
-  if (d.id) Object.assign(list.find((x) => x.id === d.id), rec); else list.push({ id: uid(), ...rec });
+  rec.care = rec.kind === "child" ? readChildIntake(d) : {};
+  if (d.id) {
+    const existing = list.find((x) => x.id === d.id);
+    if (!existing) return formError(f, "This household entry is no longer available.");
+    Object.assign(existing, rec);
+  } else {
+    const id = uid();
+    list.push({ id, ...rec });
+    if (rec.kind === "child" && arrivalCheckin?.church === S.state.current && arrivalCheckin.user === S.me().id && location.hash === "#checkin") arrivalCheckin.kids.push(id);
+  }
   S.save(); closeSheet(); toast(d.id ? "Saved" : `${d.name} added`); render();
 };
 Actions["person-remove"] = (el) => { S.me().household = S.me().household.filter((x) => x.id !== el.dataset.id); S.save(); closeSheet(); render(); };
+
+Inputs["person-kind"] = (el) => { $("[data-child-intake]", el.form).hidden = el.value !== "child"; };
+
+const CHILD_INTAKE = {
+  participation: "What helps your child participate and feel comfortable?",
+  communication: "How does your child communicate needs or ask for help?",
+  health: "Are there health needs or emergency instructions staff should know?",
+  safety: "Are there safety concerns or extra supervision needs?",
+};
+function childIntakeFields(care = {}, suffix = "") {
+  return html`<fieldset class="field"><legend>Child care questionnaire (optional)</legend>
+    <p class="muted">Share what the team needs to care for your child. You can include accessibility needs, sensory preferences, or practical steps that help.</p>
+    ${Object.entries(CHILD_INTAKE).map(([key, label]) => html`<label class="field"><span>${label}</span><textarea name="care-${key}${suffix}" rows="2" maxlength="400">${care[key] || ""}</textarea></label>`)}
+  </fieldset>`;
+}
+function readChildIntake(data, suffix = "") {
+  return Object.fromEntries(Object.keys(CHILD_INTAKE).map((key) => [key, String(data[`care-${key}${suffix}`] || "").slice(0, 400)]).filter(([, value]) => value));
+}
+Actions["arrival-add-child"] = () => Actions["person-edit"]({ dataset: {} });

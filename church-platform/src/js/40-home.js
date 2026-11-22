@@ -52,6 +52,7 @@ Screens.churches = () => {
     body: html`
       ${mine.length ? html`<section class="sec"><h2 class="sec-head">Your churches</h2><div class="rows">${mine.map((c) => html`
         <button class="row" data-act="switch-church" data-id="${c.id}">${churchMark(c)}<span class="body"><span class="t">${c.name}</span><span class="s">${S.deactivated(c) ? `Deleted for good on ${longDay(deactOf(c).purgeAt)} unless you reactivate it` : S.role(c.id).name}</span></span>${S.deactivated(c) ? html`<span class="tag warn">Deactivated</span>` : c.id === S.state.current ? html`<span class="tag brand">Open</span>` : icon("chev")}</button>`)}</div></section>` : ""}
+      <p><a class="linkish" href="#help">Help &amp; support</a></p>
       <section class="sec">
         <label class="field search-field"><span class="sr">Search by name, city or church ID</span>${icon("search")}<input type="search" placeholder="Search by name, city or church ID" data-input="filter-rows" data-target="#church-list" data-empty="#church-none"></label>
         <div class="card-list" id="church-list">${all.map(churchCard)}</div>
@@ -91,7 +92,19 @@ Screens.church = (id) => {
 Actions["join-church"] = (el) => {
   const c = S.church(el.dataset.id);
   if (!S.me().name) { pendingRoute = `church-${c.id}`; go("welcome"); return; }
-  S.join(c.id); toast(`Welcome to ${c.name}`); go("home");
+  if (S.isMember(c.id) || c.training) { S.join(c.id); go("home"); return; }
+  openSheet(`Welcome to ${c.name}`, html`<p>How do you currently attend this church?</p>
+    <div class="btns stack">${Object.entries(CHURCH_ATTENDEE_TYPES).map(([status, label]) => html`<button class="btn ghost block" data-act="join-with-status" data-id="${c.id}" data-status="${status}">${label}</button>`)}</div>`);
+};
+const CHURCH_ATTENDEE_TYPES = { first: "First-time visitor", returning: "Returning visitor", member: "Member" };
+Actions["join-with-status"] = (el) => {
+  const { id, status } = el.dataset;
+  if (!S.church(id) || !Object.hasOwn(CHURCH_ATTENDEE_TYPES, status) || S.isMember(id)) return;
+  S.state.churchAttendeeTypes ||= {};
+  S.state.churchAttendeeTypes[id] = status;
+  S.join(id);
+  if (status === "first" && welcomeOf().ask) firstVisitCardFor = id;
+  closeSheet(true); go("home");
 };
 
 // ---------- Registering a church account ----------
@@ -163,16 +176,20 @@ function quickActions() {
   const live = upcomingServices(c, 3).find((s) => s.live);
   const hasKidsRegs = S.list("gatherings").some((g) => kidsIn(g).length) || S.list("events").some((e) => myRegistration(e)?.kids?.length);
   const items = [
+    member && S.can("present") && ["#presenter", "screen", "Presenter"],
+    member && (S.list("services").some((p) => (p.assignments || []).some((a) => a.userId === S.me().id && a.status !== "declined")) || myTeams().length) && ["#serving", "hand", "Serving"],
+    member && S.can("checkin.station") && S.on("checkin") && ["#station", "kid", "Check-in station"],
+    member && S.can("schedule.teams") && ["#teams", "people", "Schedule teams"],
+    hasMinistryTools() && ["#ministry", "layers", "Ministry"],
+    hasAdminTools() && ["#admin", "shield", "Admin"],
     S.on("checkin") && member && S.can("use.checkin") && ["#checkin", "kid", "Check in"],
     S.on("giving") && ["#give", "give", "Give"],
     S.on("prayer") && ["#connect", "pray", "Prayer"],
     S.on("live") && ["#live", live ? "live" : "play", live ? "Watch live" : "Watch"],
     S.on("classes") && ["#classes", "door", "Classes"],
     S.on("parents") && member && hasKidsRegs && ["#parents", "kid", "Parents"],
-    hasMinistryTools() && ["#ministry", "layers", "Ministry"],
-    hasAdminTools() && ["#admin", "shield", "Admin"],
     ["#scan", "scan", "Scan"],
-  ].filter(Boolean).slice(0, 8);
+  ].filter(Boolean);
   return html`<div class="quick">${items.map(([href, ic, label]) => html`<a href="${href}"><span class="ic">${icon(ic)}</span>${label}</a>`)}</div>`;
 }
 
