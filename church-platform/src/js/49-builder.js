@@ -105,6 +105,7 @@ Screens.build = (id) => {
       <p class="muted" style="margin-top:4px">${[d.passage, g?.name, `${fmtDay(fromIsoDay(d.date))}${d.time ? ` at ${timeLabel(d.time)}` : ""}`, d.locationId && multiCampus() ? locName(d.locationId) : ""].filter(Boolean).join(". ")}</p>
       <div class="btns">
         ${S.can("present") || canEditDoc(d) ? html`<a class="btn sm" href="#present-doc-${d.id}">${icon("screen")}Present</a>` : ""}
+        <a class="btn ghost sm" href="#slides-doc-${d.id}">${icon("image")}Edit slides</a>
         <a class="btn ghost sm" href="#resource-${d.id}">${icon("note")}Presenter page</a>
         <button class="btn ghost sm" data-act="doc-details" data-id="${d.id}">${icon("edit")}Details</button>
         <button class="btn ghost sm" data-act="layout-save" data-kind="doc" data-id="${d.id}">${icon("layers")}Save as layout</button>

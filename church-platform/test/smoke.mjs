@@ -1264,6 +1264,70 @@ await step("song sections", async () => {
   if (!(await page.textContent("#stage")).includes("Perfect submission, perfect delight")) throw new Error("didn't carry on with Verse 2");
   await tv.close(); await page.setViewportSize({ width: 390, height: 844 });
 });
+await step("individual slide backgrounds and welcome logo", async () => {
+  await goTo("home");
+  const imagePath = join(root, "icons", "icon-192.png");
+  const original = await page.evaluate(() => {
+    const { S } = __app, c = S.church();
+    const plan = S.get("services", "riverside-svc-1"), playlist = S.get("signage", "sign-lobby");
+    const doc = S.get("docs", "riverside-doc-vine");
+    const was = { owner: c.ownerId, logo: c.logo, banner: c.banner, plan: plan.slideDesign, slides: structuredClone(playlist.slides), docDesign: doc.slideDesign, updated: doc.updated };
+    c.ownerId = S.me().id;
+    c.logo = location.origin + "/icons/icon-192.png";
+    c.banner = { ...c.banner, bg: { type: "image", image: c.logo } };
+    S.flush();
+    return was;
+  });
+  const upload = async () => {
+    await page.locator('#scrim input[type=file][data-field="bg"]').setInputFiles(imagePath);
+    await page.waitForSelector('#scrim [data-preview="bg"] img[src^="data:image/"]');
+  };
+  try {
+    await goTo("signedit-sign-lobby");
+    await page.locator(".sign-preview .sg-welcome").waitFor();
+    if (await page.locator(".sign-preview .sg-welcome .sg-mark").count()) throw new Error("The welcome slide duplicated its background logo");
+    await page.locator('[data-act="sign-slide"][data-i="0"]').click();
+    await upload();
+    await page.locator('#scrim input[name="showLogo"]').uncheck();
+    await sheetSubmit(); await sheetGone();
+    await page.locator('.sign-preview .k-welcome > img.sg-bg').waitFor();
+    await page.locator('[data-act="sign-slide"][data-i="1"]').click();
+    await upload();
+    await sheetSubmit(); await sheetGone();
+    await page.locator('[data-act="sign-pick"]').click();
+    await page.locator('.sign-preview .k-services > img.sg-bg').waitFor();
+    await goTo("service-riverside-svc-1");
+    await page.getByRole("link", { name: "Edit slides" }).click();
+    const first = page.locator('[data-act="slide-design"][data-key="before"]');
+    await first.click();
+    await upload();
+    await page.locator('#scrim input[name="showLogo"]').uncheck();
+    await sheetSubmit(); await sheetGone();
+    await goTo("present-service-riverside-svc-1");
+    await page.locator('[data-act="pres-jump"][data-i="0"]').click();
+    await page.locator('#stage .k-logo > img.slide-bg').waitFor();
+    if (await page.locator("#stage .slide-logo").count()) throw new Error("Foreground logo was not hidden");
+    await page.getByRole("button", { name: "Next slide" }).click();
+    if (await page.locator("#stage img.slide-bg").count()) throw new Error("Custom background spread to the next slide");
+    await goTo("slides-doc-riverside-doc-vine");
+    await page.locator('[data-act="slide-design"][data-key="title"]').click();
+    await upload();
+    await sheetSubmit(); await sheetGone();
+    await goTo("present-doc-riverside-doc-vine");
+    await page.locator("#stage .k-title > img.slide-bg").waitFor();
+  } finally {
+    await page.evaluate((was) => {
+      const { S, pres } = __app, c = S.church();
+      Object.assign(c, { ownerId: was.owner, logo: was.logo, banner: was.banner });
+      S.get("services", "riverside-svc-1").slideDesign = was.plan;
+      S.get("signage", "sign-lobby").slides = was.slides;
+      Object.assign(S.get("docs", "riverside-doc-vine"), { slideDesign: was.docDesign, updated: was.updated });
+      pres.index = 0; pres.key = "";
+      S.flush();
+    }, original);
+    await goTo("home");
+  }
+});
 await step("digital signage", async () => {
   await goTo("signs"); await page.waitForSelector(".sign-card"); await shot("40-signs");
   await page.click(".sign-card >> nth=0"); await page.waitForSelector(".sign-preview .sg-stage");
