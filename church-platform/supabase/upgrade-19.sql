@@ -1,5 +1,8 @@
 -- Version 19: Explicit security roles and customizable declaration levels.
 -- Run after upgrade-18.sql. This does not enroll any members or increase existing supervisor overrides.
+-- Safe to rerun if version 19 was partially or fully applied. Replace its policies in one transaction.
+
+begin;
 
 -- Internal access tiers gate tools independently of a person's direct declaration level.
 create or replace function security_access(c text, person uuid) returns int
@@ -112,17 +115,23 @@ $$;
 revoke execute on function security_record_read(text,text,text), security_record_write(text,text,text,jsonb,text) from public, anon;
 grant execute on function security_record_read(text,text,text), security_record_write(text,text,text,jsonb,text) to authenticated;
 
-create policy "read security access management records" on records for select to authenticated using (
+drop policy if exists "read security access management records" on public.records;
+drop policy if exists "restrict security record reads to assigned access" on public.records;
+drop policy if exists "restrict security record inserts to assigned access" on public.records;
+drop policy if exists "restrict security record updates to assigned access" on public.records;
+drop policy if exists "restrict security record deletes to assigned access" on public.records;
+
+create policy "read security access management records" on public.records for select to authenticated using (
   kind in ('securityRoleDefaults','securityAccessAssignments','securityProtocolRequests') and security_record_read(kind, church_id, owner)
 );
-create policy "restrict security record reads to assigned access" on records as restrictive for select to authenticated
+create policy "restrict security record reads to assigned access" on public.records as restrictive for select to authenticated
   using (kind not like 'security%' or security_record_read(kind, church_id, owner));
-create policy "restrict security record inserts to assigned access" on records as restrictive for insert to authenticated
+create policy "restrict security record inserts to assigned access" on public.records as restrictive for insert to authenticated
   with check (kind not like 'security%' or security_record_write(kind, church_id, owner, data, 'insert'));
-create policy "restrict security record updates to assigned access" on records as restrictive for update to authenticated
+create policy "restrict security record updates to assigned access" on public.records as restrictive for update to authenticated
   using (kind not like 'security%' or security_record_write(kind, church_id, owner, data, 'update'))
   with check (kind not like 'security%' or security_record_write(kind, church_id, owner, data, 'update'));
-create policy "restrict security record deletes to assigned access" on records as restrictive for delete to authenticated
+create policy "restrict security record deletes to assigned access" on public.records as restrictive for delete to authenticated
   using (kind not like 'security%' or security_record_write(kind, church_id, owner, data, 'delete'));
 
 create or replace function security_protocol(c text, action text, level_no int default null,
@@ -222,3 +231,5 @@ begin
   end if;
   return jsonb_build_object('status', 'active', 'alert', approved_alert);
 end $$;
+
+commit;
