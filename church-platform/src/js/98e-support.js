@@ -59,6 +59,10 @@ Actions["family-unlink"] = async (el) => {
 Screens.help = () => {
   const church = S.church();
   return { title: "Help & support", back: church ? "me" : "churches", body: html`
+    ${Backend.user ? html`<div class="panel btns" style="margin-top:16px">
+      <span>Signed in as <b>${Backend.user.email}</b></span>
+      <button class="btn ghost" data-act="sign-out">Sign out</button>
+    </div>` : ""}
     <section class="sec panel"><h2>Get help</h2>
       <p>Include the feature, device and steps that led to the issue when you contact support.</p>
       ${church?.email ? html`<p><a class="btn ghost" href="mailto:${church.email}">Contact the church office</a></p>` : ""}

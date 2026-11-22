@@ -52,7 +52,10 @@ Screens.churches = () => {
     body: html`
       ${mine.length ? html`<section class="sec"><h2 class="sec-head">Your churches</h2><div class="rows">${mine.map((c) => html`
         <button class="row" data-act="switch-church" data-id="${c.id}">${churchMark(c)}<span class="body"><span class="t">${c.name}</span><span class="s">${S.deactivated(c) ? `Deleted for good on ${longDay(deactOf(c).purgeAt)} unless you reactivate it` : S.role(c.id).name}</span></span>${S.deactivated(c) ? html`<span class="tag warn">Deactivated</span>` : c.id === S.state.current ? html`<span class="tag brand">Open</span>` : icon("chev")}</button>`)}</div></section>` : ""}
-      <p><a class="linkish" href="#help">Help &amp; support</a></p>
+      <div class="btns">
+        <a class="btn ghost" href="#help">Help &amp; support</a>
+        ${Backend.user ? html`<button class="btn ghost" data-act="sign-out">Sign out</button>` : ""}
+      </div>
       <section class="sec">
         <label class="field search-field"><span class="sr">Search by name, city or church ID</span>${icon("search")}<input type="search" placeholder="Search by name, city or church ID" data-input="filter-rows" data-target="#church-list" data-empty="#church-none"></label>
         <div class="card-list" id="church-list">${all.map(churchCard)}</div>

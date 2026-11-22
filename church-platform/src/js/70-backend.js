@@ -43,6 +43,9 @@ const Backend = {
     } else if (/^#(access_token|refresh_token)=/.test(location.hash)) history.replaceState(null, "", location.pathname);
     this.client.auth.onAuthStateChange((evt, session) => {
       if (evt === "SIGNED_OUT") {
+        clearTimeout(this.refetch);
+        this.channel?.unsubscribe();
+        this.channel = null;
         this.user = null; this.ready = false; this.synced = false; this.snap = new Map(); S.state = blankState(); S.flush();
         // A church device that lost its session signs itself back in (render shows that it's reconnecting).
         if (DeviceSignin.get()) render(); else go(pairNotice ? "pair" : "signin");
@@ -64,7 +67,7 @@ const Backend = {
       if (pendingRoute) { const r = pendingRoute; pendingRoute = null; go(r); }
     })().finally(() => { this.starting = null; });
   },
-  async signOut() { await this.client?.auth.signOut(); },
+  async signOut() { return this.client?.auth.signOut({ scope: "local" }); },
   /** Signs a church device back in with the sign-in it saved when it was paired. Keeps trying while it's offline. */
   resumeDevice() {
     const cred = DeviceSignin.get();
@@ -518,4 +521,19 @@ Forms["account-setup"] = async (d, f) => {
   const r = pendingRoute; pendingRoute = null;
   go(r && r !== "setup" ? r : S.church() ? "home" : "churches");
 };
-Actions["sign-out"] = () => { try { localStorage.removeItem(RESET_KEY); } catch {} signinMode = ""; Backend.signOut(); };
+Actions["sign-out"] = async (button) => {
+  button.disabled = true;
+  try {
+    try { localStorage.removeItem(RESET_KEY); } catch {}
+    signinMode = "";
+    signinEmail = "";
+    setNotice("");
+    pendingRoute = null;
+    const result = await Backend.signOut();
+    if (result?.error) throw result.error;
+  } catch {
+    toast("Couldn’t sign out. Check your connection and try again.");
+  } finally {
+    button.disabled = false;
+  }
+};
