@@ -46,7 +46,7 @@ function securitySections() {
   return {
     drill: canLeadSecurity(),
     incidents: canSuperviseSecurity(),
-    doors: canSuperviseSecurity() || S.can("checkin.station"),
+    doors: canSuperviseSecurity() || (S.isMember() && doorChecksActive(S.church()) && myRequiredDoors(S.church()).length > 0),
     rollcall: canViewUnaccountedReport(),
     reunify: canSuperviseSecurity() || S.can("checkin.station"),
     medical: canSuperviseSecurity(),
@@ -335,7 +335,7 @@ function defaultDrillPlannerConfig(cid) {
   if (typeof QUIET_KINDS !== "undefined" && !QUIET_KINDS.includes("securityIncidents")) {
     QUIET_KINDS.push("securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications");
   }
-  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments", "securityRoleDefaults", "securityIncidentEvents", "securityIncidentFormTemplates", "securityIncidentReports", "securityRadioMessages"]) st[k] ||= []; };
+  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments", "securityRoleDefaults", "securityIncidentEvents", "securityIncidentFormTemplates", "securityIncidentReports", "securityRadioMessages", "securityDoorChecks"]) st[k] ||= []; };
   const prevLoad = S.load.bind(S);
   S.load = function () { prevLoad(); lists(this.state); };
   if (S.state) lists(S.state);
@@ -384,7 +384,10 @@ async function heardOnChurchChannel(m) {
     if (error || !data || S.church() !== c) return;
     const key = `churches:${c.id}`;
     const saved = JSON.parse(Backend.snap.get(key) || "null");
-    for (const field of ["activeAlert", "activeDrill"]) {
+    for (const field of ["activeAlert", "activeDrill", "securityDoors"]) {
+      // A refresh from another device should leave unsent entryway edits in place.
+      if (field === "securityDoors" && saved &&
+          JSON.stringify(c.securityDoors || []) !== JSON.stringify(saved.data.securityDoors || [])) continue;
       if (Object.prototype.hasOwnProperty.call(data.data, field)) {
         c[field] = data.data[field];
         if (saved) saved.data[field] = c[field];
@@ -827,16 +830,6 @@ async function activateSecurityProtocol(levelNum, { customNote = "", incidentId 
     if (request) request.status = "approved";
   }
 
-  // If door verification is included, reset doors to "pending" so real or simulated assignees verify them fresh
-  if (effectiveDoors) {
-    (c.securityDoors || []).forEach((d) => {
-      d.status = "pending";
-      d.verifiedBy = "";
-      d.verifiedAt = "";
-      d.issueNote = "";
-    });
-  }
-
   // If roll call & classroom headcount is included, build/refresh the roll call roster
   if (effectiveRollCall) {
     generateEmergencyRollCall({ resetForDrill: isDrill });
@@ -855,12 +848,14 @@ async function activateSecurityProtocol(levelNum, { customNote = "", incidentId 
       recipients = securityTeamUserIds();
     }
 
-    const linkTarget = isDrill ? "#security-drill" : effectiveRollCall ? "#safety-status" : effectiveDoors ? "#security-doors" : "#security";
-    recipients.forEach((u) => notify(u, {
+    const linkTarget = isDrill ? "#security-drill" : effectiveRollCall || effectiveDoors ? "#safety-status" : "#security";
+    const doorAssignees = new Set(effectiveDoors ? requiredSecurityDoors(c).map((d) => d.assignedTo).filter((u) =>
+      u && S.members().some((m) => m.userId === u) && (!isDrill || !Array.isArray(drillRealStaffIds) || drillRealStaffIds.includes(u))) : []);
+    [...new Set([...recipients, ...doorAssignees])].forEach((u) => notify(u, {
       kind: "security",
       title: `${isDrill ? "🧪 [SAFETY DRILL]" : "🚨"} ${proto.code}: ${proto.name}`,
       body: customNote || proto.broadcastText || proto.summary,
-      link: linkTarget,
+      link: doorAssignees.has(u) ? "#security-doors" : linkTarget,
     }));
   }
 
@@ -1062,7 +1057,7 @@ function securitySeg(active) {
     ["security", "Tactical Comms", isSecurityMember()],
     ["security-drill", `Drill Simulator${drillOn ? " (LIVE)" : ""}`, access.drill],
     ["security-incidents", `Incidents${openInc ? ` (${openInc})` : ""}`, access.incidents],
-    ["security-doors", "Doors & Entryways", access.doors],
+    ["security-doors", canSuperviseSecurity() ? "Doors & Entryways" : "My Door Checks", access.doors],
     ["security-rollcall", `Roll Call${unacc ? ` (${unacc})` : ""}`, access.rollcall],
     ["security-reunify", "Child Reunification", access.reunify],
     ["security-medical", "Medical & AED", access.medical],
@@ -1119,7 +1114,7 @@ Screens.security = (tail = "") => {
 };
 AdminScreens.security = () => Screens.security("protocols");
 
-function renderActiveProtocolBanner(alert) {
+function renderActiveProtocolBanner(alert, { showDoorLink = false } = {}) {
   const c = S.church();
   const proto = (c.securityProtocols || defaultSecurityProtocols()).find((p) => +p.level === +alert.level);
   const steps = proto ? myProtocolSteps(proto) : [];
@@ -1134,6 +1129,7 @@ function renderActiveProtocolBanner(alert) {
         <p style="margin:0;color:rgba(255,255,255,.92)">${alert.broadcastText || alert.summary}</p>
       </div>
       <div class="btns" style="margin:0">
+        ${showDoorLink && doorChecksActive(c) && myRequiredDoors(c).length ? html`<a class="btn sm" href="#security-doors">My Door Checks</a>` : ""}
         ${!isSafe ? html`<button type="button" class="btn sm" style="background:#16a34a;color:#fff" data-act="mark-myself-safe">${icon("check")}Mark Myself Safe</button>` : html`<span class="tag ok">You are marked SAFE</span>`}
         ${(alert.isDrill ? canLeadSecurity() : canReviewSecurity()) ? html`<button type="button" class="btn ghost sm" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.35)" data-act="sec-all-clear">Issue All Clear</button>` : ""}
       </div>
@@ -2130,114 +2126,212 @@ Actions["security-decide-request"] = async (el) => {
   render();
 };
 
-// Tab 3: Assigned Door & Entryway Verification Matrix (Level 4 & General Perimeter Security)
-function renderSecurityDoors(c) {
-  const doors = c.securityDoors ||= defaultSecurityDoors(c.id);
-  const lockedCount = doors.filter((d) => d.status === "locked").length;
-  const issueCount = doors.filter((d) => d.status === "issue").length;
-  const members = S.members().map((m) => S.user(m.userId)).filter(Boolean);
+// Doors & entryways
+const doorChecksActive = (c) => !!(c?.activeAlert?.active && c.activeAlert.requireDoorCheck);
+const requiredSecurityDoors = (c) => (c?.securityDoors || []).filter((d) => d.requiresCheck !== false);
+const myRequiredDoors = (c) => requiredSecurityDoors(c).filter((d) => d.assignedTo === S.me().id);
+const canSetUpDoors = () => canSuperviseSecurity() && !doorChecksActive(S.church());
+const entrywayAssignee = (door) => S.members().find((member) => member.userId === door.assignedTo);
 
-  return html`
-    <div class="stat-tiles" style="margin-top:14px">
-      ${statTile("Total Entryways", doors.length.toLocaleString(), "Monitored campus doors")}
-      ${statTile("Verified Locked", `${lockedCount}/${doors.length}`, pct(lockedCount, doors.length) + " secured")}
-      ${statTile("Unsecured / Issues", issueCount.toLocaleString(), issueCount ? "Immediate attention required!" : "No door issues reported")}
-    </div>
-
-    <section class="sec">
-      <div class="sec-head">
-        <h2>Assigned Door &amp; Entryway Lock Verification</h2>
-        ${isSecurityMember() ? html`<button type="button" class="btn ghost sm" data-act="sec-door-add">${icon("plus")}Add door / entryway</button>` : ""}
-      </div>
-      <p class="faint" style="margin-top:0">During a Level 3 or Level 4+ perimeter lockout, each assignee checks their assigned door and marks it <b>Verified Locked</b> or <b>Issue / Unsecured</b> (which immediately alerts the Security Team).</p>
-      <div class="rows">
-        ${doors.map((d) => {
-          const isMine = d.assignedTo === S.me().id;
-          return html`<div class="row ${d.status === "issue" ? "door-issue-row" : ""}">
-            <span class="lead-ic">${icon("door")}</span>
-            <span class="body">
-              <span class="t">${d.name} ${isMine ? html`<span class="tag brand">Assigned to You</span>` : ""}</span>
-              <span class="s">Zone: ${d.zone || "Main"} · Safe Zone: <b>${d.safeZone || "Interior Room"}</b> · Assignee: <b>${d.assignedTo ? S.userName(d.assignedTo) : "Any Rover"}</b></span>
-              ${d.verifiedBy ? html`<span class="s faint">Last checked by ${d.verifiedBy} (${ago(d.verifiedAt)})${d.issueNote ? ` — "${d.issueNote}"` : ""}</span>` : ""}
-            </span>
-            <span class="tag ${d.status === "locked" ? "ok" : d.status === "issue" ? "warn" : ""}">${d.status === "locked" ? "Verified Locked ✓" : d.status === "issue" ? "UNSECURED ⚠" : "Pending Check"}</span>
-            <div class="btns" style="margin:0">
-              <button type="button" class="btn sm" data-act="sec-door-verify" data-id="${d.id}">${icon("check")}Verified Locked</button>
-              <button type="button" class="btn danger sm" data-act="sec-door-issue" data-id="${d.id}">Unsecured / Issue</button>
-              ${isSecurityMember() ? html`<button type="button" class="icon-btn sm" data-act="sec-door-edit" data-id="${d.id}" aria-label="Edit door assignment">${icon("edit")}</button>` : ""}
-            </div>
-          </div>`;
-        })}
-      </div>
-    </section>
-  `;
+function doorCheckResult(c, door) {
+  const startedAt = c.activeAlert?.startedAt;
+  if (!doorChecksActive(c) || !startedAt) return { status: "pending" };
+  return S.list("securityDoorChecks", c.id).find((check) => check.doorId === door.id && check.startedAt === startedAt)
+    || (["locked", "issue"].includes(door.status) && (door.checkStartedAt
+      ? door.checkStartedAt === startedAt : Date.parse(door.verifiedAt) >= Date.parse(startedAt))
+      ? door : { status: "pending" });
 }
 
-Actions["sec-door-verify"] = (el) => {
-  const c = S.church(), d = (c.securityDoors || []).find((x) => x.id === el.dataset.id);
-  if (!d) return;
-  Object.assign(d, { status: "locked", verifiedBy: S.me().name, verifiedAt: new Date().toISOString(), issueNote: "" });
-  S.save(); broadcastSafetyUpdate(); toast(`${d.name} marked Verified Locked`); render();
+function renderSecurityDoors(c) {
+  if (!doorChecksActive(c)) {
+    const doors = c.securityDoors || [];
+    return html`<section class="sec">
+      <div class="sec-head"><h2>Doors &amp; Entryways</h2>
+        <button type="button" class="btn sm" data-act="sec-door-add">${icon("plus")}Add entryway</button>
+      </div>
+      <div class="rows">${doors.length ? doors.map((door) => {
+        const assigned = entrywayAssignee(door);
+        return html`<div class="row sec-entryway">
+          <div class="body"><span class="t">${door.name}</span>
+            <span class="s">${door.zone || "Location not set"}</span>
+            <span class="s">${assigned ? S.userName(assigned.userId) : "Unassigned"}</span>
+            <span class="tag ${door.requiresCheck === false ? "" : assigned ? "brand" : "warn"}">${door.requiresCheck === false ? "No lock check" : "Requires lock check"}</span>
+          </div>
+          <div class="btns">
+            <button type="button" class="btn ghost sm" data-act="sec-door-assign" data-id="${door.id}" aria-label="${assigned ? "Change assignee for" : "Assign"} ${door.name}">${assigned ? "Change assignee" : "Assign"}</button>
+            <button type="button" class="btn ghost sm" data-act="sec-door-edit" data-id="${door.id}" aria-label="Edit ${door.name}">Edit</button>
+          </div>
+        </div>`;
+      }) : empty("Add an entryway to set up its lock check and assign someone.")}</div>
+    </section>`;
+  }
+
+  const supervise = canSuperviseSecurity();
+  const doors = supervise ? requiredSecurityDoors(c) : myRequiredDoors(c);
+  const results = doors.map((door) => [door, doorCheckResult(c, door)]);
+  const assignedName = (door) => entrywayAssignee(door) ? S.userName(door.assignedTo) : "Unassigned";
+  return html`<section class="sec">
+    <div class="sec-head"><h2>${supervise ? "Door Check Progress" : "My Door Checks"}</h2></div>
+    ${supervise && results.length ? html`<p class="muted">${results.filter(([, check]) => check.status === "locked").length} of ${doors.length} locked · ${results.filter(([, check]) => check.status === "issue").length} reported issues</p>` : ""}
+    <div class="rows">${results.length ? results.map(([door, check]) => html`<div class="row sec-entryway ${check.status === "issue" ? "door-issue-row" : ""}">
+      <div class="body">
+        <span class="t">${door.name}</span>
+        ${door.zone ? html`<span class="s">${door.zone}</span>` : ""}
+        ${door.safeZone ? html`<span class="s">Safe zone: ${door.safeZone}</span>` : ""}
+        ${supervise ? html`<span class="s">${assignedName(door)}</span>` : ""}
+        <span class="tag ${check.status === "locked" ? "ok" : check.status === "issue" ? "warn" : ""}">${check.status === "locked" ? "Locked" : check.status === "issue" ? "Issue reported" : "Pending check"}</span>
+        ${check.verifiedBy ? html`<span class="s">${check.verifiedBy} · ${ago(check.verifiedAt)}</span>` : ""}
+        ${check.issueNote ? html`<span class="s">${check.issueNote}</span>` : ""}
+      </div>
+      <div class="btns">
+        ${check.status !== "locked" ? html`<button type="button" class="btn sm" data-act="sec-door-verify" data-id="${door.id}" data-started="${c.activeAlert.startedAt}">${icon("check")}Confirm locked</button>` : ""}
+        <button type="button" class="btn danger sm" data-act="sec-door-issue" data-id="${door.id}" data-started="${c.activeAlert.startedAt}">Report an issue</button>
+      </div>
+    </div>`) : empty("No entryways require a lock check.")}</div>
+  </section>`;
+}
+
+function doorForCheck(c, id, startedAt) {
+  if (!doorChecksActive(c) || !startedAt || c.activeAlert.startedAt !== startedAt) return;
+  return requiredSecurityDoors(c).find((door) => door.id === id && (canSuperviseSecurity() || door.assignedTo === S.me().id));
+}
+
+const doorChecksSaving = new Set();
+async function saveDoorCheck(id, startedAt, status, note = "") {
+  const c = S.church(), actor = S.me(), door = doorForCheck(c, id, startedAt);
+  if (!door) throw new Error("This door check is no longer available.");
+  const key = JSON.stringify([c.id, startedAt, id]);
+  if (doorChecksSaving.has(key)) throw new Error("This door check is already being saved.");
+  doorChecksSaving.add(key);
+  try {
+    let result;
+    if (Backend.on) {
+      if (c.activeAlert.isDrill) await Backend.push();
+      const { data, error } = await Backend.client.rpc("security_record_door_check", {
+        c: c.id, door_id: id, started_at: startedAt, outcome: status, note,
+      });
+      if (error) throw error;
+      if (S.state.current !== c.id || S.me().id !== actor.id) return false;
+      result = data;
+    } else {
+      result = { doorId: id, startedAt, status, verifiedBy: actor.name, verifiedAt: new Date().toISOString(), issueNote: note };
+      const previous = doorCheckResult(c, door);
+      if (status === "issue" && (previous.status !== "issue" || previous.issueNote !== note)) {
+        const title = `${c.activeAlert.isDrill ? "[Drill] " : ""}Unsecured door: ${door.name}`;
+        S.add("securityMessages", { by: actor.id, senderName: actor.name, priority: "urgent", isDrill: !!c.activeAlert.isDrill,
+          text: `${title} — ${note}`, at: result.verifiedAt });
+        securityTeamUserIds().forEach((u) => notify(u, { kind: "security", title, body: `${actor.name}: ${note}`,
+          link: securityLevel(u) >= 2 ? "#security-doors" : "#security" }));
+      }
+    }
+    const checks = S.state.securityDoorChecks;
+    const previous = checks.find((item) => item.churchId === c.id && item.doorId === id && item.startedAt === startedAt);
+    if (!previous) checks.push({ ...result, churchId: c.id });
+    else if (Date.parse(result.verifiedAt) >= Date.parse(previous.verifiedAt)) Object.assign(previous, result);
+    S.save();
+    broadcastSafetyUpdate();
+    return true;
+  } finally {
+    doorChecksSaving.delete(key);
+  }
+}
+
+Actions["sec-door-verify"] = async (el) => {
+  el.disabled = true;
+  try {
+    if (await saveDoorCheck(el.dataset.id, el.dataset.started, "locked")) { toast("Door confirmed locked."); render(); }
+  } catch (error) { toast(error.message || "Could not save the door check."); }
+  finally { el.disabled = false; }
 };
 
 Actions["sec-door-issue"] = (el) => {
-  const c = S.church(), d = (c.securityDoors || []).find((x) => x.id === el.dataset.id);
-  if (!d) return;
-  openSheet(`Report Unsecured Door: ${d.name}`, html`<form data-form="sec-door-issue-save" novalidate>
-    <input type="hidden" name="id" value="${d.id}">
-    <label class="field"><span>What is the issue with ${d.name}?</span><input type="text" name="note" required maxlength="140" value="Latch will not lock — rover needed immediately"></label>
-    <button class="btn danger block">Alert Security Team — Door Unsecured</button>
+  const door = doorForCheck(S.church(), el.dataset.id, el.dataset.started);
+  if (!door) return;
+  openSheet(`Report an issue: ${door.name}`, html`<form data-form="sec-door-issue-save" novalidate>
+    <input type="hidden" name="id" value="${door.id}">
+    <input type="hidden" name="started" value="${el.dataset.started}">
+    <label class="field"><span>What’s the issue?</span><textarea name="note" required maxlength="140" rows="3"></textarea></label>
+    <button class="btn danger block">Send to security</button>
   </form>`);
 };
-Forms["sec-door-issue-save"] = (d) => {
-  const c = S.church(), door = (c.securityDoors || []).find((x) => x.id === d.id);
-  if (!door) return;
-  Object.assign(door, { status: "issue", verifiedBy: S.me().name, verifiedAt: new Date().toISOString(), issueNote: d.note });
-  S.add("securityMessages", {
-    by: S.me().id,
-    senderName: S.me().name,
-    priority: "urgent",
-    text: `🚨 DOOR UNSECURED: ${door.name} (${door.zone}) — "${d.note}" (Reported by ${S.me().name})`,
-    at: new Date().toISOString(),
-  });
-  securityTeamUserIds().forEach((u) => notify(u, {
-    kind: "security",
-    title: `🚨 Door Unsecured: ${door.name}`,
-    body: `${S.me().name}: ${d.note}`,
-    link: "#security-doors",
-  }));
-  S.save(); closeSheet(true); broadcastSafetyUpdate(); toast("Security Team alerted of unsecured door!"); render();
+Forms["sec-door-issue-save"] = async (d, f) => {
+  const note = (d.note || "").trim();
+  if (!note || note.length > 140) return formError(f, "Describe the issue in 140 characters or fewer.");
+  const submit = $("button[type=submit], button:not([type])", f);
+  submit.disabled = true;
+  try {
+    if (await saveDoorCheck(d.id, d.started, "issue", note)) { closeSheet(true); toast("Issue reported to security."); render(); }
+  } catch (error) { formError(f, error.message || "Could not report the issue."); }
+  finally { submit.disabled = false; }
 };
 
-Actions["sec-door-add"] = () => editSecurityDoorModal({});
+Actions["sec-door-add"] = () => { if (canSetUpDoors()) editSecurityDoorModal({}); };
 Actions["sec-door-edit"] = (el) => {
-  const door = (S.church().securityDoors || []).find((x) => x.id === el.dataset.id) || {};
-  editSecurityDoorModal(door);
+  const door = (S.church().securityDoors || []).find((x) => x.id === el.dataset.id);
+  if (canSetUpDoors() && door) editSecurityDoorModal(door);
 };
-function editSecurityDoorModal(door) {
+Actions["sec-door-assign"] = (el) => {
+  const door = (S.church().securityDoors || []).find((x) => x.id === el.dataset.id);
+  if (canSetUpDoors() && door) editSecurityDoorModal(door, true);
+};
+
+function editSecurityDoorModal(door, assignOnly = false) {
   const people = S.members().map((m) => S.user(m.userId)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
-  openSheet(door.id ? `Edit ${door.name}` : "Add Campus Door / Entryway", html`<form data-form="sec-door-save" novalidate>
+  const assigned = people.find((person) => person.id === door.assignedTo);
+  openSheet(assignOnly ? `Assign ${door.name}` : door.id ? `Edit ${door.name}` : "Add entryway", html`<form data-form="sec-door-save" novalidate>
     <input type="hidden" name="id" value="${door.id || ""}">
-    <label class="field"><span>Door / Entryway Name</span><input type="text" name="name" required maxlength="60" value="${door.name || ""}" placeholder="South Kids Wing Exterior Door"></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <label class="field"><span>Building / Zone</span><input type="text" name="zone" maxlength="50" value="${door.zone || ""}" placeholder="Children's Wing"></label>
-      <label class="field"><span>Designated Safe Zone nearby</span><input type="text" name="safeZone" maxlength="60" value="${door.safeZone || ""}" placeholder="Interior Room 104"></label>
+    ${assignOnly ? html`<input type="hidden" name="assignOnly" value="1">` : html`
+      <label class="field"><span>Entryway name</span><input name="name" required maxlength="60" value="${door.name || ""}"></label>
+      <label class="field"><span>Building or zone</span><input name="zone" maxlength="50" value="${door.zone || ""}"></label>
+      <label class="field"><span>Nearby safe zone (optional)</span><input name="safeZone" maxlength="60" value="${door.safeZone || ""}"></label>
+      <label class="check"><input type="checkbox" name="requiresCheck" ${attr(door.requiresCheck !== false, "checked")}><span>Requires lock check</span></label>
+    `}
+    <input type="hidden" name="assignedTo" value="${assigned?.id || ""}">
+    <details class="panel sec-entryway-picker" ${attr(assignOnly, "open")}>
+      <summary>Assignee: <span data-door-assignee>${assigned?.name || "Unassigned"}</span></summary>
+      <label class="field"><span>Search church members</span>
+        <input type="search" data-input="filter-rows" data-target="#door-people" data-empty="#door-people-empty" autocomplete="off"></label>
+      <button type="button" class="btn ghost sm" data-act="sec-door-pick-person" data-name="Unassigned" data-id="">Clear assignee</button>
+      <div class="rows" id="door-people">${people.map((person) => html`
+        <button type="button" class="row" data-act="sec-door-pick-person" data-id="${person.id}" data-name="${person.name}" data-search="${person.name}">${person.name}</button>`)}</div>
+      <p id="door-people-empty" class="muted" ${attr(people.length > 0, "hidden")}>No matching members.</p>
+    </details>
+    <div class="btns"><button class="btn">${assignOnly ? "Save assignment" : "Save entryway"}</button>
+      ${door.id && !assignOnly ? html`<button type="button" class="btn danger" data-act="sec-door-del" data-id="${door.id}">Remove entryway</button>` : ""}
     </div>
-    <label class="field"><span>Assigned Staff / Volunteer to Verify</span><select name="assignedTo"><option value="">Any Security Rover</option>${people.map((u) => html`<option value="${u.id}" ${attr(u.id === door.assignedTo, "selected")}>${u.name}</option>`)}</select></label>
-    <div class="btns"><button class="btn">Save door</button>${door.id ? html`<button type="button" class="btn danger" data-act="sec-door-del" data-id="${door.id}">Delete</button>` : ""}</div>
   </form>`);
 }
+
+Actions["sec-door-pick-person"] = (el) => {
+  const form = el.closest("form"), picker = el.closest("details");
+  form.elements.assignedTo.value = el.dataset.id;
+  $("[data-door-assignee]", form).textContent = el.dataset.name;
+  picker.open = false;
+  $("summary", picker).focus();
+};
+
 Forms["sec-door-save"] = (d, f) => {
-  if (!String(d.name || "").trim()) return formError(f, "Name the door.");
+  if (!canSetUpDoors()) return formError(f, "Entryway setup is unavailable during active checks.");
+  if (d.assignedTo && !S.members().some((member) => member.userId === d.assignedTo)) return formError(f, "Choose a current church member.");
   const c = S.church(); c.securityDoors ||= [];
   const existing = c.securityDoors.find((x) => x.id === d.id);
-  if (existing) Object.assign(existing, { name: d.name.trim(), zone: d.zone || "", safeZone: d.safeZone || "", assignedTo: d.assignedTo || "" });
-  else c.securityDoors.push({ id: uid(), name: d.name.trim(), zone: d.zone || "", safeZone: d.safeZone || "", assignedTo: d.assignedTo || "", status: "unlocked", verifiedBy: "", verifiedAt: "", issueNote: "" });
-  S.save(); closeSheet(true); toast("Door saved"); render();
+  if (d.id && !existing) return formError(f, "This entryway is no longer available.");
+  if (d.assignOnly) {
+    if (!existing) return;
+    existing.assignedTo = d.assignedTo;
+  } else {
+    const name = d.name.trim();
+    if (!name) return formError(f, "Enter the entryway name.");
+    const config = { name, zone: d.zone.trim(), safeZone: d.safeZone.trim(), assignedTo: d.assignedTo, requiresCheck: !!d.requiresCheck };
+    if (existing) Object.assign(existing, config);
+    else c.securityDoors.push({ id: uid(), ...config });
+  }
+  S.save(); closeSheet(true); broadcastSafetyUpdate(); toast(d.assignOnly ? "Assignment saved." : "Entryway saved."); render();
 };
 Actions["sec-door-del"] = (el) => {
+  if (!canSetUpDoors()) return;
   const c = S.church(); c.securityDoors = (c.securityDoors || []).filter((x) => x.id !== el.dataset.id);
-  S.save(); closeSheet(true); toast("Door removed"); render();
+  S.save(); closeSheet(true); broadcastSafetyUpdate(); toast("Entryway removed."); render();
 };
 
 // Tab 4: Live On-Site Roll Call, Classroom Headcount & Unaccounted Report
@@ -2431,7 +2525,7 @@ Actions["sec-proto-edit"] = (el) => {
     <label class="field"><span>Summary description</span><input type="text" name="summary" maxlength="200" value="${p.summary}"></label>
     <label class="field"><span>Emergency Broadcast Banner / Display Text</span><textarea name="broadcastText" rows="2" maxlength="320">${p.broadcastText || ""}</textarea></label>
 
-    <label class="check"><input type="checkbox" name="requireDoorCheck" ${attr(p.requireDoorCheck, "checked")}><span><b>Require Assigned Door Lock Verification</b> (prompts assignees to verify every exterior door)</span></label>
+    <label class="check"><input type="checkbox" name="requireDoorCheck" ${attr(p.requireDoorCheck, "checked")}><span><b>Require Assigned Door Lock Verification</b> (prompts assignees to verify entryways that require a lock check)</span></label>
     <label class="check"><input type="checkbox" name="overrideDisplays" ${attr(p.overrideDisplays, "checked")}><span><b>Override All Campus Displays</b> (switches signage, classroom TVs, stage, and main screens to Emergency Broadcast)</span></label>
     <label class="check"><input type="checkbox" name="requireRollCall" ${attr(p.requireRollCall, "checked")}><span><b>Generate Live Roll Call &amp; Classroom Headcount</b> (activates teacher headcount &amp; Unaccounted Report)</span></label>
 
@@ -2483,7 +2577,7 @@ Screens["safety-status"] = () => {
     title: "Campus Safety Alert", back: "home",
     body: html`
       ${renderActiveProtocolBanner(alert)}
-      ${alert.requireDoorCheck && securitySections().doors ? renderSecurityDoors(c) : ""}
+      ${doorChecksActive(c) && securitySections().doors ? renderSecurityDoors(c) : ""}
       ${alert.requireRollCall ? renderSecurityRollCall(c) : ""}
     `,
   };
@@ -2633,7 +2727,7 @@ function executeSimulatedDrillStep(c = S.church(), { manual = false, forceCompli
 
   // 1. If Door Verification is included and there are pending doors assigned to simulated staff, simulate checking 1-2 doors
   if (fn.doors && c.activeAlert?.requireDoorCheck) {
-    const pendingDoors = (c.securityDoors || []).filter((d) => d.status === "pending" && isRoleSimulatedInDrill(drill, "doors", d.assignedTo));
+    const pendingDoors = requiredSecurityDoors(c).filter((d) => doorCheckResult(c, d).status === "pending" && isRoleSimulatedInDrill(drill, "doors", d.assignedTo));
     if (pendingDoors.length) {
       const door = pick(pendingDoors);
       const actor = door.assignedTo && S.user(door.assignedTo) && !isRoleSimulatedInDrill(drill, "doors", door.assignedTo)
@@ -2644,6 +2738,7 @@ function executeSimulatedDrillStep(c = S.church(), { manual = false, forceCompli
         drill.hadDoorIssueInject = true;
         Object.assign(door, {
           status: "issue",
+          checkStartedAt: c.activeAlert.startedAt,
           verifiedBy: actor,
           verifiedAt: now,
           issueNote: "[SIMULATED INJECT] Latch bolt obstructed — door will not lock without manual override!",
@@ -2655,6 +2750,7 @@ function executeSimulatedDrillStep(c = S.church(), { manual = false, forceCompli
       } else {
         Object.assign(door, {
           status: "locked",
+          checkStartedAt: c.activeAlert.startedAt,
           verifiedBy: actor,
           verifiedAt: now,
           issueNote: "",
@@ -2750,9 +2846,9 @@ function executeSimulatedDrillStep(c = S.church(), { manual = false, forceCompli
 }
 
 function renderActiveDrillTelemetryBar(c, drill) {
-  const doors = c.securityDoors || [];
-  const locked = doors.filter((d) => d.status === "locked").length;
-  const issues = doors.filter((d) => d.status === "issue").length;
+  const doors = doorChecksActive(c) ? requiredSecurityDoors(c) : [];
+  const locked = doors.filter((d) => doorCheckResult(c, d).status === "locked").length;
+  const issues = doors.filter((d) => doorCheckResult(c, d).status === "issue").length;
   const roll = S.list("securityRollCall");
   const safe = roll.filter((r) => r.status === "safe").length;
   const elapsedSec = Math.max(0, Math.floor((Date.now() - new Date(drill.startedAt).getTime()) / 1000));
@@ -2772,7 +2868,7 @@ function renderActiveDrillTelemetryBar(c, drill) {
         <h3 style="margin:6px 0 2px;color:#fff">Scenario: ${drill.scenarioTitle} (Level ${drill.currentLevel})</h3>
         <div style="font-size:.84rem;color:rgba(255,255,255,.88)">
           Mode: <b>${modeLabels[drill.participationMode] || "Hybrid"}</b> ·
-          Doors Verified: <b>${locked}/${doors.length}</b>${issues ? ` (${issues} issue!)` : ""} ·
+          ${doors.length ? html`Doors Verified: <b>${locked}/${doors.length}</b>${issues ? ` (${issues} issue!)` : ""} ·` : ""}
           Roll Call Safe: <b>${safe}/${roll.length}</b>
         </div>
       </div>
@@ -3157,8 +3253,8 @@ Actions["drill-end-finish"] = () => {
   if (!drill) return;
   if (drillSimTimer) { clearInterval(drillSimTimer); drillSimTimer = null; }
   const durationSec = Math.max(1, Math.round((Date.now() - new Date(drill.startedAt).getTime()) / 1000));
-  const doors = c.securityDoors || [];
-  const doorsVerified = doors.filter((d) => d.status === "locked").length;
+  const doors = doorChecksActive(c) ? requiredSecurityDoors(c) : [];
+  const doorsVerified = doors.filter((d) => doorCheckResult(c, d).status === "locked").length;
   const roll = S.list("securityRollCall");
   const rollCallSafe = roll.filter((r) => r.status === "safe").length;
 
@@ -3531,10 +3627,11 @@ function renderMapSafetyPinsSvg(m, floor, items) {
     ${doors.map((d, idx) => {
       const x = (d.mapX ?? (4 + (idx * 4) % 18)) * 20;
       const y = (d.mapY ?? (3 + (idx * 5) % 24)) * 20;
-      const col = d.status === "locked" ? "#16a34a" : d.status === "issue" ? "#dc2626" : "#d97706";
-      const sym = d.status === "locked" ? "✓" : d.status === "issue" ? "!" : "⏳";
+      const status = doorChecksActive(c) && d.requiresCheck !== false ? doorCheckResult(c, d).status : "";
+      const col = { locked: "#16a34a", issue: "#dc2626", pending: "#d97706" }[status] || "#475569";
+      const sym = { locked: "✓", issue: "!", pending: "⏳" }[status] || "•";
       return html`<g class="map-door-pin" transform="translate(${x}, ${y})">
-        <title>${d.name}: ${d.status.toUpperCase()} (Safe Zone: ${d.safeZone})</title>
+        <title>${d.name}${status ? `: ${status.toUpperCase()}` : ""}${d.safeZone ? ` (Safe zone: ${d.safeZone})` : ""}</title>
         <circle r="11" fill="${col}" stroke="#fff" stroke-width="2.5"></circle>
         <text y="3.5" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">${sym}</text>
       </g>`;
@@ -3595,7 +3692,7 @@ ${base}`;
     if (v?.body && alert?.active) {
       const canSeeDrillBanner = !alert.isDrill || alert.showHomeBanner !== false || (c.activeDrill?.includedRealStaffIds || []).includes(S.me().id) || isSecurityMember();
       if (canSeeDrillBanner) {
-        return { ...v, body: html`${renderActiveProtocolBanner(alert)}${v.body}` };
+        return { ...v, body: html`${renderActiveProtocolBanner(alert, { showDoorLink: true })}${v.body}` };
       }
     }
     return v;
@@ -3630,13 +3727,13 @@ ${base}`;
     DASH.security = ["Campus safety & security", () => isSecurityMember() || S.can("view.reports"), () => {
       const c = S.church(), alert = c?.activeAlert;
       const openInc = securityIncidentRows().filter(({ cleared }) => !cleared).length;
-      const doors = c?.securityDoors || [];
-      const locked = doors.filter((d) => d.status === "locked").length;
+      const doors = requiredSecurityDoors(c);
+      const locked = doors.filter((d) => doorCheckResult(c, d).status === "locked").length;
       return html`
         <div class="stat-tiles" style="margin-bottom:10px">
           ${statTile("Protocol Status", alert?.active ? alert.code : "Normal", alert?.active ? alert.name : "All Clear")}
           ${statTile("Open Incidents", openInc.toLocaleString(), "Reported via SOS / 911")}
-          ${statTile("Doors Verified", `${locked}/${doors.length}`, "Exterior entryways")}
+          ${doorChecksActive(c) && canSuperviseSecurity() ? statTile("Doors Verified", `${locked}/${doors.length}`, "Required entryways") : ""}
         </div>
         <div class="btns" style="margin-top:8px">
           <a class="btn sm" href="#security">${icon("shield")}Security Command</a>
