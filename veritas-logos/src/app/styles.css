@@ -1063,3 +1063,10 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 .chapter-cell { min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: inherit; font: inherit; cursor: pointer; }
 .chapter-cell.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .chapter-read-btn { margin: .5rem 0 0; }
+
+/* Verse of the Day (votd.tsx) */
+.votd-card { background: var(--accent-soft); border-radius: 16px; padding: .9rem 1rem; margin: .5rem 0 1rem; }
+.votd-card .fine:first-child { margin: 0 0 .3rem; font-weight: 600; color: var(--accent-strong); }
+.votd-text { margin: 0; font-family: var(--serif, Georgia, serif); font-size: 1.12rem; line-height: 1.5; }
+.votd-ref { margin: .5rem 0 0; }
+.votd-ref a { font-weight: 600; }

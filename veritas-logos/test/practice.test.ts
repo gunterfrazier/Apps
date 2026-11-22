@@ -51,3 +51,23 @@ test("reading progress counts, merges and finds the next chapter", () => {
   assert.equal(streak(read, "2026-11-23"), 3);
   assert.equal(streak(read, "2026-11-25"), 0);
 });
+
+import { dayOfYear, fallbackVerse, FALLBACK_VERSES, fromService, withoutPsalmTitle } from "../src/core/votd";
+test("verse of the day: day numbers, the app's own list and what the service sends", () => {
+  assert.equal(dayOfYear("2026-01-01"), 1); assert.equal(dayOfYear("2026-11-22"), 326); assert.equal(dayOfYear("2028-12-31"), 366);
+  const a = fallbackVerse("2026-11-22"), b = fallbackVerse("2026-11-23");
+  assert.equal(a.source, "app"); assert.notDeepEqual([a.book, a.chapter, a.verse], [b.book, b.chapter, b.verse]);
+  for (const [bk, c, v, e] of FALLBACK_VERSES) assert.ok(bk >= 1 && bk <= 66 && c > 0 && v > 0 && e >= v);
+  assert.deepEqual(fromService("2026-11-22", { book: 43, chapter: 3, verse: 16, end: 16 }), { date: "2026-11-22", book: 43, chapter: 3, verse: 16, end: 16, source: "youversion" });
+  assert.equal(fromService("2026-11-22", { book: 70, chapter: 1, verse: 1 }), null);
+  assert.equal(fromService("2026-11-22", { error: "x" }), null);
+});
+
+test("psalm titles come off verse 1", () => {
+  assert.equal(withoutPsalmTitle(19, 23, 1, "A Psalm of David. The LORD is my shepherd; I shall not want."), "The LORD is my shepherd; I shall not want.");
+  assert.equal(withoutPsalmTitle(19, 46, 1, "For the choirmaster. Of the sons of Korah. According to Alamoth. A song. God is our refuge and strength."), "God is our refuge and strength.");
+  assert.equal(withoutPsalmTitle(19, 51, 1, "For the choirmaster. A Psalm of David. When Nathan the prophet came to him after his adultery with Bathsheba. Have mercy on me, O God."), "Have mercy on me, O God.");
+  assert.equal(withoutPsalmTitle(19, 119, 1, "Blessed are those whose way is blameless."), "Blessed are those whose way is blameless.");
+  assert.equal(withoutPsalmTitle(19, 23, 2, "A Psalm of David. Not a title here."), "A Psalm of David. Not a title here.");
+  assert.equal(withoutPsalmTitle(43, 3, 16, "A Psalm of David. x"), "A Psalm of David. x");
+});

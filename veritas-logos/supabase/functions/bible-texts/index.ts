@@ -21,6 +21,10 @@
 // https://apps-c5t.pages.dev, with their subdomains and preview addresses), and only a few chapters a minute to each
 // visitor, so other sites can't spend the free quotas.
 //
+// It also gives YouVersion's Verse of the Day, as a reference only (no Bible text), at .../bible-texts/votd?date=2026-11-22
+// and as the connector's verse_of_the_day tool. The apps show the verse from their own public-domain BSB. Any page may
+// ask, since it's only a reference, and each day is looked up once per server instance.
+//
 // The terms it keeps: all three services are for non-commercial use; nothing is stored here; each chapter goes back
 // with its copyright notice; API.Bible's Fair Use (FUMS) is reported for each chapter shown.
 
@@ -217,6 +221,38 @@ async function withFallback(primaryKey: string, primary: () => Promise<{ verses:
   }
 }
 
+// ----- Verse of the Day (a reference only) -----
+
+const votdCache = new Map<string, unknown>();
+/** "JHN.3.16", "PSA.23.1-3" or "JHN.3.16-JHN.3.18" -> book number, chapter, first and last verse. */
+function parseUsfm(id: string): { book: number; chapter: number; verse: number; end: number } | null {
+  const m = id.trim().toUpperCase().match(/^([1-3]?[A-Z]{2,3})\.(\d+)\.(\d+)(?:-(?:[1-3]?[A-Z]{2,3}\.\d+\.)?(\d+))?$/);
+  if (!m) return null;
+  const book = BOOKS.findIndex(([, code]) => code === m[1]) + 1;
+  const chapter = Number(m[2]), verse = Number(m[3]), end = m[4] ? Number(m[4]) : verse;
+  if (!book || chapter < 1 || chapter > CHAPTERS[book - 1] || verse < 1 || end < verse) return null;
+  return { book, chapter, verse, end };
+}
+/** The verse for a date (YYYY-MM-DD, the reader's own day), by its day of the year. */
+async function verseOfTheDay(date: unknown) {
+  const d = String(date ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new ToolError("date must be YYYY-MM-DD.");
+  const [y, mo, da] = d.split("-").map(Number);
+  const t = Date.UTC(y, mo - 1, da);
+  if (Number.isNaN(t) || new Date(t).getUTCDate() !== da) throw new ToolError("That isn't a real date.");
+  const day = Math.round((t - Date.UTC(y, 0, 1)) / 86_400_000) + 1;
+  const hit = votdCache.get(d);
+  if (hit) return hit;
+  const data = await youversion(`/verse_of_the_days/${day}`);
+  const ref = parseUsfm(String(data?.passage_id ?? ""));
+  if (!ref) throw new ToolError("YouVersion sent a verse this service couldn't read.");
+  const out = { date: d, day, passageId: data.passage_id, ...ref,
+    reference: `${BOOKS[ref.book - 1][0]} ${ref.chapter}:${ref.verse}${ref.end > ref.verse ? `-${ref.end}` : ""}`, source: "YouVersion Verse of the Day" };
+  votdCache.set(d, out);
+  if (votdCache.size > 8) votdCache.delete(votdCache.keys().next().value!);
+  return out;
+}
+
 async function getChapter(args: Record<string, unknown>) {
   const translation = String(args.translation ?? "").toUpperCase();
   const book = Number(args.number ?? args.book);
@@ -249,6 +285,12 @@ const TOOLS = [{
     required: ["translation", "number", "chapter"],
   },
   annotations: { readOnlyHint: true, openWorldHint: true },
+}, {
+  name: "verse_of_the_day",
+  title: "Verse of the Day",
+  description: "YouVersion's Verse of the Day for a date, as a Bible reference (no text), for Veritas Logos to show from its own Bible.",
+  inputSchema: { type: "object", properties: { date: { type: "string", description: "The reader's own date, YYYY-MM-DD" } }, required: ["date"] },
+  annotations: { readOnlyHint: true, openWorldHint: true },
 }];
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -264,9 +306,9 @@ async function handle(msg: any): Promise<unknown | null> {
   if (method === "ping") return reply({});
   if (method === "tools/list") return reply({ tools: TOOLS });
   if (method === "tools/call") {
-    if (params?.name !== "get_chapter") return fail(-32602, `Unknown tool: ${params?.name}`);
+    if (params?.name !== "get_chapter" && params?.name !== "verse_of_the_day") return fail(-32602, `Unknown tool: ${params?.name}`);
     try {
-      const out = await getChapter(params?.arguments ?? {});
+      const out = params.name === "verse_of_the_day" ? await verseOfTheDay(params?.arguments?.date) : await getChapter(params?.arguments ?? {});
       return reply({ content: [{ type: "text", text: JSON.stringify(out) }], structuredContent: out, isError: false });
     } catch (e) {
       const text = e instanceof ToolError ? e.message : `Couldn't fetch the chapter: ${e instanceof Error ? e.message : e}`;
@@ -327,10 +369,24 @@ async function web(req: Request, url: URL): Promise<Response> {
   }
 }
 
+/** .../bible-texts/votd?date=YYYY-MM-DD: a reference only, so any page may ask. */
+async function votdWeb(req: Request, url: URL): Promise<Response> {
+  const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS", "Cache-Control": "public, max-age=3600" };
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers });
+  if (req.method !== "GET") return new Response(JSON.stringify({ error: "Use GET." }), { status: 405, headers });
+  try {
+    return new Response(JSON.stringify(await verseOfTheDay(url.searchParams.get("date"))), { headers });
+  } catch (e) {
+    const text = e instanceof ToolError ? e.message : "Couldn't get the verse of the day.";
+    return new Response(JSON.stringify({ error: text }), { status: e instanceof ToolError ? 400 : 502, headers: { ...headers, "Cache-Control": "no-store" } });
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const parts = url.pathname.split("/").filter(Boolean);
   if (parts[parts.length - 1] === "web") return web(req, url);
+  if (parts[parts.length - 1] === "votd") return votdWeb(req, url);
   const token = Deno.env.get("BIBLE_CONNECTOR_TOKEN");
   if (!token || parts[parts.length - 1] !== token) return new Response("Not found", { status: 404 });
   if (req.method === "GET") return new Response("This MCP server answers POST requests only.", { status: 405, headers: { Allow: "POST" } });

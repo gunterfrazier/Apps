@@ -277,6 +277,7 @@ Screens.home = () => {
       ${plans.length ? html`<section class="sec"><div class="sec-head"><h2>Daily reading</h2><a href="#plans">Plans</a></div>
         ${active ? planTodayRow(active) : html`<div class="rows"><a class="row" href="#plans"><span class="lead-ic">${icon("book")}</span><span class="body"><span class="t">Start a reading plan</span><span class="s">${plural(plans.length, "plan")} from ${c.name}</span></span>${icon("chev")}</a></div>`}
       </section>` : ""}`,
+    votd: () => (typeof votdCard === "function" ? votdCard() : ""),
     news: () => html`
       ${news.length ? html`<section class="sec"><div class="sec-head"><h2>Announcements</h2><a href="#alerts">See all</a></div>
         <div class="rows">${news.slice(0, 3).map(announcementRow)}</div></section>` : ""}`,

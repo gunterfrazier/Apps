@@ -48,6 +48,7 @@ const HOME_SECTIONS = [
   ["groups", "Find your people", "Groups and classes with photos", true],
   ["gather", "Service times", "This week's services", true],
   ["plans", "Daily reading", "Today's reading from a plan", true],
+  ["votd", "Verse of the Day", "A verse each day, chosen by YouVersion, in the Berean Standard Bible", true],
   ["news", "Announcements", "The three newest announcements", true],
   ["landing", "Landing page", "The blocks from your landing page", false],
   ["connect", "Connect card and invite", "For questions, next steps and inviting friends", true],

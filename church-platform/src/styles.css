@@ -2064,3 +2064,8 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 .slide-text-position[data-position^="bottom-"] { --slide-text-vertical: flex-end; }
 .slide-text-position[data-position$="-left"] { --slide-text-align: flex-start; --slide-text-direction: left; }
 .slide-text-position[data-position$="-right"] { --slide-text-align: flex-end; --slide-text-direction: right; }
+
+/* Verse of the Day (40b-votd.js) */
+.votd .votd-text { margin: 0; font-size: 1.08rem; line-height: 1.5; font-family: Georgia, "Times New Roman", serif; }
+.votd .votd-ref { margin: .6rem 0 0; }
+.votd .votd-ref a { font-weight: 600; }
