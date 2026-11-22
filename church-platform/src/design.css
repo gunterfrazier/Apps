@@ -34,7 +34,7 @@
   --tab-h: 64px;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme="light"]):not([data-theme="sepia"]) {
     --canvas: #0c0e13; --surface: #161922; --sunken: #1d212c; --raised: #1b1f29;
     --ink: #eef0f5; --ink-2: #b1b8c6; --ink-3: #8f98a9; --line: #262b37; --hair: rgba(255, 255, 255, .06);
     --brand-ink: color-mix(in srgb, var(--brand) 45%, #ffffff);
@@ -284,3 +284,29 @@ html[data-font="classic"] :is(.btn, .tabs a, .toast, .chip, .seg, .quick a, .qui
 html[data-font="classic"] .seg button { font-family: var(--sans); }
 .plan-list .plan-min { width: auto; min-width: 58px; white-space: nowrap; }
 .whats-new .sec-head { display: flex; align-items: center; justify-content: space-between; }
+
+/* ---------- Sepia: warm paper tones, the same as Veritas Logos ---------- */
+html[data-theme="sepia"] {
+  --canvas: #f4ead7; --surface: #fff7e8; --sunken: #eadbc1; --raised: #fff7e8;
+  --ink: #36271b; --ink-2: #635040; --ink-3: #6d5844; --line: #d8c6a9; --hair: rgba(54, 39, 27, .1);
+  --brand-ink: color-mix(in srgb, var(--brand) 72%, #36271b);
+  --brand-soft: color-mix(in srgb, var(--brand) 12%, #fff7e8);
+  --brand-line: color-mix(in srgb, var(--brand) 28%, #d8c6a9);
+  --sh-1: 0 0 0 1px var(--hair), 0 1px 2px rgba(54, 39, 27, .06);
+  --sh-2: 0 0 0 1px var(--hair), 0 12px 32px -12px rgba(54, 39, 27, .28);
+  --bar-bg: color-mix(in srgb, #f4ead7 86%, transparent);
+  --tab-bg: color-mix(in srgb, #fff7e8 94%, transparent);
+  --ok: #1d6b45; --ok-soft: #e6ead0; --warn: #9e2f22; --warn-soft: #f6dccb; --demo: #6b4b00; --demo-soft: #f4e3b5;
+  color-scheme: light;
+}
+html[data-theme="sepia"][data-canvas="tinted"] { --canvas: color-mix(in srgb, var(--brand) 5%, #f4ead7); }
+
+/* ---------- The Our Faithful dove: Veritas Logos blue, with the olive branch in its silver ---------- */
+:root { --logo-bird: #254ffe; --logo-branch: #a2a6af; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="sepia"]) { --logo-bird: #4b75ff; --logo-branch: #c2c5ce; } }
+html[data-theme="dark"], html[data-theme="sanctuary"] { --logo-bird: #4b75ff; --logo-branch: #c2c5ce; }
+.ofc-mark { width: 1.9em; height: auto; flex: none; overflow: visible; }
+.ofc-bird { fill: var(--logo-bird); stroke: var(--logo-bird); }
+.ofc-branch { fill: var(--logo-branch); stroke: var(--logo-branch); }
+.ofc-mark [fill="none"] { fill: none; }
+.brand-word { display: flex; align-items: center; gap: 10px; }

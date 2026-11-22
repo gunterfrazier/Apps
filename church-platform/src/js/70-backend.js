@@ -416,7 +416,7 @@ Screens.signin = () => {
       <button type="button" class="choice" data-act="signin-mode" data-mode="new"><span class="lead-ic">${icon("plus")}</span><span><b>I'm new here</b><small>Create an account. It takes a minute.</small></span>${icon("chev")}</button></div>`;
   }
   return {
-    page: html`<div class="welcome"><div class="wrap"><p class="brand-word">${PLATFORM.name}</p>${bannerHtml(PLATFORM_CHURCH, PLATFORM_BANNER)}<div style="margin-top:18px">
+    page: html`<div class="welcome"><div class="wrap">${brandWord()}${bannerHtml(PLATFORM_CHURCH, PLATFORM_BANNER)}<div style="margin-top:18px">
       ${signinNotice.text ? html`<p class="panel notice" role="alert" style="margin-bottom:12px">${signinNotice.text}</p>` : ""}
       ${body}
       ${!signinMode ? html`<p class="signin-try">Just looking? <a href="?demo">Try the demo</a> or <a href="?training">practice in training</a>. No account needed, and nothing you do there is real.</p>` : ""}
@@ -484,7 +484,7 @@ Screens.setup = () => {
   if (!needsAccountSetup()) return { redirect: S.church() ? "home" : "churches" };
   const reset = resetting() && Backend.user.user_metadata?.password_set;
   return {
-    page: html`<div class="welcome"><div class="wrap"><p class="brand-word">${PLATFORM.name}</p><div style="margin-top:18px">
+    page: html`<div class="welcome"><div class="wrap">${brandWord()}<div style="margin-top:18px">
       <form data-form="account-setup" class="panel" novalidate><h2 class="signin-h">${reset ? "Choose a new password" : "Finish creating your account"}</h2>
         <p style="margin-top:0">${reset ? html`For <b>${Backend.user.email}</b>.` : html`Your email <b>${Backend.user.email}</b> is confirmed. Next time, sign in with it and this password.`}</p>
         ${reset ? "" : html`<label class="field"><span>Your name</span><input type="text" name="name" autocomplete="name" required maxlength="80" value="${S.me().name || ""}"></label>`}

@@ -140,7 +140,7 @@ Screens.deactivated = () => {
   const c = S.church();
   if (!c || deactStatus(c) !== "deactivated") return { redirect: c ? "home" : "churches" };
   const d = deactOf(c), left = deactDaysLeft(c);
-  return { page: html`<div class="welcome"><div class="wrap"><p class="brand-word">${PLATFORM.name}</p>
+  return { page: html`<div class="welcome"><div class="wrap">${brandWord()}
     <main class="panel deact" id="main"><h1>${c.name} is deactivated</h1>
       <p class="muted">Since ${longDay(d.at)}, only you can see this church account. It isn't in the list of churches, and its members can't open it.</p>
       <div class="room-msg warn" role="status">${icon("info")}<div><b>${daysText(left)} left.</b> On ${longDay(d.purgeAt)}, everything in the account is permanently deleted: members, giving records, sermons, events, groups and photos. That can't be undone.</div></div>

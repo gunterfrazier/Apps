@@ -17,7 +17,7 @@ const PLATFORM_BANNER = {
 Screens.welcome = () => {
   if (S.me().name) return { redirect: S.church() ? "home" : "churches" };
   return { page: html`<div class="welcome"><div class="wrap">
-    <p class="brand-word">${PLATFORM.name}</p>
+    ${brandWord()}
     ${bannerHtml(PLATFORM_CHURCH, PLATFORM_BANNER)}
     <form data-form="welcome" class="panel" style="margin-top:18px" novalidate>
       <h2 style="margin-bottom:4px">Create your account</h2><p class="muted" style="margin-top:0">Then join your church, or register one.</p>

@@ -2111,7 +2111,7 @@ html[data-theme="sanctuary"] .icon-btn.sos-hdr-btn:not(.alert-pulse), html[data-
 /* Toasts: a rounded card rather than a pill, so two-line messages read cleanly; dark in the dark themes. */
 #toast { border-radius: 16px; width: max-content; max-width: min(440px, calc(100% - 32px)); line-height: 1.35; }
 html[data-theme="dark"] #toast, html[data-theme="sanctuary"] #toast { background: var(--sunken); color: var(--ink); box-shadow: 0 0 0 1px var(--line), var(--sh-2); }
-@media (prefers-color-scheme: dark) { html:not([data-theme="light"]) #toast { background: var(--sunken); color: var(--ink); box-shadow: 0 0 0 1px var(--line), var(--sh-2); } }
+@media (prefers-color-scheme: dark) { html:not([data-theme="light"]):not([data-theme="sepia"]) #toast { background: var(--sunken); color: var(--ink); box-shadow: 0 0 0 1px var(--line), var(--sh-2); } }
 
 /* Sanctuary mode: nothing bright on a black screen in a darkened room. QR codes, labels and signatures stay white so they scan and print. */
 html[data-theme="sanctuary"] .view .campus-map { filter: invert(.92) hue-rotate(180deg) saturate(.8); }

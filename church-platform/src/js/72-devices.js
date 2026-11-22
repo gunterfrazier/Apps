@@ -166,7 +166,7 @@ Actions["device-remove-yes"] = async (el) => {
 // ----- On the device: pairing -----
 /** #pair or #pair-CODE (from the QR code). Works signed out, since a device has no person's account. */
 Screens.pair = (code = "") => ({
-  page: html`<div class="welcome"><div class="wrap"><p class="brand-word">${PLATFORM.name}</p>
+  page: html`<div class="welcome"><div class="wrap">${brandWord()}
     <form data-form="pair" class="panel pair-form" novalidate><h1 style="font-size:1.5rem">Set up a church device</h1>
       ${pairNotice ? html`<p class="room-msg warn" role="alert">${icon("info")}${pairNotice}</p>` : ""}
       <p class="muted">For a check-in kiosk, lobby screen, classroom or presentation screen, stage screen, or the booth computer. Ask a church admin to add the device under <b>Admin, Screens and devices</b> for a code.</p>

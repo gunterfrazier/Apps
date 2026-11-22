@@ -1228,6 +1228,15 @@ await step("banner logo library and transparency", async () => {
     await goTo("admin");
   }
 });
+await step("sepia and the dove logo", async () => {
+  await goTo("settings"); await page.check('input[name=theme][value="sepia"]', { force: true });
+  await page.waitForFunction(() => document.documentElement.dataset.theme === "sepia");
+  const look = await page.evaluate(() => ({ bg: getComputedStyle(document.documentElement).getPropertyValue("--canvas").trim(), meta: document.querySelector('meta[name="theme-color"]').content }));
+  if (look.bg !== "#f4ead7" || look.meta !== "#f4ead7") throw new Error(`sepia didn't apply: ${JSON.stringify(look)}`);
+  await page.check('input[name=theme][value="auto"]', { force: true });
+  const icons = await page.evaluate(async () => { const m = await (await fetch("manifest.webmanifest")).json(); return [m.icons.map((i) => i.purpose).join(","), document.querySelector('link[rel="apple-touch-icon"]').getAttribute("href"), typeof __app === "object"]; });
+  if (!icons[0].includes("maskable") || !icons[1].includes("apple-touch-icon")) throw new Error(`app icons not set up: ${icons}`);
+});
 await step("appearance, Home layout and tabs", async () => {
   await goTo("admin"); await page.click('a.row[href="#admin-appearance"]'); await page.waitForSelector(".ap-preview");
   const before = await page.evaluate(() => __app.S.church().color);
