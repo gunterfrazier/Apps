@@ -164,7 +164,6 @@ const PERMS = [
   ["Sunday", "present.rooms", "Present on any room's display, at any time"],
   ["Sunday", "checkin.station", "Run check-in and see room rosters"],
   ["Sunday", "checkin.events", "Check people in and out of events by scanning tickets"],
-  ["Sunday", "security.team", "Security team: get SOS and 911 alerts, run safety protocols and drills, see incidents"],
   ["Sunday", "qr.create", "Make QR codes"],
   ["Sunday", "schedule.teams", "Schedule volunteer teams"],
   ["Sunday", "manage.devices", "Digital signage, kiosks and church screens"],
@@ -193,7 +192,7 @@ const PERM_LABEL = Object.fromEntries(PERMS.map(([, k, l]) => [k, l]));
 const NEW_PERM_DEFAULTS = {
   "book.rooms": ["pastor", "staff", "teacher", "leader"], "schedule.teams": ["pastor", "staff", "media"],
   "manage.followup": ["pastor", "staff"], "view.reports": ["pastor", "staff"], "send.email": ["pastor", "staff"], "manage.devices": ["pastor", "staff", "media"],
-  "present.rooms": ["pastor", "staff", "media"], "take.payments": ["pastor", "staff"], "send.texts": ["pastor", "staff"], "checkin.events": ["pastor", "staff"], "security.team": ["pastor", "staff"],
+  "present.rooms": ["pastor", "staff", "media"], "take.payments": ["pastor", "staff"], "send.texts": ["pastor", "staff"], "checkin.events": ["pastor", "staff"],
 };
 /** What each kind of signed-in church device may do. Devices never get a person's role. */
 // A room display reads bookings ("rooms.view", a device-only permission) to know who has the room right now.

@@ -293,6 +293,7 @@ await step("security command navigation on older browsers", async () => {
   const before = await page.evaluate(() => {
     const { S } = __app;
     const snapshot = structuredClone(S.state);
+    S.add("securityAccessAssignments", { userId: S.me().id, role: "head" });
     const at = new Date().toISOString();
     S.add("securityIncidents", { id: "nav-test", category: "Test incident", at, details: "Test", status: "open" });
     for (const [minutes, id] of [[5, "first"], [12, "second"]]) {
@@ -367,6 +368,10 @@ await step("security communications dock", async () => {
   await page.click("[data-act=demo-role]");
   await page.click('#scrim [data-act=demo-role-set][data-id="admin"]');
   await sheetGone();
+  await page.evaluate(() => {
+    const { S } = __app;
+    S.add("securityAccessAssignments", { id: "test-comms-access", userId: S.me().id, role: "volunteer" });
+  });
   await goTo("security");
   const dock = page.locator(".sec-chat-form");
   const protocol = page.locator(".sec-protocol-options");
@@ -407,6 +412,7 @@ await step("security communications dock", async () => {
     const { S } = __app;
     const sent = S.list("securityMessages").find((m) => m.by === S.me().id && m.text === "Check the lobby");
     if (sent) S.remove("securityMessages", sent.id);
+    S.remove("securityAccessAssignments", "test-comms-access");
   });
   await goTo("me");
   await page.click("[data-act=demo-role]");
@@ -437,35 +443,65 @@ await step("security roles and approvals", async () => {
     await page.click('#scrim [data-act="security-confirm-level"]');
     await sheetGone();
   };
+  const assign = async (name, role, limit = "default") => {
+    await person(name).click();
+    await dialog.locator('select[name="role"]').selectOption(role);
+    await dialog.locator('select[name="maxLevel"]').selectOption(limit);
+    await sheetSubmit();
+    await sheetGone();
+  };
   try {
+    await goTo("security");
+    await page.waitForURL(/#security-access$/);
+    if (await page.locator('[data-act="sec-trigger-modal"]').count()) throw new Error("a church administrator received operational access by default");
+    await page.evaluate(() => {
+      const { S } = __app;
+      S.add("teamMembers", { userId: "u-marcus", team: "Security ushers", status: "approved" });
+      S.role(S.state.current, "u-marcus").perms["security.team"] = true;
+    });
+    await switchUser("u-marcus");
+    await goTo("security");
+    await page.waitForURL(/#home$/);
+    await page.evaluate((m) => { __app.S.state.me = m; __app.render(); }, original.me);
     await goTo("security-access");
     await expectText("No protocol approval requests.");
     await openTab("Roles");
-    await page.getByRole("button", { name: "Supervisor", exact: true }).click();
+    for (const [role, level] of [["Volunteer", 1], ["Security staff", 2], ["Supervisor", 4], ["Head of security", 5]]) {
+      await page.getByRole("button", { name: new RegExp(`^${role}.*Default · Level ${level}$`) }).waitFor();
+    }
+    await page.getByRole("button", { name: /^Supervisor.*Default/ }).click();
     await dialog.getByText(/Higher levels require approval/).waitFor();
     await hideDialog();
     await openTab("Assign access");
     const search = page.getByRole("searchbox", { name: "Search church members" });
     await search.fill("no matching name");
     await page.getByText("No matching names.").waitFor();
-    await search.fill("marcus");
-    await person("Marcus Bell").click();
-    await dialog.getByRole("heading", { name: "Marcus Bell" }).waitFor();
-    await page.selectOption('#scrim select[name="role"]', "supervisor");
-    await page.selectOption('#scrim select[name="maxLevel"]', "2");
-    await sheetSubmit();
-    await sheetGone();
-    await person("Linda Park").click();
-    await page.selectOption('#scrim select[name="role"]', "head");
+    await search.fill("Daniel");
+    await person("Daniel Kim.*No access granted").click();
+    if (await dialog.locator('select[name="role"]').inputValue() !== "") throw new Error("unassigned member had a default security role");
+    await hideDialog();
+    await assign("Daniel Kim", "staff");
+    await assign("Mark Reed", "volunteer");
+    await assign("Marcus Bell", "supervisor", "2");
+    await assign("Linda Park", "head");
+    await openTab("Roles");
+    await page.getByRole("button", { name: /^Security staff.*Default/ }).click();
+    await dialog.locator('select[name="level"]').selectOption("3");
     await sheetSubmit();
     await sheetGone();
     await openTab("Roster");
+    await person("Daniel Kim.*Direct limit: Level 3").waitFor();
+    await person("Mark Reed.*Direct limit: Level 1").waitFor();
+    await person("Linda Park.*Direct limit: Level 5").waitFor();
     await person("Marcus Bell.*Direct limit: Level 2").click();
     if (await dialog.locator('select[name="maxLevel"]').inputValue() !== "2") throw new Error("saved declaration limit was not in the roster editor");
     await hideDialog();
     await openTab("Approvals");
     await page.getByRole("heading", { name: "Protocol approval requests" }).waitFor();
 
+    await switchUser("u-mark");
+    await declare(1);
+    if (await page.evaluate(() => __app.S.church().activeAlert?.level) !== 1) throw new Error("a volunteer's default Level 1 did not activate");
     await switchUser("u-marcus");
     await goTo("security-access-assign");
     await page.waitForURL(/#security-access-roster$/);
@@ -477,7 +513,7 @@ await step("security roles and approvals", async () => {
     await goTo("security-drill");
     await page.waitForURL(/#security$/);
     await declare(4);
-    if (await page.evaluate(() => !!__app.S.church().activeAlert)) throw new Error("a declaration above the limit activated before review");
+    if (await page.evaluate(() => __app.S.church().activeAlert?.level) !== 1) throw new Error("a declaration above the limit activated before review");
     await goTo("security-access");
     await expectText("Awaiting review");
     await page.getByRole("button", { name: /Level 4 · Marcus Bell/ }).click();
@@ -514,6 +550,8 @@ await step("incident response queue", async () => {
   const before = await page.evaluate(() => {
     const { S } = __app;
     const snapshot = structuredClone(S.state);
+    S.add("securityAccessAssignments", { userId: S.me().id, role: "head" });
+    S.add("securityAccessAssignments", { userId: "u-dana", role: "staff" });
     const at = new Date().toISOString();
     S.add("securityIncidents", { id: "test-incident", category: "Lobby medical report", room: "Lobby", at,
       reporterName: "Test reporter", details: "Staff requested at the lobby", status: "open", severity: "low" });
@@ -566,6 +604,8 @@ await step("custom incident report workflow", async () => {
   const before = await page.evaluate(() => {
     const { S } = __app;
     const snapshot = structuredClone(S.state);
+    S.add("securityAccessAssignments", { userId: S.me().id, role: "head" });
+    S.add("securityAccessAssignments", { userId: "u-dana", role: "head" });
     S.add("securityIncidents", { id: "report-test-incident", category: "Fellowship hall accident", room: "Fellowship hall",
       at: new Date().toISOString(), reporterName: "Test reporter", details: "A guest slipped near the entrance", status: "open", severity: "medium" });
     S.add("securityAccessAssignments", { userId: "u-marcus", role: "supervisor", maxLevel: 2 });

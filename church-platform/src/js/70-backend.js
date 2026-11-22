@@ -348,7 +348,7 @@ function blankState() {
   // Every kind of record the server keeps starts as an empty list, including ones added by later features
   // (Security Command's roll call and reunification) that the sample data doesn't fill in.
   for (const k of RECORD_KINDS) if (!Array.isArray(s[k])) s[k] = [];
-  return Object.assign(s, { current: null, securityProtocolRequests: [], securityAccessAssignments: [], securityIncidentEvents: [], securityIncidentFormTemplates: [], securityIncidentReports: [], me: { id: Backend.user?.id || "", name: "", email: Backend.user?.email || "", phone: "", household: [], pickups: [] } });
+  return Object.assign(s, { current: null, securityProtocolRequests: [], securityAccessAssignments: [], securityRoleDefaults: [], securityIncidentEvents: [], securityIncidentFormTemplates: [], securityIncidentReports: [], me: { id: Backend.user?.id || "", name: "", email: Backend.user?.email || "", phone: "", household: [], pickups: [] } });
 }
 
 // ----- Signing in: new people confirm their email with a code, then choose a name and password; after that, email and password -----

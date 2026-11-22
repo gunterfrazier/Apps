@@ -10,19 +10,13 @@
 //      assigned-door verification (Level 4), and full-screen Emergency Broadcast Override across all church displays +
 //      Live Classroom Headcount & Unaccounted Individuals Report (Level 5).
 
-const SECURITY_ROLES_DEFAULT = ["admin", "pastor", "staff"];
-
-function isSecurityMember(userId = S.me().id, cid = S.state.current) {
-  if (S.isPrimary(cid, userId)) return true;
-  if (!S.membership(cid, userId)) return false;
-  if (securityAssignment(userId, cid)?.role) return true;
-  const r = S.role(cid, userId);
-  // Matches on_security_team() in upgrade-15.sql: the Security team permission, church admins, or a security,
-  // safety, medical, first aid, greeter or usher team.
-  if (r && (r.perms?.["security.team"] || r.perms?.["manage.church"] || r.id === "admin")) return true;
-  const teams = S.list("teamMembers").filter((m) => m.userId === userId && m.status !== "requested").map((m) => m.team.toLowerCase());
-  return teams.some((t) => /security|safety|medical|first.?aid|greeter|usher/.test(t));
-}
+// Role controls the tools someone can use. Its declaration level is a separate ceiling.
+const SECURITY_ACCESS_ROLES = {
+  volunteer: { label: "Volunteer", tier: 1, level: 1, summary: "Security communications and protocol declarations up to the assigned level." },
+  staff: { label: "Security staff", tier: 2, level: 2, summary: "Communications, incident response and coordination tools." },
+  supervisor: { label: "Supervisor", tier: 2, level: 4, summary: "Communications, incidents and response tools. Higher levels require approval." },
+  head: { label: "Head of security", tier: 3, level: 5, summary: "All Security Command tools, including drills, protocol review and All Clear." },
+};
 
 const securityAssignment = (userId, cid) => S.list("securityAccessAssignments", cid).find((a) => a.userId === userId);
 const securityAdmin = (userId = S.me().id, cid = S.state.current) => {
@@ -30,16 +24,23 @@ const securityAdmin = (userId = S.me().id, cid = S.state.current) => {
   return S.isPrimary(cid, userId) || role?.id === "admin" || !!role?.perms?.["manage.church"];
 };
 const securityLevel = (userId = S.me().id, cid = S.state.current) => {
-  if (!S.membership(cid, userId) && !S.isPrimary(cid, userId)) return 0;
-  if (securityAdmin(userId, cid)) return 3;
-  const role = securityAssignment(userId, cid)?.role;
-  if (role === "head") return 3;
-  if (role === "supervisor") return 2;
-  return isSecurityMember(userId, cid) ? 1 : 0;
+  const member = S.membership(cid, userId);
+  if (!member || String(member.roleId || "").startsWith("device:")) return 0;
+  return SECURITY_ACCESS_ROLES[securityAssignment(userId, cid)?.role]?.tier || 0;
 };
+const isSecurityMember = (userId, cid) => securityLevel(userId, cid) > 0;
 const canLeadSecurity = () => securityLevel() === 3;
 const canSuperviseSecurity = () => securityLevel() >= 2;
-const directSecurityLevel = () => canLeadSecurity() ? 5 : Math.max(0, Math.min(5, +securityAssignment(S.me().id, S.state.current)?.maxLevel || 0));
+const canReviewSecurity = (userId = S.me().id, cid = S.state.current) => securityLevel(userId, cid) === 3 || securityAdmin(userId, cid);
+const securityDefaultLevel = (role, cid = S.state.current) => S.list("securityRoleDefaults", cid)[0]?.[role] ?? SECURITY_ACCESS_ROLES[role]?.level ?? 0;
+// A supervisor's earlier maxLevel was already an individual choice. Other roles used hardcoded limits.
+const securityLevelOverride = (assignment) => assignment && Object.prototype.hasOwnProperty.call(assignment, "levelOverride")
+  ? assignment.levelOverride : assignment?.role === "supervisor" ? assignment.maxLevel ?? null : null;
+function directSecurityLevel(userId = S.me().id, cid = S.state.current) {
+  if (!isSecurityMember(userId, cid)) return 0;
+  const assignment = securityAssignment(userId, cid);
+  return securityLevelOverride(assignment) ?? securityDefaultLevel(assignment.role, cid);
+}
 
 function securitySections() {
   return {
@@ -50,7 +51,7 @@ function securitySections() {
     reunify: canSuperviseSecurity() || S.can("checkin.station"),
     medical: canSuperviseSecurity(),
     protocols: canLeadSecurity(),
-    access: canSuperviseSecurity(),
+    access: isSecurityMember() || securityAdmin(),
   };
 }
 
@@ -89,7 +90,7 @@ function securityTeamUserIds(cid = S.state.current) {
   const members = S.members(cid).map((m) => m.userId).filter((u) => S.user(u));
   const sec = members.filter((u) => isSecurityMember(u, cid));
   // With no security team set up, alerts go to the church's admins and primary account holder, not to everyone.
-  return sec.length ? [...new Set(sec)] : members.filter((u) => S.isPrimary(cid, u) || S.role(cid, u)?.perms?.["manage.church"]);
+  return sec.length ? [...new Set(sec)] : members.filter((u) => securityAdmin(u, cid));
 }
 
 function staffAndVolunteersUserIds(cid = S.state.current) {
@@ -334,7 +335,7 @@ function defaultDrillPlannerConfig(cid) {
   if (typeof QUIET_KINDS !== "undefined" && !QUIET_KINDS.includes("securityIncidents")) {
     QUIET_KINDS.push("securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications");
   }
-  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments", "securityIncidentEvents", "securityIncidentFormTemplates", "securityIncidentReports"]) st[k] ||= []; };
+  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments", "securityRoleDefaults", "securityIncidentEvents", "securityIncidentFormTemplates", "securityIncidentReports"]) st[k] ||= []; };
   const prevLoad = S.load.bind(S);
   S.load = function () { prevLoad(); lists(this.state); };
   if (S.state) lists(S.state);
@@ -552,7 +553,7 @@ Actions["sos-open"] = () => {
 
         <div class="btns" style="margin-top:12px">
           <button class="btn block">${icon("shield")}Send Alert to Security Team</button>
-          ${isSecurityMember() ? html`<a class="btn ghost block" href="#security" data-act="go" data-to="security">Open Security Command Center</a>` : ""}
+          ${isSecurityMember() || securityAdmin() ? html`<a class="btn ghost block" href="#security" data-act="go" data-to="security">Open Security Command Center</a>` : ""}
         </div>
       </form>
     </div>
@@ -732,9 +733,18 @@ Forms["sos-alert-security"] = async (d, f) => {
 
 // ----- 2. Automated Protocol Activation Engine (Levels 1 to 5 & Drill Mode Support) -----
 let protocolTransitionPending = false;
+function rememberSecurityTransition(c, alert) {
+  c.activeAlert = alert;
+  const key = `churches:${c.id}`, saved = Backend.snap.get(key);
+  if (!saved) return;
+  const snapshot = JSON.parse(saved);
+  snapshot.data.activeAlert = alert;
+  Backend.snap.set(key, JSON.stringify(snapshot));
+}
 async function activateSecurityProtocol(levelNum, { customNote = "", incidentId = "", isDrill = false, drillFunctions = null, drillRealStaffIds = null, request = null } = {}) {
   let c = S.church();
-  if (!c || (isDrill ? !canLeadSecurity() : !canSuperviseSecurity()) || (!isDrill && protocolTransitionPending)) return;
+  if (!c || !(isDrill ? canLeadSecurity() : request ? canReviewSecurity() && request.requestedBy !== S.me().id : isSecurityMember()) ||
+      (!isDrill && protocolTransitionPending)) return;
   const proto = (c.securityProtocols || defaultSecurityProtocols()).find((p) => +p.level === +levelNum);
   if (!proto) return;
 
@@ -798,7 +808,7 @@ async function activateSecurityProtocol(levelNum, { customNote = "", incidentId 
         const currentRequest = S.get("securityProtocolRequests", request.id);
         if (currentRequest) currentRequest.status = "approved";
       }
-      c.activeAlert = data.alert;
+      rememberSecurityTransition(c, data.alert);
       effectiveDoors = !!data.alert.requireDoorCheck;
       effectiveRollCall = !!data.alert.requireRollCall;
     } catch (error) {
@@ -806,7 +816,7 @@ async function activateSecurityProtocol(levelNum, { customNote = "", incidentId 
       return;
     } finally { protocolTransitionPending = false; }
   } else {
-    if (!isDrill && +levelNum > directSecurityLevel()) {
+    if (!isDrill && !request && +levelNum > directSecurityLevel()) {
       requestSecurityProtocol(levelNum, incidentId);
       return;
     }
@@ -878,7 +888,7 @@ async function activateSecurityProtocol(levelNum, { customNote = "", incidentId 
 
 async function clearSecurityProtocol() {
   let c = S.church();
-  if (!c?.activeAlert || !canLeadSecurity() || protocolTransitionPending) return;
+  if (!c?.activeAlert || !(c.activeAlert.isDrill ? canLeadSecurity() : canReviewSecurity()) || protocolTransitionPending) return;
   let old = c.activeAlert;
   if (Backend.on && !old.isDrill) {
     protocolTransitionPending = true;
@@ -889,6 +899,7 @@ async function clearSecurityProtocol() {
       if (S.state.current !== c.id || S.me().id !== userId) return;
       c = S.church();
       old = data.previousAlert;
+      rememberSecurityTransition(c, null);
     } catch (error) {
       toast(error.message || "Could not issue All Clear.");
       return;
@@ -1065,8 +1076,8 @@ Screens.security = (tail = "") => {
   const incidentRoute = tail.startsWith("incidents-") ? tail.slice("incidents-".length) : "";
   const accessRoute = ["access", "access-roles", "access-roster", "access-assign"].includes(tail);
   const sub = incidentRoute ? "incidents" : accessRoute ? "access" : ["drill", "incidents", "doors", "rollcall", "reunify", "medical", "protocols"].includes(tail) ? tail : "";
-  if (!sub && !isSecurityMember()) return { redirect: "safety-status" };
-  if (sub && !securitySections()[sub]) return { redirect: isSecurityMember() ? "security" : "home" };
+  if (!sub && !isSecurityMember()) return { redirect: securityAdmin() ? "security-access" : "safety-status" };
+  if (sub && !securitySections()[sub]) return { redirect: isSecurityMember() ? "security" : securityAdmin() ? "security-access" : "home" };
   if (tail === "access-assign" && !securityAdmin()) return { redirect: "security-access-roster" };
   const activeHash = sub ? `security-${sub}` : "security";
   const c = S.church(), alert = c.activeAlert, drill = c.activeDrill;
@@ -1098,7 +1109,7 @@ Screens.security = (tail = "") => {
           <div><span class="tag ok">STATUS: NORMAL OPERATIONS</span> <span class="faint" style="margin-left:6px">${plural(securityTeamUserIds().length, "security member")} on roster</span></div>
           <div class="btns" style="margin:0">
             ${canLeadSecurity() ? html`<a class="btn ghost sm" href="#security-drill">Launch Safety Drill Simulator</a>` : ""}
-            ${canSuperviseSecurity() ? html`<button type="button" class="btn danger sm" data-act="sec-trigger-modal">${icon("shield")}Declare protocol</button>` : ""}
+            ${isSecurityMember() ? html`<button type="button" class="btn danger sm" data-act="sec-trigger-modal">${icon("shield")}Declare protocol</button>` : ""}
           </div>
         </div>` : ""}
       ${bodyContent}
@@ -1123,7 +1134,7 @@ function renderActiveProtocolBanner(alert) {
       </div>
       <div class="btns" style="margin:0">
         ${!isSafe ? html`<button type="button" class="btn sm" style="background:#16a34a;color:#fff" data-act="mark-myself-safe">${icon("check")}Mark Myself Safe</button>` : html`<span class="tag ok">You are marked SAFE</span>`}
-        ${canLeadSecurity() ? html`<button type="button" class="btn ghost sm" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.35)" data-act="sec-all-clear">Issue All Clear</button>` : ""}
+        ${(alert.isDrill ? canLeadSecurity() : canReviewSecurity()) ? html`<button type="button" class="btn ghost sm" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.35)" data-act="sec-all-clear">Issue All Clear</button>` : ""}
       </div>
     </div>
     ${steps.length ? html`<div class="sec-role-steps">
@@ -1148,7 +1159,7 @@ function renderSecurityComms(c) {
   const msgs = S.list("securityMessages").sort((a, b) => b.at.localeCompare(a.at)).slice(0, 40);
   const protos = c.securityProtocols || defaultSecurityProtocols();
   return html`
-    ${canSuperviseSecurity() ? html`<details class="sec sec-protocol-options">
+    ${isSecurityMember() ? html`<details class="sec sec-protocol-options">
       <summary>Protocol escalation</summary>
       <div class="btns">
         <button type="button" class="btn danger sm" data-act="sec-trigger-modal">${icon("shield")}Activate live protocol</button>
@@ -1860,7 +1871,7 @@ async function saveIncidentEvent(button, incidentId, type, value = null, note = 
 }
 
 Actions["sec-trigger-modal"] = () => {
-  if (!canSuperviseSecurity()) return;
+  if (!isSecurityMember()) return;
   const c = S.church(), protos = c.securityProtocols || defaultSecurityProtocols();
   openSheet("Activate Security Protocol", html`
     <p class="muted" style="margin-top:0">Choose a level. Levels above your direct limit go to the head of security and church administrators for review.</p>
@@ -1878,7 +1889,7 @@ Actions["sec-trigger-modal"] = () => {
 };
 
 Actions["sec-activate-level"] = (el) => {
-  if (!canSuperviseSecurity()) return;
+  if (!isSecurityMember()) return;
   const level = +el.dataset.level, review = level > directSecurityLevel();
   if (level < 1 || level > 5) return;
   openSheet(`Level ${level} protocol`, html`<p>${review ? "Send this declaration for review. It will take effect only if approved." : "Activate this live protocol now?"}</p>
@@ -1899,38 +1910,31 @@ function requestSecurityProtocol(level, incidentId) {
     return toast("An equivalent request is already waiting for review.");
   }
   S.add("securityProtocolRequests", { level, incidentId, status: "pending", requestedBy: me, at: new Date().toISOString() });
-  const reviewers = new Set([c.ownerId, ...S.members().map((m) => m.userId).filter((id) => securityLevel(id, c.id) === 3)]);
+  const reviewers = new Set([c.ownerId, ...S.members().map((m) => m.userId).filter((id) => canReviewSecurity(id, c.id))]);
   reviewers.forEach((id) => {
-    if (id) notify(id, { kind: "security", title: "Security protocol approval requested",
+    if (id && id !== me) notify(id, { kind: "security", title: "Security protocol approval requested",
       body: `Review the request to activate Level ${level}.`, link: "#security-access" });
   });
   toast("Request sent to the head of security and church administrators.");
   render();
 }
 
-const SECURITY_ACCESS_ROLES = [
-  { label: "Volunteer", summary: "Security communications. Access granted by a separate church role, such as check-in, still applies." },
-  { label: "Supervisor", summary: "Communications, incidents and response tools. Can declare protocols up to the assigned limit. Higher levels require approval." },
-  { label: "Head of security", summary: "All Security Command functions, including drills, protocol review and All Clear. Church administrators assign access." },
-];
-
 function securityAccessRole(person, churchId) {
-  const rank = securityLevel(person, churchId);
-  const role = SECURITY_ACCESS_ROLES[rank - 1];
+  const role = SECURITY_ACCESS_ROLES[securityAssignment(person, churchId)?.role];
   return {
-    label: securityAdmin(person, churchId) ? "Church administrator" : role?.label || "No Security Command access",
+    label: role?.label || "No access granted",
     summary: role?.summary || "",
-    limit: rank === 2 ? (securityAssignment(person, churchId)?.maxLevel || 0) : null,
+    limit: role ? directSecurityLevel(person, churchId) : null,
   };
 }
 
 function canEditSecurityAccess(person) {
   const member = S.membership(S.state.current, person);
-  return securityAdmin() && !!member && !String(member.roleId || "").startsWith("device:") && !securityAdmin(person);
+  return securityAdmin() && !!member && !String(member.roleId || "").startsWith("device:");
 }
 
 function renderSecurityAccess(c, selected) {
-  const manage = securityAdmin(), lead = canLeadSecurity();
+  const manage = securityAdmin(), lead = canReviewSecurity();
   const sections = [
     ["security-access", "Approvals"],
     ["security-access-roles", "Roles"],
@@ -1941,8 +1945,9 @@ function renderSecurityAccess(c, selected) {
   let content;
   if (selected === "security-access-roles") {
     content = html`<section class="sec"><h2 class="sec-head">Security roles</h2>
-      <div class="rows">${SECURITY_ACCESS_ROLES.map((role, index) => html`<button type="button" class="row" data-act="security-role-details" data-rank="${index + 1}">
-        <span class="body"><span class="t">${role.label}</span></span>${icon("chev")}
+      <p class="muted">Members start with no access. The level sets what someone can declare directly. Their role controls the tools they can use.</p>
+      <div class="rows">${Object.entries(SECURITY_ACCESS_ROLES).map(([key, role]) => html`<button type="button" class="row" data-act="security-role-details" data-role="${key}">
+        <span class="body"><span class="t">${role.label}</span><span class="s">Default · ${securityLimitLabel(securityDefaultLevel(key))}</span></span>${icon("chev")}
       </button>`)}</div>
     </section>`;
   } else if (selected === "security-access-assign" || selected === "security-access-roster") {
@@ -1973,6 +1978,9 @@ function renderSecurityAccess(c, selected) {
 }
 
 const securityRequestStatus = (request) => ({ pending: "Awaiting review", approved: "Approved", declined: "Declined" })[request.status] || "Closed";
+const securityLimitLabel = (n) => n ? `Level ${n}` : "Approval for every level";
+const securityLimitOptions = (selected) => [0, 1, 2, 3, 4, 5].map((n) =>
+  html`<option value="${n}" ${attr(n === selected, "selected")}>${securityLimitLabel(n)}</option>`);
 
 function renderSecurityRequests(lead) {
   const requests = S.list("securityProtocolRequests")
@@ -1987,24 +1995,52 @@ function renderSecurityRequests(lead) {
           <span class="t">Level ${r.level} · ${S.userName(r.requestedBy)}</span>
           <span class="s">${securityRequestStatus(r)} · ${ago(r.at)}</span>
           ${incident ? html`<span class="s">${incident.category} · ${incident.room || "Location unavailable"}</span>` : ""}
-        </span>${lead && r.status === "pending" ? html`<span class="tag brand">Review</span>` : ""}${icon("chev")}</button>`;
+        </span>${lead && r.status === "pending" && r.requestedBy !== S.me().id ? html`<span class="tag brand">Review</span>` : ""}${icon("chev")}</button>`;
       }) : empty("No protocol approval requests.")}</div>
     </section>
   `;
 }
 
 Actions["security-role-details"] = (el) => {
-  if (!canSuperviseSecurity()) return;
-  const role = SECURITY_ACCESS_ROLES[+el.dataset.rank - 1];
-  if (role) openSheet(role.label, html`<p>${role.summary}</p>`, { focus: '[data-act="close-sheet"]' });
+  if (!securitySections().access) return;
+  const key = el.dataset.role, role = SECURITY_ACCESS_ROLES[key];
+  if (!role?.label) return;
+  const level = securityDefaultLevel(key);
+  openSheet(role.label, html`<p>${role.summary}</p>${securityAdmin() ? html`<form data-form="security-role-level">
+    <input type="hidden" name="role" value="${key}">
+    <label class="field"><span>Default direct declaration level</span><select name="level">${securityLimitOptions(level)}</select></label>
+    <p class="muted">Applies to people using the role default. Individual overrides stay in place.</p>
+    <button class="btn" type="submit">Save default level</button>
+  </form>` : html`<p><b>Default level</b> · ${securityLimitLabel(level)}</p>`}`);
+};
+
+Forms["security-role-level"] = async (d, f) => {
+  const c = S.state.current, actor = S.me().id, submit = $('button[type="submit"]', f);
+  if (!securityAdmin() || !SECURITY_ACCESS_ROLES[d.role]?.label || !/^[0-5]$/.test(d.level) || submit.disabled) return;
+  let levels = { [d.role]: +d.level };
+  if (Backend.on) {
+    submit.disabled = true;
+    try {
+      const { data, error } = await Backend.client.rpc("security_set_role_level", { c, role_name: d.role, max_level: +d.level });
+      if (error) throw error;
+      levels = data;
+    } catch (error) {
+      return formError(f, error.message || "Could not save the default level.");
+    } finally { submit.disabled = false; }
+  }
+  if (S.state.current !== c || S.me().id !== actor) return;
+  if (S.get("securityRoleDefaults", c)) S.update("securityRoleDefaults", c, levels);
+  else S.add("securityRoleDefaults", { id: c, ...levels });
+  if (f.isConnected) { closeSheet(true); toast("Default level saved."); }
+  if (!$("#scrim")) render();
 };
 
 Actions["security-open-person"] = (el) => {
-  if (!canSuperviseSecurity()) return;
+  if (!securitySections().access) return;
   const id = el.dataset.id;
   if (!S.membership(S.state.current, id) || !S.user(id)) return;
   if (canEditSecurityAccess(id)) { openSecurityAccessEditor(id); return; }
-  if (id !== S.me().id && (!canLeadSecurity() || !securityLevel(id))) return;
+  if (id !== S.me().id && (!canReviewSecurity() || !securityLevel(id))) return;
   const role = securityAccessRole(id, S.state.current);
   openSheet(S.userName(id), html`<p><b>${role.label}</b></p>
     ${role.summary ? html`<p>${role.summary}</p>` : ""}
@@ -2013,14 +2049,17 @@ Actions["security-open-person"] = (el) => {
 
 function openSecurityAccessEditor(id) {
   const assignment = securityAssignment(id, S.state.current);
-  const roles = [["", "Use church role and team"], ["volunteer", "Volunteer"], ["supervisor", "Supervisor"], ["head", "Head of security"]];
+  const roles = [["", "No access granted"], ...Object.entries(SECURITY_ACCESS_ROLES).map(([key, role]) =>
+    [key, `${role.label} · ${securityLimitLabel(securityDefaultLevel(key))}`])];
+  const override = securityLevelOverride(assignment);
   openSheet(S.userName(id), html`<form data-form="security-save-access">
     <input type="hidden" name="id" value="${id}">
     <label class="field"><span>Security role</span><select name="role">
       ${roles.map(([key, label]) => html`<option value="${key}" ${attr(key === (assignment?.role || ""), "selected")}>${label}</option>`)}
     </select></label>
-    <label class="field"><span>Supervisor direct declaration limit</span><select name="maxLevel">
-      ${[0, 1, 2, 3, 4, 5].map((n) => html`<option value="${n}" ${attr(n === (assignment?.maxLevel || 0), "selected")}>${n ? `Level ${n}` : "Approval for every level"}</option>`)}
+    <label class="field"><span>Direct declaration limit</span><select name="maxLevel">
+      <option value="default" ${attr(override == null, "selected")}>Use role default</option>
+      ${securityLimitOptions(override)}
     </select></label>
     <button class="btn" type="submit">Save access</button>
   </form>`);
@@ -2029,15 +2068,16 @@ function openSecurityAccessEditor(id) {
 Forms["security-save-access"] = async (d, f) => {
   const c = S.church(), actor = S.me().id;
   if (!c || !canEditSecurityAccess(d.id)) return formError(f, "You no longer have permission to edit access for this person.");
-  if (!["", "volunteer", "supervisor", "head"].includes(d.role) || !/^[0-5]$/.test(d.maxLevel)) return formError(f, "Choose a valid security role and limit.");
+  if ((d.role && !SECURITY_ACCESS_ROLES[d.role]?.label) || !/^(default|[0-5])$/.test(d.maxLevel)) return formError(f, "Choose a valid security role and limit.");
   const id = `${c.id}:${d.id}`;
-  let assignment = { userId: d.id, role: d.role || null, maxLevel: d.role === "supervisor" ? +d.maxLevel : 0 };
+  const limit = !d.role || d.maxLevel === "default" ? null : +d.maxLevel;
+  let assignment = { userId: d.id, role: d.role || null, levelOverride: limit };
   if (Backend.on) {
     const submit = $('button[type="submit"]', f);
     if (submit.disabled) return;
     submit.disabled = true;
     try {
-      const { data, error } = await Backend.client.rpc("security_assign_access", { c: c.id, person: d.id, role_name: d.role, max_level: +d.maxLevel });
+      const { data, error } = await Backend.client.rpc("security_assign_access", { c: c.id, person: d.id, role_name: d.role, max_level: limit });
       if (error) throw error;
       assignment = data;
     } catch (error) {
@@ -2058,12 +2098,12 @@ Forms["security-save-access"] = async (d, f) => {
 };
 
 Actions["security-open-request"] = (el) => {
-  if (!canSuperviseSecurity()) return;
+  if (!securitySections().access) return;
   const r = S.get("securityProtocolRequests", el.dataset.id);
-  const lead = canLeadSecurity();
+  const lead = canReviewSecurity();
   if (!r || r.churchId !== S.state.current || (!lead && r.requestedBy !== S.me().id)) return;
   const incident = r.incidentId && S.get("securityIncidents", r.incidentId);
-  const canReview = lead && r.status === "pending";
+  const canReview = lead && r.status === "pending" && r.requestedBy !== S.me().id;
   openSheet(`${canReview ? "Review " : ""}Level ${r.level} request`, html`<p>Requested by ${S.userName(r.requestedBy)}.</p>
     <p><b>${securityRequestStatus(r)}</b></p>
     ${incident ? html`<p><b>${incident.category}</b> · ${incident.room || "Location unavailable"}</p><p>${incident.details || ""}</p>` : html`<p>No incident is attached.</p>`}
@@ -2073,9 +2113,9 @@ Actions["security-open-request"] = (el) => {
     </div>` : ""}`, { focus: '[data-act="close-sheet"]' });
 };
 Actions["security-decide-request"] = async (el) => {
-  if (!canLeadSecurity() || protocolTransitionPending) return;
+  if (!canReviewSecurity() || protocolTransitionPending) return;
   const cid = S.state.current, r = S.get("securityProtocolRequests", el.dataset.id);
-  if (!r || r.churchId !== cid || r.status !== "pending") return;
+  if (!r || r.churchId !== cid || r.status !== "pending" || r.requestedBy === S.me().id) return;
   closeSheet(true);
   if (el.dataset.choice === "approve") {
     await activateSecurityProtocol(r.level, { incidentId: r.incidentId || "", request: r });
