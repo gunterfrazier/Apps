@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { VerseOfTheDay } from "../votd";
 import { getGlossary } from "../../core/glossary";
 import { searchFigures } from "../../core/figure-search";
 import { ensureFigures } from "../../core/people";
@@ -117,6 +118,7 @@ export function StudyHome() {
   return (
     <div className="page study-home">
       <h1 className="page-title">Study</h1>
+      <VerseOfTheDay />
       <section className="study-current" aria-labelledby="current-passage">
         <div>
           <p className="fine">Current passage</p>

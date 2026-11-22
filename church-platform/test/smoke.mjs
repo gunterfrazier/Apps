@@ -1091,6 +1091,9 @@ await step("service plan and songs", async () => {
   await page.click('[data-act=pres-jump][data-i="3"]'); await shot("14-present-service");
   await goTo("songs"); await page.click("[data-act=song-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "New song"); await page.fill("#scrim textarea[name=pasteText]", "[Verse]\nLine one\nLine two"); await sheetSubmit();
   await page.waitForSelector("#scrim .err"); await page.fill("#scrim input[name=copyright]", "© 2024 Example Music"); await sheetSubmit(); await sheetGone();
+  // Verse of the Day on Home: with no answer from the service it shows a verse from the app's own list, from the BSB.
+  await goTo("home"); await page.waitForSelector(".votd .votd-text", { timeout: 8000 }); await expectText("Verse of the Day");
+  const votdHref = await page.getAttribute(".votd .votd-ref a", "href"); if (!/^#bible-/.test(votdHref || "")) throw new Error("verse of the day link: " + votdHref);
   // Hymn library: search, open a hymn, add it to the church's songs, and see it listed there.
   await goTo("hymns"); await page.waitForSelector("#hymn-list");
   await page.fill("input[data-target='#hymn-list']", "It Is Well"); await page.click("#hymn-list [data-act=hymn-open]:not([hidden])");
