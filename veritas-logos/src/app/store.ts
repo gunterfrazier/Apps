@@ -4,6 +4,7 @@ import { LENS_IDS, type LensId } from "../core/content";
 import { sanitizeGuide, type Guide } from "../core/guide";
 import type { CiteRecord } from "../core/cite";
 import type { CloudCollection } from "../account/types";
+import { combineRead, sanitizeMemory, sanitizeRead, type MemoryVerse, type ReadMap } from "../core/practice";
 
 export const THEMES = [
   ["system", "Match this device"],
@@ -56,6 +57,10 @@ export interface UserData {
   savedSearches: SavedSearch[];
   /** The last few places visited, for picking up where you left off. */
   recent: { hash: string; label: string }[];
+  /** Verses being memorized (src/core/practice.ts). */
+  memory: MemoryVerse[];
+  /** Chapters marked read: "book:chapter" -> the day. */
+  chaptersRead: ReadMap;
 }
 
 const KEY = "veritas.logos.v2";
@@ -73,6 +78,8 @@ const defaults: UserData = {
   sources: [],
   savedSearches: [],
   recent: [],
+  memory: [],
+  chaptersRead: {},
 };
 
 function loadInitial(): UserData {
@@ -122,6 +129,8 @@ export function mergeData(raw: any): UserData {
     sources: Array.isArray(raw?.sources) ? raw.sources.filter((n: any) => n && typeof n.id === "string" && typeof n.title === "string") : [],
     savedSearches: Array.isArray(raw?.savedSearches) ? raw.savedSearches.filter((n: any) => n && typeof n.id === "string") : [],
     recent: Array.isArray(raw?.recent) ? raw.recent.filter((n: any) => n && typeof n.hash === "string").slice(0, 8) : [],
+    memory: sanitizeMemory(raw?.memory),
+    chaptersRead: sanitizeRead(raw?.chaptersRead),
   };
 }
 
@@ -181,7 +190,7 @@ let pending: { collection: CloudCollection; target: SyncTarget; owner: string } 
 // Which account this browser's copy belongs to: "1" inside Claude, the reader's account id on the website, and
 // "left:<id>" once that reader has signed out and kept their data here.
 const SYNCED_FLAG = "veritas.logos.synced";
-const profileOf = (d: UserData) => ({ notebook: d.notebook, notebookCollections: d.notebookCollections, sources: d.sources, savedSearches: d.savedSearches, highlights: d.highlights, bookmarks: d.bookmarks, notes: d.notes, figures: d.figures, lastRead: d.lastRead, activeGuideId: d.activeGuideId, prefs: { ...d.prefs, apiKey: "" } });
+const profileOf = (d: UserData) => ({ notebook: d.notebook, notebookCollections: d.notebookCollections, sources: d.sources, savedSearches: d.savedSearches, highlights: d.highlights, bookmarks: d.bookmarks, notes: d.notes, figures: d.figures, lastRead: d.lastRead, activeGuideId: d.activeGuideId, memory: d.memory, chaptersRead: d.chaptersRead, prefs: { ...d.prefs, apiKey: "" } });
 const guideDocId = (id: string) => `guide-${id}`;
 
 /** The later of two versions of the same item. On a tie, or with no dates, the first one stays. */
@@ -214,6 +223,8 @@ export function combineData(first: UserData, second: UserData): UserData {
     sources: byId(first.sources, second.sources),
     savedSearches: byId(first.savedSearches, second.savedSearches),
     recent: [...first.recent, ...second.recent.filter((r) => !first.recent.some((x) => x.hash === r.hash))].slice(0, 8),
+    memory: byId(first.memory, second.memory),
+    chaptersRead: combineRead(first.chaptersRead, second.chaptersRead),
   };
 }
 
@@ -290,8 +301,13 @@ async function loadFromCloud(mode: "merge" | "record" | "replace") {
   // An account with no profile has never been saved to, so nothing it lacks counts as deleted.
   else if (!profile) next = combineData(local, fromAccount);
   else if (mode === "merge") next = combineData(fromAccount, local);
-  else next = profile.notebookCollections === undefined
-    ? { ...fromAccount, notebookCollections: local.notebookCollections } : fromAccount;
+  else {
+    next = profile.notebookCollections === undefined
+      ? { ...fromAccount, notebookCollections: local.notebookCollections } : fromAccount;
+    // An account saved before memory verses and reading progress existed keeps this browser's.
+    if (profile.memory === undefined) next = { ...next, memory: local.memory };
+    if (profile.chaptersRead === undefined) next = { ...next, chaptersRead: local.chaptersRead };
+  }
   state = { ...next, recent: mode === "replace" ? [] : local.recent, prefs: { ...next.prefs, apiKey: local.prefs.apiKey, apiBase: local.prefs.apiBase } };
   persist();
   listeners.forEach((l) => l());

@@ -1045,3 +1045,21 @@ a.kw-map-word:hover .kw-map-en { text-decoration: underline; }
 @media (min-width: 580px) {
   .kids-craft { grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); }
 }
+
+/* Memory verses and reading progress (pages/practice.tsx) */
+.practice-summary { background: var(--surface-2); border-radius: 16px; padding: .9rem 1rem; margin: 1rem 0; display: grid; gap: .6rem; }
+.practice-summary p { margin: 0; }
+.practice-summary .btn { justify-self: start; }
+.meter { display: block; height: 8px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--accent); }
+.meter.small { height: 5px; grid-column: 1 / -1; }
+.practice-hint { letter-spacing: .04em; }
+.memory-list li { display: flex; flex-wrap: wrap; gap: .25rem .5rem; align-items: baseline; }
+.memory-list .link-btn { margin-left: auto; }
+.book-progress { list-style: none; padding: 0; margin: 0; }
+.book-progress-row { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: .2rem .5rem; align-items: center; background: none; border: 0; border-bottom: 1px solid var(--line); padding: .6rem .1rem; text-align: left; color: inherit; font: inherit; cursor: pointer; min-height: 44px; }
+.book-progress-row.done > span:first-child::after { content: " ✓"; color: var(--accent-strong); }
+.chapter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; padding: .6rem 0 1rem; }
+.chapter-cell { min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: inherit; font: inherit; cursor: pointer; }
+.chapter-cell.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.chapter-read-btn { margin: .5rem 0 0; }
