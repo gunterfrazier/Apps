@@ -54,7 +54,7 @@ Actions["new-doc"] = (el) => {
   openSheet(`New ${k.label.toLowerCase()}`, html`<form data-form="new-doc" novalidate><input type="hidden" name="kind" value="${kind}">
     <label class="field"><span>Title</span><input type="text" name="title" required maxlength="90"></label>
     <label class="field"><span>Main passage</span><input type="text" name="passage" maxlength="40" placeholder="John 15:1-8"><small>Fills the layout's first empty Scripture slot, or becomes the first item.</small></label>
-    <label class="field"><span>Start from</span><select name="from"><option value="">A blank ${k.label.toLowerCase()}</option>${layoutOptions(kind, el.dataset.layout)}</select></label>
+    <label class="field"><span>Start from</span><select name="from"><option value="">A blank ${k.label.toLowerCase()}</option>${kind === "lesson" ? html`<option value="story">A Bible story from the Family Library</option>` : ""}${layoutOptions(kind, el.dataset.layout)}</select></label>
     ${kind !== "sermon" ? html`<label class="field"><span>${kind === "lesson" ? "Class" : "Group (optional)"}</span><select name="gatheringId">${kind === "study" ? html`<option value="">No group</option>` : ""}${classes.map((g) => html`<option value="${g.id}" ${attr(g.id === preset, "selected")}>${g.name}</option>`)}</select></label>` : ""}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <label class="field"><span>Date</span><input type="date" name="date" value="${isoDay(next?.start || nextWeekday(0, "23:59"))}"></label>
@@ -63,7 +63,7 @@ Actions["new-doc"] = (el) => {
     <button class="btn block">Create</button></form>`);
 };
 Forms["new-doc"] = (d, f) => {
-  if (!d.title) return formError(f, "Give it a title.");
+  if (!d.title && d.from !== "story") return formError(f, "Give it a title.");
   if (d.passage && !parseRef(d.passage)) return formError(f, "That passage doesn't look like a Bible reference.");
   if (d.kind === "lesson" && !d.gatheringId) return formError(f, "Choose the class this lesson is for.");
   const g = d.gatheringId && S.get("gatherings", d.gatheringId);
@@ -72,11 +72,12 @@ Forms["new-doc"] = (d, f) => {
     const ref = refLabel(parseRef(d.passage)), slot = blocks.find((b) => b.type === "scripture" && !b.ref && !b.text);
     if (slot) Object.assign(slot, { ref, translation: slot.translation || "BSB" }); else blocks.unshift({ id: uid(), type: "scripture", ref, translation: "BSB", text: "", show: true, notes: "" });
   }
-  const doc = S.add("docs", { kind: d.kind, title: d.title, passage: d.passage ? refLabel(parseRef(d.passage)) : "", topic: "", date: d.date || isoDay(new Date()), time: d.time, locationId: d.locationId || g?.locationId || null,
+  const doc = S.add("docs", { kind: d.kind, title: d.title || "New lesson", ...(d.from === "story" && !d.title ? { titleFromStory: true } : {}), passage: d.passage ? refLabel(parseRef(d.passage)) : "", topic: "", date: d.date || isoDay(new Date()), time: d.time, locationId: d.locationId || g?.locationId || null,
     gatheringId: d.gatheringId || null, authorId: S.me().id, published: false, shareWithParents: d.kind === "lesson", resource: "", blocks, updated: new Date().toISOString() });
   closeSheet(true);
   const toFill = blocks.filter((b) => b.type === "scripture" && b.ref && !b.text);
   if (toFill.length) Promise.all(toFill.map(fillScripture)).then(() => { S.save(); if (location.hash === `#build-${doc.id}`) render(); });
+  if (d.from === "story") { storyQuery = ""; go(`storylesson-${doc.id}`); return; }
   go(`build-${doc.id}`);
 };
 async function fillScripture(b) { try { b.text = await Bible.text(b.ref, b.translation || "BSB"); } catch { /* leave for typing */ } }
@@ -110,6 +111,7 @@ Screens.build = (id) => {
         <button class="btn ghost sm" data-act="doc-details" data-id="${d.id}">${icon("edit")}Details</button>
         <button class="btn ghost sm" data-act="layout-save" data-kind="doc" data-id="${d.id}">${icon("layers")}Save as layout</button>
         <button class="btn ghost sm" data-act="doc-publish" data-id="${d.id}">${d.published ? "Unpublish" : "Publish"}</button>
+        ${d.kind === "lesson" && canEditDoc(d) ? html`<a class="btn ${d.blocks.some((b) => b.type !== "scripture") ? "ghost " : ""}sm" href="#storylesson-${d.id}">${icon("book")}${d.storyId ? "Bible stories" : "Start from a Bible story"}</a>` : ""}
         ${canAI() ? html`<button class="btn ghost sm" data-act="ai-build" data-id="${d.id}">${icon("bolt")}${d.kind === "lesson" && !d.blocks.some((b) => b.type !== "scripture") ? "Draft this lesson" : "Draft questions"}</button>` : ""}
       </div>
       ${d.passage ? pastPanel(d.passage, { doc: d.id, label: "You've preached or taught on this before", max: 3 }) : ""}
@@ -207,7 +209,7 @@ Actions["doc-details"] = (el) => {
     <div class="btns"><button class="btn">Save</button><button type="button" class="btn danger" data-act="doc-delete" data-id="${d.id}">Delete</button></div></form>`);
 };
 Forms["doc-details"] = (d, f) => {
-  if (!d.title) return formError(f, "Give it a title.");
+  if (!d.title && d.from !== "story") return formError(f, "Give it a title.");
   if (d.passage && !parseRef(d.passage)) return formError(f, "That passage doesn't look like a Bible reference.");
   const doc = S.get("docs", d.id);
   Object.assign(doc, { bg: d.bg || "", title: d.title, passage: d.passage ? refLabel(parseRef(d.passage)) : "", topic: d.topic, date: d.date || doc.date, time: d.time, ...(doc.kind === "sermon" ? { locationId: d.locationId || null } : {}), ...(doc.kind === "lesson" ? { shareWithParents: !!d.shareWithParents } : {}) });

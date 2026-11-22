@@ -29,4 +29,9 @@ if (existsSync(bible)) {
   mkdirSync(join(out, "bible"), { recursive: true });
   for (const t of ["BSB", "KJV"]) for (const p of ["ot", "nt"]) cpSync(join(bible, `${t}-${p}.json`), join(out, "bible", `${t}-${p}.json`));
 } else console.warn("Bible text not found next to this folder; Scripture fill will ask people to paste text.");
+// The Veritas Logos Family Library (stories, crafts, games and pictures) for the lesson builder's "Start from a Bible story".
+// Exported there by npm run family:export, and shared rather than copied into this folder.
+const family = join(root, "..", "veritas-logos", "public", "family", "lessons");
+if (existsSync(join(family, "lessons.json"))) cpSync(family, join(out, "family-lib"), { recursive: true });
+else console.warn("Family Library not found next to this folder; Start from a Bible story will be unavailable.");
 console.log(`dist/index.html ${(page.length / 1024).toFixed(1)} KB`);

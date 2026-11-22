@@ -1932,6 +1932,29 @@ await step("lesson builder", async () => {
   await page.click('[data-act=dblock-new][data-type="question"]'); await page.fill("#scrim textarea[name=text]", "What did God make first?"); await sheetSubmit(); await sheetGone();
   await page.click("[data-act=doc-publish]");
 });
+await step("lesson from a Bible story", async () => {
+  // A new lesson that starts from the Family Library takes the story's title.
+  await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.selectOption("#scrim select[name=from]", "story"); await sheetSubmit();
+  await page.waitForSelector(".story-card"); await shot("23-story-search");
+  // Searching a person finds their stories; the class's ages pick the edition.
+  await page.fill("#story-q", "Goliath"); await page.waitForSelector('#story-results .story-card[href*="~david"]');
+  await page.click('#story-results .story-card[href*="~david"]'); await page.waitForSelector(".plan-list");
+  if (!(await page.textContent('[data-act=story-len][aria-pressed="true"]')).includes("45")) throw new Error("lessons should default to 45 minutes");
+  if (!(await page.textContent(".plan-list")).includes("12 min")) throw new Error("the 45-minute plan should give the craft 12 minutes");
+  await page.click('[data-act=story-len][data-len="60"]'); await page.waitForFunction(() => document.querySelector(".plan-list").textContent.includes("15 min"));
+  await page.click('[data-act=story-age][data-age="middle"]'); await page.waitForSelector('[data-act=story-age][data-age="middle"][aria-pressed="true"]'); await shot("24-story-plan");
+  await page.uncheck('form[data-form=story-use] input[value="video"]');
+  await page.click("form[data-form=story-use] button.btn"); await page.waitForFunction(() => location.hash.startsWith("#build-"));
+  const doc = await page.evaluate(() => { const d = __app.S.state.docs.find((x) => x.storyId === "david"); return d && { title: d.title, passage: d.passage, types: d.blocks.map((b) => b.type), videos: d.blocks.filter((b) => b.type === "media" && b.url).length, text: JSON.stringify(d.blocks) }; });
+  if (doc?.title !== "David and Goliath") throw new Error(`the story should name the lesson: ${doc?.title}`);
+  if (!doc.text.includes("shepherd") || !doc.types.includes("question") || doc.videos) throw new Error(`the lesson should have the craft and questions, and no video: ${doc.types}`);
+  if (!doc.text.includes("family-lib/david-older.webp")) throw new Error("ages 9–12 should use the older picture");
+  await page.waitForFunction(() => document.body.textContent.includes("For parents"));
+  // People without a story of their own offer their passages instead.
+  await page.click('a[href^="#storylesson-"]'); await page.fill("#story-q", "Barnabas"); await page.waitForSelector("[data-act=story-passage]");
+  await page.click("[data-act=story-passage]"); await page.waitForFunction(() => location.hash.startsWith("#build-"));
+  if (!(await page.evaluate(() => __app.S.state.docs.find((x) => x.storyId === "david").passage)).startsWith("Acts")) throw new Error("a person's passage should become the lesson's passage");
+});
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");
   await page.fill("#scrim input[name=name]", "Kindergarten, 11:00"); await page.check('#scrim input[name=days][value="0"]'); await page.fill("#scrim input[name=time]", "11:00");
