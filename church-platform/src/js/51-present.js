@@ -78,7 +78,7 @@ function serviceSlides(p) {
 function applySlideDesign(slides, designs) {
   return slides.map((slide) => {
     const design = designs?.[slide.editKey];
-    return design ? { ...slide, bg: design.bg || slide.bg, showLogo: design.showLogo } : slide;
+    return design ? { ...slide, bg: design.bg || slide.bg, showLogo: design.showLogo, churchLabel: design.churchLabel, namePosition: design.namePosition } : slide;
   });
 }
 function slidesFor(kind, id) {
@@ -91,7 +91,12 @@ function slideHtml(s, c = S.church()) {
   if (!s) return html`<div class="slide k-black"></div>`;
   const body = (() => {
     switch (s.kind) {
-      case "logo": return html`<div class="slide-center">${showSlideLogo(c, s.bg, s.showLogo) ? (c.logo ? html`<img class="slide-logo" src="${c.logo}" alt="">` : html`<div class="slide-mono">${initials(c.name)}</div>`) : ""}<div class="slide-church">${c.name}</div></div>`;
+      case "logo": {
+        const position = slideTextPosition(s.namePosition, "with-logo");
+        const label = slideChurchLabel(s, c, "slide-church", "with-logo");
+        return html`<div class="slide-center">${showSlideLogo(c, s.bg, s.showLogo) ? (c.logo ? html`<img class="slide-logo" src="${c.logo}" alt="">` : html`<div class="slide-mono">${initials(c.name)}</div>`) : ""}
+          ${position === "with-logo" ? label : ""}</div>${position !== "with-logo" ? label : ""}`;
+      }
       case "title": return html`<div class="slide-center"><div class="slide-title">${s.title}</div>${s.body ? html`<div class="slide-sub">${s.body}</div>` : ""}</div>`;
       case "lyrics": return html`<div class="slide-center"><div class="slide-lyrics">${typeof stripInlineChords === "function" ? stripInlineChords(s.body) : s.body}</div></div>`;
       case "scripture": return html`<div class="slide-scripture">${s.title ? html`<div class="slide-kicker">${s.title}</div>` : ""}<div class="slide-verses">${s.verses.map((v) => { const m = v.match(/^(\d+)\s([\s\S]*)$/); return m ? html`<sup>${m[1]}</sup>${m[2]} ` : html`${v} `; })}</div><div class="slide-ref">${s.ref}</div></div>`;
@@ -335,7 +340,7 @@ Actions["slide-design"] = (el) => {
   openSheet("Edit slide", html`<form data-form="slide-design" novalidate>
     <input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${id}"><input type="hidden" name="key" value="${key}">
     ${bgField(design, "Slide background", "Remove a custom background to use the default for this slide.")}
-    ${slide.kind === "logo" ? slideLogoField(design.showLogo) : ""}
+    ${slide.kind === "logo" ? html`${slideLogoField(design.showLogo)}${slideChurchLabelFields(design, S.church(), "with-logo")}` : ""}
     <button class="btn">Save slide</button></form>`);
 };
 Forms["slide-design"] = (d, form) => {
@@ -344,9 +349,15 @@ Forms["slide-design"] = (d, form) => {
   if (!slide) return formError(form, "This slide is no longer available.");
   if (!validSlideBackground(d.bg)) return formError(form, "Choose an image or a background from the media library.");
   const designs = { ...item.slideDesign };
-  if (d.bg || (slide.kind === "logo" && !d.showLogo)) {
-    designs[d.key] = { bg: d.bg || "", showLogo: slide.kind !== "logo" || !!d.showLogo };
-  } else delete designs[d.key];
+  const design = { bg: d.bg || "" };
+  if (slide.kind === "logo") {
+    if (!d.showLogo) design.showLogo = false;
+    if (d.churchLabel !== S.church().name) design.churchLabel = String(d.churchLabel || "").slice(0, 120);
+    const position = slideTextPosition(d.namePosition, "with-logo");
+    if (position !== "with-logo") design.namePosition = position;
+  }
+  if (design.bg || Object.keys(design).length > 1) designs[d.key] = design;
+  else delete designs[d.key];
   item.slideDesign = designs;
   if (d.kind === "doc") item.updated = new Date().toISOString();
   S.flush();

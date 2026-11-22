@@ -29,7 +29,8 @@ function signageSlides(pl, now = new Date()) {
     if ((s.from && today < s.from) || (s.until && today > s.until)) continue;
     const base = { id: s.id, kind: s.type, seconds: dur(s), bg: s.bg || "" };
     switch (s.type) {
-      case "welcome": out.push({ ...base, title: s.title || bannerOf(c).text.headline || `Welcome to ${c.name}`, body: s.body || bannerOf(c).text.sub || "", showLogo: s.showLogo }); break;
+      case "welcome": out.push({ ...base, ...welcomeSlideText(s, c), showLogo: s.showLogo,
+        welcomePosition: s.welcomePosition, churchLabel: s.churchLabel, namePosition: s.namePosition }); break;
       case "services": { const list = upcomingServices(c, 8, pl.locationId || "all").filter((x) => x.start - now < 7 * DAY); if (list.length) out.push({ ...base, services: list.slice(0, 6) }); break; }
       case "announcements": newsSorted().filter(inLoc).slice(0, +s.count || 3).forEach((n) => out.push({ ...base, id: `${s.id}-${n.id}`, title: n.title, body: n.body, urgent: n.urgent })); break;
       case "events": { const ev = upcomingEvents().filter(inLoc).slice(0, +s.count || 4); if (s.style === "each") ev.forEach((e) => out.push({ ...base, id: `${s.id}-${e.id}`, kind: "event", event: e })); else if (ev.length) out.push({ ...base, events: ev }); break; }
@@ -61,8 +62,11 @@ function signSlideHtml(s, pl) {
         const b = bannerOf(c);
         const inherited = !s.bg ? raw(` style="background:${esc(bannerBackground(b, c.color))};color:${esc(bannerTextColor(b, c.color))}"`) : "";
         return html`<div class="sg-welcome"${inherited}>
-          ${showSlideLogo(c, s.bg, s.showLogo) ? html`<div class="sg-mark">${c.logo ? html`<img src="${c.logo}" alt="">` : html`<span>${initials(c.name)}</span>`}</div>` : ""}
-          <div class="sg-big">${s.title}</div>${s.body ? html`<div class="sg-sub">${s.body}</div>` : ""}<div class="sg-church">${c.name}</div></div>`;
+          <div class="slide-text-position sg-welcome-content" data-position="${slideTextPosition(s.welcomePosition, "middle-center")}">
+            ${showSlideLogo(c, s.bg, s.showLogo) ? html`<div class="sg-mark">${c.logo ? html`<img src="${c.logo}" alt="">` : html`<span>${initials(c.name)}</span>`}</div>` : ""}
+            ${s.title ? html`<div class="sg-big">${s.title}</div>` : ""}${s.body ? html`<div class="sg-sub">${s.body}</div>` : ""}
+          </div>
+          ${slideChurchLabel(s, c, "sg-church", "bottom-center")}</div>`;
       }
       case "services": { const next = s.services.find((x) => x.start > Date.now()) || s.services[0];
         return html`<div class="sg-pad"><div class="sg-kicker">Join us</div><div class="sg-title">Service times</div>
@@ -201,7 +205,11 @@ function signSlideEditor(plId, i, s) {
   const t = (name, lab, v, ph = "", max = 80) => html`<label class="field"><span>${lab}</span><input type="text" name="${name}" value="${v || ""}" maxlength="${max}" placeholder="${ph}"></label>`;
   const area = (name, lab, v, ph = "") => html`<label class="field"><span>${lab}</span><textarea name="${name}" maxlength="400" style="min-height:70px" placeholder="${ph}">${v || ""}</textarea></label>`;
   const fields = {
-    welcome: html`${t("title", "Greeting", s.title, "Uses the Home banner headline if blank")}${t("body", "Under it", s.body, "Uses the banner's second line if blank")}${slideLogoField(s.showLogo)}`,
+    welcome: html`${t("title", "Greeting", welcomeSlideText(s, S.church()).title)}
+      ${t("body", "Subtitle", welcomeSlideText(s, S.church()).body, "", 160)}
+      ${slidePositionField("welcomePosition", "Greeting, subtitle and logo placement", s.welcomePosition, "middle-center")}
+      ${slideChurchLabelFields(s, S.church(), "bottom-center")}
+      ${slideLogoField(s.showLogo)}`,
     announcements: html`<label class="field"><span>How many</span><input type="number" name="count" min="1" max="8" value="${s.count || 3}"></label>`,
     events: html`<label class="field"><span>How many</span><input type="number" name="count" min="1" max="8" value="${s.count || 4}"></label>
       <fieldset class="field" style="border:0;padding:0"><legend class="flabel">Show them</legend><div class="radios"><label><input type="radio" name="style" value="list" ${attr(s.style !== "each", "checked")}><span>As one list</span></label><label><input type="radio" name="style" value="each" ${attr(s.style === "each", "checked")}><span>One per slide, with a QR code</span></label></div></fieldset>`,
@@ -236,7 +244,20 @@ Forms["sign-slide-save"] = (d, f) => {
   if (+d.i >= 0 && savedIndex < 0) return formError(f, "This slide is no longer available.");
   const keep = ["title", "body", "count", "style", "ref", "target", "image", "caption", "fit", "loc", "spot", "qr", "video", "bg"];
   const s = { id: d.id, type: d.type, seconds: d.seconds, from: d.from, until: d.until, ...Object.fromEntries(keep.filter((k) => d[k] !== undefined).map((k) => [k, k === "ref" ? refLabel(parseRef(d.ref)) : d[k]])) };
-  if (d.type === "welcome") s.showLogo = !!d.showLogo;
+  if (d.type === "welcome") {
+    const church = S.church(), previous = pl.slides[savedIndex] || {};
+    const displayed = welcomeSlideText(previous, church);
+    const customWelcomeText = previous.customWelcomeText || d.title !== displayed.title || d.body !== displayed.body;
+    Object.assign(s, {
+      showLogo: !!d.showLogo,
+      customWelcomeText: !!customWelcomeText,
+      title: customWelcomeText ? d.title : previous.title,
+      body: customWelcomeText ? d.body : previous.body,
+      welcomePosition: slideTextPosition(d.welcomePosition, "middle-center"),
+      churchLabel: d.churchLabel === church.name ? undefined : String(d.churchLabel || "").slice(0, 120),
+      namePosition: slideTextPosition(d.namePosition, "bottom-center"),
+    });
+  }
   if (savedIndex < 0) pl.slides.push(s); else pl.slides[savedIndex] = s;
   S.save(); closeSheet(); render();
 };
@@ -274,3 +295,31 @@ Inputs["slide-background-upload"] = async (input) => {
     if (submit) submit.disabled = false;
   }
 };
+
+
+function welcomeSlideText(slide, church) {
+  const banner = bannerOf(church).text;
+  return slide.customWelcomeText
+    ? { title: slide.title || "", body: slide.body || "" }
+    : { title: slide.title || banner.headline || `Welcome to ${church.name}`, body: slide.body || banner.sub || "" };
+}
+const slideTextPositions = ["top", "middle", "bottom"].flatMap((row) => ["left", "center", "right"].map((column) => `${row}-${column}`));
+const slideTextPosition = (position, fallback) => slideTextPositions.includes(position) ? position : fallback;
+function slidePositionField(name, label, current, fallback) {
+  const positions = fallback === "with-logo" ? ["with-logo", ...slideTextPositions] : slideTextPositions;
+  const selected = slideTextPosition(current, fallback);
+  return html`<label class="field"><span>${label}</span><select name="${name}">
+    ${positions.map((position) => html`<option value="${position}" ${attr(selected === position, "selected")}>${position === "with-logo" ? "Below the logo" : position[0].toUpperCase() + position.slice(1).replace("-", " ")}</option>`)}
+  </select></label>`;
+}
+function slideChurchLabelFields(slide, church, fallback) {
+  return html`<label class="field"><span>Church name text</span><input name="churchLabel" value="${slide.churchLabel ?? church.name}" maxlength="120"><small>Leave blank to hide this line.</small></label>
+    ${slidePositionField("namePosition", "Church name placement", slide.namePosition, fallback)}`;
+}
+function slideChurchLabel(slide, church, className, fallback) {
+  const label = slide.churchLabel ?? church.name;
+  if (!label) return "";
+  const position = slideTextPosition(slide.namePosition, fallback);
+  const text = html`<div class="${className}">${label}</div>`;
+  return position === "with-logo" ? text : html`<div class="slide-text-position" data-position="${position}">${text}</div>`;
+}
