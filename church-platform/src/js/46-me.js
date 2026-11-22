@@ -138,7 +138,7 @@ Screens.ministry = () => {
   if (!hasMinistryTools()) return { redirect: "me" };
   const myClasses = S.visible("gatherings", { ignoreCampus: true }).filter(isLeader);
   const docs = S.list("docs").filter((d) => d.authorId === S.me().id).sort((a, b) => (b.updated || "").localeCompare(a.updated || ""));
-  const row = (href, ic, t, s) => html`<a class="row" href="${href}"><span class="lead-ic">${icon(ic)}</span><span class="body"><span class="t">${t}</span>${s ? html`<span class="s">${s}</span>` : ""}</span>${icon("chev")}</a>`;
+  const row = (href, ic, t, s) => featureOffFor(href) ? "" : html`<a class="row" href="${href}"><span class="lead-ic">${icon(ic)}</span><span class="body"><span class="t">${t}</span>${s ? html`<span class="s">${s}</span>` : ""}</span>${icon("chev")}</a>`;
   const builders = [
     S.can("build.sermons") && row("#docs-sermon", "word", "Sermon builder", "Scripture, points, keynotes, media and cues, with a presenter page"),
     S.can("build.lessons") && row("#docs-lesson", "door", "Sunday school lesson builder", S.can("manage.classes") ? "For any class" : myClasses.some((g) => g.type === "class") ? "For the classes you teach" : "You'll see your classes here once you're assigned one"),

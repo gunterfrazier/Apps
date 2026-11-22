@@ -143,9 +143,9 @@ Screens.start = (mode) => {
         <label class="field"><span>Church phone</span><input type="tel" name="phone"></label></div>
       <label class="field"><span>City and state</span><input type="text" name="city" placeholder="Springfield, IL" maxlength="60"></label>
       <label class="field"><span>One line about your church</span><input type="text" name="tagline" maxlength="90"></label>
-      <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Brand color</legend>
-        <div class="swatches">${BRAND_COLORS.map((col, i) => html`<label><input type="radio" name="color" value="${col}" data-change="brand-swatch" ${attr(i === 0, "checked")}><span style="background:${col}"></span><span class="sr">${col}</span></label>`)}</div>
-        <div class="hex-row"><input type="color" value="${BRAND_COLORS[0]}" data-input="brand-picker" aria-label="Pick custom brand color"><input type="text" name="customColor" value="${BRAND_COLORS[0]}" maxlength="7" placeholder="#4250d6" data-input="brand-hex" aria-label="Brand hex code"><small class="faint" style="margin:0">Pick a swatch or enter your church's exact hex color.</small></div></fieldset>
+      <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Church color</legend>
+        ${colorPicker("customColor", PLATFORM.color, { label: "Church color", church: true })}
+        <small>Upload your logo later in Admin, Account details, and the app suggests colors from it.</small></fieldset>
       </section><section data-setup-stage="1" ${attr(guided, "hidden")}>
       <h2 style="margin-top:20px">Campuses and locations</h2>
       <p class="faint">Give each location a unique ID, like MAIN or EAST. Private locations only show to people you give access.</p>
@@ -199,7 +199,7 @@ Forms["start-church"] = (d, f, fd) => {
 const quickTile = ([href, ic, label]) => html`<a href="${href}"><span class="ic">${icon(ic)}</span>${label}</a>`;
 function quickActions() {
   // Two rows at most; the rest are a tap away under More.
-  const items = quickItems(), shown = items.length > 8 ? items.slice(0, 7) : items;
+  const items = quickItems().filter(([href]) => !featureOffFor(href)), shown = items.length > 8 ? items.slice(0, 7) : items;
   return html`<div class="quick">${shown.map(quickTile)}${items.length > 8 ? html`<button type="button" data-act="quick-more"><span class="ic">${icon("list")}</span>More</button>` : ""}</div>`;
 }
 function quickItems() {
@@ -225,7 +225,7 @@ function quickItems() {
   return items;
 }
 
-Actions["quick-more"] = () => openSheet("Shortcuts", html`<div class="quick in-sheet">${quickItems().map(quickTile)}</div>`);
+Actions["quick-more"] = () => openSheet("Shortcuts", html`<div class="quick in-sheet">${quickItems().filter(([href]) => !featureOffFor(href)).map(quickTile)}</div>`);
 Screens.home = () => {
   const c = S.church();
   const services = upcomingServices(c, 8).filter((s, i) => i === 0 || s.start - Date.now() < 7 * DAY).slice(0, 4);

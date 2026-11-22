@@ -192,6 +192,7 @@ Screens.admin = (section) => {
   // One row. ok: a permission, a list of them (any one will do) or true/false. words: extra search terms.
   const item = (ok, hash, ic, t, s, tag, words = "") => {
     if (!(ok === true || (typeof ok === "string" && S.can(ok)) || (Array.isArray(ok) && S.canAny(ok)))) return "";
+    if (featureOffFor(hash)) return "";
     return html`<a class="row" href="#${hash}" data-search="${t} ${s || ""} ${words}"><span class="lead-ic">${icon(ic)}</span><span class="body"><span class="t">${t}</span>${s ? html`<span class="s">${s}</span>` : ""}</span>${tag || icon("chev")}</a>`;
   };
   const warn = (n) => n ? html`<span class="tag warn">${n}</span>` : null;
@@ -279,6 +280,7 @@ Screens.admin = (section) => {
         item("manage.church", "admin-appearance", "image", "Appearance", "Colors, fonts, corners, header, and light or dark", null, "theme branding style colors design look"),
         item(["manage.page", "manage.church"], "admin-homelayout", "home", "Home screen", "Choose and order the sections on Home", null, "layout sections builder"),
         item("manage.church", "admin-tabs", "layers", "Tabs", "The buttons along the bottom of the app", null, "navigation menu"),
+        item(["manage.church", "manage.devices"], "admin-screenfooter", "screen", "Slides and screens footer", "Your logo and information on slides and lobby screens", null, "logo overlay watermark bug corner"),
         item("manage.page", "admin-banner", "star", "Home banner", "Background, logo, graphics and text art at the top of Home"),
         item("manage.page", "admin-page", "image", "Landing page", `${plural(c.landing.blocks.length, "block")}${c.landing.showOnHome ? ", shown on Home" : ""}`),
         item("manage.locations", "admin-map", "pin", "Campus map", "Draw a layout so visitors can find their way", null, "wayfinding"),
@@ -373,9 +375,9 @@ AdminScreens.account = () => {
       <label class="field"><span>City and state</span><input type="text" name="city" value="${c.city || ""}" maxlength="60"></label>
       <label class="field"><span>One line about your church</span><input type="text" name="tagline" value="${c.tagline}" maxlength="90"></label>
       ${imageField("logo", "Logo", c.logo, "Any shape works: the whole logo always shows. Shown on Home, the banner and in the church list.", 512)}
-      <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Brand color</legend>
-        <div class="swatches">${[...new Set([c.color, ...BRAND_COLORS])].map((col) => html`<label><input type="radio" name="color" value="${col}" data-change="brand-swatch" ${attr(col === c.color, "checked")}><span style="background:${col}"></span><span class="sr">${col}</span></label>`)}</div>
-        <div class="hex-row"><input type="color" value="${normHex(c.color)}" data-input="brand-picker" aria-label="Pick custom brand color"><input type="text" name="customColor" value="${normHex(c.color)}" maxlength="7" placeholder="#4250d6" data-input="brand-hex" aria-label="Brand hex code"><small class="faint" style="margin:0">Enter any hex color for buttons, cards and accents.</small></div></fieldset>
+      <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Church color</legend>
+        ${colorPicker("customColor", c.color, { sources: churchColorSources(c), label: "Church color", church: true })}
+        <small>Buttons, links and highlights use it. <a href="#admin-appearance">Appearance</a> has fonts, corners and light or dark.</small></fieldset>
       <p class="faint">The Home banner's background, graphics and text art are under <a href="#admin-banner">Home banner</a>.</p>
       <h2 style="margin-top:22px">Website and social media</h2>
       ${SOCIAL.map(([k, label]) => html`<label class="field"><span>${label}</span><input type="url" name="s_${k}" value="${k === "website" ? c.website : c.social?.[k] || ""}" placeholder="https://"></label>`)}
@@ -423,7 +425,10 @@ AdminScreens.features = () => {
     title: "Features and defaults", back: "admin",
     body: html`<div class="btns"><a class="btn ghost" href="#admin-setupguide">Use feature setup wizard</a></div><form data-form="admin-features" novalidate>
       <h2 style="margin-top:18px">Features</h2><p class="faint">Turned-off features disappear for everyone at ${c.name}.</p>
-      <div class="panel">${MODULES.map(([k, label]) => html`<label class="check"><input type="checkbox" name="m_${k}" ${attr(c.modules[k] !== false, "checked")}><span>${label}</span></label>`)}</div>
+      ${[...new Set(MODULES.map((m) => m[3]))].map((group) => html`<fieldset class="feature-group"><legend>${group}</legend>
+        ${MODULES.filter((m) => m[3] === group).map(([k, label, what]) => html`<label class="feature-row"><span class="body"><b>${label}</b><small>${what}</small></span>
+          <input type="checkbox" class="switch" name="m_${k}" ${attr(c.modules?.[k] !== false, "checked")} aria-label="${label}"></label>`)}</fieldset>`)}
+      <p class="faint">${MODULES.filter(([k]) => c.modules?.[k] !== false).length} of ${MODULES.length} features on.</p>
       <h2 style="margin-top:22px">Defaults for new members</h2>
       <label class="field"><span>Role when someone joins</span><select name="roleId">${[...c.roles].sort((a, b) => a.rank - b.rank).map((r) => html`<option value="${r.id}" ${attr(r.id === dft.roleId, "selected")}>${r.name}</option>`)}</select><small>Start with the lowest level of access. You can give people more later.</small></label>
       ${c.locations.some((l) => l.visibility === "private") ? html`<fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Private locations new members can see</legend>

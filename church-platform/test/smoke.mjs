@@ -1237,11 +1237,54 @@ await step("sepia and the dove logo", async () => {
   const icons = await page.evaluate(async () => { const m = await (await fetch("manifest.webmanifest")).json(); return [m.icons.map((i) => i.purpose).join(","), document.querySelector('link[rel="apple-touch-icon"]').getAttribute("href"), typeof __app === "object"]; });
   if (!icons[0].includes("maskable") || !icons[1].includes("apple-touch-icon")) throw new Error(`app icons not set up: ${icons}`);
 });
+await step("theme switch, features, colors, fonts, crop and screen footer", async () => {
+  // Light, Dark and Sepia at the bottom of every page; tapping the one that's on goes back to the device setting.
+  await goTo("events"); await page.click('.page-foot [data-act=quick-theme][data-v="sepia"]');
+  await page.waitForFunction(() => document.documentElement.dataset.theme === "sepia");
+  await page.click('.page-foot [data-act=quick-theme][data-v="sepia"]');
+  await page.waitForFunction(() => !document.documentElement.dataset.theme);
+  if (!(await page.$(".page-foot .pf-sign .ofc-mark"))) throw new Error("the Our Faithful sign-off should be at the bottom of the page");
+  // Turning a feature off hides its screens and links.
+  await goTo("admin-features"); await page.uncheck('input[name="m_rooms"]', { force: true }); await page.click('form[data-form="admin-features"] button.btn.block');
+  await goTo("ministry"); if (await page.$('a.row[href="#rooms"]')) throw new Error("Rooms should be hidden when the feature is off");
+  await goTo("rooms"); await page.waitForFunction(() => location.hash === "#home");
+  await goTo("admin-features"); await page.check('input[name="m_rooms"]', { force: true }); await page.click('form[data-form="admin-features"] button.btn.block');
+  // Colors from a picture become the church color in the same form.
+  await goTo("admin-account");
+  await page.setInputFiles('input[data-field="logo"]', join(root, "icons", "icon-512.png"));
+  await page.waitForSelector('[data-colors-for="logo"] .cp-swatch');
+  const picked = await page.getAttribute('[data-colors-for="logo"] .cp-swatch', "data-color");
+  await page.click('[data-colors-for="logo"] .cp-swatch');
+  if ((await page.inputValue('input[name="customColor"]')) !== picked) throw new Error("a color from the logo should fill the church color");
+  // Crop to a square.
+  await page.click('[data-act=crop-image][data-field="logo"]'); await page.waitForSelector("#crop-box");
+  await page.click('[data-act=crop-shape][data-k="1:1"]'); await page.click("[data-act=crop-apply]");
+  await page.waitForFunction(() => document.querySelector('input[name="logo"]').value.startsWith("data:image/webp"));
+  await page.click('form[data-form="admin-account"] button.btn:not([type=button])');
+  // A font from the library on the banner.
+  await goTo("admin-banner"); await page.click("[data-act=banner-section][data-section=text]");
+  await page.click('.fp-card:has(input[value="playfair"])');
+  await page.waitForFunction(() => /Playfair/.test(document.querySelector("#banner-preview .bn-head")?.getAttribute("style") || ""));
+  // Drag the headline, lock it, and it stays put. Positions are measured against the banner, since the page scrolls.
+  const rel = () => page.evaluate(() => { const b = document.querySelector("#banner-preview .banner").getBoundingClientRect(), t = document.querySelector("#banner-preview [data-move=text]").getBoundingClientRect(); return t.left - b.left; });
+  const drag = async (dx, dy) => { await page.evaluate(() => document.querySelector("#banner-preview .banner").scrollIntoView({ block: "center" })); const t = await page.locator("#banner-preview [data-move=text]").boundingBox();
+    const x = t.x + t.width / 2, y = t.y + t.height / 2; await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx, y + dy, { steps: 5 }); await page.mouse.up(); };
+  const x0 = await rel(); await drag(60, -20); const x1 = await rel();
+  await page.click("[data-act=banner-section][data-section=layout]"); await page.click("[data-act=banner-lock][data-key=text]");
+  await drag(80, 30); const x2 = await rel();
+  if (Math.abs(x1 - x0) < 20 || Math.abs(x2 - x1) > 1) throw new Error(`the headline should move when dragged and stay put once locked: ${x0}, ${x1}, ${x2}`);
+  await page.click("[data-act=banner-discard]");
+  // The logo and information footer on slides.
+  await goTo("admin-screenfooter"); await page.check("input[name=slides]", { force: true }); await page.click("label.pos-cell.top-right");
+  await page.fill("input[name=text]", "Welcome home"); await page.click('form[data-form="screen-footer"] button.btn');
+  await goTo("present-service-riverside-svc-1"); await page.waitForSelector(".stage .sfoot.top-right");
+  await goTo("admin-screenfooter"); await page.uncheck("input[name=slides]", { force: true }); await page.click('form[data-form="screen-footer"] button.btn');
+});
 await step("appearance, Home layout and tabs", async () => {
   await goTo("admin"); await page.click('a.row[href="#admin-appearance"]'); await page.waitForSelector(".ap-preview");
   const before = await page.evaluate(() => __app.S.church().color);
   // A change is a draft: only the editor sees it, until it's published.
-  await page.click('[data-act=look-color][data-color="#be185d"]'); await page.check('input[name=font][value=classic]', { force: true });
+  await page.click('.cpick [data-act=cp-pick][data-color="#be185d"]'); await page.check('input[name=font][value=classic]', { force: true });
   await page.waitForSelector(".draft-bar");
   if ((await page.evaluate(() => [document.documentElement.dataset.font, __app.S.church().color])).join() !== `classic,${before}`) throw new Error("the draft should preview without publishing");
   await goTo("home"); await page.waitForSelector(".draft-bar");
