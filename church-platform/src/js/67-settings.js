@@ -369,7 +369,7 @@ const ForegroundAlerts = {
   show(n) {
     if (document.visibilityState !== "visible" || thisDevice() || !wantsNotify(n) || this.recent.has(n.id)) return;
     const radio = n.kind === "security-radio";
-    if (radio && !SecurityRadio.allowed()) return;
+    if (radio && (!SecurityRadio.allowed() || SecurityRadio.dock?.hidden !== false)) return;
     this.recent.add(n.id);
     if (this.recent.size > 100) this.recent.delete(this.recent.values().next().value);
     const banner = $('#foreground-alert [data-act="notes-open"]');

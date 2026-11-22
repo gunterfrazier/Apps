@@ -23,8 +23,10 @@ const SecurityRadio = {
     return !Backend.failed && S.on("safety") && isSecurityMember() &&
       (!hosted || Backend.ready && Backend.user?.id === S.me().id) && !thisDevice();
   },
-  async rpc(method, args) {
-    const { data, error } = await Backend.client.rpc(method, args);
+  async rpc(method, args, timeout = 0) {
+    const query = Backend.client.rpc(method, args);
+    if (timeout && typeof AbortSignal.timeout === "function") query.abortSignal(AbortSignal.timeout(timeout));
+    const { data, error } = await query;
     if (error) throw Error(error.message);
     return data;
   },
@@ -40,7 +42,11 @@ const SecurityRadio = {
     const visible = !!key && !["display", "stage", "overlay", "station", "pair", "setup"].includes(head) && !document.body.matches(".presenting, .kiosk-mode") &&
       !document.documentElement.classList.contains("overlay-page");
     if (this.dock) this.dock.hidden = !visible;
-    if (!visible) this.release(true);
+    if (!visible) {
+      this.release(true);
+      this.stopPlayback();
+      if ($('#foreground-alert [data-radio]:not([hidden])')) ForegroundAlerts.hide();
+    }
     document.body.classList.toggle("has-security-radio", visible);
     this.paint();
   },
@@ -206,9 +212,9 @@ const SecurityRadio = {
       if (!tx.held || tx.key !== this.key) { stream.getTracks().forEach((track) => track.stop()); return; }
       tx.stream = stream;
       tx.channel = this.channel;
-      const id = tx.live ? (await this.rpc("security_radio_start", { c: tx.c, target: tx.target || null })).id : uid();
+      const id = tx.live ? (await this.rpc("security_radio_start", { c: tx.c, target: tx.target || null }, 3000)).id : uid();
       if (!tx.held || tx.key !== this.key) {
-        if (tx.live) this.rpc("security_radio_frame", { c: tx.c, transmission_id: id, seq: null, encoded: null }).catch(() => {});
+        if (tx.live) this.rpc("security_radio_frame", { c: tx.c, transmission_id: id, seq: null, encoded: null }, 1800).catch(() => {});
         return;
       }
       tx.id = id;
@@ -267,7 +273,7 @@ const SecurityRadio = {
   },
   async frame(tx, seq, encoded) {
     if (tx.live) {
-      await this.rpc("security_radio_frame", { c: tx.c, transmission_id: tx.id, seq, encoded });
+      await this.rpc("security_radio_frame", { c: tx.c, transmission_id: tx.id, seq, encoded }, 1800);
     } else if (tx.channel && tx.key === this.key) {
       tx.channel.postMessage({ c: tx.c, by: tx.by, name: tx.name, id: tx.id, direct: !!tx.target,
         target: tx.target, seq, audio: encoded, ended: encoded === null });
