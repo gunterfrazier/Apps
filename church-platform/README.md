@@ -125,6 +125,10 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 
 The app doesn't fetch lyrics from the web. Most worship songs are copyrighted, and churches project them under a CCLI license. Songs are pasted in, with "Find on SongSelect" and "Find a hymn" search links. Song slides show the copyright line, the CCLI song number and the church's CCLI license number. Hymns published before 1929 are public domain; the sample church includes three.
 
+**Hymn library.** Songs and lyrics opens a library of 282 public-domain hymns from the [Open Hymnal Project](https://openhymnal.org/), built into `public/hymns/hymns.json` by `node tools/hymns.mjs /path/to/openhymnal` (a copy of its data is at github.com/mzealey/openhymnal). Only scores whose copyright line says public domain are kept. Each hymn has its words in verses and refrains, key, time signature, topics and Scripture references; there are no guitar chords. Add copies a hymn into the church's songs, marked public domain.
+
+**Song files.** "Import songs" reads OpenLyrics XML (what OpenLP exports), OpenSong song files and plain text or ChordPro, keeping chords as inline [G] chords. The song editor's "Export for OpenLP" saves a song as OpenLyrics XML, which FreeShow and other worship programs also read.
+
 ### Veritas Logos
 
 Sermons, groups, reading plans and builder documents link into Veritas Logos to read a passage, ask about it, or start a study guide on its topic. The Bible text used by the builders comes from Veritas Logos's data (`../veritas-logos/public/data/bible`), and the build copies it in, so it isn't stored twice.

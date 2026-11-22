@@ -307,7 +307,7 @@ Screens.songs = () => {
   return {
     title: "Songs and lyrics", back: "services",
     body: html`${demoNote(html`Most worship songs are copyrighted. Project them under your church's <b>CCLI license</b> (add its number under Account details) and get lyrics from CCLI SongSelect. Hymns published before 1929 are public domain.`)}
-      ${canPlan() ? html`<div class="btns"><button class="btn" data-act="song-edit">${icon("plus")}Add a song</button></div>` : ""}
+      <div class="btns">${canPlan() ? html`<button class="btn" data-act="song-edit">${icon("plus")}Add a song</button>` : ""}<a class="btn ghost" href="#hymns">${icon("book")}Hymn library</a>${canPlan() ? html`<label class="btn ghost">${icon("upload")}Import songs<input type="file" multiple accept="${SONG_FILE_ACCEPT}" class="sr" data-change="songs-import"></label>` : ""}</div>
       <label class="field"><span class="sr">Search songs</span><input type="search" placeholder="Search songs" data-input="filter-rows" data-target="#song-list" data-empty="#song-none"></label>
       <div class="rows" id="song-list">${list.map((s) => html`<button class="row" data-act="song-edit" data-id="${s.id}" data-search="${s.title} ${s.author} ${(s.charts || []).map((c) => c.part).join(" ")}"><span class="lead-ic">${icon("music")}</span><span class="body"><span class="t">${s.title}</span><span class="s">${s.author || "Unknown author"}, ${plural(songParts(s).length, "section")}${s.publicDomain ? ", public domain" : s.ccliSong ? `, CCLI ${s.ccliSong}` : ""}${s.charts?.length ? `. Sheet music: ${s.charts.map((c) => c.part).join(", ")}` : ""}</span>
         <span class="part-strip" aria-hidden="true">${songOrder(s).map((l) => { const p = songParts(s).find((x) => sameLabel(x.label, l)); return html`<i class="pt-${p.type}" title="${p.label}"></i>`; })}</span></span>${icon(canPlan() ? "edit" : "chev")}</button>`)}</div>
@@ -361,7 +361,8 @@ function songFormHtml() {
     <label class="check"><input type="checkbox" name="publicDomain" ${attr(e.publicDomain, "checked")} ${attr(ro, "disabled")}><span>This song is in the public domain</span></label>
     <div id="song-ed">${songPartsHtml()}</div>
     <div id="song-charts">${songChartsHtml()}</div>
-    ${ro ? "" : html`<div class="btns"><button class="btn">Save song</button>${e.id ? html`<button type="button" class="btn danger" data-act="song-delete" data-id="${e.id}">Delete</button>` : ""}</div>`}</form>`;
+    ${ro ? "" : html`<div class="btns"><button class="btn">Save song</button>${e.id ? html`<button type="button" class="btn danger" data-act="song-delete" data-id="${e.id}">Delete</button>` : ""}</div>`}
+    ${e.id ? html`<p class="faint" style="margin-top:10px"><button type="button" class="linkish" data-act="song-export" data-id="${e.id}">Export for OpenLP</button> (OpenLyrics file, also read by FreeShow and other worship software)</p>` : ""}</form>`;
 }
 function redrawSongEd(focus) {
   const box = $("#song-ed"); if (!box || !songEd) return;
