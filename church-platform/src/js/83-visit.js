@@ -1,20 +1,10 @@
-// ---------- First-time visitors: the question on joining, the visitor card, Plan your visit and the welcome message ----------
+// ---------- Visitor onboarding, welcome messages, and attendance milestones ----------
 // church.welcome = { ask, title, message, links: [{ label, url }] }, set under Admin, Welcome for new visitors.
 const WELCOME_DEFAULT = { title: "Welcome to {church}!", message: "Thank you for visiting us. We're so glad you came, and we'd love to see you again. If there's anything we can do for you or your family, just ask." };
 const welcomeOf = (c = S.church()) => ({ ask: c?.welcome?.ask !== false, title: c?.welcome?.title || WELCOME_DEFAULT.title, message: c?.welcome?.message || WELCOME_DEFAULT.message,
   links: c?.welcome?.links || [{ label: "Plan your visit", url: "#visit" }, ...(mapLocations().length ? [{ label: "Campus map", url: "#map" }] : [])] });
 const welcomeText = (t, c = S.church()) => String(t).replace(/\{church\}/gi, c.name).replace(/\{name\}/gi, (S.me().name || "").split(" ")[0] || "friend");
 const safeLink = (u) => /^#[\w~.-]*$/.test(u) || isUrl(u);
-let visitAsk = null;   // the church someone just joined, until the question has been put to them
-/** Just joined: ask whether this is their first visit. */
-function visitPrompt() {
-  const c = S.church(); if (!visitAsk || !c || visitAsk !== c.id || $("#scrim")) return;
-  visitAsk = null;
-  if (!welcomeOf(c).ask || c.training || !S.isMember() || S.isPrimary()) return;   // never in a training church
-  openSheet(`Welcome to ${c.name}`, html`<p style="margin-top:0;font-size:1.1rem">Is this your first time visiting us?</p>
-    <div class="btns stack"><button class="btn block" data-act="visit-first">Yes, I'm new here</button><button class="btn ghost block" data-act="visit-not-first">No, I've been before</button></div>`);
-}
-Actions["visit-not-first"] = () => { closeSheet(true); toast(`Glad you're here. Welcome to ${S.church().name} in the app.`); setTimeout(presencePrompt, 600); };
 Actions["visit-first"] = () => {
   const me = S.me();
   openSheet("Tell us about you", html`<form data-form="visitor-card" novalidate>
@@ -59,9 +49,9 @@ AdminScreens.welcome = () => {
   const stop = guard("manage.church"); if (stop) return stop;
   const c = S.church(), w = welcomeOf(c);
   return { title: "Welcome for new visitors", back: "admin", body: html`
-    <p class="muted" style="margin-top:14px">When someone joins ${c.name} in the app they're asked whether it's their first visit. If it is, they fill in a visitor card (it lands in Connect cards and New people), see Plan your visit, and then get this message.</p>
+    <p class="muted" style="margin-top:14px">When someone joins ${c.name} in the app they choose First-time visitor, Returning visitor, or Member. First-time visitors can fill in a visitor card (it lands in Connect cards and New people), see Plan your visit, and then get this message.</p>
     <form data-form="welcome-save" class="panel" novalidate>
-      <label class="check"><input type="checkbox" name="ask" value="1" ${attr(w.ask, "checked")}><span>Ask new members if it's their first visit</span></label>
+      <label class="check"><input type="checkbox" name="ask" value="1" ${attr(w.ask, "checked")}><span>Offer the optional visitor card to first-time visitors</span></label>
       <label class="field" style="margin-top:12px"><span>Heading</span><input type="text" name="title" maxlength="80" value="${c.welcome?.title || ""}" placeholder="${WELCOME_DEFAULT.title}"></label>
       <label class="field"><span>Message</span><textarea name="message" rows="5" maxlength="800" placeholder="${WELCOME_DEFAULT.message}">${c.welcome?.message || ""}</textarea><small>Leave blank for the standard message. {church} becomes the church's name and {name} the visitor's first name.</small></label>
       <label class="field"><span>Buttons under the message</span><textarea name="links" rows="4" placeholder="Plan your visit | #visit&#10;Our website | https://yourchurch.org">${(c.welcome?.links || w.links).map((l) => `${l.label} | ${l.url}`).join("\n")}</textarea>
@@ -82,12 +72,53 @@ Forms["welcome-save"] = (d, f) => {
 Actions["welcome-preview"] = (el) => { const { w, bad } = welcomeRead(el.closest("form")); if (bad.length) return formError(el.closest("form"), `Check this button: "${bad[0]}"`);
   welcomeShow({ ...w, title: w.title || WELCOME_DEFAULT.title, message: w.message || WELCOME_DEFAULT.message }); };
 
-// ----- Where these show up -----
+let firstVisitCardFor = null;
+function churchVisitState() {
+  const status = S.isMember() ? S.state.churchAttendeeTypes?.[S.state.current] : null;
+  const visits = new Set(S.list("presence").filter((p) => p.userId === S.me().id).map((p) => p.serviceKey)).size;
+  return { status, visits, first: status === "first" && visits < 2, returning: status === "returning" || status === "first" && visits >= 1 };
+}
+Screens.welcomeback = () => {
+  const c = S.church(), { returning, visits } = churchVisitState();
+  if (!c || !returning) return { redirect: "home" };
+  return { title: "Welcome back", back: "home", body: html`
+    <section class="sec panel"><h2>Thank you for visiting us again!</h2>
+      <p>We're glad to see you back at ${c.name}.</p>
+      <p>${visits >= 5 ? "Ready to get more involved? Ask about membership or explore ways to serve." : visits >= 3 ? "Get to know the church through an upcoming class or group." : "Find your way around and see what’s coming up for your next visit."}</p>
+      <div class="btns">${mapLocations().length ? html`<a class="btn ghost" href="#map">Campus map</a>` : ""}
+        <a class="btn ghost" href="#page-${c.id}">Church information</a>
+        ${S.on("events") ? html`<a class="btn ghost" href="#events">Upcoming events</a>` : ""}
+        ${visits >= 3 && S.on("classes") ? html`<a class="btn ghost" href="#classes">Explore classes</a>` : ""}</div>
+    </section><section class="sec panel"><h2>How to become a member</h2>
+      <p>Ask the church office about its membership process, upcoming orientation, and who you can meet to talk about joining.</p>
+      <div class="btns">${c.email ? html`<a class="btn" href="mailto:${c.email}">Email the church office</a>` : html`<a class="btn" href="#connect">Connect with the church</a>`}
+      ${visits >= 5 && S.on("checkin") ? html`<a class="btn ghost" href="#serve">Explore serving</a>` : ""}</div></section>` };
+};
 {
-  const join = Actions["join-church"];
-  Actions["join-church"] = (el) => { const was = S.isMember(el.dataset.id); join(el); if (!was && S.isMember(el.dataset.id)) visitAsk = el.dataset.id; };
-  const home = Screens.home;   // (already wrapped once for the attendance question)
-  Screens.home = (t) => { const v = home(t); if (v && !v.redirect) { const after = v.after; v.after = () => { setTimeout(visitPrompt, 250); after?.(); };
-    if (mapLocations().length && v.body) v.body = html`${v.body}<section class="sec"><div class="rows"><a class="row" href="#map"><span class="lead-ic">${icon("pin")}</span><span class="body"><span class="t">Campus map</span><span class="s">Find the sanctuary, kids' rooms, restrooms and more</span></span>${icon("chev")}</a>
-      <a class="row" href="#visit"><span class="lead-ic">${icon("clock")}</span><span class="body"><span class="t">Plan your visit</span><span class="s">Service times, directions and what to expect</span></span>${icon("chev")}</a></div></section>`; } return v; };
+  const home = Screens.home;
+  Screens.home = (t) => {
+    const v = home(t);
+    if (!v?.body || v.redirect) return v;
+    const { status, first, returning } = churchVisitState();
+    const intro = html`
+      ${first || returning || status === "member" ? html`<section class="sec panel">
+        <h2>${first ? "New here?" : returning ? "Welcome back" : "Your church home"}</h2>
+        <div class="btns">
+          ${returning ? html`<a class="btn" href="#welcomeback">Welcome back</a>` : ""}
+          ${first ? html`<a class="btn ghost" href="#visit">Plan your visit</a>` : ""}
+          ${mapLocations().length ? html`<a class="btn ghost" href="#map">Campus map</a>` : ""}
+        </div></section>` : ""}
+      `;
+    const legacyMap = !status && mapLocations().length ? html`<section class="sec btns"><a class="btn ghost" href="#map">Campus map</a><a class="btn ghost" href="#visit">Plan your visit</a></section>` : "";
+    v.body = html`${intro}${v.body}${legacyMap}`;
+    if (firstVisitCardFor === S.state.current) {
+      const after = v.after;
+      v.after = () => {
+        firstVisitCardFor = null;
+        Actions["visit-first"]();
+        after?.();
+      };
+    }
+    return v;
+  };
 }

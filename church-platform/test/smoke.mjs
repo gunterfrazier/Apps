@@ -81,10 +81,90 @@ await step("welcome", async () => {
 });
 await step("join as basic member", async () => {
   await goTo("church-riverside"); await page.click("[data-act=join-church]");
-  await page.waitForSelector("#scrim [data-act=visit-not-first]", { timeout: 5000 }); await page.click("#scrim [data-act=visit-not-first]"); await sheetGone();   // asked once, on joining
+  await page.click('#scrim [data-act=join-with-status][data-status="returning"]'); await sheetGone();
+  await page.waitForSelector('a[href="#welcomeback"]');
   await page.waitForSelector(".home-top"); await shot("02-home");
   await goTo("me"); await expectText("Member");
   if (await page.$('a[href="#admin"]')) throw new Error("a new member should not see Admin");
+});
+await step("visitor attendance milestones", async () => {
+  await goTo("home");
+  try {
+    const visit = async (count) => page.evaluate((count) => {
+      const { S } = __app;
+      S.state.churchAttendeeTypes.riverside = "first";
+      S.state.presence = S.state.presence.filter((r) => !r.id.startsWith("milestone-test-"));
+      for (let index = 0; index < count; index++) {
+        const date = `2025-01-0${index + 1}`;
+        S.state.presence.push({ id: `milestone-test-${index}`, churchId: "riverside", date,
+          userId: S.me().id, serviceKey: `${date}T09:00@riverside-main` });
+      }
+      __app.render();
+    }, count);
+    await visit(0);
+    await page.getByRole("heading", { name: "New here?" }).waitFor();
+    if (await page.$('a[href="#welcomeback"]')) throw new Error("Welcome back shown before the first visit");
+    await visit(1);
+    await page.getByRole("heading", { name: "New here?" }).waitFor();
+    await page.locator('a[href="#welcomeback"]').waitFor();
+    await visit(2);
+    if (await page.getByRole("heading", { name: "New here?" }).count() || await page.locator('a[href="#visit"]').count()) throw new Error("First-visit links stayed after two visits");
+    await page.click('a[href="#welcomeback"]');
+    await page.getByRole("heading", { name: "How to become a member" }).waitFor();
+  } finally {
+    await page.evaluate(() => {
+      const { S } = __app;
+      S.state.churchAttendeeTypes.riverside = "returning";
+      S.state.presence = S.state.presence.filter((r) => !r.id.startsWith("milestone-test-"));
+      S.save();
+    });
+    await goTo("home");
+  }
+});
+await step("geofenced arrival confirms a group and starts child intake", async () => {
+  await goTo("settings");
+  const start = await page.evaluate(() => {
+    const { S } = __app;
+    const loc = S.location("riverside-main");
+    const now = new Date();
+    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const original = { services: loc.services, geo: loc.geofence, prefs: S.state.prefs.geofenceCheckin, presence: S.state.presence.map((r) => r.id) };
+    loc.services = [{ day: now.getDay(), time, label: "Arrival test service" }];
+    loc.geofence = { enabled: true, lat: 34, lng: -85, radiusMeters: 200 };
+    S.state.prefs.geofenceCheckin = false;
+    sessionStorage.removeItem("our-faithful-geofence-arrived");
+    S.save();
+    __app.render();
+    return original;
+  });
+  try {
+    await ctx.grantPermissions(["geolocation"]);
+    await ctx.setGeolocation({ latitude: 34, longitude: -85 });
+    await page.check('input[data-k="geofenceCheckin"]');
+    await page.waitForSelector('form[data-form="geo-confirm"]');
+    const noNewPresence = (ids) => page.evaluate((ids) => __app.S.state.presence.every((r) => ids.includes(r.id)), ids);
+    if (!(await noNewPresence(start.presence))) throw new Error("Arrival was counted before confirmation");
+    await page.fill('#scrim input[name="headcount"]', "3");
+    await page.fill('#scrim input[name="guests"]', "2");
+    await page.check('#scrim input[name="newChild"]');
+    await sheetSubmit();
+    await page.waitForSelector('#scrim textarea[name="care-participation"]');
+    const group = await page.evaluate((ids) => __app.S.state.presence.find((r) => !ids.includes(r.id)), start.presence);
+    if (group?.extraHeadcount !== 2 || group?.guestHeadcount !== 2) throw new Error("Group attendance was not saved correctly");
+  } finally {
+    await page.evaluate((start) => {
+      const { S } = __app;
+      const loc = S.location("riverside-main");
+      loc.services = start.services;
+      loc.geofence = start.geo;
+      S.state.prefs.geofenceCheckin = start.prefs;
+      S.state.presence = S.state.presence.filter((r) => start.presence.includes(r.id));
+      sessionStorage.removeItem("our-faithful-geofence-arrived");
+      S.save();
+    }, start);
+    await ctx.clearPermissions();
+    await goTo("home");
+  }
 });
 await step("opening summary", async () => {
   await goTo("home");
@@ -1056,6 +1136,59 @@ await step("volunteer scheduling", async () => {
   await goTo("team-0"); await page.click("[data-act=team-edit]"); await page.fill("#scrim textarea[name=positions]", "Worship leader\nVocals\nKeys\nGuitar\nBass\nDrums"); await sheetSubmit(); await sheetGone(); await expectText("Bass");
   await goTo("teams"); await page.click("[data-act=team-new]"); await page.fill("#scrim input[name=name]", "Hospitality"); await page.fill("#scrim textarea[name=positions]", "Welcome table"); await sheetSubmit(); await sheetGone(); await page.waitForSelector("text=Welcome table");
   await goTo("alerts"); await expectText("Announcements");
+});
+await step("presenter shortcut and long stage lyrics", async () => {
+  await goTo("home");
+  const original = await page.evaluate(() => {
+    const { S } = __app;
+    const m = S.membership();
+    const church = S.church();
+    const song = S.get("songs", "riverside-song-amazing");
+    return { role: m.roleId, owner: church.ownerId, lyrics: song.lyrics, order: song.order };
+  });
+  const viewport = page.viewportSize();
+  try {
+    await page.evaluate(() => {
+      const { S } = __app;
+      S.church().ownerId = "u-dana";
+      S.membership().roleId = "member";
+      __app.render();
+    });
+    if (await page.$('a[href="#presenter"]')) throw new Error("Presenter shortcut shown to a member");
+    await goTo("presenter"); await page.waitForFunction(() => location.hash === "#home");
+    await page.evaluate(() => {
+      const { S } = __app;
+      S.membership().roleId = "admin";
+      const song = S.get("songs", "riverside-song-amazing");
+      song.lyrics += "\n\n[Verse 4]\n" + Array(12).fill("This is a very long next line for the stage display preview").join("\n");
+      song.order += ", Verse 4";
+      S.save(); __app.render();
+    });
+    await page.click('.quick a[href="#presenter"]');
+    await page.waitForSelector('a[href="#present-doc-riverside-doc-vine"]');
+    await goTo("present-service-riverside-svc-1");
+    await page.click('[data-act=pres-mode][data-mode="stage"]');
+    await page.locator('.slide-pick').filter({ hasText: "Verse 3: Through many dangers" }).click();
+    await page.waitForSelector('.sm-now:has-text("Through many dangers")');
+    await page.waitForSelector('.sm-next:has-text("very long next line")');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    for (const [width, height] of [[390, 667], [667, 390], [1280, 720]]) {
+      await page.setViewportSize({ width, height });
+      const controls = await page.locator('.present-controls').boundingBox();
+      if (!controls || controls.y < 0 || controls.y + controls.height > height) throw new Error(`Stage controls out of view at ${width} × ${height}`);
+    }
+  } finally {
+    await page.setViewportSize(viewport);
+    await page.evaluate((was) => {
+      const { S, pres } = __app;
+      S.church().ownerId = was.owner;
+      S.membership().roleId = was.role;
+      Object.assign(S.get("songs", "riverside-song-amazing"), { lyrics: was.lyrics, order: was.order });
+      pres.mode = "slideshow";
+      S.save();
+    }, original);
+    await goTo("home");
+  }
 });
 await step("stage display, countdown and overlay", async () => {
   await goTo("service-riverside-svc-1"); await page.click("[data-act=seg-add]"); await page.click('[data-act=seg-new][data-type="countdown"]');

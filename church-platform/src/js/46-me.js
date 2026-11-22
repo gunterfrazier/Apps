@@ -45,6 +45,7 @@ Screens.me = () => {
       <section class="sec"><h2 class="sec-head">My account</h2><div class="rows">
           ${row("#household", "people", "Household", me.household.length ? me.household.map((p) => p.name).join(", ") : "Add your family for classes and check-in")}
           ${S.isMember() ? row("#dates", "calendar", "My dates", "Birthday, anniversary and milestones") : ""}
+          ${row("#help", "info", "Help & support", "Get assistance and manage diagnostic access")}
           ${row("#settings", "gear", "Settings", "Language, text size, read aloud and notifications")}
           ${row("#scan", "scan", "Scan a QR code")}
           ${hasAdminTools() ? html`<button class="row" data-act="printers-setup"><span class="lead-ic">${icon("printer")}</span><span class="body"><span class="t">Printers on this computer</span><span class="s">Where receipts, tickets, name tags and reports print</span></span>${icon("chev")}</button>` : ""}

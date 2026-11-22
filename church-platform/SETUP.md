@@ -326,3 +326,9 @@ They need no account and nothing to set up. Each opens a sample church in the vi
 - Write a privacy policy. The app stores children's names, birthdays, allergies and photos of people allowed to pick them up, prayer requests, messages and giving records.
 - Decide who at each church can see what: start everyone as **Member**, and give staff roles only what they need.
 - Back up: Supabase Pro includes daily backups; on the free tier, export the database from **Database, Backups** regularly.
+
+### Version 22 account diagnostics and household links
+
+Run `supabase/upgrade-22.sql` after the earlier upgrades and before deploying the app build. In Supabase, provision a dedicated signed-in support identity with no church memberships or church ownership. Add its Auth UUID to `public.support_staff` through the SQL editor. The agent opens the app at `#help` to redeem a key.
+
+A user can grant access to their own account diagnostics. A primary account holder can grant access to church diagnostics. The grant is read-only and expires after 24 hours or when either side closes the case. A fresh key is needed if the issue continues past that window.

@@ -30,18 +30,21 @@ const PRESENCE_ASK = "our-faithful-presence-asked";
 function serviceNow() {
   return upcomingServices(S.church(), 3).find((s) => s.live || (s.start - Date.now() < 30 * 60e3 && s.start - Date.now() > -120 * 60e3)) || null;
 }
+const presenceId = (churchId, key, userId) => `presence:${churchId}:${key}:${userId}`;
 const presentAt = (key, userId = S.me().id) => S.list("presence").some((p) => p.serviceKey === key && p.userId === userId);
 const canTakeAttendance = () => S.isMember() && S.canAny(["checkin.station", "view.reports"]);
 function markPresent(userId, svc, via) {
   const key = typeof svc === "string" ? svc : serviceKey(svc);
   if (presentAt(key, userId)) return false;
   const [date, rest] = key.split("T");
-  S.add("presence", { userId, name: userId === S.me().id ? S.me().name : nameOf(userId), serviceKey: key, date, locationId: rest.split("@")[1] || null, via, by: S.me().id, at: new Date().toISOString() });
+  S.add("presence", { id: presenceId(S.state.current, key, userId), userId, name: userId === S.me().id ? S.me().name : nameOf(userId), serviceKey: key, date, locationId: rest.split("@")[1] || null, via, by: S.me().id, at: new Date().toISOString() });
   return true;
 }
 /** Opening the app during a service: ask once whether they're here. */
 function presencePrompt() {
   if (!S.church() || !S.isMember() || thisDevice() || $("#scrim") || location.hash.replace("#", "").split("-")[0] !== "home" || prefs().askPresence === false) return;
+  // Give opted-in GPS arrival the first chance to ask for the group's attendance.
+  if (prefs().geofenceCheckin && S.visibleLocations().some((l) => { const cfg = geoConfigOf(l); return cfg.enabled && cfg.autoAttendance; })) return;
   const svc = serviceNow(); if (!svc) return;
   const key = serviceKey(svc);
   let asked = []; try { asked = JSON.parse(sessionStorage.getItem(PRESENCE_ASK) || "[]"); } catch {}

@@ -26,8 +26,15 @@ function landingHref(c, url) {
 }
 function landingBlocks(c, { home = false } = {}) {
   const viewingOther = c.id !== S.state.current;
-  const linkBtn = (href, label, cls, ic) => ext(landingHref(c, href), label, cls, ic);
+  const { status } = home ? churchVisitState() : {};
+  const visitorTitle = (label) => /^(new here|plan your visit)\??$/i.test(String(label || "").trim());
+  const linkBtn = (href, label, cls, ic) => {
+    const target = landingHref(c, href);
+    if (status && (target === "#visit" || target === `#visit-${c.id}` || visitorTitle(label))) return "";
+    return ext(target, label, cls, ic);
+  };
   return c.landing.blocks.map((b) => {
+    if (status && visitorTitle(b.title)) return "";
     switch (b.type) {
       case "hero": return html`<section class="hero" ${b.image ? raw(`style="background-image:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.55)),url('${esc(b.image)}')"`) : ""}>
         ${b.title ? html`<h2>${b.title}</h2>` : ""}${b.text ? html`<p>${b.text}</p>` : ""}${b.buttonLabel && b.buttonUrl ? linkBtn(b.buttonUrl, b.buttonLabel, "btn") : ""}</section>`;

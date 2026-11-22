@@ -45,7 +45,7 @@ function applyBrand() {
   document.title = c ? `${c.name} | ${PLATFORM.name}` : PLATFORM.name;
 }
 
-const OPEN_ROUTES = ["welcome", "churches", "start", "church", "page", "display", "pair", "bible", "reactivate"];
+const OPEN_ROUTES = ["welcome", "churches", "start", "church", "page", "display", "pair", "bible", "reactivate", "help", "familylinks"];
 // Screens that take a church ID after the dash (#give-riverside), so a QR code opens the right church.
 const CHURCH_SCOPED = ["home", "give", "checkin", "parents", "serve", "live", "events", "classes", "groups", "connect"];
 /** Which church a deep link belongs to, so links and QR codes switch the app to it. */
@@ -104,7 +104,7 @@ function render() {
     else if (!me.name && head !== "welcome" && !signedOutOk && !thisDevice()) { pendingRoute = pendingRoute || route; head = "welcome"; tail = ""; }
     else if (!S.church() && !OPEN_ROUTES.includes(head) && !((head === "map" || head === "visit" || head === "ticket" || head === "thanks") && Backend.on && !Backend.user)) { head = "churches"; tail = ""; }
     // A deactivated church shows its primary account holder one screen: what's happening, and the way back.
-    else if (S.church() && deactStatus() === "deactivated" && !DEACT_OPEN.includes(head)) { head = "deactivated"; tail = ""; }
+    else if (S.church() && deactStatus() === "deactivated" && head !== "help" && !DEACT_OPEN.includes(head)) { head = "deactivated"; tail = ""; }
   }
   // Someone who can approve a kind of request never waits on their own.
   if (!Backend.on || Backend.ready) try { deactTick(); datesTick(); approveOwnRequests(); } catch (err) { console.error(err); }

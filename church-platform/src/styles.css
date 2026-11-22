@@ -2006,3 +2006,23 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 .slide.has-bg { background: #000; }
 .slide.has-bg > :not(.slide-bg) { position: relative; z-index: 2; }
 .slide.has-bg .slide-title, .slide.has-bg .slide-lyrics, .slide.has-bg .slide-verses, .slide.has-bg .slide-point, .slide.has-bg .slide-keynote, .slide.has-bg .slide-body, .slide.has-bg .slide-sub, .slide.has-bg .slide-kicker, .slide.has-bg .slide-countdown { text-shadow: 0 0.3cqw 2cqw rgba(0, 0, 0, .55); }
+
+/* Keep lyrics and previews inside the stage panel so they cannot displace controls. */
+.operator-stage .stage-mon { height: clamp(9rem, 49dvh, 35rem); min-height: 0; overflow: hidden; }
+.operator-stage .present-controls { grid-row: 1; align-self: start; }
+.operator-stage .present-side { min-width: 0; }
+.stage-mon .sm-top, .stage-mon .sm-musician-bar { flex-shrink: 0; }
+.stage-mon.full .sm-top { flex-wrap: wrap; }
+.stage-mon .sm-now { min-height: 0; overflow: auto; justify-content: safe center; }
+.stage-mon .sm-next { max-height: 22%; overflow: auto; overflow-wrap: anywhere; }
+.stage-mon .sm-notes { max-height: 18%; overflow: auto; }
+.stage-mon.full { overflow-y: auto; }
+.pres-orientation { background: #202522; color: #fff; border: 1px solid #515a54; border-radius: 6px; padding: 5px; max-width: 10rem; }
+@media (min-width: 900px) {
+  .operator-stage .present-controls, .operator-stage .stage-mon { grid-column: 1; }
+}
+@media (max-height: 520px) {
+  .stage-mon.full { gap: 6px; }
+  .stage-mon.full .sm-now { font-size: clamp(1rem, 4dvh, 2rem); }
+  .stage-mon.full .sm-next { font-size: clamp(.85rem, 3dvh, 1.3rem); }
+}

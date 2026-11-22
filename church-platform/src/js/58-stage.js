@@ -224,7 +224,7 @@ function stageMonitor(data, st, full, tail = "") {
   return html`<div class="stage-mon ${full ? "full" : ""} ${chart ? "with-music" : ""} ${chart && view.lyrics ? "and-words" : ""}" aria-label="Stage display">
     <div class="sm-top">
       <span class="sm-clock" data-clock>${fmtTime(now)}</span>
-      ${full ? stageViewBtn() : ""}
+      ${full ? html`${stageViewBtn()}${orientationSelect()}` : ""}
       <span class="sm-sec">${cur?.section || data?.title || ""}${cur?.label ? `, ${cur.label}` : ""}${full && view.syncMode !== "follow" ? html` <span class="tag ${view.syncMode === "leader" ? "ok" : "brand"}" style="font-size:.7rem;vertical-align:middle">${view.syncMode === "leader" ? "Band Leader" : "Independent"}</span>` : ""}</span>
       ${timer}
     </div>
@@ -381,3 +381,34 @@ function tickTimers() {
   $$("[data-since]").forEach((el) => { el.textContent = cdText((now - +el.dataset.since) / 1000); });
 }
 setInterval(tickTimers, 1000);
+
+function orientationSelect() {
+  const mode = typeof screen === "undefined" ? "" : screen.orientation?.type?.split("-")[0];
+  return html`<select class="pres-orientation" data-change="pres-orientation" aria-label="Screen orientation">
+    <option value="">Orientation${mode ? ` (${mode})` : ""}</option>
+    <option value="auto">Follow device</option><option value="portrait">Portrait</option><option value="landscape">Landscape</option>
+  </select>`;
+}
+Inputs["pres-orientation"] = async (el) => {
+  const orientation = screen.orientation;
+  const mode = el.value;
+  if (!mode) return;
+  if (mode === "auto") {
+    orientation?.unlock?.();
+  } else {
+    try {
+      if (!orientation?.lock) throw new Error();
+      try { await orientation.lock(mode); }
+      catch {
+        if (document.fullscreenElement || !document.documentElement.requestFullscreen) throw new Error();
+        await document.documentElement.requestFullscreen();
+        try { await orientation.lock(mode); }
+        catch { await document.exitFullscreen(); throw new Error(); }
+      }
+    } catch { toast("This device requires you to rotate the screen manually."); }
+  }
+  el.selectedIndex = 0;
+};
+addEventListener("hashchange", () => {
+  if (!/^#(?:present|stage)-/.test(location.hash)) screen.orientation?.unlock?.();
+});

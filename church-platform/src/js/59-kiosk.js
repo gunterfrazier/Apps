@@ -115,7 +115,7 @@ Screens.kiosk = () => {
     const kidRow = (i) => html`<fieldset class="guest-kid" ${attr(i > 0, "hidden")} data-row="${i}"><legend>Child ${i + 1}</legend>
       <label class="field"><span>Name</span><input type="text" name="kid${i}" maxlength="60" autocapitalize="words"></label>
       ${birthdayField(`birth${i}`, "Birthday")}
-      <label class="field"><span>Allergies</span><input type="text" name="allergy${i}" maxlength="60" placeholder="None"></label></fieldset>`;
+      <label class="field"><span>Allergies</span><input type="text" name="allergy${i}" maxlength="60" placeholder="None"></label>${childIntakeFields({}, i)}</fieldset>`;
     main = html`<h1>Welcome! We're glad you're here.</h1><p class="kiosk-sub">Tell us a little about your family. It only takes a minute.</p>
       <form data-form="kiosk-guest" class="kiosk-form" novalidate>
         <label class="field"><span>Your name</span><input type="text" name="name" required maxlength="60" autocomplete="off" autocapitalize="words"></label>
@@ -183,7 +183,7 @@ Forms["kiosk-guest"] = (d, f) => {
   const c = S.church(), last = d.name.trim().split(/\s+/).slice(-1)[0];
   const family = [0, 1, 2, 3, 4].filter((i) => d[`kid${i}`]).map((i) => {
     const n = d[`kid${i}`].trim();
-    return { id: uid(), name: n.includes(" ") ? n : `${n} ${last}`, kind: "child", birth: d[`birth${i}`] || "", allergies: /^(none|no|n\/a)$/i.test(d[`allergy${i}`] || "") ? "" : d[`allergy${i}`] || "", notes: "" };
+    return { id: uid(), name: n.includes(" ") ? n : `${n} ${last}`, kind: "child", birth: d[`birth${i}`] || "", allergies: /^(none|no|n\/a)$/i.test(d[`allergy${i}`] || "") ? "" : d[`allergy${i}`] || "", notes: "", care: readChildIntake(d, i) };
   });
   if (!family.length) return formError(f, "Add at least one child.");
   // Same phone as a family already here: add to them instead of making a duplicate.

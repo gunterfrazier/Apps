@@ -44,7 +44,7 @@ Screens.settings = () => {
           ${toggle("alertSound", "In-app alert sound", "Play a chime for new alerts while the app is open", p.alertSound !== false)}
           ${toggle("quiet", "Quiet at night", "Silence device notifications and in-app chimes from 9 PM to 7 AM", p.quiet)}</div></section>
       ${typeof geofenceOffered === "function" && geofenceOffered() ? html`<section class="sec"><h2 class="sec-head">Location</h2><div class="rows">
-          ${toggle("geofenceCheckin", "Check me in when I arrive", `Your phone checks your location while the app is open during a service or event, and marks you as here when you're on campus. Your location is never saved, only that you arrived.`, p.geofenceCheckin === true)}</div></section>` : ""}`,
+          ${toggle("geofenceCheckin", "Ask me to confirm when I arrive", `When you open the app during a service on campus, you can confirm attendance for yourself and your group. Your GPS position stays on this device.`, p.geofenceCheckin === true)}</div></section>` : ""}`,
   };
 };
 Inputs["pref"] = (el) => {
