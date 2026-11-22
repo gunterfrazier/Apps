@@ -113,7 +113,7 @@ function slideHtml(s, c = S.church()) {
   })();
   const bg = s.kind === "logo" && !s.bg ? raw(` style="--b:${esc(c.color)};background:${esc(bannerBackground(bannerOf(c), c.color))}"`) : "";
   const back = s.bg || "";
-  return html`<div class="slide k-${s.kind} ${back ? "has-bg" : ""}"${bg}>${back ? (isVideoUrl(back) ? html`<video class="slide-bg" src="${back}" autoplay muted loop playsinline aria-hidden="true"></video>` : html`<img class="slide-bg" src="${back}" alt="" aria-hidden="true">`) : ""}${body}${s.footer ? html`<div class="slide-foot">${s.footer}</div>` : ""}</div>`;
+  return html`<div class="slide k-${s.kind} ${back ? "has-bg" : ""}"${bg}>${back ? (isVideoUrl(back) ? html`<video class="slide-bg" src="${back}" autoplay muted loop playsinline aria-hidden="true"></video>` : html`<img class="slide-bg" src="${back}" alt="" aria-hidden="true">`) : ""}${body}${s.footer ? html`<div class="slide-foot">${s.footer}</div>` : ""}${typeof screenFooterHtml === "function" ? screenFooterHtml(c, "slides", s.kind) : ""}</div>`;
 }
 
 // live: a song section the operator picked that isn't next in the plan ({ label, i, returnTo, slides }). It plays, then the plan carries on after returnTo.

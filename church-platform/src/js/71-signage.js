@@ -104,7 +104,8 @@ function signBg(url) {
 function signFrame(pl, slide, { live = false } = {}) {
   return html`<div class="sg-stage ${pl.orientation === "portrait" ? "portrait" : ""} theme-${pl.theme || "brand"}" translate="no">
     ${slide ? signSlideHtml(slide, pl) : html`<div class="sg-slide"><div class="sg-pad sg-center"><div class="sg-big">${S.church().name}</div></div></div>`}
-    ${pl.clock !== false && live ? html`<div class="sg-clock" data-clock>${fmtTime(Date.now())}</div>` : ""}</div>`;
+    ${pl.clock !== false && live ? html`<div class="sg-clock" data-clock>${fmtTime(Date.now())}</div>` : ""}
+    ${pl.footer !== false && typeof screenFooterHtml === "function" ? screenFooterHtml(S.church(), "signage", slide?.kind === "video" || slide?.kind === "image" ? "media" : slide?.kind) : ""}</div>`;
 }
 
 // ----- The player -----
@@ -189,11 +190,12 @@ Actions["sign-settings"] = (el) => {
       <label class="field"><span>Colors</span><select name="theme">${Object.entries(SIGN_THEMES).map(([k, l]) => html`<option value="${k}" ${attr(k === pl.theme, "selected")}>${l}</option>`)}</select></label></div>
     <fieldset class="field" style="border:0;padding:0"><legend class="flabel">Screen shape</legend><div class="radios">${[["landscape", "Landscape (16:9)"], ["portrait", "Portrait (9:16)"]].map(([k, l]) => html`<label><input type="radio" name="orientation" value="${k}" ${attr((pl.orientation || "landscape") === k, "checked")}><span>${l}</span></label>`)}</div></fieldset>
     <label class="check"><input type="checkbox" name="clock" ${attr(pl.clock !== false, "checked")}><span>Show the time in the corner</span></label>
+    <label class="check"><input type="checkbox" name="footer" ${attr(pl.footer !== false, "checked")}><span>Show your logo and information footer${screenFooterOf(S.church()).signage ? "" : html` <small class="faint">(turn it on in <a href="#admin-screenfooter">Slides and screens footer</a>)</small>`}</span></label>
     <div class="btns"><button class="btn">Save</button><button type="button" class="btn danger" data-act="sign-delete" data-id="${pl.id}">Delete playlist</button></div></form>`);
 };
 Forms["sign-settings"] = (d, f) => {
   if (!d.name) return formError(f, "Name the playlist.");
-  Object.assign(S.get("signage", d.id), { name: d.name, locationId: d.locationId || null, seconds: clamp(+d.seconds || 10, 4, 120), theme: d.theme, orientation: d.orientation, clock: !!d.clock });
+  Object.assign(S.get("signage", d.id), { name: d.name, locationId: d.locationId || null, seconds: clamp(+d.seconds || 10, 4, 120), theme: d.theme, orientation: d.orientation, clock: !!d.clock, footer: !!d.footer });
   S.save(); closeSheet(); render();
 };
 Actions["sign-delete"] = (el) => { S.remove("signage", el.dataset.id); closeSheet(true); toast("Playlist deleted"); go("signs"); };

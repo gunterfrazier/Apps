@@ -121,9 +121,7 @@ AdminScreens.appearance = () => {
 
       <section class="sec"><h2 class="sec-head">Accent color</h2>
         <p class="faint" style="margin-top:-6px">Buttons, links, the current tab and highlights.</p>
-        <div class="swatches" role="group" aria-label="Accent color">${ACCENTS.map((x) => html`<button type="button" class="swatch" style="background:${x}" data-act="look-color" data-color="${x}" aria-pressed="${normHex(d.color) === x}" aria-label="${x}"></button>`)}
-          <label class="swatch" style="background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);display:grid;place-items:center" title="Any color"><span class="sr">Any color</span><input type="color" value="${normHex(d.color)}" data-change="look-color-pick" style="opacity:0;position:absolute;inset:0;width:100%;height:100%;cursor:pointer"></label></div>
-        ${contrastNote(normHex(d.color))}</section>
+        ${colorPicker("accent", d.color, { sources: churchColorSources(c), apply: "look", label: "Accent color" })}</section>
 
       <section class="sec"><h2 class="sec-head">Fonts</h2>
         <div class="opt-grid">${THEME_FONTS.map(([v, l, s, h]) => opt("font", v, l, s, html`<span class="sample" style="font-family:'${h}', serif;font-weight:${v === "classic" ? 650 : 750}">Aa</span>`))}</div></section>
@@ -142,6 +140,7 @@ AdminScreens.appearance = () => {
       <section class="sec"><h2 class="sec-head">Layout</h2><div class="rows">
         <a class="row" href="#admin-homelayout"><span class="lead-ic">${icon("home")}</span><span class="body"><span class="t">Home screen</span><span class="s">Choose and order what's on Home</span></span>${icon("chev")}</a>
         <a class="row" href="#admin-tabs"><span class="lead-ic">${icon("layers")}</span><span class="body"><span class="t">Tabs</span><span class="s">${churchTabs(c).map((t) => t.label).join(", ")}</span></span>${icon("chev")}</a>
+        <a class="row" href="#admin-screenfooter"><span class="lead-ic">${icon("screen")}</span><span class="body"><span class="t">Slides and screens footer</span><span class="s">Your logo and information on presentations and lobby screens</span></span>${icon("chev")}</a>
         <a class="row" href="#admin-banner"><span class="lead-ic">${icon("star")}</span><span class="body"><span class="t">Home banner</span><span class="s">Photo, logo and words at the top of Home</span></span>${icon("chev")}</a>
         <a class="row" href="#admin-account"><span class="lead-ic">${icon("church")}</span><span class="body"><span class="t">Logo</span><span class="s">Under Account details</span></span>${icon("chev")}</a>
       </div></section>`,

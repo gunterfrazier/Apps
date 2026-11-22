@@ -114,6 +114,9 @@ function render() {
   if (!Backend.on || Backend.ready) try { deactTick(); datesTick(); approveOwnRequests(); } catch (err) { console.error(err); }
   applyBrand();
   let view;
+  // A feature the church turned off (Admin, Features) takes its screens with it.
+  const off = typeof featureOffFor === "function" && !view0OK(head) ? featureOffFor(route) : null;
+  if (off) { toast(`${MODULES.find(([k]) => k === off)[1]} is turned off at ${S.church().name}`); go("home"); return; }
   try { view = (Screens[head] || Screens.home)(tail); }
   catch (err) { console.error(err); view = { title: "Something went wrong", body: html`<div class="panel" style="margin-top:16px"><p>This screen couldn't load. Your data is safe.</p><a class="btn" href="#home">Go home</a></div>` }; }
   if (view.redirect) { go(view.redirect); return; }
@@ -123,7 +126,7 @@ function render() {
     ${view.present || view.kiosk ? "" : SANDBOX ? sandboxBar() : isTrainingChurch() ? trainingChurchBar(S.church()) : ""}
     ${view.band ? view.band : bar(view.title, view.back)}
     ${typeof lookDraftBar === "function" ? lookDraftBar() : ""}
-    <main class="view" id="main" tabindex="-1">${view.body}</main>
+    <main class="view" id="main" tabindex="-1">${view.body}${view.present || view.kiosk || view.noFooter ? "" : pageFooter()}</main>
     ${tabs(view.tab)}`);
   if (route !== lastRoute) {
     window.scrollTo(0, 0);
@@ -132,6 +135,7 @@ function render() {
     lastRoute = route;
   }
   view.after?.();
+  if (typeof hydrateColorSuggestions === "function") hydrateColorSuggestions();
   if (typeof Player !== "undefined") Player.syncUI(head, view);
   SecurityRadio.sync(head);
   sandboxAfterRender(head);
@@ -141,6 +145,8 @@ function render() {
 }
 let pendingRoute = null;
 
+/** Screens a turned-off feature never hides: Admin and the device screens. */
+const view0OK = (head) => ["admin", "me", "home", "settings", "display", "stage", "overlay", "pair", "signin"].includes(head) && !/^admin-(rooms|boards|visitpage|map|welcome|security|prayer|giving|campaigns|checkin)/.test(location.hash.slice(1));
 function headerIcons() {
   const pending = S.church() ? pendingAlerts() : null;
   const unread = pending ? pending.news.length + pending.alerts.length : 0;
@@ -429,17 +435,27 @@ Inputs["pick-image"] = async (el) => {
     field.value = url; field.dispatchEvent(new Event("input", { bubbles: true }));
     const prev = $(`[data-preview="${el.dataset.field}"]`, form);
     if (prev) prev.innerHTML = `<img src="${url}" alt="">`;
+    imageFieldChanged(form, el.dataset.field, url);
   } catch (e) { formError(form, e.message); }
 };
 Actions["clear-image"] = (el) => {
   const form = el.closest("form");
   const field = $(`input[name="${el.dataset.field}"]`, form); field.value = ""; field.dispatchEvent(new Event("input", { bubbles: true }));
   const prev = $(`[data-preview="${el.dataset.field}"]`, form); if (prev) prev.innerHTML = "";
+  imageFieldChanged(form, el.dataset.field, "");
 };
+/** After an image field changes: its Crop button, and the colors in the new picture. */
+function imageFieldChanged(form, name, url) {
+  const crop = $(`[data-act="crop-image"][data-field="${name}"]`, form); if (crop) crop.hidden = !url;
+  const box = $(`[data-colors-for="${name}"]`, form);
+  if (box) { box.innerHTML = url ? flat(html`<div class="cp-suggest" data-suggest-src="${url}" data-suggest-label="Colors in this picture"></div>`) : ""; hydrateColorSuggestions(box); }
+}
 function imageField(name, label, value, hint, max) {
   return html`<div class="field"><span>${label}</span><input type="hidden" name="${name}" value="${value || ""}">
     <div class="img-preview" data-preview="${name}">${value ? html`<img src="${value}" alt="">` : ""}</div>
     <div class="btns" style="margin-top:6px"><label class="btn ghost sm">${icon("image")}Choose image<input type="file" accept="image/*" class="sr" data-change="pick-image" data-field="${name}" ${attr(max, `data-max="${max}"`)}></label>
     ${mediaFindBtn(name, "image", max || 1400)}
-    <button type="button" class="btn ghost sm" data-act="clear-image" data-field="${name}">Remove</button></div>${hint ? html`<small>${hint}</small>` : ""}</div>`;
+    <button type="button" class="btn ghost sm" data-act="crop-image" data-field="${name}" ${attr(!value, "hidden")}>${icon("expand")}Crop</button>
+    <button type="button" class="btn ghost sm" data-act="clear-image" data-field="${name}">Remove</button></div>${hint ? html`<small>${hint}</small>` : ""}
+    <div class="img-colors" data-colors-for="${name}">${value ? html`<div class="cp-suggest" data-suggest-src="${value}" data-suggest-label="Colors in this picture"></div>` : ""}</div></div>`;
 }

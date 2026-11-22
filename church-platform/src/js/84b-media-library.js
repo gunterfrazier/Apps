@@ -263,6 +263,7 @@ function mfUse(url, kind) {
   field.value = url; field.dispatchEvent(new Event("input", { bubbles: true })); field.dispatchEvent(new Event("change", { bubbles: true }));
   const prev = $(`[data-preview="${mf.field}"]`, scope);
   if (prev) prev.innerHTML = kind === "video" ? `<video src="${esc(url)}" muted playsinline loop autoplay></video>` : `<img src="${esc(url)}" alt="">`;
+  if (kind !== "video" && field.form && typeof imageFieldChanged === "function") imageFieldChanged(field.form, mf.field, url);
   toast(kind === "video" ? "Video added" : "Picture added");
 }
 

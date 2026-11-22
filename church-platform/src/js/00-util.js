@@ -198,11 +198,60 @@ const NEW_PERM_DEFAULTS = {
 // A room display reads bookings ("rooms.view", a device-only permission) to know who has the room right now.
 const DEVICE_PERMS = { kiosk: ["checkin.station", "use.checkin", "checkin.events"], gate: ["checkin.events"], signage: [], display: ["present"], room: ["present", "rooms.view"], stage: ["present"], overlay: ["present"], booth: ["present"] };
 const mmss = (secs) => { const s = Math.max(0, Math.round(secs)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+/** Every feature a church can turn on or off: [key, name, what it is, group]. Groups organize Admin, Features. */
 const MODULES = [
-  ["sermons", "Sermons"], ["plans", "Reading plans"], ["events", "Events"], ["classes", "Classes and Sunday school"], ["groups", "Small groups"],
-  ["prayer", "Prayer wall"], ["directory", "Directory"], ["giving", "Giving"], ["checkin", "Kids check-in"], ["parents", "Parent portal"],
-  ["chat", "Chat"], ["live", "Watch live"], ["veritas", "Veritas Logos Bible links"],
+  ["sermons", "Sermons", "Messages with audio, video, notes and series", "Worship and teaching"],
+  ["live", "Watch live", "Livestream, service recordings and audio playlists", "Worship and teaching"],
+  ["podcast", "Podcasts", "A podcast feed of your sermons for Apple and Spotify", "Worship and teaching"],
+  ["plans", "Reading plans", "Daily Bible reading plans", "Worship and teaching"],
+  ["presentations", "Service plans and presenting", "Orders of service, songs, slides, stage display and booth", "Worship and teaching"],
+  ["lessons", "Lesson, sermon and study builders", "Build sermons, Sunday school lessons and study guides", "Worship and teaching"],
+  ["storylessons", "Lessons from Bible stories", "Start kids lessons from the Veritas Logos Family Library", "Worship and teaching"],
+  ["veritas", "Veritas Logos Bible links", "Links from passages to Veritas Logos study tools", "Worship and teaching"],
+  ["events", "Events", "Calendar, registration and reminders", "Connect"],
+  ["tickets", "Tickets and payments", "Paid events, tickets, payment kiosks and receipts", "Connect"],
+  ["groups", "Small groups", "Groups people can find and join", "Connect"],
+  ["classes", "Classes and Sunday school", "Classes, rosters and attendance", "Connect"],
+  ["prayer", "Prayer wall", "Requests the church prays for", "Connect"],
+  ["directory", "Directory", "Find and contact members", "Connect"],
+  ["chat", "Chat", "Messages between members and groups", "Connect"],
+  ["board", "Community board", "Posts, needs and offers from members", "Connect"],
+  ["forms", "Forms and signups", "Registrations, surveys and signup forms", "Connect"],
+  ["checkin", "Kids check-in", "Check-in stations, name tags and pickup codes", "Kids and families"],
+  ["parents", "Parent portal", "What parents see about their kids", "Kids and families"],
+  ["giving", "Giving", "Online giving, funds and campaigns", "Giving"],
+  ["finance", "Treasurer", "Deposits, budgets and giving statements", "Giving"],
+  ["volunteers", "Volunteer scheduling", "Teams, positions, schedules and blockout dates", "Serving and operations"],
+  ["rooms", "Room booking", "Rooms, requests and approvals", "Serving and operations"],
+  ["signage", "Digital signage", "Playlists for lobby and hallway screens", "Serving and operations"],
+  ["media", "Media library", "Photos, videos and motion backgrounds for slides and screens", "Serving and operations"],
+  ["visitors", "Visitor welcome and campus map", "Plan your visit page, first-visit cards, campus map and wayfinding", "Guests and safety"],
+  ["safety", "Safety and security", "Security Command, alerts, drills, radio and reunification", "Guests and safety"],
 ];
+/** The screens each feature owns. When a feature is off, its screens and the links to them go away. */
+const FEATURE_ROUTES = {
+  podcast: ["podcast"], presentations: ["services", "service", "songs", "presenter", "layouts", "hymns", "booth"],
+  lessons: ["docs", "build", "lessonschurch", "storylesson", "storyplan"], storylessons: ["storylesson", "storyplan"],
+  tickets: ["tickets", "ticket", "mytickets", "paykiosk", "paid"], board: ["board", "admin-boards"],
+  forms: ["forms", "form", "formedit", "responses"], finance: ["treasurer"],
+  volunteers: ["serving", "teams", "team", "crew", "schedule-blockouts", "schedule-calendar", "schedule-matrix"],
+  rooms: ["rooms", "roompresent", "admin-rooms"], signage: ["signs", "signedit"], media: ["medialib"],
+  visitors: ["visit", "map", "wayfind", "welcomeback", "admin-visitpage", "admin-map", "admin-welcome"],
+  safety: ["security", "safety-status", "admin-security"],
+  sermons: ["sermon", "listen"], plans: ["plans", "plan"], events: ["events", "event"], groups: ["groups"], classes: ["classes"],
+  prayer: ["admin-prayer"], directory: ["directory"], chat: ["chat", "thread"], giving: ["give", "admin-giving", "admin-campaigns"],
+  checkin: ["checkin", "kiosk", "admin-checkin"], parents: ["parents"], live: ["live"],
+};
+/** The feature that owns a route, like "services-plan" or "#admin-rooms", when it's turned off. */
+function featureOffFor(route) {
+  const r = String(route || "").replace(/^#/, "");
+  if (!S.church()) return null;
+  for (const [key, heads] of Object.entries(FEATURE_ROUTES)) {
+    if (S.on(key)) continue;
+    if (heads.some((h) => r === h || r.startsWith(h + "-"))) return key;
+  }
+  return null;
+}
 
 // ---------- Scripture references, Bible text and Veritas Logos links ----------
 const BOOKS = ["Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther","Job","Psalms","Proverbs","Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi","Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians","Ephesians","Philippians","Colossians","1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"];
