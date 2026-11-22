@@ -305,36 +305,49 @@ function logoBackgroundColor({ data, width, height }) {
   return best && matches(best) >= 2 ? best : null;
 }
 
-/** Clear only matching pixels connected to an edge. Matching colors enclosed by the logo stay intact. */
-function makeLogoTransparent(edit, tolerance) {
-  const { canvas, ctx, original, background } = edit;
+/** Clear matching colors throughout the image or only where they connect to an edge. */
+function makeLogoTransparent(edit, tolerance, includeHoles) {
+  const { canvas, ctx, original, backgrounds } = edit;
+  if (!backgrounds.length) return "";
   const { width, height } = original, count = width * height;
   const output = ctx.createImageData(width, height), pixels = output.data;
   pixels.set(original.data);
-  const queue = new Uint32Array(count), seen = new Uint8Array(count);
-  let read = 0, end = 0, removed = 0;
-  function visit(index) {
-    if (seen[index]) return;
-    seen[index] = 1;
-    const offset = index * 4, alpha = pixels[offset + 3];
-    if (alpha && logoColorDistance(pixels, offset, background) > tolerance) return;
-    queue[end++] = index;
-    if (alpha) { pixels[offset + 3] = 0; removed++; }
+  let removed = 0;
+  function clear(index) {
+    const offset = index * 4 + 3;
+    if (pixels[offset] === 0) return true;
+    if (!backgrounds.some((color) => logoColorDistance(pixels, offset - 3, color) <= tolerance)) return false;
+    pixels[offset] = 0;
+    removed++;
+    return true;
   }
-  for (let x = 0; x < width; x++) { visit(x); visit(count - width + x); }
-  for (let y = 0; y < height; y++) { visit(y * width); visit(y * width + width - 1); }
-  while (read < end) {
-    const i = queue[read++], x = i % width;
-    if (x > 0) visit(i - 1);
-    if (x < width - 1) visit(i + 1);
-    if (i >= width) visit(i - width);
-    if (i < count - width) visit(i + width);
+  if (includeHoles) {
+    for (let i = 0; i < count; i++) clear(i);
+  } else {
+    const queue = new Uint32Array(count), seen = new Uint8Array(count);
+    let read = 0, end = 0;
+    function visit(index) {
+      if (seen[index]) return;
+      seen[index] = 1;
+      if (clear(index)) queue[end++] = index;
+    }
+    for (let x = 0; x < width; x++) { visit(x); visit(count - width + x); }
+    for (let y = 0; y < height; y++) { visit(y * width); visit(y * width + width - 1); }
+    while (read < end) {
+      const i = queue[read++], x = i % width;
+      if (x > 0) visit(i - 1);
+      if (x < width - 1) visit(i + 1);
+      if (i >= width) visit(i - width);
+      if (i < count - width) visit(i + width);
+    }
   }
   if (!removed || removed >= edit.visiblePixels) return "";
   ctx.putImageData(output, 0, 0);
   return canvas.toDataURL("image/webp", .94);
 }
 
+const logoColorHex = (rgb) => "#" + rgb.map((value) => value.toString(16).padStart(2, "0")).join("");
+const logoColorRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 let bannerLogoEdit;
 Actions["banner-logo-clean"] = async (button) => {
   const draft = bannerDraft;
@@ -347,43 +360,89 @@ Actions["banner-logo-clean"] = async (button) => {
     const edit = await bannerLogoPixels(src);
     if (!activeBannerDraft(draft) || !button.isConnected || bannerLogoSrc(S.church(), draft) !== src) return;
     const background = logoBackgroundColor(edit.original);
-    if (!background) {
-      toast("No solid background was detected. Transparent logos can use No frame.");
-      return;
-    }
     let visiblePixels = 0;
     for (let i = 3; i < edit.original.data.length; i += 4) {
       if (edit.original.data[i]) visiblePixels++;
     }
-    bannerLogoEdit = { ...edit, draft, background, visiblePixels, src, result: "" };
+    bannerLogoEdit = { ...edit, draft, backgrounds: background ? [background] : [], visiblePixels, src, result: "" };
     const name = asset?.name || "Account logo";
     openSheet("Remove logo background", html`<form data-form="banner-logo-copy">
       <div class="banner-logo-comparison">
-        <figure><div class="banner-logo-swatch"><img src="${src}" alt="Original logo"></div><figcaption>Original</figcaption></figure>
+        <figure>
+          <button type="button" class="banner-logo-swatch banner-logo-sample" data-act="banner-logo-sample" aria-label="Sample a background color from the original logo"><img src="${src}" alt="Original logo"></button>
+          <figcaption>Original · Tap a background color</figcaption>
+        </figure>
         <figure><div class="banner-logo-swatch"><img alt="Transparent logo" hidden data-logo-result></div><figcaption>Transparent preview</figcaption></figure>
       </div>
-      <label class="range"><span>Color tolerance</span><input type="range" min="4" max="75" value="24" data-input="banner-logo-tolerance"><output>24</output></label>
+      <div class="banner-logo-colors">
+        <label class="field"><span>Background color</span><input type="color" name="backgroundColor" value="${background ? logoColorHex(background) : "#ffffff"}"></label>
+        <button type="button" class="btn ghost sm" data-act="banner-logo-add-color">Add color</button>
+      </div>
+      <div class="banner-logo-palette" data-logo-colors aria-label="Colors to remove"></div>
+      <label class="check"><input type="checkbox" name="includeHoles" data-input="banner-logo-preview" checked><span>Clear inside closed letters<br><small class="faint">Turn off to protect matching colors enclosed by the artwork.</small></span></label>
+      <label class="range"><span>Color tolerance</span><input type="range" name="tolerance" min="0" max="120" value="24" data-input="banner-logo-preview"><output>24</output></label>
       <p class="faint" data-logo-copy-status role="status"></p>
       <label class="field"><span>Copy name</span><input type="text" name="name" value="${name.slice(0, 86)} (transparent)" maxlength="100" required></label>
       <button type="submit" class="btn">Save transparent copy</button>
     </form>`);
-    Inputs["banner-logo-tolerance"]($('#scrim [data-input="banner-logo-tolerance"]'));
+    refreshLogoColors($('#scrim [data-form="banner-logo-copy"]'));
   } catch {
     if (activeBannerDraft(draft)) toast("This logo could not be edited. Try uploading the original image to the banner.");
   } finally { button.disabled = false; }
 };
 
-Inputs["banner-logo-tolerance"] = (input) => {
+function refreshLogoPreview(form) {
   const edit = bannerLogoEdit;
   if (!edit || !activeBannerDraft(edit.draft)) return;
-  input.nextElementSibling.value = input.value;
-  edit.result = makeLogoTransparent(edit, +input.value);
-  const preview = $("[data-logo-result]", input.form);
+  const { tolerance, includeHoles } = form.elements;
+  tolerance.nextElementSibling.value = tolerance.value;
+  edit.result = makeLogoTransparent(edit, +tolerance.value, includeHoles.checked);
+  const preview = $("[data-logo-result]", form);
   if (edit.result) preview.src = edit.result;
   preview.hidden = !edit.result;
-  $('button[type="submit"]', input.form).disabled = !edit.result;
-  $("[data-logo-copy-status]", input.form).textContent = edit.result ? "Solid colors connected to an edge are removed." : "Try a different tolerance to keep the logo visible.";
+  $('button[type="submit"]', form).disabled = !edit.result;
+  $("[data-logo-copy-status]", form).textContent = edit.result ? "" : edit.backgrounds.length
+    ? "Adjust the tolerance or sample another color to keep the logo visible."
+    : "Sample a background color from the original, or pick a color and add it.";
+}
+function refreshLogoColors(form) {
+  const edit = bannerLogoEdit;
+  $("[data-logo-colors]", form).innerHTML = flat(edit.backgrounds.map((rgb, index) => {
+    const color = logoColorHex(rgb);
+    return html`<button type="button" class="chip" data-act="banner-logo-remove-color" data-i="${index}" aria-label="Remove color ${color}">
+      <span class="banner-logo-color-sample" style="background:${color}" aria-hidden="true"></span>${color} ${icon("x")}
+    </button>`;
+  }));
+  refreshLogoPreview(form);
+}
+function addLogoBackgroundColor(form, rgb) {
+  const edit = bannerLogoEdit;
+  if (!edit || !activeBannerDraft(edit.draft)) return;
+  form.elements.backgroundColor.value = logoColorHex(rgb);
+  if (!edit.backgrounds.some((color) => logoColorDistance(color, 0, rgb) === 0)) edit.backgrounds.push(rgb);
+  refreshLogoColors(form);
+}
+Actions["banner-logo-add-color"] = (button) => addLogoBackgroundColor(button.form, logoColorRgb(button.form.elements.backgroundColor.value));
+Actions["banner-logo-remove-color"] = (button) => {
+  const edit = bannerLogoEdit, form = button.form;
+  if (!edit || !activeBannerDraft(edit.draft)) return;
+  edit.backgrounds.splice(+button.dataset.i, 1);
+  refreshLogoColors(form);
+  $("[data-act=banner-logo-add-color]", form).focus();
 };
+Actions["banner-logo-sample"] = (button, event) => {
+  const edit = bannerLogoEdit;
+  if (!edit || !activeBannerDraft(edit.draft)) return;
+  if (!event.detail) { button.form.elements.backgroundColor.focus(); return; }
+  const bounds = $("img", button).getBoundingClientRect();
+  const { data, width, height } = edit.original;
+  const x = Math.floor((event.clientX - bounds.left) * width / bounds.width);
+  const y = Math.floor((event.clientY - bounds.top) * height / bounds.height);
+  if (!bounds.width || !bounds.height || x < 0 || x >= width || y < 0 || y >= height) return;
+  const offset = (y * width + x) * 4;
+  if (data[offset + 3]) addLogoBackgroundColor(button.form, [...data.slice(offset, offset + 3)]);
+};
+Inputs["banner-logo-preview"] = (input) => refreshLogoPreview(input.form);
 Forms["banner-logo-copy"] = (data, form) => {
   const edit = bannerLogoEdit;
   if (!edit?.result || !activeBannerDraft(edit.draft) || bannerLogoSrc(S.church(), edit.draft) !== edit.src) return;
