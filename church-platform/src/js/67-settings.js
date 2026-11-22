@@ -399,6 +399,8 @@ const ForegroundAlerts = {
     const banner = $('#foreground-alert [data-act="notes-open"]');
     const reply = $('#foreground-alert [data-act="radio-notice-reply"]');
     banner.hidden = true;
+    banner.removeAttribute("data-radio");
+    banner.removeAttribute("aria-label");
     reply.hidden = true;
     delete reply.dataset.id;
     banner.textContent = "";
