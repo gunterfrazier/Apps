@@ -358,9 +358,9 @@ const OpeningSummary = {
 function announcementRow(n) {
   return html`<a class="row" href="#news-${n.id}"><span class="lead-ic">${icon("bell")}</span>
     <span class="body"><span class="t">${n.title}</span>
-      <span class="s">${[ago(n.at), n.locationId && locName(n.locationId)].filter(Boolean).join(" · ")}</span></span>
-    ${n.urgent ? html`<span class="tag warn">Important</span>` : ""}
-    ${!S.state.seen.includes(n.id) ? html`<span class="tag brand">New</span>` : ""}${icon("chev")}</a>`;
+      <span class="s">${[ago(n.at), n.locationId && locName(n.locationId)].filter(Boolean).join(" · ")}</span>
+      ${n.urgent || !S.state.seen.includes(n.id) ? html`<span class="row-tags">${n.urgent ? html`<span class="tag warn">Important</span>` : ""}${!S.state.seen.includes(n.id) ? html`<span class="tag brand">New</span>` : ""}</span>` : ""}</span>
+    ${icon("chev")}</a>`;
 }
 
 const readableAnnouncements = () => S.visible("news", { ignoreCampus: true });

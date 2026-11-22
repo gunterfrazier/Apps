@@ -21,8 +21,9 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - Related passages under sermons and in the reader, from OpenBible.info's cross-references (CC BY): the ones people voted most useful, up to six per verse.
 - "From our church on this passage": wherever a passage shows (the reader, a sermon page, the builder), the church's earlier sermons, lessons and studies on it, and a marker on the verses they covered.
 - "Open in Logos" buttons (ref.ly links) for people who use Logos Bible, on by default for people who preach and teach. Settings chooses where Read buttons and passage look-ups open: the Bible here, Veritas Logos or Logos.
+- Appearance (Me, Settings): System, Light, Dark, or Sanctuary, a pure black mode for darkened worship services. Sanctuary dims photos and the campus map and keeps buttons from glowing; QR codes stay white so they still scan.
 - Events with sign-ups that can include kids, Google Calendar links and directions.
-- Classes and Sunday school (several sections and hours, each named) and small groups, with a room or place, a single date or a weekly schedule with start and end dates, and registration that is not needed, required, or approved by the leader.
+- Classes and Sunday school (several sections and hours, each named) and small groups, with a room or place, a single date or a weekly schedule with start and end dates, and registration that is not needed, required, or approved by the leader. Each can have a photo, shown in the lists and at the top of its page.
 - Parent portal: each child's classes, groups and events, the teacher and room, what the class is learning, and check-in and check-out.
 - Chat: group and class chats, teacher and parent chats, leadership chat and direct messages.
 - Prayer wall, member directory, giving, kids and volunteer check-in, Watch live with the order of service, and a QR code scanner.
@@ -130,7 +131,7 @@ The default link is your private Veritas Logos page, so links only open for you.
 
 ## Try it
 
-The preview keeps everything in the browser and starts with three sample churches. Under **Me, Preview tools** you can become the primary account holder of a sample church or try any role. **Reset sample data** starts over. No money moves.
+The preview keeps everything in the browser and starts with three sample churches. Under **Me, Preview tools** you can become the primary account holder of a sample church or try any role. **Reset sample data** starts over. No money moves. The sample church's photos are in `public/demo` and are only for the demo and training; real churches add their own.
 
 The live app has the same sandbox, in two forms, for anyone to open without an account:
 

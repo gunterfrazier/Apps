@@ -22,7 +22,31 @@ function sampleArt(title, sub, hue, { w = 1600, h = 900, shape = "waves" } = {})
     ${sub ? `<text x="${w * 0.07}" y="${(square ? h * 0.62 : h * 0.5) + size * 0.85}" font-size="${size * 0.42}" font-weight="600" fill="#fff" fill-opacity=".85">${esc2(sub)}</text>` : ""}</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
-const hueOf = (s) => [...String(s)].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 360, 7);
+// Real photos for Riverside, the church the demo and training open on. They live in public/demo next to the app.
+const DEMO = (n) => `demo/${n}.jpg`;
+const DEMO_PHOTOS = {
+  series: { "Abide": "open-hands-sq", "Psalms for the weary": "bible-autumn-sq" },
+  events: { e1: "potluck", e2: "bible-notes", e3: "hands-together", e4: "kids-class", e5: "friends-laughing", e6: "pulpit-bible", e7: "friends", e8: "worship-stage" },
+  groups: { adult: "hands-on-bible", pre9: "kids-praying", pre11: "kids-class", elem9: "kids-bibles", youth: "raised-hand", membership: "chapel", fpu: "offering",
+    eastside: "friends-laughing", women: "shoulder-prayer", couples: "holding-hands", men: "bible-autumn", staffprayer: "prayer-circle" },
+};
+/** Puts the demo photos on the sample church. Only fills in what's empty or still a generated sample picture,
+ *  so anything someone changed while trying the demo stays. Also run on saved demo data from before the photos. */
+function applyDemoPhotos(st) {
+  const R = "riverside", c = st.churches?.[R];
+  if (!c?.sample) return;
+  const generated = (v) => !v || String(v).startsWith("data:image/svg+xml");
+  if (!c.banner || (c.banner.bg?.type !== "image" && !c.demoPhotos)) {
+    c.banner = { ...bannerOf(c), bg: { type: "image", preset: "aurora", color: c.color, image: DEMO("campus-cross"), dim: 38 } };
+  }
+  const blocks = c.landing?.blocks;
+  if (blocks && !blocks.some((b) => b.id === "b0-hero") && !c.demoPhotos) blocks.unshift({ id: "b0-hero", type: "hero", image: DEMO("worship-crowd"), title: "You belong here", text: "A family of ordinary people following Jesus by the river." });
+  (st.sermons || []).filter((s) => s.churchId === R).forEach((s) => { const p = DEMO_PHOTOS.series[s.series]; if (p && generated(s.artwork)) s.artwork = DEMO(p); });
+  (st.events || []).filter((e) => e.churchId === R).forEach((e) => { const p = DEMO_PHOTOS.events[e.id.replace(`${R}-`, "")]; if (p && generated(e.image)) e.image = DEMO(p); });
+  (st.gatherings || []).filter((g) => g.churchId === R).forEach((g) => { const p = DEMO_PHOTOS.groups[g.id.replace(`${R}-`, "")]; if (p && !g.photo) g.photo = DEMO(p); });
+  c.demoPhotos = true;
+}
+const hueOf = (s) =>[...String(s)].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 360, 7);
 
 {
   const baseSeed = buildSeed;
@@ -41,7 +65,8 @@ function addFeatureSamples(st) {
   const name = (u) => st.users[u]?.name || "Someone";
   const here = (k) => (st[k] ||= []);
 
-  // ----- Artwork: sermon series (square) and events (16:9), for the new cards and the mini-player -----
+  // ----- Photos: banner, sermon series (square), events, classes and groups, for the photo cards and the mini-player -----
+  applyDemoPhotos(st);
   st.sermons.filter((s) => s.churchId === R).forEach((s) => { s.artwork ||= sampleArt(s.series || s.title, "Riverside Community Church", hueOf(s.series || s.title), { w: 1000, h: 1000, shape: "rings" }); });
   st.events.filter((e) => e.churchId === R).forEach((e, i) => { e.image ||= sampleArt(e.title, e.category || "", hueOf(e.title), { shape: ["waves", "sun", "rings"][i % 3] }); });
 
