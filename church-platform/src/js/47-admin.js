@@ -226,6 +226,7 @@ Screens.admin = (section) => {
 
       ${sec("Content", "", [
         ...["news", "events", "sermons", "plans", "gatherings"].map((k) => { const a = ADMIN[k]; return item(a.perm, `admin-${k}`, a.icon, a.title, plural(count(k), a.one, a.many || a.one + "s")); }),
+        item(["manage.content", "manage.church", "manage.sermons", "manage.devices", "manage.classes", "manage.locations"], "medialib", "image", "Media library", `${plural(S.list("mediaLibrary").length, "photo or video", "photos and videos")}; find free photos and worship backgrounds`, null, "pictures images photos videos backgrounds stock pexels pixabay freeshow motion"),
         item("manage.content", "forms", "note", "Forms", `${plural(S.list("forms").length, "form")}: sign-ups, permission slips and applications`, null, "registration survey"),
         item(["manage.prayer", "manage.content", "manage.classes"], "admin-boards", "people", "Community boards", `${plural((S.state.boards || []).filter((b) => b.churchId === c.id).length, "topic board")}: meal trains, rides, polls and moderation`, null, "board community moderation meal train carpool"),
       ])}
