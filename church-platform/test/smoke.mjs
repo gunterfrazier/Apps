@@ -1091,6 +1091,25 @@ await step("service plan and songs", async () => {
   await page.click('[data-act=pres-jump][data-i="3"]'); await shot("14-present-service");
   await goTo("songs"); await page.click("[data-act=song-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "New song"); await page.fill("#scrim textarea[name=pasteText]", "[Verse]\nLine one\nLine two"); await sheetSubmit();
   await page.waitForSelector("#scrim .err"); await page.fill("#scrim input[name=copyright]", "© 2024 Example Music"); await sheetSubmit(); await sheetGone();
+  // Hymn library: search, open a hymn, add it to the church's songs, and see it listed there.
+  await goTo("hymns"); await page.waitForSelector("#hymn-list");
+  await page.fill("input[data-target='#hymn-list']", "It Is Well"); await page.click("#hymn-list [data-act=hymn-open]:not([hidden])");
+  await page.waitForSelector("#scrim [data-act=hymn-add]"); await shot("14b-hymn"); await page.click("#scrim [data-act=hymn-add]"); await sheetGone();
+  await goTo("songs"); await expectText("It Is Well With My Soul");
+  // Song files: an OpenLP (OpenLyrics) file and an OpenSong file with a chord line, then export one back out.
+  const olx = `<?xml version="1.0" encoding="UTF-8"?><song xmlns="http://openlyrics.info/namespace/2009/song" version="0.9"><properties><titles><title>Test Import Hymn</title></titles><authors><author>Isaac Watts</author></authors><copyright>Public domain</copyright><verseOrder>v1 c1 v2 c1</verseOrder></properties><lyrics><verse name="v1"><lines><chord name="G"/>First verse line one<br/>first verse line two</lines></verse><verse name="c1"><lines>Chorus line</lines></verse><verse name="v2"><lines>Second verse</lines></verse></lyrics></song>`;
+  const osx = `<?xml version="1.0" encoding="UTF-8"?><song><title>Test OpenSong Song</title><author>Fanny Crosby</author><copyright>Public domain</copyright><presentation>V1 C V1</presentation><lyrics>[V1]\n.G       D\n Hello there world\n[C]\n Sing it now</lyrics></song>`;
+  await page.setInputFiles("input[data-change=songs-import]", [{ name: "test.xml", mimeType: "application/xml", buffer: Buffer.from(olx) }, { name: "Test OpenSong Song", mimeType: "", buffer: Buffer.from(osx) }]);
+  await page.waitForTimeout(300); await expectText("Test Import Hymn"); await expectText("Test OpenSong Song");
+  const imported = await page.evaluate(() => __app.S.list("songs").filter((s) => s.imported).map((s) => ({ t: s.title, order: s.order, parts: s.parts.map((p) => `${p.label}:${p.lyrics}`) })));
+  const os = imported.find((x) => x.t === "Test OpenSong Song"), ol = imported.find((x) => x.t === "Test Import Hymn");
+  if (!ol || ol.parts.length !== 3 || !ol.parts[0].includes("[G]First verse") || ol.order.join() !== "Verse 1,Chorus 1,Verse 2,Chorus 1") throw new Error("OpenLyrics import: " + JSON.stringify(ol));
+  if (!os || !os.parts[0].includes("[G]Hello th[D]ere world")) throw new Error("OpenSong import: " + JSON.stringify(os));
+  await page.click("#song-list [data-act=song-edit]:has-text('Test Import Hymn')"); await page.waitForSelector("#scrim [data-act=song-export]");
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#scrim [data-act=song-export]")]);
+  const xml = readFileSync(await dl.path(), "utf8");
+  if (!xml.includes('<chord name="G"/>First verse') || !xml.includes("<verseOrder>v1 c1 v2 c1</verseOrder>")) throw new Error("export: " + xml.slice(0, 400));
+  await page.click("#scrim [data-act=close-sheet], #scrim .sheet-close").catch(() => {}); await page.keyboard.press("Escape").catch(() => {});
   await goTo("services"); await page.click("[data-act=plan-new]"); await page.selectOption("#scrim select[name=from]", "library"); await sheetSubmit(); await page.waitForSelector("text=Order of service");
 });
 const titles = (sel = "#sort-list > [data-index] .block-top b") => page.$$eval(sel, (bs) => bs.map((b) => b.textContent.trim()));
