@@ -9,6 +9,8 @@ const MINISTRY_SITES = [
   ["Kids lessons you can use and adapt", "kids", [
     ["Ministry-to-Children", "https://ministry-to-children.com/", "Free Sunday school lessons, crafts and coloring pages. Licensed CC BY-SA 4.0: adapt them freely, credit the author and Ministry-to-Children.com with a link, and share your version the same way."],
     ["Rotation.org", "https://www.rotation.org/", "Creative Sunday school lessons and teaching ideas shared by teachers, now open to everyone. An optional yearly membership adds extras."],
+    ["Lessons.church", "https://lessons.church/", "Free video lessons, leader guides and printables from preschool to adults, with classroom schedules. Browse without an account."],
+    ["FreePlay", "https://freeplay.church/", "Free TV app (Fire TV, Apple TV, Android TV) that plays Lessons.church lessons on classroom screens."],
     ["Life.Church Open Network", "https://open.life.church/", "Life.Church's kids curriculum, sermons, videos and graphics, free with an account."],
     ["The Meeting House Kids & Youth", "https://kidsandyouth.themeetinghouse.com/", "A Jesus-centered curriculum that places each Bible story in the whole story of Scripture. Free after you register."],
   ]],
