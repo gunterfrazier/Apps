@@ -295,7 +295,10 @@ input[type=range] { width: 100%; accent-color: var(--brand); }
 @keyframes rise { from { transform: translateY(36px); opacity: .6; } }
 @keyframes fade { from { opacity: 0; } }
 #toast { position: fixed; left: 50%; bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 30px); transform: translateX(-50%); z-index: 50; background: var(--ink); color: var(--surface); padding: 12px 20px; border-radius: 999px; font: 600 .95rem var(--display); box-shadow: var(--sh-2); max-width: calc(100% - 32px); display: none; text-align: center; }
-#foreground-alert button { border: 0; cursor: pointer; font: inherit; position: fixed; z-index: 51; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); padding: 12px 20px; border-radius: 14px; background: var(--ink); color: var(--surface); box-shadow: var(--sh-2); overflow-wrap: anywhere; }
+#foreground-alert { position: fixed; z-index: 51; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 50%; transform: translateX(-50%); display: flex; gap: 2px; width: max-content; max-width: calc(100% - 24px); pointer-events: none; }
+#foreground-alert button { border: 0; cursor: pointer; font: inherit; min-width: 0; min-height: 44px; padding: 10px 14px; border-radius: 14px; background: var(--ink); color: var(--surface); box-shadow: var(--sh-2); overflow-wrap: anywhere; pointer-events: auto; }
+#foreground-alert [data-radio]::after { content: "Open"; margin-inline-start: 8px; font-weight: 700; text-decoration: underline; }
+#foreground-alert [data-act="radio-notice-reply"] { flex: none; background: var(--brand); color: var(--on-brand, white); }
 #toast.on { display: block; animation: rise .2s ease-out; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
@@ -1112,7 +1115,7 @@ button.sp-chip:hover { background: color-mix(in srgb, var(--pt, var(--ink)) 9%, 
 .bv-note .i { width: 18px; height: 18px; }
 .bible-credit { margin-top: 14px; }
 .bible-pager { justify-content: space-between; }
-.bible-actions { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-h, 72px) + env(safe-area-inset-bottom, 0px) + 18px); z-index: 25; width: min(560px, calc(100% - 20px));
+.bible-actions { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-h, 72px) + env(safe-area-inset-bottom, 0px) + 18px + var(--radio-space, 0px) + var(--player-space, 0px)); z-index: 25; width: min(560px, calc(100% - 20px));
   background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); padding: 10px 12px; }
 .ba-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ba-colors { display: flex; gap: 10px; margin: 8px 0; }
@@ -1132,7 +1135,7 @@ button.sp-chip:hover { background: color-mix(in srgb, var(--pt, var(--ink)) 9%, 
 .bp-ch { text-align: center; font-weight: 600; }
 .bp-book[hidden] { display: none; }
 .hl-chips .chip { color: var(--ink); }
-body:has(.bible-actions) #app { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 230px); }
+body:has(.bible-actions) #app { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 230px + var(--radio-space, 0px) + var(--player-space, 0px)); }
 
 /* ---------- Report documents, printing and custom reports ---------- */
 .rd-bar { display: flex; justify-content: flex-end; margin-top: 10px; }
@@ -1800,6 +1803,7 @@ body:has(#now-playing[open]) { overflow: hidden; }
 body.has-mini-player .sec-chat-form { bottom: calc(var(--comms-bottom) + 72px); }
 #app:has(.sec-chat-form) { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 190px); }
 body.has-mini-player #app:has(.sec-chat-form) { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 262px); }
+.sec-chat-recipient { display: block; margin: 0 0 4px 4px; }
 .sec-chat-controls, .sec-chat-text { display: flex; gap: 6px; align-items: center; }
 .sec-chat-text { margin-top: 6px; }
 .sec-chat-text input { min-width: 0; flex: 1; }
@@ -1810,6 +1814,31 @@ body.has-mini-player #app:has(.sec-chat-form) { padding-bottom: calc(var(--tab-h
 .sec-chat-form .voice-chip { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .sec-chat-form .voice-chip audio { width: min(220px, 100%); height: 32px; }
 .sec-chat-form .voice-chip img, .sec-chat-form .voice-chip video { max-height: 56px; max-width: 120px; }
+
+/* The radio stays above navigation and the sermon mini-player. */
+body { --radio-space: 0px; --player-space: 0px; }
+body.has-mini-player { --player-space: 72px; }
+body.has-security-radio { --radio-space: 102px; }
+#security-radio-dock {
+  position: fixed; z-index: 27; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 12px + var(--player-space));
+  width: min(616px, calc(100% - 24px)); padding: 6px 8px 8px;
+  color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--sh-2);
+}
+#security-radio-dock[hidden] { display: none; }
+.radio-dock-top, .radio-dock-controls { display: flex; gap: 6px; align-items: center; }
+.radio-dock-top { justify-content: space-between; margin-bottom: 3px; }
+.radio-state { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; padding-inline: 4px; font-size: .84rem; font-weight: 650; }
+.radio-dock-top .btn { min-height: 34px; }
+.radio-dock-controls select { flex: 1 1 0; width: auto; min-width: 0; min-height: 44px; padding: 6px 24px 6px 8px; font-size: .9rem; text-overflow: ellipsis; }
+.radio-dock-controls .btn { min-height: 44px; white-space: nowrap; }
+.radio-hold { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#security-radio-dock[data-transmitting="true"] .radio-hold { background: var(--nw, #b52732); color: white; }
+body.has-security-radio:not(:has(.bible-actions)) #app { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 44px + var(--player-space) + var(--radio-space)); }
+body.has-security-radio #app:has(.sec-chat-form) { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 190px + var(--player-space) + var(--radio-space)); }
+body.has-security-radio .sec-chat-form { bottom: calc(var(--comms-bottom) + var(--player-space) + var(--radio-space)); }
+body.has-security-radio .composer { bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 22px + var(--player-space) + var(--radio-space)); }
+body.has-security-radio #toast { bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 30px + var(--player-space) + var(--radio-space)); }
 
 /* Incident triage and response */
 .sec-incident { border-inline-start: 4px solid var(--line); }

@@ -55,6 +55,12 @@ function churchForRoute(head, tail) {
   if (head === "visit") return S.state.churches[tail] ? tail : null;
   if (head === "map") return Object.values(S.state.churches).find((c) => c.locations?.some((l) => l.id === tail.split("~")[0]))?.id || null;
   if (head === "register") { const [k, ...r] = tail.split("-"); return S.get(k === "event" ? "events" : "gatherings", r.join("-"))?.churchId || null; }
+  if (head === "security" && tail.startsWith("message-")) {
+    const id = tail.slice(8);
+    const notice = S.state.notifications.find((n) => n.userId === S.me().id && n.radioMessageId === id);
+    const cid = notice?.churchId || S.get("securityRadioMessages", id)?.churchId;
+    return S.state.churches[cid] ? cid : null;
+  }
   if (head === "news") {
     const announcement = S.get("news", tail);
     const notice = S.state.notifications.find((n) => n.userId === S.me().id && announcementIdInNotice(n) === tail);
@@ -72,26 +78,26 @@ function render() {
   const owner = churchForRoute(head, tail);
   if (owner && owner !== S.state.current) { S.state.current = owner; S.save(); }
   const me = S.me();
-  if (Backend.failed) { app.innerHTML = flat(html`<div class="loading" role="alert"><div style="text-align:center;max-width:320px"><p>Can't reach ${PLATFORM.name} right now. Check your connection and try again.</p><button class="btn" data-act="reload">Try again</button></div></div>`); return; }
+  if (Backend.failed) { SecurityRadio.sync(head); app.innerHTML = flat(html`<div class="loading" role="alert"><div style="text-align:center;max-width:320px"><p>Can't reach ${PLATFORM.name} right now. Check your connection and try again.</p><button class="btn" data-act="reload">Try again</button></div></div>`); return; }
   // Back from an email sign-in link: Supabase finishes it as it starts.
-  if (/^#(access_token|error)=/.test(location.hash) && !Backend.ready) { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Signing you in...</div>`); return; }
+  if (/^#(access_token|error)=/.test(location.hash) && !Backend.ready) { SecurityRadio.sync(head); app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Signing you in...</div>`); return; }
   // A campus map opens for anyone with its link (a visitor scanning a sign); Screens.map loads a public location itself.
   const signedOutOk = head === "page" || head === "pair" || head === "map" || (head === "visit" && !!tail) || (head === "ticket" && !!tail) || head === "thanks";
   // A church device that lost its session signs itself back in. Until then it says so, rather than asking for a code.
   if (Backend.on && !Backend.user && head !== "pair" && DeviceSignin.get()) {
     const name = DeviceSignin.get().name || "This screen";
     app.innerHTML = flat(html`<div class="loading" role="status"><div class="reconnect"><span class="ai-dot"></span><p><b>${name} is signing back in.</b></p><p class="faint">It does this by itself as soon as it can reach the internet. No code needed.</p></div></div>`);
-    Backend.resumeDevice(); return;
+    SecurityRadio.sync(head); Backend.resumeDevice(); return;
   }
   // Signed out of a live site: email sign-in, and nothing below applies (the welcome form is for the browser-only preview).
   const mustSignIn = Backend.on && !Backend.user && !signedOutOk;
   if (mustSignIn) { if (head !== "signin") pendingRoute = pendingRoute || route; head = "signin"; tail = ""; }
-  else if (Backend.on && !Backend.ready && !signedOutOk) { app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Loading your churches...</div>`); return; }
+  else if (Backend.on && !Backend.ready && !signedOutOk) { SecurityRadio.sync(head); app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Loading your churches...</div>`); return; }
   else {
     // A church device only goes to its own screens.
     const away = head !== "pair" && deviceGate(head, tail);
     if (away) { go(away); return; }
-    if (head === "display" || head === "stage" || head === "overlay") { Screens[head](tail); return; }
+    if (head === "display" || head === "stage" || head === "overlay") { Screens[head](tail); SecurityRadio.sync(head); return; }
     // Signed in with a code but no password yet (or resetting it): finish the account first.
     if (needsAccountSetup()) { if (head !== "setup") { if (head !== "home") pendingRoute = pendingRoute || route; head = "setup"; tail = ""; } }
     else if (Backend.ready && S.state.current && !Backend.loaded.has(S.state.current)) { Backend.loaded.add(S.state.current); Backend.pull().then(() => { Backend.subscribe(); render(); }); }
@@ -122,6 +128,7 @@ function render() {
   }
   view.after?.();
   if (typeof Player !== "undefined") Player.syncUI(head, view);
+  SecurityRadio.sync(head);
   sandboxAfterRender(head);
   OpeningSummary.eligible = !view.page && !view.kiosk && !view.present &&
     !["signin", "setup", "deactivated", "security", "safety-status", "station", "register", "ticket", "thanks", ...OPEN_ROUTES].includes(head);

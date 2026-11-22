@@ -447,6 +447,10 @@ Actions["notes-open"] = (el) => {
   if (!n) return;
   ForegroundAlerts.hide();
   if (Player.dialogue?.open) Player.minimize(false);
+  if (n.kind === "security-radio") {
+    if (SecurityRadio.allowed() && n.radioMessageId) { closeSheet(true); go(`security-message-${n.radioMessageId}`); }
+    return;
+  }
   const announcementId = announcementIdInNotice(n) || announcementForNotice(n, readableAnnouncements())?.id;
   if (announcementId) {
     closeSheet(true);

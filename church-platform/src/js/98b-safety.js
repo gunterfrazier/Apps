@@ -335,7 +335,7 @@ function defaultDrillPlannerConfig(cid) {
   if (typeof QUIET_KINDS !== "undefined" && !QUIET_KINDS.includes("securityIncidents")) {
     QUIET_KINDS.push("securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications");
   }
-  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments", "securityRoleDefaults", "securityIncidentEvents", "securityIncidentFormTemplates", "securityIncidentReports"]) st[k] ||= []; };
+  const lists = (st) => { for (const k of ["securityIncidents", "securityMessages", "securityRollCall", "securityDrills", "securityReunifications", "securityProtocolRequests", "securityAccessAssignments", "securityRoleDefaults", "securityIncidentEvents", "securityIncidentFormTemplates", "securityIncidentReports", "securityRadioMessages"]) st[k] ||= []; };
   const prevLoad = S.load.bind(S);
   S.load = function () { prevLoad(); lists(this.state); };
   if (S.state) lists(S.state);
@@ -1073,6 +1073,7 @@ function securitySeg(active) {
 
 Screens.security = (tail = "") => {
   if (!S.church()) return { redirect: "churches" };
+  if (tail.startsWith("message-")) return renderRadioMessage(tail.slice(8));
   const incidentRoute = tail.startsWith("incidents-") ? tail.slice("incidents-".length) : "";
   const accessRoute = ["access", "access-roles", "access-roster", "access-assign"].includes(tail);
   const sub = incidentRoute ? "incidents" : accessRoute ? "access" : ["drill", "incidents", "doors", "rollcall", "reunify", "medical", "protocols"].includes(tail) ? tail : "";
@@ -1155,8 +1156,26 @@ function renderSecurityChannelHeader() {
   </section>`;
 }
 
+function securityMessageCard(m, link = false) {
+  return html`<div class="sec-msg ${m.priority === "urgent" ? "urgent" : ""} ${m.by === S.me().id ? "mine" : ""}">
+    <div class="sec-msg-head">
+      <b>${m.senderName || S.userName(m.by)}</b>
+      <span class="faint">${fmtTime(m.at)}</span>
+      ${m.recipientId ? html`<span class="tag">Private</span>` : ""}
+      ${m.priority === "urgent" ? html`<span class="tag warn">URGENT</span>` : ""}
+    </div>
+    ${m.text ? html`<p style="margin:4px 0">${m.text}</p>` : ""}
+    ${m.voiceUrl ? html`<div style="margin-top:6px"><audio controls src="${m.voiceUrl}" style="height:34px;max-width:100%"></audio></div>` : ""}
+    ${m.mediaUrl && m.mediaKind === "image" ? html`<div style="margin-top:6px"><img src="${m.mediaUrl}" alt="Security photo" style="max-height:180px;border-radius:10px"></div>` : ""}
+    ${m.mediaUrl && m.mediaKind === "video" ? html`<div style="margin-top:6px"><video src="${m.mediaUrl}" controls style="max-height:180px;border-radius:10px"></video></div>` : ""}
+    ${m.mapUrl ? html`<div style="margin-top:6px"><a class="btn ghost sm" href="${m.mapUrl}" target="_blank" rel="noopener">${icon("pin")}Open GPS Location on Map</a></div>` : ""}
+    ${link ? html`<a class="btn ghost sm" href="#security-message-${m.id}">Open message</a>` : ""}
+  </div>`;
+}
+
 function renderSecurityComms(c) {
-  const msgs = S.list("securityMessages").sort((a, b) => b.at.localeCompare(a.at)).slice(0, 40);
+  const msgs = [...S.list("securityMessages"), ...S.list("securityRadioMessages").filter(canReadRadioMessage)]
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 40);
   const protos = c.securityProtocols || defaultSecurityProtocols();
   return html`
     ${isSecurityMember() ? html`<details class="sec sec-protocol-options">
@@ -1175,26 +1194,14 @@ function renderSecurityComms(c) {
     <section class="sec" aria-label="Security messages">
       <div class="panel sec-chat-box">
         <div class="sec-chat-feed" id="sec-chat-feed">
-          ${msgs.length ? msgs.map((m) => html`
-            <div class="sec-msg ${m.priority === "urgent" ? "urgent" : ""} ${m.by === S.me().id ? "mine" : ""}">
-              <div class="sec-msg-head">
-                <b>${m.senderName || S.userName(m.by)}</b>
-                <span class="faint">${fmtTime(m.at)}</span>
-                ${m.priority === "urgent" ? html`<span class="tag warn">URGENT</span>` : ""}
-              </div>
-              ${m.text ? html`<p style="margin:4px 0">${m.text}</p>` : ""}
-              ${m.voiceUrl ? html`<div style="margin-top:6px"><audio controls src="${m.voiceUrl}" style="height:34px;max-width:100%"></audio></div>` : ""}
-              ${m.mediaUrl && m.mediaKind === "image" ? html`<div style="margin-top:6px"><img src="${m.mediaUrl}" alt="Security photo" style="max-height:180px;border-radius:10px"></div>` : ""}
-              ${m.mediaUrl && m.mediaKind === "video" ? html`<div style="margin-top:6px"><video src="${m.mediaUrl}" controls style="max-height:180px;border-radius:10px"></video></div>` : ""}
-              ${m.mapUrl ? html`<div style="margin-top:6px"><a class="btn ghost sm" href="${m.mapUrl}" target="_blank" rel="noopener">${icon("pin")}Open GPS Location on Map</a></div>` : ""}
-            </div>
-          `) : empty("No tactical messages yet. Use the bar below to message, record voice audio, or upload photos/video to all security staff.")}
+          ${msgs.length ? msgs.map((m) => securityMessageCard(m, !!S.get("securityRadioMessages", m.id))) : empty("No security messages yet.")}
         </div>
 
       </div>
     </section>
 
     <form data-form="sec-chat-send" class="sec-chat-form" novalidate aria-label="Security communications">
+      <small class="sec-chat-recipient">To <b id="security-message-recipient">All security</b></small>
       <div id="sec-chat-voice-prev">${securityVoicePreview()}</div>
       <div id="sec-chat-media-prev">${securityMediaPreview()}</div>
       <div class="sec-chat-controls">
@@ -1203,7 +1210,7 @@ function renderSecurityComms(c) {
         <select name="priority" data-change="sec-chat-priority" aria-label="Message priority"><option value="routine">Routine</option><option value="urgent" ${attr(secChatPriority === "urgent", "selected")}>Urgent</option></select>
       </div>
       <div class="sec-chat-text">
-        <input type="text" name="text" data-input="sec-chat-text" value="${secChatText}" aria-label="Security message" placeholder="Message security staff…" maxlength="800">
+        <input type="text" name="text" data-input="sec-chat-text" value="${secChatText}" aria-label="Security message" placeholder="Write a message…" maxlength="800">
         <button type="submit" class="btn sm" ${attr(secVoiceRecording, "disabled")}>${icon("send")}Send</button>
       </div>
     </form>
@@ -1321,30 +1328,16 @@ Inputs["sec-chat-media"] = async (el) => {
 };
 Inputs["sec-chat-text"] = (el) => { secChatText = el.value; };
 Inputs["sec-chat-priority"] = (el) => { secChatPriority = el.value; };
-Forms["sec-chat-send"] = (d, f) => {
+Forms["sec-chat-send"] = async (d, f) => {
   if (secVoiceRecording) return;
   const text = String(d.text || "").trim();
   if (!text && !secVoiceClip && !secMediaClip) return;
-  S.add("securityMessages", {
-    by: S.me().id,
-    senderName: S.me().name,
-    priority: d.priority || "routine",
-    text,
-    voiceUrl: secVoiceClip || "",
-    mediaUrl: secMediaClip || "",
-    mediaKind: secMediaKind || "",
-    at: new Date().toISOString(),
-  });
-  if (d.priority === "urgent") {
-    securityTeamUserIds().filter((u) => u !== S.me().id).forEach((u) => notify(u, {
-      kind: "security",
-      title: `Security Dispatch (${S.me().name})`,
-      body: text || "Sent a voice or video clip in Tactical Comms",
-      link: "#security",
-    }));
-  }
+  const sent = await sendRadioMessage(f, { text, priority: d.priority || "routine",
+    voiceUrl: secVoiceClip || "", mediaUrl: secMediaClip || "", mediaKind: secMediaKind || "" }, SecurityRadio.target);
+  if (!sent) return;
   clearSecurityDraft();
-  S.save(); f.reset(); broadcastSafetyUpdate(); render();
+  render();
+  toast("Message sent.");
 };
 Actions["sec-drop-gps"] = async () => {
   toast("Acquiring GPS coordinates...");
