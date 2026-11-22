@@ -63,6 +63,7 @@ These are under copyright, so the app doesn't store them. A page in Claude can't
 2. In the Supabase project's Edge Function secrets, set `ESV_API_KEY`, `API_BIBLE_KEY` and `BIBLE_CONNECTOR_TOKEN` (any long random string).
 3. In Claude, add a custom connector named exactly **Veritas Bible Texts**, with the address `https://<project>.supabase.co/functions/v1/bible-texts/<BIBLE_CONNECTOR_TOKEN>`.
 4. The first time you open one of these Bibles in the reader, Claude asks you to allow the page to use the connector.
+5. Optional backup: get a free app key at [platform.youversion.com](https://platform.youversion.com) (YouVersion Platform, from Life.Church; free for non-commercial use) and set it as `YVP_APP_KEY`. The function then reads a Bible from YouVersion whenever its own key isn't set or that service can't give the chapter, such as when API.Bible's monthly limit runs out. YouVersion chooses which Bibles each key may use, so check which of the four it offers before relying on it.
 
 Until Crossway approves the ESV key, the ESV is left out of every translation picker (its `waiting` note in `src/core/bible.ts`), and links to it open in the reader's own translation. Once `ESV_API_KEY` is set, delete that note to offer it.
 
