@@ -8,7 +8,8 @@ import { newId } from "../../core/guide";
 import { peopleInPassage } from "../../core/people";
 import { BOOKS, bookName, parseReference } from "../../core/references";
 import { copyText } from "../files";
-import { BUILT_IN, builtInSaved, canReadAloud, mb, NO_SPEECH, readAloud, usesBuiltIn, type SpeechStatus } from "../speech";
+import { BUILT_IN, builtInSaved, canReadAloud, mb, NO_SPEECH, usesBuiltIn } from "../speech";
+import { openPlayer, playChapter, resumeVerse, usePlayer } from "../player";
 import { readHash, type ReadRoute } from "../routes";
 import { getData, HIGHLIGHT_COLORS, navigate, setPref, toast, update, useData, type HighlightColor } from "../store";
 import { ErrorNote, Loading, Sheet, Tag, ThemeSelect, TranslationSelect, RefLink, useAsync, Empty } from "../ui";
@@ -513,10 +514,11 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
     setWordSelection(null);
     if (restoreFocus) wordSelection?.trigger.focus({ preventScroll: true });
   };
-  const [speech, setSpeech] = useState<SpeechStatus>({ state: "idle" });
-  const speaking = speech.state === "reading" ? speech.verse : null;
-  const stopSpeak = useRef<(() => void) | null>(null);
   const translation = route?.translation ?? prefs.translation;
+  // Listening: the player reads on while you move around the app. On this chapter, the verse being read is marked.
+  const player = usePlayer();
+  const listeningHere = player.kind === "chapter" && player.book === book && player.chapter === chapter && player.translation === translation;
+  const speaking = listeningHere && player.status === "playing" ? player.verse : null;
   const info = translationInfo(translation);
   const wide = useMedia("(min-width: 1100px)");
   // On a wide screen the study panel sits beside the text and follows the verse you pick.
@@ -547,7 +549,8 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
     const verse = route?.verse;
     setSheet(verse && wide ? { verse, end: route.verseEnd } : null);
   }, [route?.verse, route?.verseEnd, book, chapter]);
-  useEffect(() => () => stopSpeak.current?.(), []);
+  // Follow the voice down the page, unless the full player is open.
+  useEffect(() => { if (speaking && !player.open) document.getElementById(`v${speaking}`)?.scrollIntoView({ block: "center", behavior: "smooth" }); }, [speaking]);
   useEffect(() => setWordSelection(null), [book, chapter, route?.verse, route?.verseEnd, translation, prefs.compare, prefs.wordStudy]);
 
   const { data: passage, loading, error } = useAsync(async () => ({
@@ -607,7 +610,6 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
   }, [arrived]);
 
   const go = (b: number, c: number, v?: number) => {
-    stopSpeak.current?.();
     const hash = readHash({ book: b, chapter: c, verse: v });
     // Choosing the verse you're already on (after scrolling away from it) brings it back up.
     if (v && b === book && c === chapter && v === route?.verse && !route.verseEnd) { afterSheetCloses(() => { if (bringToTop(v)) setArrived(v); }); return; }
@@ -627,26 +629,17 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
     if (chapter < (chapters ?? 1)) go(book, chapter + 1);
     else if (book < 66) go(book + 1, 1);
   };
+  /** Listen to this chapter: from where you left off, or open the player if it's already playing. */
   const toggleSpeak = () => {
-    if (speech.state !== "idle") { stopSpeak.current?.(); stopSpeak.current = null; return; }
+    if (listeningHere) { openPlayer(); return; }
     if (!verses || isOnline(translation)) return;
-    let last = 0;
-    stopSpeak.current = readAloud(verses, (s) => {
-      setSpeech(s);
-      if (s.state === "reading" && s.verse !== last) {
-        last = s.verse;
-        document.getElementById(`v${s.verse}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-      }
-      if (s.state === "idle") stopSpeak.current = null;
-    });
+    void playChapter(translation, book, chapter);
+    openPlayer();
   };
+  const resumeAt = resumeVerse(book, chapter);
   // Whether the built-in voice will read here, and whether it still has to download.
   const builtIn = usesBuiltIn();
-  const { data: saved } = useAsync(() => (builtIn ? builtInSaved() : Promise.resolve(true)), [builtIn, speech.state === "idle"]);
-  const speechNote = speech.state === "downloading" ? `Downloading the voice: ${Math.round(speech.loaded / 1e6)} of ${mb(speech.total)}`
-    : speech.state === "preparing" ? "Getting the voice ready…"
-    : speech.state === "reading" ? `Reading verse ${speech.verse}`
-    : null;
+  const { data: saved } = useAsync(() => (builtIn ? builtInSaved() : Promise.resolve(true)), [builtIn, player.status]);
   const selection = sheet ?? (route?.verse ? { verse: route.verse, end: route.verseEnd } : null);
   const inRange = (v: number) => Boolean(selection && v >= selection.verse && v <= (selection.end ?? selection.verse));
   const showTray = Boolean(sheet && !wide && !sheet.panel && !picker);
@@ -695,15 +688,15 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
             setPref("translation", t);
             if (route?.translation) navigate(readHash({ book, chapter, verse: route.verse, verseEnd: route.verseEnd }));
           }} />
+          {canReadAloud() && !isOnline(translation) && (
+            <button type="button" className={`reader-control listen-btn ${listeningHere ? "on" : ""}`} onClick={toggleSpeak}
+              aria-label={listeningHere ? "Open the player" : "Listen to this chapter"} title={listeningHere ? "Open the player" : "Listen to this chapter"}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 14v-2a9 9 0 0 1 18 0v2" /><path d="M21 15a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2zM3 15a2 2 0 0 0 2 2h1v-6H5a2 2 0 0 0-2 2z" /></svg>
+            </button>
+          )}
           <button type="button" className="reader-control reading-options-toggle" aria-label="Reading options"
             aria-expanded={readingOptions} aria-controls="reading-options" onClick={toggleOptions}>Aa</button>
         </div>
-        {speech.state !== "idle" && (
-          <div className="read-aloud-bar" role="status">
-            <span>{speechNote}</span>
-            <button type="button" className="btn small" onClick={toggleSpeak}>Stop</button>
-          </div>
-        )}
       </div>
 
       <section id="reading-options" className="reading-options" aria-label="Reading options" ref={optionsPanel} hidden={!readingOptions}>
@@ -744,9 +737,9 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
           {isOnline(translation)
             ? <p className="fine read-aloud-off">Read aloud is available for built-in translations such as the BSB.</p>
             : canReadAloud()
-            ? <button type="button" className="btn small" onClick={() => { setReadingOptions(false); toggleSpeak(); }}>{speech.state !== "idle" ? "Stop reading" : "Read chapter aloud"}</button>
+            ? <button type="button" className="btn small" onClick={() => { setReadingOptions(false); toggleSpeak(); }}>{listeningHere ? "Open the player" : resumeAt ? `Listen from verse ${resumeAt}` : "Listen to this chapter"}</button>
             : <p className="fine read-aloud-off">{NO_SPEECH}</p>}
-          {!isOnline(translation) && canReadAloud() && builtIn && BUILT_IN && speech.state === "idle" && (
+          {!isOnline(translation) && canReadAloud() && builtIn && BUILT_IN && !listeningHere && (
             <p className="fine read-aloud-off">{saved === false
               ? `${BUILT_IN.name}, the voice built into Veritas Logos, reads here. The first time, it downloads ${mb(BUILT_IN.downloadBytes)}, which this browser keeps.`
               : `${BUILT_IN.name}, the voice built into Veritas Logos, reads here.`}</p>

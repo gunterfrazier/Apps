@@ -8,6 +8,7 @@ import { FAMILY_STORIES, type FamilyStory, type StoryActivity } from "../../core
 import { FAMILY_HOME_RESOURCES } from "../../core/family-resources";
 import { STORY_COLLECTIONS } from "../../core/family-collections";
 import { FAMILY_VIDEO_CHANNELS, familyStoryVideos, familyVideoUrl } from "../../core/family-videos";
+import { embedFor, playVideo } from "../player";
 import { account, useAccount } from "../account";
 import { Loading, useAsync } from "../ui";
 import { CraftArt, FamilyArt, FAMILY_SPACES } from "./family-art";
@@ -245,21 +246,27 @@ function StoryCheck({ activity }: { activity: StoryActivity }) {
   );
 }
 
-function StoryWatch({ storyId }: { storyId: string }) {
+function StoryWatch({ storyId, storyTitle }: { storyId: string; storyTitle: string }) {
   const videos = familyStoryVideos(storyId);
+  const items = videos.map((v) => ({ id: v.id, title: v.title, creator: v.creator, format: v.format, url: familyVideoUrl(v) }));
+  const here = items.filter((v) => embedFor(v.url)).length;
   return <>
-    <p>Creator links open on an external video site. Younger children can watch with an adult.</p>
+    <p>{here === items.length ? "Videos play right here in the player." : here ? "Videos marked Play open in the player; the others open on their own site." : "Creator links open on an external video site."} Younger children can watch with an adult.</p>
     <ul className="kids-watch-list">
-      {videos.map((video) => <li key={video.id}>
-        <a className="kids-watch-link" href={familyVideoUrl(video)} target="_blank" rel="noopener noreferrer">
-          <span className="kids-watch-icon" aria-hidden="true">▶</span>
+      {items.map((video) => {
+        const inApp = Boolean(embedFor(video.url));
+        const body = <>
+          <span className="kids-watch-icon" aria-hidden="true">{inApp ? "▶" : "↗"}</span>
           <span>
             <strong>{video.title}</strong>
-            <small>{video.creator} · {video.format}</small>
+            <small>{video.creator} · {video.format}{inApp ? "" : " · opens the creator's site"}</small>
             {video.creator === "BibleProject" && <small>BibleProject is the author and owner of this video.</small>}
           </span>
-        </a>
-      </li>)}
+        </>;
+        return <li key={video.id}>{inApp
+          ? <button type="button" className="kids-watch-link" onClick={() => playVideo(video, items, storyTitle)} aria-label={`Play ${video.title}`}>{body}</button>
+          : <a className="kids-watch-link" href={video.url} target="_blank" rel="noopener noreferrer">{body}</a>}</li>;
+      })}
     </ul>
   </>;
 }
@@ -351,7 +358,7 @@ function StoryDetail({ story, profile, landing }: { story: FamilyStory; profile:
       </section>}
       {familyStoryVideos(story.id).length > 0 && <section className="kids-story-section kids-collection-panel kids-watch" aria-labelledby="story-watch">
         <h2 id="story-watch" tabIndex={-1}>Watch</h2>
-        <StoryWatch storyId={story.id} />
+        <StoryWatch storyId={story.id} storyTitle={story.title} />
       </section>}
     </article>
   );
