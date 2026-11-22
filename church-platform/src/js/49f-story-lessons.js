@@ -9,7 +9,7 @@ let familyLib = null, familyLibLoading = null, familyLibFailed = false;
 function loadFamilyLib() {
   if (familyLib || familyLibLoading) return familyLibLoading;
   familyLibLoading = fetch("family-lib/lessons.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then((d) => { familyLib = d; render(); return d; })
+    .then((d) => { familyLib = d; if (typeof fillPendingStoryLessons === "function") fillPendingStoryLessons(); render(); return d; })
     .catch(() => { familyLibFailed = true; familyLibLoading = null; render(); });
   return familyLibLoading;
 }

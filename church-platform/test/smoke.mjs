@@ -78,6 +78,8 @@ await step("welcome", async () => {
   await page.fill("input[name=email]", "gunter@example.com");
   await page.click("form[data-form=welcome] button");
   await page.waitForSelector("h1:has-text('Thanksgiving potluck')"); // the link they arrived with
+  // "Are you at church?" pops up during real service times; only its own step below should see it.
+  await page.evaluate(() => { __app.S.state.prefs ||= {}; __app.S.state.prefs.askPresence = false; __app.S.save(); });
 });
 await step("join as basic member", async () => {
   await goTo("church-riverside"); await page.click("[data-act=join-church]");
@@ -109,7 +111,7 @@ await step("visitor attendance milestones", async () => {
     await page.locator('a[href="#welcomeback"]').waitFor();
     await visit(2);
     if (await page.getByRole("heading", { name: "New here?" }).count() || await page.locator('a[href="#visit"]').count()) throw new Error("First-visit links stayed after two visits");
-    await page.click('a[href="#welcomeback"]');
+    await page.click('a[href="#welcomeback"]', { timeout: 4000 })
     await page.getByRole("heading", { name: "How to become a member" }).waitFor();
   } finally {
     await page.evaluate(() => {
@@ -1932,6 +1934,12 @@ await step("lesson builder", async () => {
   await page.click('[data-act=dblock-new][data-type="question"]'); await page.fill("#scrim textarea[name=text]", "What did God make first?"); await sheetSubmit(); await sheetGone();
   await page.click("[data-act=doc-publish]");
 });
+await step("sample church shows the newest features", async () => {
+  // The sample Family Library lesson fills itself in from the story, and the sample media library has photos.
+  await goTo("build-riverside-doc-story"); await page.waitForFunction(() => document.body.textContent.includes("For parents"));
+  const st = await page.evaluate(() => ({ v: __app.S.state.seedVersion, media: __app.S.list("mediaLibrary").length, pending: !!__app.S.get("docs", "riverside-doc-story").storyPending }));
+  if (!st.v || st.media < 5 || st.pending) throw new Error(`sample data is missing the newest features: ${JSON.stringify(st)}`);
+});
 await step("lesson from a Bible story", async () => {
   // A new lesson that starts from the Family Library takes the story's title.
   await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.selectOption("#scrim select[name=from]", "story"); await sheetSubmit();
@@ -2158,7 +2166,7 @@ await step("a video, website or file on the display", async () => {
 await step("attendance, dates, campaigns, email and the activity log", async () => {
   if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
   // A service that started five minutes ago, and this person as the primary account holder.
-  const other = await page.evaluate(() => { const S = __app.S; S.setCurrent("riverside"); const c = S.church(); c.ownerId = S.me().id; sessionStorage.removeItem("our-faithful-presence-asked");
+  const other = await page.evaluate(() => { const S = __app.S; S.setCurrent("riverside"); const c = S.church(); c.ownerId = S.me().id; sessionStorage.removeItem("our-faithful-presence-asked"); S.state.prefs.askPresence = true;
     const t = new Date(Date.now() - 5 * 60e3), l = c.locations[0]; l.services = [{ day: t.getDay(), time: `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`, label: "Test gathering" }, ...l.services.filter((x) => x.label !== "Test gathering")];
     S.state.presence = []; S.save(); return S.members().map((m) => S.user(m.userId)).find((u) => u && u.id !== S.me().id); });
   // Opening the app during the service asks whether you're here.

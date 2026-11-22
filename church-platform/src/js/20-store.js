@@ -11,6 +11,16 @@ const S = {
   load() {
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(PLATFORM.storageKey) || "null"); } catch { saved = this.memory; }
+    // A demo or training session (or the preview) on older sample data starts over on the newest, so it shows every
+    // feature. You stay you; a practice copy of a real church and the live app are never rebuilt.
+    if (saved && saved.v === 2 && (saved.seedVersion || 0) < SEED_VERSION && !saved.sandbox?.copyOf && !Backend.configured()
+      && (SANDBOX || Object.values(saved.churches || {}).some((c) => c.sample))) {
+      const fresh = buildSeed();
+      fresh.me = { ...fresh.me, id: saved.me.id, name: saved.me.name, email: saved.me.email, phone: saved.me.phone };
+      fresh.prefs = saved.prefs; fresh.refreshed = { from: saved.seedVersion || 0, to: SEED_VERSION };
+      if (!SANDBOX && saved.current) { const m = saved.memberships.find((x) => x.userId === saved.me.id && x.churchId === saved.current); if (m && fresh.churches[saved.current]) { fresh.memberships.push(m); fresh.current = saved.current; } }
+      saved = fresh;
+    }
     if (saved && saved.v === 2) {
       this.state = saved;
       // Added after the first v2 release: named layouts and saved builder items.
