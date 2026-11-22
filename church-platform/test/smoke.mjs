@@ -1087,14 +1087,19 @@ await step("account and landing page", async () => {
 });
 await step("banner designer", async () => {
   await goTo("admin-banner"); await page.waitForSelector("#banner-preview .banner");
-  await page.fill("input[name=headline]", "Come home"); await page.fill("input[name=sub]", "Sundays at 9 and 11");
+  const section = (name) => page.getByRole("navigation", { name: "Banner settings" }).getByRole("button", { name, exact: true }).click();
   const jsClick = (sel) => page.$eval(sel, (el) => el.click());
-  await jsClick('input[name=style][value=script]'); await jsClick('input[name=preset][value=dusk]');
+  await jsClick('input[name=preset][value=dusk]');
+  await section("Text");
+  await page.fill("input[name=headline]", "Come home"); await page.fill("input[name=sub]", "Sundays at 9 and 11");
+  await jsClick('input[name=style][value=script]');
   if (!(await page.textContent("#banner-preview .bn-head")).includes("Come home")) throw new Error("preview didn't update");
+  await section("Graphics");
   await page.click('[data-act=banner-graphic-add][data-builtin="cross"]'); await page.waitForSelector('input[name="g2_size"]');
   if ((await page.inputValue("input[name=headline]")) !== "Come home") throw new Error("unsaved edits were lost when adding a graphic");
   await page.fill('input[name="g2_size"]', "40"); await page.dispatchEvent('input[name="g2_size"]', "input");
   await page.setInputFiles("input[data-change=banner-graphic-upload]", join(root, "icons", "icon-192.png")); await page.waitForSelector('input[name="g3_size"]');
+  await section("Background");
   await jsClick('input[name=bgType][value=image]');
   if (await page.$('[data-act=clear-image][data-field="bgImage"]')) await jsClick('[data-act=clear-image][data-field="bgImage"]');   // the sample church already has a photo
   await page.click("form[data-form=banner-save] button.btn:not([type=button])");
@@ -1104,6 +1109,100 @@ await step("banner designer", async () => {
   await page.click("form[data-form=banner-save] button.btn:not([type=button])"); await page.waitForSelector(".home-banner .banner");
   if (!(await page.textContent(".home-banner .bn-head")).includes("Come home")) throw new Error("banner not saved");
   await shot("23-home-new-banner");
+});
+await step("banner logo library and transparency", async () => {
+  const before = await page.evaluate(() => {
+    const church = __app.S.church(), membership = __app.S.membership();
+    const original = structuredClone({ banner: church.banner, logo: church.logo, role: membership.roleId });
+    church.logo = "";
+    if (church.banner) {
+      delete church.banner.logos;
+      delete church.banner.logo.assetId;
+    }
+    membership.roleId = "admin";
+    return original;
+  });
+  const samples = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#244c64";
+    ctx.fillRect(14, 14, 36, 36);
+    const transparent = canvas.toDataURL();
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(26, 26, 12, 12);
+    ctx.globalCompositeOperation = "destination-over";
+    ctx.fillRect(0, 0, 64, 64);
+    return [transparent, canvas.toDataURL()];
+  });
+  const files = samples.map((sample, i) => ({
+    name: i ? "White background.png" : "Transparent logo.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(sample.split(",")[1], "base64"),
+  }));
+  const library = page.getByRole("group", { name: "Logo library" });
+  const logo = page.locator("#banner-preview img.bn-logo");
+  const section = (name) => page.getByRole("navigation", { name: "Banner settings" }).getByRole("button", { name, exact: true }).click();
+  const pixelAlpha = async (locator) => locator.evaluate(async (img) => {
+    await img.decode();
+    const c = document.createElement("canvas");
+    c.width = c.height = 64;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0, 64, 64);
+    return [ctx.getImageData(0, 0, 1, 1).data[3], ctx.getImageData(32, 32, 1, 1).data[3]];
+  });
+  try {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await goTo("admin-page");
+    await page.getByRole("link", { name: "Edit shared banner" }).click();
+    await section("Logo");
+    await library.getByRole("radio", { name: "Church initials" }).waitFor();
+    await page.locator("[data-change=banner-logo-upload]").setInputFiles(files);
+    await library.getByRole("radio", { name: "White background", exact: true }).waitFor();
+    await logo.waitFor();
+    if ((await pixelAlpha(logo)).join() !== "0,255") throw new Error("Upload flattened the transparent logo");
+    if (!(await logo.getAttribute("class")).includes("bare")) throw new Error("New logo should be frameless");
+    const width = await page.evaluate(() => document.documentElement.scrollWidth);
+    if (width > 320) throw new Error("Banner editor overflows a narrow phone");
+    await library.getByText("White background", { exact: true }).click();
+    await page.getByRole("button", { name: "Remove background", exact: true }).click();
+    const sheet = page.locator("#scrim");
+    const result = sheet.getByRole("img", { name: "Transparent logo", exact: true });
+    await result.waitFor();
+    if ((await pixelAlpha(result)).join() !== "0,255") throw new Error("Removing the background erased the enclosed part of the logo");
+    await sheet.getByRole("button", { name: "Save transparent copy" }).click();
+    await sheetGone();
+    await library.getByRole("radio", { name: "White background (transparent)", exact: true }).waitFor();
+    if ((await library.getByRole("radio").count()) !== 4) throw new Error("The original logo was lost");
+    await page.getByRole("button", { name: "Save banner", exact: true }).click();
+    await page.waitForURL(/#admin-page$/);
+    await page.getByRole("link", { name: "Preview public page" }).click();
+    const publicLogo = page.locator(".public-page img.bn-logo");
+    await publicLogo.waitFor();
+    if ((await pixelAlpha(publicLogo)).join() !== "0,255") throw new Error("The published page did not use the transparent copy");
+    await goTo("home");
+    await page.locator(".home-banner img.bn-logo.bare").waitFor();
+    await goTo("admin-banner");
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.getByRole("button", { name: "Phone", exact: true }).click();
+    if ((await page.locator("#banner-preview").boundingBox()).width > 360) throw new Error("Phone preview did not narrow");
+    await section("Logo");
+    await page.getByRole("button", { name: "Remove from library", exact: true }).click();
+    await page.getByRole("button", { name: "Discard changes" }).click();
+    await section("Logo");
+    await library.getByRole("radio", { name: "White background (transparent)", exact: true }).waitFor();
+  } finally {
+    const sheet = page.locator('#scrim [data-act="close-sheet"]').first();
+    if (await sheet.isVisible()) await sheet.click();
+    await page.evaluate(({ banner, logo, role }) => {
+      Object.assign(__app.S.church(), { banner, logo });
+      __app.S.membership().roleId = role;
+      __app.S.save();
+    }, before);
+    if (await page.getByRole("button", { name: "Discard changes" }).isVisible()) await page.getByRole("button", { name: "Discard changes" }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await goTo("admin");
+  }
 });
 await step("appearance, Home layout and tabs", async () => {
   await goTo("admin"); await page.click('a.row[href="#admin-appearance"]'); await page.waitForSelector(".ap-preview");

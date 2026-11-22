@@ -256,7 +256,7 @@ const Bible = {
 };
 
 // ---------- Images (uploads are resized and kept as data URLs) ----------
-function readImage(file, maxSide = 1400, quality = 0.82) {
+function readImage(file, maxSide = 1400, quality = 0.82, { preserveTransparency = false } = {}) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type)) return reject(new Error("Choose an image file."));
     const url = URL.createObjectURL(file);
@@ -264,13 +264,13 @@ function readImage(file, maxSide = 1400, quality = 0.82) {
     img.onload = () => {
       const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
       const c = document.createElement("canvas");
-      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.width = Math.max(1, Math.round(img.width * scale)); c.height = Math.max(1, Math.round(img.height * scale));
       const g = c.getContext("2d");
       const png = file.type === "image/png" || file.type === "image/svg+xml";
-      if (!png) { g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); }
+      if (!png && !preserveTransparency) { g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); }
       g.drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      resolve(c.toDataURL(png ? "image/png" : "image/jpeg", quality));
+      resolve(c.toDataURL(preserveTransparency ? "image/webp" : png ? "image/png" : "image/jpeg", quality));
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That image couldn't be read.")); };
     img.src = url;
