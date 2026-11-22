@@ -1,4 +1,5 @@
--- Version 20: Live Security Command radio and private messages. Run after upgrade-19.sql.
+-- Version 21: Live Security Command radio and private messages.
+-- Requires upgrade-19.sql. If upgrading the media library in the same rollout, run upgrade-20.sql first.
 
 begin;
 
