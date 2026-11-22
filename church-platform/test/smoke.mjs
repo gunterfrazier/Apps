@@ -399,7 +399,7 @@ await step("security command navigation on older browsers", async () => {
     for (const width of [320, 390, 768, 1280]) {
       await page.setViewportSize({ width, height: 844 });
       const nav = page.getByRole("navigation", { name: "Security Command sections" });
-      for (const [route, title] of [["incidents", "Incident triage"], ["doors", "Assigned Door & Entryway Lock Verification"],
+      for (const [route, title] of [["incidents", "Incident triage"], ["doors", "Doors & Entryways"],
         ["rollcall", "Classroom & Ministry Area Headcount Checklist"], ["reunify", "Guardian Pickup Code & Identity Verification Gate"],
         ["medical", /Campus AED & Trauma Kit Locations/], ["protocols", "5-Level Security Protocol Sequence Chart"],
         ["drill", "Safety Drill Planner & Random Scenario Simulator"], ["access", "Protocol approval requests"]]) {
@@ -443,6 +443,76 @@ await step("security command navigation on older browsers", async () => {
     await page.click("[data-act=demo-role]");
     await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
     await sheetGone();
+  }
+});
+await step("security door setup and active checks", async () => {
+  const before = await page.evaluate(() => {
+    const { S } = __app;
+    const snapshot = structuredClone(S.state);
+    S.add("securityAccessAssignments", { userId: S.me().id, role: "head" });
+    return snapshot;
+  });
+  const row = (name) => page.locator(".sec-entryway").filter({ hasText: name });
+  const testDoor = "West classroom courtyard entryway";
+  try {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await goTo("security-doors");
+    await page.getByRole("heading", { name: "Doors & Entryways" }).waitFor();
+    if (await page.getByRole("button", { name: "Confirm locked" }).count()) throw new Error("Verification appeared during normal operation");
+    if (await page.getByText("Pending check", { exact: true }).count()) throw new Error("Old verification status appeared in setup");
+    await page.getByRole("button", { name: "Add entryway" }).click();
+    await page.getByLabel("Entryway name").fill(testDoor);
+    await page.getByLabel("Building or zone").fill("Education building");
+    await page.getByRole("button", { name: "Save entryway" }).click();
+    await sheetGone();
+    await row(testDoor).getByText("Unassigned", { exact: true }).waitFor();
+    await row(testDoor).getByRole("button", { name: /^Assign/ }).click();
+    const sheet = page.locator("#scrim");
+    await sheet.getByRole("searchbox", { name: "Search church members" }).fill(before.me.name);
+    await sheet.getByRole("button", { name: before.me.name, exact: true }).click();
+    await sheet.getByRole("button", { name: "Save assignment" }).click();
+    await sheetGone();
+    await row(testDoor).getByText(before.me.name, { exact: true }).waitFor();
+    await row(testDoor).getByRole("button", { name: /^Edit/ }).click();
+    await page.getByRole("checkbox", { name: "Requires lock check" }).uncheck();
+    await page.getByRole("button", { name: "Save entryway" }).click();
+    await sheetGone();
+    await row(testDoor).getByText("No lock check", { exact: true }).waitFor();
+
+    await page.evaluate((name) => {
+      const { S, render } = __app;
+      const church = S.church();
+      const door = church.securityDoors.find((d) => d.name === name);
+      church.securityDoors.push({ ...door, id: "active-door", name: "Assigned test door", requiresCheck: true });
+      church.activeAlert = { active: true, requireDoorCheck: true, startedAt: new Date().toISOString(), level: 3, code: "Test", name: "Test protocol" };
+      render();
+    }, testDoor);
+    await page.getByRole("heading", { name: "Door Check Progress" }).waitFor();
+    if (await row(testDoor).count()) throw new Error("An entryway without required checks appeared in progress");
+    await page.evaluate(() => {
+      const { S, render } = __app;
+      S.state.securityAccessAssignments = S.state.securityAccessAssignments.filter((a) => a.userId !== S.me().id);
+      render();
+    });
+    await page.getByRole("heading", { name: "My Door Checks" }).waitFor();
+    if (await page.locator(".sec-entryway").count() !== 1) throw new Error("An assignee saw someone else's door");
+    await row("Assigned test door").getByRole("button", { name: "Report an issue" }).click();
+    await page.getByLabel("What’s the issue?").fill("Latch sticks");
+    await page.getByRole("button", { name: "Send to security" }).click();
+    await sheetGone();
+    await row("Assigned test door").getByText("Issue reported", { exact: true }).waitFor();
+    await row("Assigned test door").getByRole("button", { name: "Confirm locked" }).click();
+    await row("Assigned test door").getByText("Locked", { exact: true }).waitFor();
+    await page.evaluate(() => {
+      const { S, render } = __app;
+      S.church().activeAlert.startedAt = new Date(Date.now() + 1000).toISOString();
+      render();
+    });
+    await row("Assigned test door").getByText("Pending check", { exact: true }).waitFor();
+  } finally {
+    await page.evaluate((state) => { __app.S.state = state; __app.S.flush(); }, before);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await goTo("home");
   }
 });
 await step("security communications dock", async () => {

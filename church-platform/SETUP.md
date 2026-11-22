@@ -332,3 +332,7 @@ They need no account and nothing to set up. Each opens a sample church in the vi
 Run `supabase/upgrade-22.sql` after the earlier upgrades and before deploying the app build. In Supabase, provision a dedicated signed-in support identity with no church memberships or church ownership. Add its Auth UUID to `public.support_staff` through the SQL editor. The agent opens the app at `#help` to redeem a key.
 
 A user can grant access to their own account diagnostics. A primary account holder can grant access to church diagnostics. The grant is read-only and expires after 24 hours or when either side closes the case. A fresh key is needed if the issue continues past that window.
+
+### Version 23 door checks
+
+For an existing Supabase project, run `supabase/upgrade-23.sql` after the earlier upgrades and before deploying the app build. Security supervisors manage entryways and assignments under **Security Command → Doors & Entryways**. Assignments already saved in the app carry over. Members assigned to a required entryway can submit a check while an alert or drill with door checks is active.

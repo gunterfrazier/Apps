@@ -143,7 +143,7 @@ const TRAINING = [
   { area: "Safety", items: [
     ["sos", "Send a practice alert to the security team", "The shield button at the top", "home", "shield", mine("securityIncidents")],
     ["protocol", "Start a safety protocol, then end it", "Security Command", "security", "lock", (st, cid) => st.churches[cid]?.activeAlert?.level || 0],
-    ["doors", "Check the doors", "Security Command, Doors", "security-doors", "lock", (st, cid) => JSON.stringify((st.churches[cid]?.securityDoors || []).map((d) => d.status))],
+    ["doors", "Check the doors", "Activate a protocol with door checks, then open Doors & Entryways", "security-doors", "lock", (st, cid) => JSON.stringify(here(st, cid, "securityDoorChecks"))],
     ["rollcall", "Look over roll call", "Security Command, Roll call", "security-rollcall", "people", visited("security-rollcall")],
     ["drill", "Run a safety drill", "Security Command, Drill simulator", "security-drill", "star", (st, cid) => here(st, cid, "securityDrills").length],
   ] },

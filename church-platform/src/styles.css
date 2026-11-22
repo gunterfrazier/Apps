@@ -2069,3 +2069,11 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 .votd .votd-text { margin: 0; font-size: 1.08rem; line-height: 1.5; font-family: Georgia, "Times New Roman", serif; }
 .votd .votd-ref { margin: .6rem 0 0; }
 .votd .votd-ref a { font-weight: 600; }
+
+.sec-entryway { flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; }
+.sec-entryway .body { flex: 1 1 15rem; min-width: 0; overflow-wrap: anywhere; }
+.sec-entryway .tag { margin-top: 4px; }
+.sec-entryway .btns { margin: 0; }
+.sec-entryway-picker { margin-top: 12px; }
+.sec-entryway-picker summary { cursor: pointer; font-weight: 600; }
+.sec-entryway-picker .rows { margin-top: 8px; max-height: 13rem; overflow-y: auto; }
