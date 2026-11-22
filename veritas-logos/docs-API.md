@@ -51,3 +51,6 @@ curl -N -X POST https://YOUR-SITE/v1/ai/ask -H "Authorization: Bearer $KEY" -d '
 The `purpose` can also be `insight`, `draft`, `explore` (a `section` with `heading`, `kind`, `text` and `refs`, plus a `request`) or `exegesis` (a `reference`, and optionally a `lens`, `translation`, `earlier` text and a `stage`: `{"id":"overview"}`, `{"id":"verses","from":0,"to":12}` or `{"id":"theology"}`). `topic` takes a `reference` and a `query`, plus optionally a `lens` and `translation`. `genre` takes a `reference`, and `symbols` takes a `reference`, `lens` and optionally `off` (Strong's numbers to leave out). `explore`, `exegesis`, `topic`, `genre` and `symbols` reply with JSON text.
 
 Show each dataset's credit wherever you display its data. See `DATA-LICENSES.md`.
+
+## Family Library lesson data
+`npm run family:export` writes `public/family/lessons/lessons.json` (every Family Library story with its three age editions, scenes, questions, quiz, craft, game, videos, publisher resources and people) and each story's picture, coloring page and craft picture as separate files. Our Faithful Church App's lesson builder uses them for "Start from a Bible story". Run it again after adding stories and commit the output. The files allow cross-origin reads, so other apps can load `https://YOUR-SITE/family/lessons/lessons.json`.

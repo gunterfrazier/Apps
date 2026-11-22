@@ -20,7 +20,8 @@
     "data:espeak": "bash scripts/build_espeak.sh",
     "family:check-links": "node scripts/check-family-resources.mjs",
     "data:check": "node --no-warnings scripts/check-data.mjs",
-    "api": "node --no-warnings dist-server/server.js"
+    "api": "node --no-warnings dist-server/server.js",
+    "family:export": "node scripts/export-family-lessons.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.119.0",

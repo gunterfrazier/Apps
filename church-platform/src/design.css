@@ -265,3 +265,21 @@ table.tbl, .table { border-radius: var(--r-l); }
 .home-banner { margin-top: 16px; } .home-banner:first-child { margin-top: 12px; }
 /* Classic: serif for headings only; buttons, tabs and labels stay in the sans so they read crisply at small sizes. */
 html[data-font="classic"] :is(.btn, .tabs a, .toast, .chip, .seg, .quick a, .quick button, .hero-btn, .hero-k, .tag, .sc-k, .mh-k, .row .t, label, input, select, textarea) { font-family: var(--sans); }
+
+/* Start from a Bible story */
+.story-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.story-card { display: flex; flex-direction: column; background: var(--surface); border-radius: var(--r-l); overflow: hidden; box-shadow: var(--sh-1); color: var(--ink); text-decoration: none; }
+.story-card > img, .story-card .story-ph { width: 100%; aspect-ratio: 1; object-fit: cover; display: grid; place-items: center; background: var(--sunken); color: var(--ink-3); }
+.story-card .story-body { display: grid; gap: 2px; padding: 10px 12px 12px; font-size: .82rem; color: var(--ink-2); }
+.story-card .story-body b { font: var(--h-weight) .98rem/1.25 var(--display); color: var(--ink); letter-spacing: var(--h-track); }
+.story-card .story-topic { color: var(--brand-ink, var(--brand)); font-weight: 600; }
+.story-card:hover { box-shadow: var(--sh-2); }
+.plan-list { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: var(--r-l); box-shadow: var(--sh-1); }
+.plan-list li { display: flex; gap: 14px; padding: 12px 16px; border-top: 1px solid var(--hair); }
+.plan-list li:first-child { border-top: 0; }
+.plan-list .plan-min { flex: none; width: 52px; font-weight: 700; color: var(--brand-ink, var(--brand)); font-variant-numeric: tabular-nums; }
+.plan-list small { display: block; color: var(--ink-3); }
+.seg button { flex: 1; border: 0; background: none; cursor: pointer; text-align: center; padding: 8px 6px; border-radius: var(--r-btn); font: 600 .88rem var(--display); color: var(--ink-2); white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(16, 22, 34, .1), 0 0 0 1px var(--hair); }
+html[data-font="classic"] .seg button { font-family: var(--sans); }
+.plan-list .plan-min { width: auto; min-width: 58px; white-space: nowrap; }
