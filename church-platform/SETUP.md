@@ -78,8 +78,8 @@ Open your app address. You should now see **I have an account** and **I'm new he
 ## 5. Register the first church
 
 1. Choose **I'm new here**, enter your email and the code from the email, then your name and a password. (An account made before passwords were added is asked for a name and password once, the next time it opens the app.)
-2. Choose **Register a church**. You're its primary account holder.
-3. Under **Admin**, work through **Getting started**: locations and service times, roles, the Home banner, the landing page, announcements, classes and groups.
+2. Choose **Register a church** and fill in the form manually, or select **Use setup wizard** to go through church details, campuses, feature choices and a checklist. You're the new church's primary account holder.
+3. Open **Admin**, then **Setup wizard and checklist** to track each step and find links to the relevant settings. Open the printable checklist to print, save a PDF through your browser, or download an HTML copy. You can return to the wizard whenever you add a feature. **Features and defaults** also supports manual setup.
 4. Invite people with **Home, Invite a friend** or a QR code (**Ministry tools, QR codes, Join the church**). Everyone who joins starts with the default role you chose under **Features and defaults**.
 
 From here the app is shared: sign-ups, prayer requests, chats, check-ins and everything else sync between people, and changes show up for others within a second or two.

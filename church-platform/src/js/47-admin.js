@@ -280,6 +280,7 @@ Screens.admin = (section) => {
         item("manage.locations", "admin-map", "pin", "Campus map", "Draw a layout so visitors can find their way", null, "wayfinding"),
       ])}
       ${sec("Church setup", "", [
+        item("manage.church", "admin-setupguide", "list", "Setup wizard and checklist", "Choose setup guides, track progress, or print what you need"),
         item("manage.church", "admin-account", "church", "Account details", "Name, church ID, contact, logo, website and social links"),
         item("manage.church", "admin-features", "gear", "Features and defaults", "Turn features on or off; choose what new members get", null, "modules"),
         item("manage.locations", "admin-locations", "pin", "Campuses and locations", `${plural(c.locations.length, "location")}, rooms, service times and livestreams`),
@@ -416,7 +417,7 @@ AdminScreens.features = () => {
   const c = S.church(), dft = c.defaults;
   return {
     title: "Features and defaults", back: "admin",
-    body: html`<form data-form="admin-features" novalidate>
+    body: html`<div class="btns"><a class="btn ghost" href="#admin-setupguide">Use feature setup wizard</a></div><form data-form="admin-features" novalidate>
       <h2 style="margin-top:18px">Features</h2><p class="faint">Turned-off features disappear for everyone at ${c.name}.</p>
       <div class="panel">${MODULES.map(([k, label]) => html`<label class="check"><input type="checkbox" name="m_${k}" ${attr(c.modules[k] !== false, "checked")}><span>${label}</span></label>`)}</div>
       <h2 style="margin-top:22px">Defaults for new members</h2>
