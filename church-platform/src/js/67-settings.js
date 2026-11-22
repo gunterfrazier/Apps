@@ -11,6 +11,7 @@ function applyDisplay() {
   root.classList.toggle("theme-light", theme === "light");
   root.classList.toggle("theme-dark", theme === "dark");
   root.classList.toggle("theme-sanctuary", theme === "sanctuary");
+  root.classList.toggle("theme-sepia", theme === "sepia");
   root.classList.toggle("text-l", p.text === "l"); root.classList.toggle("text-xl", p.text === "xl");
   root.classList.toggle("contrast", !!p.contrast); root.classList.toggle("calm", !!p.calm);
   root.lang = lang() === "es" ? "es" : "en";
@@ -27,7 +28,7 @@ Screens.settings = () => {
         <nav class="seg" aria-label="Language" style="margin-top:0">${[["en", "English"], ["es", "Español"]].map(([k, l]) => html`<a href="#settings" data-act="set-lang" data-v="${k}" lang="${k}" ${attr(lang() === k, 'aria-current="page"')}>${l}</a>`)}</nav>
         <p class="faint">Changes the app's buttons, menus and dates. Sermons, announcements and other things your church writes stay as they wrote them.</p></section>
       <section class="sec"><h2 class="sec-head">Display</h2>
-        <fieldset class="field" style="border:0;padding:0;margin-top:0"><legend class="flabel">Appearance</legend><div class="radios">${[["auto", "System"], ["light", "Light"], ["dark", "Dark"], ["sanctuary", "Sanctuary OLED"]].map(([k, l]) => html`<label><input type="radio" name="theme" value="${k}" data-change="pref-theme" ${attr((p.theme || "auto") === k, "checked")}><span>${l}</span></label>`)}</div><small>Sanctuary OLED uses a pure black background with soft brand accents so your screen never glows in a darkened worship service.</small></fieldset>
+        <fieldset class="field" style="border:0;padding:0;margin-top:0"><legend class="flabel">Appearance</legend><div class="radios">${[["auto", "System"], ["light", "Light"], ["dark", "Dark"], ["sepia", "Sepia"], ["sanctuary", "Sanctuary OLED"]].map(([k, l]) => html`<label><input type="radio" name="theme" value="${k}" data-change="pref-theme" ${attr((p.theme || "auto") === k, "checked")}><span>${l}</span></label>`)}</div><small>Sepia is warm paper tones that are easy on the eyes for long reading. Sanctuary OLED uses a pure black background with soft brand accents so your screen never glows in a darkened worship service.</small></fieldset>
         <fieldset class="field" style="border:0;padding:0"><legend class="flabel">Text size</legend><div class="radios">${[["m", "Default"], ["l", "Large"], ["xl", "Largest"]].map(([k, l]) => html`<label><input type="radio" name="text" value="${k}" data-change="pref-text" ${attr(p.text === k, "checked")}><span style="font-size:${k === "m" ? 1 : k === "l" ? 1.12 : 1.25}em">${l}</span></label>`)}</div></fieldset>
         <div class="rows">${toggle("contrast", "More contrast", "Darker text and stronger outlines", p.contrast)}${toggle("calm", "Reduce motion", "Turn off animations and moving effects", p.calm)}</div></section>
       ${readAloudSection()}
@@ -434,7 +435,7 @@ const Push = {
     const p = prefs();
     if (!p.push || typeof Notification === "undefined" || Notification.permission !== "granted" || document.visibilityState === "visible") return;
     const h = new Date().getHours(); if (p.quiet && (h >= 21 || h < 7)) return;
-    try { const reg = await navigator.serviceWorker.ready; reg.showNotification(n.title, { body: n.body, tag: n.id, icon: "icons/icon-192.png", badge: "icons/icon-192.png", data: { url: `./${n.link || "#alerts"}` } }); } catch {}
+    try { const reg = await navigator.serviceWorker.ready; reg.showNotification(n.title, { body: n.body, tag: n.id, icon: "icons/icon-192.png", badge: "icons/badge-96.png", data: { url: `./${n.link || "#alerts"}` } }); } catch {}
   },
 };
 function vapidKey(b64) { const pad = "=".repeat((4 - (b64.length % 4)) % 4), raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from([...raw].map((c) => c.charCodeAt(0))); }

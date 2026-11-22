@@ -15,7 +15,7 @@ const THEME_FONTS = [
 const THEME_CORNERS = [["round", "Round", "Soft cards, pill buttons"], ["soft", "Soft", "Gently rounded"], ["square", "Square", "Crisp and minimal"]];
 const THEME_HEADERS = [["light", "Light", "Matches the page"], ["brand", "Your color", "A bold bar in your accent"], ["dark", "Dark", "A deep charcoal bar"]];
 const THEME_CANVAS = [["plain", "Plain", "Neutral gray page"], ["tinted", "Tinted", "A hint of your color"]];
-const THEME_MODES = [["auto", "Match each phone", "Light or dark, by the device setting"], ["light", "Light", "Light unless someone picks dark"], ["dark", "Dark", "Dark unless someone picks light"]];
+const THEME_MODES = [["auto", "Match each phone", "Light or dark, by the device setting"], ["light", "Light", "Light unless someone picks dark"], ["dark", "Dark", "Dark unless someone picks light"], ["sepia", "Sepia", "Warm paper tones, easy on the eyes"]];
 const ACCENTS = ["#4250d6", "#2563eb", "#0e7490", "#0f766e", "#15803d", "#a16207", "#c2410c", "#b91c1c", "#be185d", "#7c3aed", "#334155", "#1f2937"];
 
 /** Who is looking at an unpublished draft (only on this device, until they publish or discard). */
@@ -32,7 +32,7 @@ function applyLook(c) {
   root.dataset.font = look.font; root.dataset.corners = look.corners; root.dataset.header = look.header; root.dataset.canvas = look.canvas;
   // The church's default mode applies when the person hasn't picked one themselves (Me, Settings).
   const own = typeof prefs === "function" ? prefs().theme || "auto" : "auto";
-  if (own === "auto") { if (look.mode === "light" || look.mode === "dark") root.dataset.theme = look.mode; else delete root.dataset.theme; }
+  if (own === "auto") { if (look.mode === "light" || look.mode === "dark" || look.mode === "sepia") root.dataset.theme = look.mode; else delete root.dataset.theme; }
   return normHex(look.color, PLATFORM.color);
 }
 

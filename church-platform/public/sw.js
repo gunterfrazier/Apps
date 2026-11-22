@@ -1,6 +1,6 @@
 // Keeps the app shell available offline. Bump VERSION whenever you deploy a new build.
 const VERSION = "our-faithful-v24";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
+const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png", "./icons/favicon.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -25,7 +25,7 @@ self.addEventListener("fetch", (e) => {
 // Push notifications sent by the server (see supabase/functions/push). Each carries { title, body, url, tag }.
 self.addEventListener("push", (e) => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(d.title || "Our Faithful Church App", { body: d.body || "", tag: d.tag, icon: "icons/icon-192.png", badge: "icons/icon-192.png", data: { url: d.url || "./#alerts" } }));
+  e.waitUntil(self.registration.showNotification(d.title || "Our Faithful Church App", { body: d.body || "", tag: d.tag, icon: "icons/icon-192.png", badge: "icons/badge-96.png", data: { url: d.url || "./#alerts" } }));
 });
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
