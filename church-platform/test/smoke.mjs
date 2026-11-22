@@ -2284,6 +2284,8 @@ await step("media library and Find media", async () => {
   const jpg = readFileSync(join(root, "demo", "bible-autumn.jpg")), cors = { "access-control-allow-origin": "*" };
   await page.route("https://api.openverse.org/**", (r) => r.fulfill({ headers: cors, contentType: "application/json", body: JSON.stringify({ results: [{ id: "t1", url: "https://cdn.example.org/t1.jpg", thumbnail: "https://cdn.example.org/t1-t.jpg", title: "Test sunrise", creator: "Ana", license: "cc0", provider: "flickr", foreign_landing_url: "https://flickr.example/t1" }] }) }));
   await page.route("https://cdn.example.org/**", (r) => r.fulfill({ headers: cors, contentType: "image/jpeg", body: jpg }));
+  await goTo("ministryres"); await expectText("Ministry-to-Children"); await expectText("Church Online Platform");
+  await goTo("admin"); await expectText("Ministry resources");
   await goTo("medialib"); await expectText("Free photo and video sites"); await expectText("MotionBolt");
   await page.click("[data-act=medialib-find]"); await page.click('#media-finder [data-act=mf-tab][data-tab="photos"]');
   await page.fill("#mf-q", "sunrise"); await page.press("#mf-q", "Enter"); await page.click("#media-finder .mf-tile");

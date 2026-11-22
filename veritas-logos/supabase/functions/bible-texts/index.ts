@@ -6,6 +6,9 @@
 //   BIBLE_CONNECTOR_TOKEN  the last part of the connector's address; requests without it get a 404
 //   ESV_API_KEY            a free key from api.esv.org (Crossway), for the ESV
 //   API_BIBLE_KEY          a free Starter key from api.bible, with the NIV, NLT and NKJV chosen
+//   YVP_APP_KEY            optional: a free app key from platform.youversion.com (YouVersion Platform, by Life.Church).
+//                          Used for any of the four when its own key above isn't set, or when that service can't give
+//                          the chapter (not on the plan, limit reached). YouVersion decides which Bibles a key may use.
 //
 // Deployed with JWT checking off, since Claude's connector sends no Supabase token: the token in the address is the
 // lock. It speaks MCP's Streamable HTTP transport in its simplest form: one JSON-RPC message per POST, answered
@@ -18,7 +21,7 @@
 // https://apps-c5t.pages.dev, with their subdomains and preview addresses), and only a few chapters a minute to each
 // visitor, so other sites can't spend the free quotas.
 //
-// The terms it keeps: both services are for non-commercial use; nothing is stored here; each chapter goes back
+// The terms it keeps: all three services are for non-commercial use; nothing is stored here; each chapter goes back
 // with its copyright notice; API.Bible's Fair Use (FUMS) is reported for each chapter shown.
 
 const BOOKS = [
@@ -122,6 +125,98 @@ async function apiBibleChapter(abbr: string, book: number, chapter: number, devi
   return { verses: splitVerses(String(data.data?.content ?? "")), copyright: String(data.data?.copyright ?? "").trim() };
 }
 
+// ----- YouVersion Platform (api.youversion.com) -----
+
+const YV_NAMES: Record<string, RegExp> = {
+  ESV: /english standard version/i, NIV: /new international version/i, NLT: /new living translation/i, NKJV: /new king james/i,
+};
+let yvBibles: Record<string, { id: number; copyright: string; link?: string }> | null = null;
+
+async function youversion(path: string): Promise<any> {
+  const key = Deno.env.get("YVP_APP_KEY");
+  if (!key) throw new ToolError("The YouVersion key isn't set up. Add YVP_APP_KEY in the Supabase project's Edge Function secrets.");
+  const res = await fetch(`https://api.youversion.com/v1${path}`, { headers: { "X-YVP-App-Key": key, Accept: "application/json" } });
+  if (res.status === 401 || res.status === 403) throw new ToolError("YouVersion turned down the key. Check YVP_APP_KEY in the Supabase secrets.");
+  if (res.status === 429) throw new ToolError("YouVersion's limit was reached for now. Try again later.");
+  if (!res.ok) throw new ToolError(`YouVersion answered ${res.status}.`);
+  return res.json();
+}
+
+/** The English Bibles this key may use, found by abbreviation or name, so no IDs are written in here. */
+async function yvBibleFor(abbr: string): Promise<{ id: number; copyright: string; link?: string }> {
+  if (!yvBibles) {
+    const all: any[] = [];
+    let token = "";
+    for (let page = 0; page < 10; page++) {
+      const q = new URLSearchParams({ "language_ranges[]": "en", page_size: "99" });
+      if (token) q.set("page_token", token);
+      const data = await youversion(`/bibles?${q}`);
+      all.push(...(data.data ?? []));
+      token = data.next_page_token ?? "";
+      if (!token) break;
+    }
+    yvBibles = {};
+    for (const k of Object.keys(YV_NAMES)) {
+      const b = all.find((x) => [x.abbreviation, x.localized_abbreviation].some((a) => String(a ?? "").toUpperCase() === k))
+        ?? all.find((x) => YV_NAMES[k].test(`${x.title ?? ""} ${x.localized_title ?? ""}`));
+      if (b) yvBibles[k] = { id: b.id, copyright: String(b.copyright ?? "").replace(/^"|"$/g, "").trim(), link: b.youversion_deep_link };
+    }
+  }
+  const found = yvBibles[abbr];
+  if (!found) yvBibles = null; // look again next time, in case YouVersion has just enabled it
+  if (!found) throw new ToolError(`YouVersion doesn't offer the ${abbr} to this app key.`);
+  return found;
+}
+
+const decode = (s: string) => s.replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+  .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
+
+/** Splits YouVersion's chapter HTML into verses. Each verse starts at an empty <span class="yv-v" v="16"> marker;
+ * its number label (.yv-vlbl) and any headings (.yv-h) are dropped. Notes aren't asked for. */
+function splitYvHtml(html: string): Verse[] {
+  let s = html
+    .replace(/<(\w+)[^>]*class="[^"]*\byv-h\b[^"]*"[^>]*>[\s\S]*?<\/\1>/g, " ")
+    .replace(/<span[^>]*class="[^"]*\b(?:yv-vlbl|va)\b[^"]*"[^>]*>[\s\S]*?<\/span>/g, "");
+  s = s.replace(/<span(?=[^>]*class="[^"]*\byv-v(?![\w-])[^"]*")[^>]*\bv="(\d+)"[^>]*>/g, "\u0000$1\u0001");
+  const out: Verse[] = [];
+  for (const part of s.split("\u0000").slice(1)) {
+    const [num, rest] = part.split("\u0001");
+    const text = decode(rest.replace(/<\/?(?:div|p|br|li|tr|td)\b[^>]*>/gi, " ").replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();
+    const n = Number(num);
+    const prev = out.find((v) => v.verse === n); // a verse can run across paragraphs, with a marker in each
+    if (prev) prev.text = `${prev.text} ${text}`.trim();
+    else if (text) out.push({ verse: n, text });
+  }
+  return out;
+}
+
+async function youversionChapter(abbr: string, book: number, chapter: number) {
+  const b = await yvBibleFor(abbr);
+  const q = new URLSearchParams({ format: "html", include_headings: "false", include_notes: "false" });
+  const data = await youversion(`/bibles/${b.id}/passages/${BOOKS[book - 1][1]}.${chapter}?${q}`);
+  let verses = splitYvHtml(String(data.content ?? ""));
+  // If the markup ever changes, plain text with "[n]" markers is the next best thing.
+  if (!verses.length) verses = splitVerses(String(data.content ?? "").replace(/<[^>]+>/g, " "));
+  const notice = [b.copyright, "Text provided by YouVersion Platform."].filter(Boolean).join(" ");
+  return { verses, copyright: notice };
+}
+
+const hasYv = () => !!Deno.env.get("YVP_APP_KEY");
+
+/** Its own service first, then YouVersion when that service isn't set up or can't give the chapter. */
+async function withFallback(primaryKey: string, primary: () => Promise<{ verses: Verse[]; copyright: string }>, abbr: string, book: number, chapter: number) {
+  if (!Deno.env.get(primaryKey)) {
+    if (hasYv()) return youversionChapter(abbr, book, chapter);
+    return primary(); // explains which key is missing
+  }
+  try {
+    return await primary();
+  } catch (e) {
+    if (!hasYv() || !(e instanceof ToolError)) throw e;
+    try { return await youversionChapter(abbr, book, chapter); } catch { throw e; } // the first service's reason reads better
+  }
+}
+
 async function getChapter(args: Record<string, unknown>) {
   const translation = String(args.translation ?? "").toUpperCase();
   const book = Number(args.number ?? args.book);
@@ -130,8 +225,8 @@ async function getChapter(args: Record<string, unknown>) {
   if (!Number.isInteger(chapter) || chapter < 1 || chapter > CHAPTERS[book - 1]) throw new ToolError(`${BOOKS[book - 1][0]} has ${CHAPTERS[book - 1]} chapters.`);
   const device = String(args.device ?? "").slice(0, 64), session = String(args.session ?? "").slice(0, 64);
   let got: { verses: Verse[]; copyright: string };
-  if (translation === "ESV") got = await esvChapter(book, chapter);
-  else if (API_BIBLE.includes(translation)) got = await apiBibleChapter(translation, book, chapter, device, session);
+  if (translation === "ESV") got = await withFallback("ESV_API_KEY", () => esvChapter(book, chapter), translation, book, chapter);
+  else if (API_BIBLE.includes(translation)) got = await withFallback("API_BIBLE_KEY", () => apiBibleChapter(translation, book, chapter, device, session), translation, book, chapter);
   else throw new ToolError("translation must be ESV, NIV, NLT or NKJV.");
   if (!got.verses.length) throw new ToolError(`No text came back for ${BOOKS[book - 1][0]} ${chapter} in the ${translation}.`);
   return { translation, reference: `${BOOKS[book - 1][0]} ${chapter}`, verses: got.verses, copyright: got.copyright };
