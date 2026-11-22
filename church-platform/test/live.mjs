@@ -657,6 +657,29 @@ await step("signs back in with email and password", async () => {
   await page.fill("form[data-form=signin-password] input[name=password]", "grace and peace"); await page.click("form[data-form=signin-password] button.btn");
   await page.waitForFunction(() => /Test Fellowship/.test(document.querySelector("#app").textContent) && !document.querySelector("form[data-form^=signin]"), null, { timeout: 15000 });
 });
+await step("switches from a support account without a church back to a personal account", async () => {
+  const support = account("support@example.com", true);
+  support.password = "support test password";
+  support.user.user_metadata.password_set = true;
+  db.profiles.push({ id: support.user.id, name: "Support" });
+  const signIn = async (email, password) => {
+    await page.locator("[data-act=signin-mode][data-mode=existing]").click();
+    const form = page.locator("form[data-form=signin-password]");
+    await form.locator("[name=email]").fill(email);
+    await form.locator("[name=password]").fill(password);
+    await form.getByRole("button", { name: "Sign in", exact: true }).click();
+  };
+  await page.evaluate(() => { location.hash = "me"; });
+  await page.getByRole("button", { name: /Sign out/ }).click();
+  await signIn(support.user.email, support.password);
+  await page.getByRole("heading", { name: "Find your church" }).waitFor();
+  await page.getByRole("button", { name: "Sign out" }).waitFor();
+  await page.getByRole("link", { name: "Help & support" }).click();
+  await page.getByText(support.user.email, { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await signIn(user.email, accounts[user.email].password);
+  await page.locator("[data-act=open-switcher]").waitFor();
+});
 await step("resets a forgotten password", async () => {
   await page.evaluate(() => { location.hash = "me"; }); await page.waitForTimeout(300); await page.click("[data-act=sign-out]");
   const yes = await page.$("#scrim [data-act=signout-yes], #scrim button:has-text('Sign out')"); if (yes) await yes.click();
