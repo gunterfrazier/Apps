@@ -450,7 +450,7 @@ function buildSeed() {
     users, memberships, current: null, campus: {},
     churches: Object.fromEntries(churches.map((c) => [c.id, c])),
     sermons, events, news, prayers, gatherings, plans, gifts, docs, songs, library, services, layouts, savedBlocks,
-    channels: [], messages, chatSeen: {}, deliveries: [], teamMembers, blockouts, notifications: [],
+    channels: [], messages, chatSeen: {}, deliveries: [], teamMembers, blockouts, notifications: [], securityRadioMessages: [],
     cards, checkins: [], serving: [], recurring: [], attendance, followups, forms: formsSeed, formResponses, bookings, devices: [], signage: signageSeed(), roomSessions: [], presence: [], milestones: [], campaigns: [], pledges: [], activity: [], customReports: [], reportRuns: [], ticketPayments: [], eventCheckins: [],
     notes: {}, verseNotes: {}, highlights: {}, progress: {}, saved: [], seen: [],
   }, { now, lastSunday, daysAgo });

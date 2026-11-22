@@ -152,7 +152,7 @@ await step("foreground alerts", async () => {
     clearTimeout(Backend.refetch);
     Backend.user = user;
   }, { id, mine, eventType });
-  const banner = page.locator("#foreground-alert button");
+  const banner = page.locator('#foreground-alert [data-act="notes-open"]');
   await receive("other", false);
   await receive("updated", true, "UPDATE");
   if (await banner.isVisible()) throw new Error("an unrelated notification showed a banner");
@@ -410,14 +410,123 @@ await step("security communications dock", async () => {
   if (await dock.locator("audio").count()) throw new Error("voice attachment remained after sending");
   await page.evaluate(() => {
     const { S } = __app;
-    const sent = S.list("securityMessages").find((m) => m.by === S.me().id && m.text === "Check the lobby");
-    if (sent) S.remove("securityMessages", sent.id);
+    const sent = S.list("securityRadioMessages").find((m) => m.by === S.me().id && m.text === "Check the lobby");
+    if (sent) S.remove("securityRadioMessages", sent.id);
     S.remove("securityAccessAssignments", "test-comms-access");
   });
   await goTo("me");
   await page.click("[data-act=demo-role]");
   await page.click('#scrim [data-act=demo-role-set][data-id="member"]');
   await sheetGone();
+});
+await step("live security radio and message popup", async () => {
+  const before = await page.evaluate(() => structuredClone(__app.S.state));
+  const radio = page.getByRole("complementary", { name: "Security radio" });
+  const held = radio.getByRole("button", { name: "Hold to talk" });
+  const recipient = radio.getByRole("combobox", { name: "Radio recipient" });
+  await goTo("home");
+  if (await radio.isVisible()) throw new Error("radio appeared without permission");
+  try {
+    await page.setViewportSize({ width: 320, height: 680 });
+    await page.evaluate(() => {
+      const { S } = __app;
+      S.add("securityAccessAssignments", { id: "radio-self", userId: S.me().id, role: "volunteer" });
+      S.add("securityAccessAssignments", { id: "radio-peer", userId: "u-marcus", role: "staff" });
+      window.radioPackets = [];
+      window.radioTestChannel = new BroadcastChannel("our-faithful-security-radio-demo");
+      window.radioTestChannel.onmessage = (event) => window.radioPackets.push(event.data);
+      window.originalGetUserMedia = navigator.mediaDevices.getUserMedia;
+      navigator.mediaDevices.getUserMedia = async () => {
+        const audio = new AudioContext();
+        await audio.resume();
+        const oscillator = audio.createOscillator();
+        const output = audio.createMediaStreamDestination();
+        oscillator.connect(output);
+        oscillator.start();
+        const [track] = output.stream.getTracks();
+        const stop = track.stop.bind(track);
+        track.stop = () => { stop(); audio.close(); window.radioMicStopped = true; };
+        return output.stream;
+      };
+      __app.render();
+    });
+    await recipient.selectOption("u-marcus");
+    await radio.getByRole("button", { name: "Enable radio" }).click();
+    const initial = await radio.boundingBox();
+    await goTo("me");
+    const moved = await radio.boundingBox();
+    if (!initial || !moved || moved.y !== initial.y || moved.y + moved.height > 680 || moved.x < 0 || moved.x + moved.width > 320) throw new Error("radio did not stay within phone layout");
+    if (await recipient.inputValue() !== "u-marcus") throw new Error("navigation lost the selected recipient");
+
+    const button = await held.boundingBox();
+    await page.mouse.move(button.x + button.width / 2, button.y + button.height / 2);
+    await page.mouse.down();
+    await radio.getByText("You’re broadcasting").waitFor();
+    await page.waitForFunction(() => {
+      const p = window.radioPackets.find((p) => !p.ended);
+      return p?.direct && p.target === "u-marcus" && atob(p.audio).length === 1600;
+    });
+    await page.mouse.up();
+    await page.waitForFunction(() => window.radioPackets.some((p) => p.ended) && window.radioMicStopped);
+
+    const inbound = (target, ended = false) => page.evaluate(({ target, ended }) => {
+      const { S } = __app;
+      window.radioTestChannel.postMessage({
+        c: S.state.current, by: "u-marcus", name: "Marcus Bell", target, direct: !!target,
+        id: "test-incoming-radio", seq: 0, audio: btoa(String.fromCharCode(...new Array(1600).fill(128))), ended,
+      });
+    }, { target, ended });
+    await inbound("u-dana");
+    await page.waitForTimeout(180);
+    if (await radio.getByText(/is broadcasting/).count()) throw new Error("someone else's transmission was received");
+    await inbound("");
+    await radio.getByText("Marcus Bell is broadcasting", { exact: true }).waitFor();
+    await inbound("", true);
+    await radio.getByText("Radio ready", { exact: true }).waitFor();
+
+    await page.evaluate(() => {
+      const { S, Backend } = __app;
+      const me = S.me().id, c = S.state.current, at = new Date().toISOString();
+      S.add("securityRadioMessages", { id: "radio-message-test", by: "u-marcus", senderName: "Marcus Bell", recipientId: me, text: "Meet by the main door.", at });
+      const user = Backend.user;
+      Backend.user = { id: me };
+      Backend.applyChange({ eventType: "INSERT", new: { id: "radio-notice-test", kind: "notifications", church_id: c, owner: me, location_id: null,
+        data: { kind: "security-radio", title: "Security message · Marcus Bell", body: "Meet by the main door.", read: false,
+          at, userId: me, link: "#security-message-radio-message-test", radioMessageId: "radio-message-test", senderId: "u-marcus" } } });
+      clearTimeout(Backend.refetch);
+      Backend.user = user;
+    });
+    const popup = page.locator("#foreground-alert");
+    await popup.getByRole("button", { name: "Reply", exact: true }).click();
+    await page.locator("#scrim").getByText("To Marcus Bell").waitFor();
+    await page.click('#scrim [data-act="close-sheet"]');
+    await sheetGone();
+    await goTo("alerts");
+    const banner = page.locator('[data-act="notes-open"][data-id="radio-notice-test"]');
+    await banner.getByText("New", { exact: true }).waitFor();
+    await banner.click();
+    await page.locator("#app").getByText("Meet by the main door.", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Reply privately" }).click();
+    await page.locator("#scrim").getByRole("textbox", { name: "Message" }).fill("On my way.");
+    await page.locator("#scrim").getByRole("button", { name: "Send message" }).click();
+    await sheetGone();
+    await page.waitForFunction(() => {
+      const { S } = __app;
+      const reply = S.list("securityRadioMessages").find((m) => m.replyTo === "radio-message-test");
+      return reply?.recipientId === "u-marcus" && reply.text === "On my way." &&
+        S.state.notifications.find((n) => n.id === "radio-notice-test")?.read;
+    });
+  } finally {
+    await page.mouse.up();
+    await page.evaluate((state) => {
+      window.radioTestChannel?.close();
+      if (window.originalGetUserMedia) navigator.mediaDevices.getUserMedia = window.originalGetUserMedia;
+      __app.S.state = state;
+      __app.S.flush();
+      __app.render();
+    }, before);
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
 });
 await step("security roles and approvals", async () => {
   await goTo("me");
@@ -1278,7 +1387,7 @@ await step("sermon playback across screens", async () => {
       const { S } = __app;
       const n = S.add("notifications", { userId: S.me().id, kind: "security", title: "Test notification",
         body: "This alert can be read while a sermon is playing.", at: new Date().toISOString() });
-      const banner = document.querySelector("#foreground-alert button");
+      const banner = document.querySelector('#foreground-alert [data-act="notes-open"]');
       banner.dataset.id = n.id;
       banner.textContent = n.title;
       banner.hidden = false;

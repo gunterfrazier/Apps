@@ -236,8 +236,13 @@ const Backend = {
     return done();
   },
   async send() {
+    const radioNotices = [];
     const rows = this.rows(), now = new Map(rows.map((r) => [r.key, r])), ups = {}, dels = [];
-    rows.forEach((r) => { if (this.snap.get(r.key) !== r.json) (ups[r.table] ||= []).push(r); });
+    rows.forEach((r) => {
+      if (this.snap.get(r.key) === r.json) return;
+      if (r.value.kind === "notifications" && r.value.data.kind === "security-radio") radioNotices.push(r);
+      else (ups[r.table] ||= []).push(r);
+    });
     for (const key of this.snap.keys()) if (!now.has(key)) dels.push(key);
     const conflict = { profiles: "id", contacts: "user_id", families: "user_id", profile_private: "user_id", memberships: "church_id,user_id", churches: "id", roles: "church_id,key", locations: "id", records: "kind,id" };
     let failed = 0;
@@ -248,6 +253,11 @@ const Backend = {
       if (!error) { list.forEach((r) => this.snap.set(r.key, r.json)); continue; }
       // One row the role can't write fails the batch, so save the rest one at a time.
       for (const r of list) { const { error: e } = await this.client.from(table).upsert(r.value, { onConflict: conflict[table] }); if (e) { if (!QUIET_KINDS.includes(r.value.kind)) failed++; console.warn(table, r.key, e.message); } else this.snap.set(r.key, r.json); }
+    }
+    for (const r of radioNotices) {
+      const { error } = await this.client.rpc("security_radio_read", { c: r.value.church_id, notice_id: r.value.id });
+      if (error) { failed++; console.warn("security radio notification", error.message); }
+      else this.snap.set(r.key, r.json);
     }
     for (const key of dels) {
       const [table, k] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];

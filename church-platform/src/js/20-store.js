@@ -43,7 +43,10 @@ const S = {
   flush(skipSync) {
     clearTimeout(this._timer); this._timer = 0;
     if (!skipSync && typeof Backend !== "undefined" && Backend.on) Backend.sync();
-    const data = JSON.stringify(this.state);
+    // Live security messages stay on the server and in the signed-in session.
+    const cached = Backend.configured() ? { ...this.state, securityRadioMessages: [],
+      notifications: this.state.notifications.filter((n) => n.kind !== "security-radio") } : this.state;
+    const data = JSON.stringify(cached);
     try { localStorage.setItem(PLATFORM.storageKey, data); }
     catch (e) {
       this.memory = JSON.parse(data);

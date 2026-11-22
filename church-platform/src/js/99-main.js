@@ -4,7 +4,10 @@ if (!FORWARDING) {
   S.load();
   sandboxStart();
   applyDisplay();
-  window.addEventListener("hashchange", () => { ForegroundAlerts.hide(); closeSheet(true); render(); });
+  window.addEventListener("hashchange", () => {
+    if (!$('#foreground-alert [data-radio]:not([hidden])')) ForegroundAlerts.hide();
+    closeSheet(true); render();
+  });
   document.addEventListener("click", () => ForegroundAlerts.unlockAudio());
   document.addEventListener("keydown", () => ForegroundAlerts.unlockAudio());
   window.addEventListener("pagehide", () => S.flush());

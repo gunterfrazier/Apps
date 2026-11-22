@@ -368,16 +368,25 @@ const ForegroundAlerts = {
   },
   show(n) {
     if (document.visibilityState !== "visible" || thisDevice() || !wantsNotify(n) || this.recent.has(n.id)) return;
+    const radio = n.kind === "security-radio";
+    if (radio && !SecurityRadio.allowed()) return;
     this.recent.add(n.id);
     if (this.recent.size > 100) this.recent.delete(this.recent.values().next().value);
-    const banner = $("#foreground-alert button");
+    const banner = $('#foreground-alert [data-act="notes-open"]');
+    const reply = $('#foreground-alert [data-act="radio-notice-reply"]');
     banner.textContent = n.body ? `${n.title} — ${n.body}` : n.title;
     banner.dataset.id = n.id;
     banner.hidden = false;
+    banner.toggleAttribute("data-radio", radio);
+    if (radio) banner.setAttribute("aria-label", `Open security message. ${banner.textContent}`);
+    else banner.removeAttribute("aria-label");
+    reply.hidden = !radio;
+    reply.dataset.id = radio ? n.id : "";
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.hide(), 8000);
     const h = new Date().getHours(), p = prefs(), audio = this.audio;
     if (p.alertSound === false || (p.quiet && (h >= 21 || h < 7)) || audio?.state !== "running") return;
+    if (radio) { radioTone(audio, "message"); return; }
     const tone = audio.createOscillator(), volume = audio.createGain(), now = audio.currentTime;
     tone.frequency.value = 660;
     volume.gain.setValueAtTime(0.12, now);
@@ -387,8 +396,11 @@ const ForegroundAlerts = {
     tone.stop(now + 0.24);
   },
   hide() {
-    const banner = $("#foreground-alert button");
+    const banner = $('#foreground-alert [data-act="notes-open"]');
+    const reply = $('#foreground-alert [data-act="radio-notice-reply"]');
     banner.hidden = true;
+    reply.hidden = true;
+    delete reply.dataset.id;
     banner.textContent = "";
     delete banner.dataset.id;
     clearTimeout(this.timer);
