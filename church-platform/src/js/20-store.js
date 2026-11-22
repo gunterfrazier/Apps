@@ -27,6 +27,8 @@ const S = {
       });
       // Sample sheet music, added after the first demo.
       const bless = saved.songs?.find((x) => x.id === "riverside-song-assurance"); if (bless && !bless.charts) bless.charts = sampleCharts();
+      // Demo photos, added after the first demo (sample church only).
+      try { applyDemoPhotos(saved); } catch { /* keep the saved demo as it was */ }
       saved.services.forEach((p) => { if (!p.assignments) p.assignments = seed.services.find((x) => x.id === p.id)?.assignments || []; });
       return;
     }

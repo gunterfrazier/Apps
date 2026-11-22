@@ -61,8 +61,9 @@ await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
 
 let current = "";
 // ONLY="part of a step's name" runs just the sign-up steps and the steps that match (for working on one step).
+// Separate several with | to run the steps a later one depends on, like ONLY="household|classes and kids".
 const ONLY = process.env.ONLY || "";
-const step = async (name, fn) => { if (ONLY && !["welcome", "join as basic member"].includes(name) && !name.includes(ONLY)) return; current = name; try { await fn(); } catch (e) { const lines = e.message.split("\n"), waiting = lines.find((l) => /waiting for/.test(l)); errors.push(`${name}: ${lines[0]}${waiting ? ` (${waiting.replace(/\x1b\[[0-9;]*m/g, "").trim()})` : ""}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); } };
+const step = async (name, fn) => { if (ONLY && !["welcome", "join as basic member"].includes(name) && !ONLY.split("|").some((o) => name.includes(o))) return; current = name; try { await fn(); } catch (e) { const lines = e.message.split("\n"), waiting = lines.find((l) => /waiting for/.test(l)); errors.push(`${name}: ${lines[0]}${waiting ? ` (${waiting.replace(/\x1b\[[0-9;]*m/g, "").trim()})` : ""}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); } };
 const shot = (name) => page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
 const goTo = async (hash) => { await page.evaluate((h) => { location.hash = h; }, hash); await page.waitForTimeout(90); };
 const text = () => page.textContent("#app");
@@ -825,7 +826,9 @@ await step("banner designer", async () => {
   if ((await page.inputValue("input[name=headline]")) !== "Come home") throw new Error("unsaved edits were lost when adding a graphic");
   await page.fill('input[name="g2_size"]', "40"); await page.dispatchEvent('input[name="g2_size"]', "input");
   await page.setInputFiles("input[data-change=banner-graphic-upload]", join(root, "icons", "icon-192.png")); await page.waitForSelector('input[name="g3_size"]');
-  await jsClick('input[name=bgType][value=image]'); await page.click("form[data-form=banner-save] button.btn:not([type=button])");
+  await jsClick('input[name=bgType][value=image]');
+  if (await page.$('[data-act=clear-image][data-field="bgImage"]')) await jsClick('[data-act=clear-image][data-field="bgImage"]');   // the sample church already has a photo
+  await page.click("form[data-form=banner-save] button.btn:not([type=button])");
   await page.waitForSelector("form[data-form=banner-save] .err");
   await page.setInputFiles('input[data-field="bgImage"]', join(root, "icons", "icon-512.png")); await page.waitForFunction(() => document.querySelector("#banner-preview .banner").style.background.includes("url"));
   await shot("22-banner-designer");
@@ -835,6 +838,7 @@ await step("banner designer", async () => {
 });
 await step("webhooks and embeds", async () => {
   await goTo("admin-integrations"); await page.click("[data-act=hook-edit]:not([data-id])");
+  await page.click('#scrim [data-act=hook-edit][data-dest="custom"]');   // first, where it goes
   await page.fill("#scrim input[name=url]", "https://example.com/hooks/church"); await sheetSubmit(); await sheetGone();
   await page.click("[data-act=hook-edit][data-id]"); await page.click("#scrim [data-act=hook-test]"); await page.waitForSelector("[data-act=hook-log]");
   await page.click("[data-act=embed-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "Church store"); await page.fill("#scrim input[name=url]", "https://example.com/store"); await sheetSubmit(); await sheetGone();
@@ -1074,6 +1078,7 @@ await step("screens follow the booth", async () => {
   const code2 = await pairNew("stage"); await page.click("#scrim [data-act=close-sheet]");
   const mon = await tab(1280, 720); await mon.goto(base + `#pair-${code2}`); await mon.click("form[data-form=pair] button"); await mon.waitForSelector(".display, .sign-player");
   await goTo("present-service-riverside-svc-1"); await page.waitForSelector("#stage .slide");
+  await page.click('[data-act=pres-jump][data-i="1"]');   // past the "before the service" logo slide, whatever slide it last stopped on
   await scr.waitForSelector(".display .slide:not(.k-logo)"); await mon.waitForSelector(".stage-mon.full");
   await page.click('[data-act=pres-jump][data-i="3"]'); await page.waitForTimeout(250);
   await scr.screenshot({ path: join(shots, "46-display-follows.png") }); await mon.screenshot({ path: join(shots, "47-stage-follows.png") });
@@ -1198,6 +1203,7 @@ await step("form builder and responses", async () => {
   for (const inp of await page.$$("form[data-form=form-submit] input[type=text][name^=f_]")) if (!(await inp.inputValue())) await inp.fill("Pat Frazier");
   await signPad(); await page.click("form[data-form=form-submit] button.btn:not([type=button])");
   await page.waitForSelector("#scrim [data-act=pay-test]"); await page.click("#scrim [data-act=pay-test]"); await page.waitForSelector(".done-panel");
+  await page.click("#scrim .pay-done [data-act=close-sheet]"); await sheetGone();   // "Would you like a receipt?" No thanks
   await page.click(".done-panel [data-act=form-finish]"); await page.waitForTimeout(100);
   const id = await page.evaluate(() => location.hash); if (id !== "#forms") throw new Error(`after Done went to ${id}`);
   await page.click('a.row:has-text("Lock-in permission slip")'); await page.click('a:has-text("1 response")'); await page.click("[data-act=response-open]");
@@ -1344,7 +1350,8 @@ await step("sermon archive, transcript and podcast", async () => {
   await page.click('a:has-text("Media and transcript")'); await page.waitForSelector("form[data-form=media-save]");
   await page.fill("textarea[name=transcript]", "WEBVTT\n\n00:00:05.000 --> 00:00:09.000\nWelcome back, church.\n\n00:01:10.000 --> 00:01:15.000\nTurn with me to Psalm 23.");
   await page.click("form[data-form=media-save] button.btn:not([type=button])"); await page.waitForSelector("details.transcript");
-  await page.click("details.transcript summary"); await page.waitForSelector(".tx-t:has-text('1:10')"); await shot("40-transcript");
+  if (!(await page.$("details.transcript[open]"))) await page.click("details.transcript summary");   // it stays open once opened
+  await page.waitForSelector(".tx-body p:has-text('1:10')");   // a tap-to-play time when the recording plays in the app, plain text otherwise await shot("40-transcript");
   await goTo("podcast"); await page.fill("form[data-form=podcast-save] input[name=email]", "media@riverside.example"); await page.click("form[data-form=podcast-save] button");
   const [dl] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=podcast-download]")]);
   const xml = readFileSync(await dl.path(), "utf8");
@@ -1462,8 +1469,13 @@ await step("giving statements as PDF", async () => {
   const [all] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=statements-all]")]);
   const p2 = join(shots, "statements-all.pdf"); await all.saveAs(p2);
   for (const f of [p1, p2]) if (!readFileSync(f).subarray(0, 5).toString().startsWith("%PDF")) throw new Error(`${f} is not a PDF`);
-  await page.fill("form[data-form=give-settings] input[name=number]", "(770) 555-0199"); await page.fill("form[data-form=give-settings] input[name=taxId]", "58-1234567");
-  await page.click("form[data-form=give-settings] button"); await goTo("give"); await expectText("Text to give");
+  await page.fill("form[data-form=give-settings] input[name=taxId]", "58-1234567"); await page.click("form[data-form=give-settings] button");
+  // Text to give comes with texting: link Twilio (pretend, in the preview) and turn texting on.
+  await goTo("admin-texting"); await page.click("[data-act=texting-link]");
+  await page.fill("#scrim input[name=sid]", "AC" + "0123456789abcdef".repeat(2)); await page.fill("#scrim input[name=token]", "x".repeat(32)); await page.fill("#scrim input[name=from]", "(770) 555-0199");
+  await sheetSubmit(); await sheetGone(); await page.check("[data-change=texting-enable]");
+  await page.click("form[data-form=msg-routes] button.btn:not([type=button])");   // saves text to give with its keyword
+  await goTo("give"); await expectText("Text to give");
   await page.click("[data-act=stripe-connect]").catch(() => {}); await goTo("give-riverside~75"); await page.waitForSelector("#give-btn:has-text('$75')");
 });
 await step("payment processors and a linked giving page", async () => {
@@ -1682,7 +1694,7 @@ await step("attendance, dates, campaigns, email and the activity log", async () 
   await goTo("dashboard"); await expectText("Birthdays and milestones");
   // A pledge campaign: made by staff, pledged to from Give, shown on the dashboard.
   await goTo("admin-campaigns"); await page.click("[data-act=campaign-edit]"); await page.fill("#scrim input[name=name]", "New roof"); await page.fill("#scrim input[name=goal]", "20000"); await page.click("#scrim form button.btn"); await sheetGone(); await expectText("New roof");
-  await goTo("give"); await page.click(".campaign [data-act=pledge]"); await page.fill("#scrim input[name=amount]", "1200"); await page.click("#scrim form button.btn"); await sheetGone(); await expectText("Your pledge: $1,200"); await shot("85-give-campaign");
+  await goTo("give"); await page.click('.campaign:has-text("New roof") [data-act=pledge]'); await page.fill("#scrim input[name=amount]", "1200"); await page.click("#scrim form button.btn"); await sheetGone(); await expectText("Your pledge: $1,200"); await shot("85-give-campaign");
   await goTo("admin-campaigns"); await expectText("pledged by 1 person"); await page.waitForSelector('[data-act=report-csv][data-id=pledges]'); await shot("86-admin-campaigns");
   await goTo("dashboard"); await expectText("Pledge campaigns");
   // Email to a group (practice here: nothing is sent, but it's logged).

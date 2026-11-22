@@ -285,7 +285,7 @@ Forms["email-send"] = async (d, f) => {
 {
   const home = Screens.home;
   Screens.home = (t) => { const v = home(t); if (v && !v.redirect) { const after = v.after; v.after = () => { after?.(); setTimeout(presencePrompt, 700); }; } return v; };
-  const give = Screens.give;
-  Screens.give = (t) => { const v = give(t), open = S.church() ? campaignsOpen() : []; campaignRefresh();
-    return v && v.body && open.length ? { ...v, body: html`<section class="sec"><div class="sec-head"><h2>${open.length === 1 ? "Campaign" : "Campaigns"}</h2></div><div style="display:grid;gap:12px">${open.map((c) => campaignCard(c))}</div></section>${v.body}` } : v; };
+  // Campaigns sit under the gift form, so someone who came to give sees the form first.
+  giveCampaigns = () => { const open = S.church() ? campaignsOpen() : []; campaignRefresh();
+    return open.length ? html`<section class="sec"><div class="sec-head"><h2>${open.length === 1 ? "Campaign" : "Campaigns"}</h2></div><div style="display:grid;gap:12px">${open.map((c) => campaignCard(c))}</div></section>` : ""; };
 }

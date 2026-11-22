@@ -18,6 +18,8 @@ const nextGiftDate = (r) => {
 const myGifts = () => S.list("gifts").filter((g) => g.by === S.me().id).sort((a, b) => new Date(b.at) - new Date(a.at));
 const fundName = (id, c = S.church()) => c.funds.find((f) => f.id === id)?.name || "General fund";
 
+/** Filled in by 81-care.js: open pledge campaigns, shown under the gift form. */
+let giveCampaigns = null;
 Screens.give = (tail = "") => {
   if (!S.on("giving")) return { redirect: "home" };
   const c = S.church(), preset = parseAmount(tail.split("~")[1] || "") || 50;
@@ -48,6 +50,7 @@ Screens.give = (tail = "") => {
         <button class="btn block" id="give-btn">Give ${money(preset)}</button>
         ${Pay.live() ? html`<p class="faint pay-via">${icon("lock")}You'll finish on ${Pay.name()}'s secure page${methods.length === 1 ? ` (${methods[0][1]})` : ""}.</p>` : ""}
       </form>`}
+      ${typeof giveCampaigns === "function" ? giveCampaigns() : ""}
       <section class="sec"><div class="sec-head"><h2>Your giving</h2><a href="#history">History</a></div>
         <div class="stat"><div><b>${money(total)}</b><span>Given in ${year}</span></div><div><b>${recurring.length}</b><span>Recurring gift${recurring.length === 1 ? "" : "s"}</span></div></div>
         ${recurring.length ? html`<div class="rows" style="margin-top:12px">${recurring.map((r) => html`<div class="row"><span class="lead-ic">${icon("give")}</span><span class="body"><span class="t">${money(r.amount)} ${FREQ[r.frequency].toLowerCase()}</span><span class="s">${fundName(r.fundId)}, since ${fmtShort(r.at)}. Next gift ${fmtShort(nextGiftDate(r))}.</span></span><button class="btn ghost sm" data-act="give-stop" data-id="${r.id}">Stop</button></div>`)}</div>` : ""}

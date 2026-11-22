@@ -91,7 +91,7 @@ function gatheringRow(g) {
     : myEntries(g).some((m) => m.status === "requested") ? html`<span class="tag">Requested</span>`
     : gFull(g) ? html`<span class="tag">Full</span>`
     : g.registration === "none" ? html`<span class="tag">Drop in</span>` : icon("chev");
-  return html`<a class="row" href="#gathering-${g.id}"><span class="lead-ic">${icon(g.type === "class" ? "door" : "people")}</span><span class="body"><span class="t">${g.name}</span><span class="s">${scheduleText(g)}</span><span class="s">${placeText(g)}${g.ageMin != null ? `, ages ${g.ageMin} to ${g.ageMax}` : ""}</span></span>${status}</a>`;
+  return html`<a class="row" href="#gathering-${g.id}">${g.photo ? html`<img class="row-photo" src="${g.photo}" alt="" loading="lazy">` : html`<span class="lead-ic">${icon(g.type === "class" ? "door" : "people")}</span>`}<span class="body"><span class="t">${g.name}</span><span class="s">${scheduleText(g)}</span><span class="s">${placeText(g)}${g.ageMin != null ? `, ages ${g.ageMin} to ${g.ageMax}` : ""}</span></span>${status}</a>`;
 }
 
 Screens.gathering = (id) => {
@@ -107,7 +107,7 @@ Screens.gathering = (id) => {
   const loc = S.location(g.locationId);
   return {
     title: g.name, back, tab: "connect",
-    body: html`<p style="margin:16px 0 4px"><span class="tag brand">${g.category}</span>${loc?.visibility === "private" ? html` <span class="tag">${icon("lock")}Private</span>` : ""}</p><h1>${g.name}</h1>
+    body: html`${g.photo ? html`<img class="event-hero-img gathering-hero" src="${g.photo}" alt="">` : ""}<p style="margin:16px 0 4px"><span class="tag brand">${g.category}</span>${loc?.visibility === "private" ? html` <span class="tag">${icon("lock")}Private</span>` : ""}</p><h1>${g.name}</h1>
       <div class="meta">${icon("clock")}<span>${scheduleText(g)}${next ? html`<br><span class="faint">Next: ${fmtWhen(next)}</span>` : ""}</span>
         ${icon("pin")}<span>${placeText(g) || "Location to be announced"}${loc?.address || g.room ? html`<br><a href="${mapLink(fullAddress(g))}" target="_blank" rel="noopener">Directions</a>` : ""}</span>
         ${leaders.length ? html`${icon("user")}<span>${g.type === "class" ? "Taught" : "Led"} by ${listJoin(leaders)}</span>` : ""}
