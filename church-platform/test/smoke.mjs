@@ -16,6 +16,14 @@ const shots = join(here, "..", ".shots");
 mkdirSync(shots, { recursive: true });
 const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".webmanifest": "application/manifest+json" };
 const recordings = new Map();
+function silentWav(seconds) {
+  const audio = Buffer.alloc(44 + 8000 * 2 * seconds);
+  audio.write("RIFF", 0); audio.writeUInt32LE(audio.length - 8, 4); audio.write("WAVEfmt ", 8);
+  audio.writeUInt32LE(16, 16); audio.writeUInt16LE(1, 20); audio.writeUInt16LE(1, 22);
+  audio.writeUInt32LE(8000, 24); audio.writeUInt32LE(16000, 28); audio.writeUInt16LE(2, 32);
+  audio.writeUInt16LE(16, 34); audio.write("data", 36); audio.writeUInt32LE(audio.length - 44, 40);
+  return audio;
+}
 const server = createServer((req, res) => {
   const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
   const recording = recordings.get(path);
@@ -1738,7 +1746,7 @@ await step("sermon playback across screens", async () => {
     const done = new Promise((resolve) => { recorder.onstop = resolve; });
     recorder.start();
     // Leave enough recording after the route change to observe it playing in a loaded test browser.
-    for (let index = 0; index < 50; index++) {
+    for (let index = 0; index < 75; index++) {
       frame.fillStyle = index % 2 ? "#123" : "#569";
       frame.fillRect(0, 0, 96, 54);
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1749,14 +1757,9 @@ await step("sermon playback across screens", async () => {
     await audio.close();
     return Array.from(new Uint8Array(await new Blob(chunks).arrayBuffer()));
   });
-  const audio = Buffer.alloc(44 + 8000 * 2 * 30);
-  audio.write("RIFF", 0); audio.writeUInt32LE(audio.length - 8, 4); audio.write("WAVEfmt ", 8);
-  audio.writeUInt32LE(16, 16); audio.writeUInt16LE(1, 20); audio.writeUInt16LE(1, 22);
-  audio.writeUInt32LE(8000, 24); audio.writeUInt32LE(16000, 28); audio.writeUInt16LE(2, 32);
-  audio.writeUInt16LE(16, 34); audio.write("data", 36); audio.writeUInt32LE(audio.length - 44, 40);
   recordings.set("/test-recording.webm", { type: "video/webm", body: Buffer.from(videoBody) });
-  recordings.set("/test-recording.wav", { type: "audio/wav", body: audio });
-  await page.route("https://www.youtube.com/embed/test-sermon", (route) => route.fulfill({ contentType: "text/html", body: "Embedded video" }));
+  recordings.set("/test-recording.wav", { type: "audio/wav", body: silentWav(30) });
+  await page.route("https://player.vimeo.com/video/123456789", (route) => route.fulfill({ contentType: "text/html", body: "Embedded video" }));
   const saved = await page.evaluate(() => {
     const { S } = __app;
     const original = structuredClone(S.get("sermons", "riverside-s0"));
@@ -1804,6 +1807,12 @@ await step("sermon playback across screens", async () => {
     await page.getByRole("button", { name: "Watch video", exact: true }).click();
     await player.locator("video").waitFor();
     await page.waitForFunction(() => document.querySelector("#now-playing video").currentTime > 0.05);
+    await source("Full-screen video").click();
+    await page.waitForFunction(() => document.fullscreenElement?.classList.contains("np-video-stage"));
+    await player.locator(".np-video-controls").waitFor({ state: "hidden" });
+    await player.locator(".np-video-reveal").click();
+    await source("Exit full screen").click();
+    await page.waitForFunction(() => !document.fullscreenElement);
     await source("Listen to video").click();
     await player.locator("video").waitFor({ state: "hidden" });
     await source("Minimize").click();
@@ -1818,14 +1827,14 @@ await step("sermon playback across screens", async () => {
     await mini.waitFor({ state: "hidden" });
 
     await page.evaluate(() => __app.S.update("sermons", "riverside-s0", {
-      audioUrl: location.origin + "/missing-recording.mp3", videoUrl: "https://youtu.be/test-sermon",
+      audioUrl: location.origin + "/missing-recording.mp3", videoUrl: "https://vimeo.com/123456789",
     }));
     await goTo("sermon-riverside-s0");
     await page.getByRole("button", { name: "Sermon audio", exact: true }).click();
     await player.getByRole("status").getByText(/could not play/).waitFor();
     await source("Play").waitFor();
     await source("Watch video").click();
-    await player.locator('iframe[src="https://www.youtube.com/embed/test-sermon"]').waitFor();
+    await player.locator('iframe[src="https://player.vimeo.com/video/123456789"]').waitFor();
     await player.getByRole("slider", { name: "Seek recording" }).waitFor({ state: "hidden" });
     await source("Back").click();
     if (await player.locator("iframe").count()) throw new Error("embedded video still mounted after closing");
@@ -1839,7 +1848,112 @@ await step("sermon playback across screens", async () => {
       if (notificationId) __app.S.remove("notifications", notificationId);
     }, { sermon: saved, notificationId });
     recordings.clear();
-    await page.unroute("https://www.youtube.com/embed/test-sermon");
+    await page.unroute("https://player.vimeo.com/video/123456789");
+  }
+});
+await step("YouTube sermon playback and thumbnail", async () => {
+  const videoId = "M7lc1UVf-VE";
+  const apiUrl = "https://www.youtube.com/iframe_api";
+  const embed = `https://www.youtube-nocookie.com/embed/${videoId}*`;
+  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  await page.route(apiUrl, (route) => route.fulfill({ contentType: "text/javascript", body: `
+    window.YT = { Player: class {
+      constructor(iframe, { events }) {
+        this.events = events;
+        this.time = 0;
+        this.rate = 1;
+        this.iframe = iframe;
+        queueMicrotask(() => events.onReady({ target: this }));
+      }
+      getCurrentTime() { return this.time + (this.playedAt ? (performance.now() - this.playedAt) / 1000 : 0); }
+      getDuration() { return 30; }
+      getAvailablePlaybackRates() { return [1, 1.5, 2]; }
+      getPlaybackRate() { return this.rate; }
+      setPlaybackRate(rate) { this.rate = rate; this.events.onPlaybackRateChange({ data: rate }); }
+      seekTo(time) { this.time = time; if (this.playedAt) this.playedAt = performance.now(); }
+      cueVideoById({ startSeconds }) { this.seekTo(startSeconds); }
+      playVideo() { this.playedAt = performance.now(); this.events.onStateChange({ data: 1 }); }
+      pauseVideo() {
+        this.time = this.getCurrentTime();
+        this.playedAt = 0;
+        this.events.onStateChange({ data: 2 });
+      }
+      destroy() { this.iframe.remove(); }
+    } };
+    window.onYouTubeIframeAPIReady();
+  ` }));
+  await page.route(embed, (route) => route.fulfill({ contentType: "text/html", body: "YouTube video" }));
+  await page.route(thumbnail, (route) => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360"><rect width="480" height="360" fill="#38526a"/></svg>' }));
+  const before = await page.evaluate((videoId) => {
+    const { S } = __app;
+    const sermon = S.get("sermons", "riverside-s0");
+    const membership = S.membership();
+    const saved = { sermon: structuredClone(sermon), role: membership.roleId };
+    membership.roleId = "admin";
+    Object.assign(sermon, { videoUrl: "https://www.youtube.com/shorts/" + videoId, audioUrl: location.origin + "/test-youtube-audio.wav" });
+    return saved;
+  }, videoId);
+  recordings.set("/test-youtube-audio.wav", { type: "audio/wav", body: silentWav(30) });
+  const player = page.locator("#now-playing");
+  const button = (name) => player.getByRole("button", { name, exact: true });
+  try {
+    await goTo("media-riverside-s0");
+    await page.getByRole("button", { name: "Use YouTube thumbnail" }).click();
+    await page.getByText("Thumbnail ready. Save to use it.").waitFor();
+    await page.getByRole("img", { name: "YouTube thumbnail preview" }).waitFor();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.locator(`.sermon-audio-card img[src="${thumbnail}"]`).waitFor();
+
+    await page.getByRole("button", { name: "Watch video", exact: true }).click();
+    await button("Pause").waitFor();
+    const frame = player.locator("iframe");
+    await frame.waitFor();
+    await button("Pause").click();
+    await button("Play").waitFor();
+    await player.getByRole("slider", { name: "Seek recording" }).fill("12");
+    await player.getByText("0:12", { exact: true }).waitFor();
+    await button("Sermon audio").click();
+    await button("Play").waitFor();
+    await player.getByText("0:12", { exact: true }).waitFor();
+    await button("Watch video").click();
+    await button("Play").waitFor();
+    await player.getByText("0:12", { exact: true }).waitFor();
+    await button("Play").click();
+    await button("Pause").waitFor();
+    await frame.evaluate((element) => { element.dataset.sameFrame = "yes"; });
+    await button("Minimize").click();
+    await goTo("events");
+    await button("Expand video").waitFor();
+    const rect = await frame.boundingBox();
+    if (!rect || rect.width < 200 || rect.height < 200) throw new Error("Docked YouTube video was too small");
+    if (await frame.getAttribute("data-same-frame") !== "yes") throw new Error("Docking recreated the video");
+    await button("Expand video").click();
+    await button("Pause").waitFor();
+    await page.waitForFunction(() => Number(document.querySelector("#now-playing .sac-range").value) > 12.2);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { configurable: true, value: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      delete document.hidden;
+    });
+    await button("Play").waitFor();
+    await button("Close player").click();
+    if (await frame.count()) throw new Error("Closing left YouTube mounted");
+
+    await goTo("media-riverside-s0");
+    await page.getByRole("textbox", { name: /^Video link/ }).fill("https://youtu.be/abcdefghijk");
+    if (await page.getByRole("img", { name: "YouTube thumbnail preview" }).isVisible()) throw new Error("Old thumbnail survived a video change");
+  } finally {
+    await page.evaluate(({ sermon, role }) => {
+      document.querySelector('#now-playing [data-act=audio-close]')?.click();
+      __app.S.update("sermons", sermon.id, { videoUrl: "", audioUrl: "", youtubeThumbnail: "", ...sermon });
+      __app.S.membership().roleId = role;
+      __app.S.save();
+    }, before);
+    recordings.delete("/test-youtube-audio.wav");
+    await page.unroute(apiUrl);
+    await page.unroute(embed);
+    await page.unroute(thumbnail);
+    await goTo("word");
   }
 });
 await step("sermon archive, transcript and podcast", async () => {
