@@ -249,7 +249,7 @@ Screens.home = () => {
   // Each section of Home, by its ID in Admin, Home screen (homeLayout). A section with nothing to show is left out.
   const sections = {
     banner: () => html`<div class="home-banner">${bannerHtml(c)}</div>`,
-    greeting: () => (S.isMember() ? greet() : ""),
+    greeting: () => html`${S.isMember() ? greet() : ""}${whatsNewCard()}`,
     hero: () => homeHero(c, services[0], when),
     quick: () => quickActions(),
     landing: () => html`
@@ -607,3 +607,12 @@ const SOCIAL = [["website", "Website"], ["facebook", "Facebook"], ["instagram", 
 function churchLinks(c) {
   return SOCIAL.map(([k, label]) => [label, k === "website" ? c.website : c.social?.[k]]).filter(([, u]) => isUrl(u));
 }
+
+/** "What's new" on Home in the demo and training, until it's closed. */
+function whatsNewCard() {
+  if (!SANDBOX || S.state.whatsNewClosed === SEED_VERSION || !S.isMember()) return "";
+  return html`<section class="sec whats-new" aria-labelledby="whats-new-h"><div class="sec-head"><h2 id="whats-new-h">What's new</h2>
+      <button class="icon-btn" data-act="whats-new-close" aria-label="Close What's new">${icon("x")}</button></div>
+    <div class="rows">${WHATS_NEW.map(([, ic, t, s, route]) => html`<a class="row" href="#${route}"><span class="lead-ic">${icon(ic)}</span><span class="body"><span class="t">${t}</span><span class="s">${s}</span></span>${icon("chev")}</a>`)}</div></section>`;
+}
+Actions["whats-new-close"] = () => { S.state.whatsNewClosed = SEED_VERSION; S.save(); render(); };

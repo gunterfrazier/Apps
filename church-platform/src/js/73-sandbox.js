@@ -114,6 +114,13 @@ const TRAINING = [
     ["boards", "Approve or pin a board post", "Admin, Community boards", "admin-boards", "people", (st, cid) => JSON.stringify(here(st, cid, "boardPosts").filter((p) => p.pinned || p.approvedAt || p.locked).map((p) => [p.id, !!p.pinned, p.approvedAt || "", !!p.locked]))],
     ["arrival", "Set up arrival check-in for a campus", "Admin, Campus geofencing & triggers", "admin-geofence", "pin", (st, cid) => JSON.stringify((st.churches[cid]?.locations || []).map((l) => l.geofence || null))],
   ] },
+  { area: "Your app", items: [
+    ["look", "Give the app a new look and publish it", "Admin, Appearance", "admin-appearance", "image", (st, cid) => JSON.stringify([st.churches[cid]?.color, st.churches[cid]?.theme || null])],
+    ["homelayout", "Rearrange the sections on Home", "Admin, Home screen", "admin-homelayout", "home", (st, cid) => JSON.stringify(st.churches[cid]?.homeLayout || null)],
+    ["tabs", "Change the tabs along the bottom", "Admin, Tabs", "admin-tabs", "layers", (st, cid) => JSON.stringify(st.churches[cid]?.tabs || null)],
+    ["media", "Save a photo to the media library", "Admin, Media library, Find media", "medialib", "image", (st, cid) => here(st, cid, "mediaLibrary").length],
+    ["storylesson", "Plan a lesson from a Bible story", "Ministry tools, Lessons, Start from a Bible story", "docs-lesson", "book", (st, cid) => here(st, cid, "docs").filter((d) => d.storyId && d.id !== "riverside-doc-story").length],
+  ] },
   { area: "Sunday", items: [
     ["song", "Add a song with sections", "Ministry tools, Songs", "songs", "music", (st, cid) => here(st, cid, "songs").length],
     ["plan", "Plan a service", "Ministry tools, Services", "services", "list", (st, cid) => JSON.stringify(here(st, cid, "services").map((p) => [p.id, (p.segments || []).length]))],
@@ -143,7 +150,7 @@ const TRAINING = [
 ];
 const TRAINING_ITEMS = TRAINING.flatMap((g) => g.items);
 /** Exercises counted from what the whole church has, which teammates' changes can move. The rest are yours alone. */
-const SHARED_ITEMS = new Set(["news", "newevent", "banner", "form", "role", "song", "plan", "schedule", "checkin", "sign", "processor", "fund",
+const SHARED_ITEMS = new Set(["look", "homelayout", "tabs", "media", "storylesson", "news", "newevent", "banner", "form", "role", "song", "plan", "schedule", "checkin", "sign", "processor", "fund",
   "push", "boards", "arrival", "chords", "handgift", "batch", "expense", "protocol", "doors", "drill"]);
 
 /** Where you train: a sandbox, a shared training church, or the checklist opened in the browser-only preview. */
