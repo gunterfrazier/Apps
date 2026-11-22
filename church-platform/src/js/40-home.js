@@ -221,7 +221,8 @@ Screens.home = () => {
       </section>
 
       ${S.on("events") ? html`<section class="sec"><div class="sec-head"><h2>Coming up</h2><a href="#events">All events</a></div>
-        ${events.length ? html`<div class="carousel">${events.map(eventCard)}</div>` : html`<div class="rows">${empty("No events on the calendar yet.")}</div>`}</section>` : ""}
+        ${events.length ? html`${featuredEvent(events[0])}${events.length > 1 ? html`<div class="carousel" style="margin-top:14px">${events.slice(1).map(eventCard)}</div>` : ""}` : html`<div class="rows">${empty("No events on the calendar yet.")}</div>`}</section>` : ""}
+      ${homeGroups()}
 
       ${plans.length ? html`<section class="sec"><div class="sec-head"><h2>Daily reading</h2><a href="#plans">Plans</a></div>
         ${active ? planTodayRow(active) : html`<div class="rows"><a class="row" href="#plans"><span class="lead-ic">${icon("book")}</span><span class="body"><span class="t">Start a reading plan</span><span class="s">${plural(plans.length, "plan")} from ${c.name}</span></span>${icon("chev")}</a></div>`}
@@ -237,10 +238,36 @@ Screens.home = () => {
       ${socialRow(c)}`,
   };
 };
+/** The next event as a full-width photo card: who's going, and the next step (sign up, or directions). */
+function featuredEvent(e) {
+  const reg = myRegistration(e), d = new Date(e.start), going = (e.registrations || []).filter((r) => r.by !== S.me().id);
+  const people = going.reduce((n, r) => n + (r.count || 1), 0) + (reg ? reg.count || 1 : 0);
+  const addr = fullAddress(e);
+  return html`<article class="feature-card ${e.image ? "has-photo" : ""}">
+    <a class="fc-link" href="#event-${e.id}" aria-label="${e.title}">${e.image ? html`<img src="${e.image}" alt="" decoding="async">` : ""}</a>
+    <div class="fc-top">${e.category ? html`<span class="tag ec-cat">${e.category}</span>` : ""}<span class="ec-date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span></div>
+    <div class="fc-body">
+      <h3 class="fc-title">${e.title}</h3>
+      <p class="fc-meta">${fmt(d, { weekday: "long" })} at ${fmtTime(d)}${placeText(e) ? ` · ${placeText(e)}` : ""}</p>
+      <div class="fc-foot">
+        ${people ? html`<span class="fc-going">${going.slice(0, 3).map((r) => avatar({ id: r.by, name: r.name || S.userName(r.by) }, "fc-face"))}<span>${reg ? (people > 1 ? `You and ${plural(people - (reg.count || 1), "other", "others")}` : "You're going") : `${plural(people, "person", "people")} going`}</span></span>` : html`<span class="fc-going"><span>${e.signup ? "Be the first to sign up" : "Everyone's welcome"}</span></span>`}
+        <span class="fc-btns">${addr ? html`<a class="fc-btn" href="${mapLink(addr)}" target="_blank" rel="noopener" aria-label="Directions to ${e.title}">${icon("pin")}</a>` : ""}
+          <a class="fc-btn primary" href="#event-${e.id}">${reg ? "You're going" : e.tickets?.length ? "Tickets" : e.signup ? "Sign up" : "Details"}</a></span>
+      </div></div></article>`;
+}
+/** Groups and classes with photos, to browse from Home. */
+function homeGroups() {
+  if (!S.on("groups") && !S.on("classes")) return "";
+  const list = S.visible("gatherings").filter((g) => g.photo && (g.type === "group" ? S.on("groups") : S.on("classes")) && g.category !== "Staff" && !isIn(g) && !(g.ageMax != null && g.ageMax < 18))
+    .sort((a, b) => (a.type === "group" ? 0 : 1) - (b.type === "group" ? 0 : 1)).slice(0, 8);
+  if (list.length < 2) return "";
+  return html`<section class="sec"><div class="sec-head"><h2>Find your people</h2><a href="#groups">All groups</a></div>
+    <div class="carousel">${list.map((g) => html`<a class="group-card" href="#gathering-${g.id}"><img src="${g.photo}" alt="" loading="lazy" decoding="async"><span class="gc-body"><span class="gc-k">${g.category}</span><span class="gc-title">${g.name}</span><span class="gc-meta">${scheduleText(g)}</span></span></a>`)}</div></section>`;
+}
 function eventCard(e) {
   const reg = myRegistration(e), d = new Date(e.start);
   return html`<a class="event-card" href="#event-${e.id}">
-    <div class="ec-media">${e.image ? html`<img src="${e.image}" alt="">` : ""}
+    <div class="ec-media">${e.image ? html`<img src="${e.image}" alt="" loading="lazy" decoding="async">` : ""}
       ${e.category ? html`<span class="tag ec-cat">${e.category}</span>` : ""}
       <span class="ec-date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span>
       ${reg ? html`<span class="tag ok ec-tag">Going</span>` : ""}

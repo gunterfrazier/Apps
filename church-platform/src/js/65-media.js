@@ -187,6 +187,24 @@ const Player = {
       });
     }
     dialog.addEventListener("cancel", (event) => { event.preventDefault(); this.minimize(); });
+    // Swipe down from the top of the player to shrink it back to the mini bar, like other phone players.
+    let drag = null;
+    dialog.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1 || dialog.scrollTop > 0 || e.target.closest("input, video, .np-controls, .np-frame")) { drag = null; return; }
+      drag = { y: e.touches[0].clientY, x: e.touches[0].clientX, dy: 0 };
+    }, { passive: true });
+    dialog.addEventListener("touchmove", (e) => {
+      if (!drag) return;
+      const dy = e.touches[0].clientY - drag.y, dx = Math.abs(e.touches[0].clientX - drag.x);
+      if (dy < 0 || dx > dy) { drag.dy = 0; dialog.style.transform = ""; return; }
+      drag.dy = dy; dialog.style.transition = "none"; dialog.style.transform = `translateY(${Math.min(dy, 400)}px)`;
+    }, { passive: true });
+    dialog.addEventListener("touchend", () => {
+      if (!drag) return;
+      const far = drag.dy > 110; drag = null;
+      dialog.style.transition = "transform .18s ease-out"; dialog.style.transform = "";
+      if (far) this.minimize();
+    });
     document.addEventListener("fullscreenchange", () => { this.video.controls = document.fullscreenElement === this.video; });
   },
   scopeKey() { return JSON.stringify([S.state.current, S.me().id]); },

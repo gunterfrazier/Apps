@@ -116,8 +116,12 @@ Actions["demo-role-set"] = (el) => {
     if (!c.previousOwner) { closeSheet(true); toast("You're the primary account holder. Hand the account to someone else first, under Admin, People."); return; }
     c.ownerId = c.previousOwner; delete c.previousOwner;
   }
-  S.membership().roleId = el.dataset.id;
-  if (["admin"].includes(el.dataset.id)) S.membership().locations = "all";
+  const m = S.membership();
+  m.roleId = el.dataset.id;
+  // Trying Administrator opens every location; trying a lower role again puts back the locations you had,
+  // so the preview shows what that role really sees.
+  if (el.dataset.id === "admin") { if (!("previewLocations" in m)) m.previewLocations = m.locations; m.locations = "all"; }
+  else if ("previewLocations" in m) { m.locations = m.previewLocations; delete m.previewLocations; }
   S.save(); closeSheet(true); toast(`You're now: ${S.role().name}`); go(el.dataset.id === "member" ? "home" : hasAdminTools() ? "admin" : hasMinistryTools() ? "ministry" : "home");
 };
 Actions["demo-primary"] = () => {

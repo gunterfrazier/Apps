@@ -143,7 +143,7 @@ function luminance(hex) {
 }
 const onColor = (hex) => luminance(hex) > 0.33 ? "#16201b" : "#ffffff";
 const BRAND_COLORS = ["#1f6f78", "#8c2f39", "#3d4fa0", "#2f5d50", "#7a4b94", "#b0561e", "#235a8c", "#5b6b2a"];
-const personColor = (seed) => { let h = 0; for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 38% 42%)`; };
+const personColor = (seed) => { let h = 0; for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 40% 34%)`; };   // dark enough for white initials on any hue
 
 // ---------- Permissions and features ----------
 // Each role turns these on or off. The primary account holder always has all of them.

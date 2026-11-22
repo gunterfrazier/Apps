@@ -345,6 +345,9 @@ function ownerOf(kind, r) {
 function blankState() {
   const s = buildSeed();
   for (const k of Object.keys(s)) { if (Array.isArray(s[k])) s[k] = []; else if (k !== "me" && s[k] && typeof s[k] === "object") s[k] = {}; }
+  // Every kind of record the server keeps starts as an empty list, including ones added by later features
+  // (Security Command's roll call and reunification) that the sample data doesn't fill in.
+  for (const k of RECORD_KINDS) if (!Array.isArray(s[k])) s[k] = [];
   return Object.assign(s, { current: null, securityProtocolRequests: [], securityAccessAssignments: [], securityIncidentEvents: [], securityIncidentFormTemplates: [], securityIncidentReports: [], me: { id: Backend.user?.id || "", name: "", email: Backend.user?.email || "", phone: "", household: [], pickups: [] } });
 }
 

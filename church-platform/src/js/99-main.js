@@ -14,6 +14,14 @@ if (!FORWARDING) {
       OpeningSummary.pending = true;
     } else OpeningSummary.show();
   });
+  // Without a server, every tab of this browser shares one saved copy. When another tab saves (an admin making a pairing
+  // code, a display showing the next slide), pick it up, so this tab doesn't later save its older copy over it.
+  window.addEventListener("storage", (e) => {
+    if (e.key !== PLATFORM.storageKey || !e.newValue || Backend.on || S._timer) return;
+    S.load();
+    const busy = document.getElementById("scrim") || document.activeElement?.matches?.("input, textarea, select, [contenteditable]");
+    if (!busy) render();
+  });
   document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("presenting")) render(); });
   render();
   Backend.start();

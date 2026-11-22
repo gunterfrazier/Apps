@@ -132,7 +132,8 @@ function paymentDone(kind, id) {
     ${r.balance ? html`<p style="margin:8px 0 0">${money(r.balance)} left to pay.</p>` : ""}
     <h2 style="font-size:1.1rem;margin:18px 0 8px">Would you like a receipt?</h2>
     <div class="btns" style="justify-content:center"><button class="btn" data-act="receipt-show" data-kind="${kind}" data-id="${id}">Yes, show my receipt</button><button class="btn ghost" data-act="close-sheet">No thanks</button></div>
-    ${r.ticket ? html`<button class="linkish" data-act="ticket-show" data-event="${r.ticket.eventId}" data-reg="${r.ticket.regId}">${icon("ticket")}Show my ticket</button>` : ""}</div>`);
+    ${r.ticket ? html`<button class="linkish" data-act="ticket-show" data-event="${r.ticket.eventId}" data-reg="${r.ticket.regId}">${icon("ticket")}Show my ticket</button>` : ""}
+    ${kind === "gift" ? html`<p style="margin:14px 0 0"><a href="#history" data-act="go" data-to="history">See your giving history</a></p>` : ""}</div>`);
 }
 function receiptSheet(r) {
   shownReceipt = r;
