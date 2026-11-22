@@ -21,6 +21,7 @@ import { PlacesPage } from "./pages/study-resources";
 import { LibraryPage } from "./pages/library";
 import { AccountPage } from "./pages/account";
 import { FamilyPage, KidsPage } from "./pages/family";
+import { MemorizePage, ReadingPage } from "./pages/practice";
 import { ACCOUNTS_ON, initAccounts, useAccount } from "./account";
 import { getGlossary } from "../core/glossary";
 import { getWritingsIndex } from "../core/writings";
@@ -112,6 +113,8 @@ function pageFor(route: string, askDraft: { text: string } | null, consumeAskDra
       return { node: <SymbolsPage key={tail} initial={r ? refOf(r.book, r.chapter, r.verse, r.verseEnd) : undefined} />, tab: "study" };
     }
     case "library": return { node: <LibraryPage />, tab: "library" };
+    case "memorize": return { node: <MemorizePage />, tab: "library" };
+    case "reading": return { node: <ReadingPage />, tab: "library" };
     case "account": return { node: <AccountPage />, tab: "library" };
     default: return { node: <ReadPage route={null} />, tab: "read" };
   }
@@ -127,7 +130,7 @@ const TABS: { id: MainTab; hash: string; label: string; icon: ReactNode }[] = [
 const ROOTS = new Set(["", "read", "study", "explore", "library"]);
 /** Routes that show the same page stay mounted, so opening a church event keeps the chart as it was. */
 const pageKey = (route: string) => { const head = route.split("-")[0]; return head === "event" ? "church" : head; };
-const LABELS: Record<string, string> = { church: "Church history", timeline: "Bible timeline", creeds: "Creeds", writers: "Writers", glossary: "Theological terms", notebook: "Notebook", places: "Bible places", dictionary: "Tyndale Bible Dictionary", compare: "Compare texts", synopsis: "Gospel synopsis", dc: "Deuterocanon", morph: "Search by grammar", textual: "Textual notes", originals: "Primary texts", people: "People" };
+const LABELS: Record<string, string> = { memorize: "Memory verses", reading: "Reading progress", church: "Church history", timeline: "Bible timeline", creeds: "Creeds", writers: "Writers", glossary: "Theological terms", notebook: "Notebook", places: "Bible places", dictionary: "Tyndale Bible Dictionary", compare: "Compare texts", synopsis: "Gospel synopsis", dc: "Deuterocanon", morph: "Search by grammar", textual: "Textual notes", originals: "Primary texts", people: "People" };
 const labelFor = (route: string) => {
   const [head, ...rest] = route.split("-");
   if (LABELS[route]) return LABELS[route];

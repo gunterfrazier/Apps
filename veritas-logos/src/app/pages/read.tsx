@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useChapterRead, useMemorizing, toggleChapterRead, toggleMemory } from "./practice";
 import { chapterCount, getChapter, getVerseIn, isOnline, onlineNotice, OnlineTextError, GROUP_NAMES, OFFERED, refOf, translationInfo, verseCount, DEFAULT_TRANSLATION, type TranslationId } from "../../core/bible";
 import { getCrossRefs, decodeMorph, getVerseWords, normalizeStrongs, type WordTuple } from "../../core/lexicon";
 import { getSectionHeadings, readingWords, wordDifferences } from "../../core/reader-text";
@@ -328,6 +329,7 @@ function VerseActions({ book, chapter, verse, end, onStudy, onNote, onClose }: {
       <div className="verse-quick-actions">
         <button type="button" className="btn" aria-pressed={saved} onClick={() => toggleBookmark(key)}>{saved ? "Saved" : "Save"}</button>
         <button type="button" className="btn" onClick={onNote}>Note</button>
+        <MemorizeButton book={book} chapter={chapter} verse={verse} end={end ?? verse} plain />
         <VerseCompare />
       </div>
     </section>
@@ -388,6 +390,7 @@ function VerseSheet({ book, chapter, verse, end, onEndChange, onClose, docked, i
         </div>
         <button type="button" className="btn small" aria-pressed={marked} onClick={() => toggleBookmark(rangeKey)}>{marked ? "Saved" : "Save"}</button>
         <button type="button" className="btn small" onClick={() => setShowNote(true)}>Note</button>
+        <MemorizeButton book={book} chapter={chapter} verse={verse} end={end} />
         {docked && <VerseCompare compact />}
       </div>
       <div className="tabs study-tabs" role="tablist" aria-label="Verse study" onKeyDown={(event) => {
@@ -828,6 +831,7 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
       )}
 
       <p className="chapter-links"><a href={`#${passageWritersHash(book, chapter)}`}>What the Fathers and teachers said on this chapter</a> · <a href={`#book-${bookName(book).toLowerCase().replace(/\s+/g, "")}`}>About {bookName(book)}</a></p>
+      <ChapterReadButton book={book} chapter={chapter} />
       <div className="chapter-nav">
         <button type="button" className="btn" onClick={prev} disabled={book === 1 && chapter === 1}>Previous chapter</button>
         <button type="button" className="btn" onClick={next} disabled={book === 66 && chapter === (chapters ?? 22)}>Next chapter</button>
@@ -844,5 +848,19 @@ export function ReadPage({ route }: { route: ReadRoute | null }) {
     </div>
     {wide && verseSheet}
     </div>
+  );
+}
+
+function MemorizeButton({ book, chapter, verse, end, plain }: { book: number; chapter: number; verse: number; end: number; plain?: boolean }) {
+  const on = !!useMemorizing(book, chapter, verse, end);
+  return <button type="button" className={plain ? "btn" : "btn small"} aria-pressed={on} onClick={() => toggleMemory(book, chapter, verse, end)}>{on ? "Memorizing" : "Memorize"}</button>;
+}
+function ChapterReadButton({ book, chapter }: { book: number; chapter: number }) {
+  const on = useChapterRead(book, chapter);
+  return (
+    <p className="chapter-read-btn">
+      <button type="button" className={`btn${on ? "" : " primary"}`} aria-pressed={on} onClick={() => toggleChapterRead(book, chapter)}>{on ? "✓ Chapter read" : "Mark chapter read"}</button>
+      {" "}<a className="fine" href="#reading">Reading progress</a>
+    </p>
   );
 }
