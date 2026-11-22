@@ -38,6 +38,8 @@ export interface Prefs {
   /** Who reads aloud: the browser's own engine when it has one, or always the voice built into the app. */
   readVoice: "device" | "builtin";
   rate: number;
+  /** Whether listening carries on into the next chapter. */
+  listenContinue: boolean;
   apiBase: string;
   apiKey: string;
 }
@@ -65,7 +67,7 @@ export interface UserData {
 
 const KEY = "veritas.logos.v2";
 const defaults: UserData = {
-  prefs: { translation: DEFAULT_TRANSLATION, compare: "", highlightDifferences: false, wordStudy: false, hideVerseNumbers: false, hideSectionHeadings: false, hideStudyPrompt: false, lens: "all", theme: "system", textSize: 19, voice: "", readVoice: "device", rate: 1, apiBase: "", apiKey: "" },
+  prefs: { translation: DEFAULT_TRANSLATION, compare: "", highlightDifferences: false, wordStudy: false, hideVerseNumbers: false, hideSectionHeadings: false, hideStudyPrompt: false, lens: "all", theme: "system", textSize: 19, voice: "", readVoice: "device", rate: 1, listenContinue: true, apiBase: "", apiKey: "" },
   guides: [],
   highlights: {},
   bookmarks: [],
@@ -110,6 +112,7 @@ export function mergeData(raw: any): UserData {
       voice: typeof p.voice === "string" ? p.voice : "",
       readVoice: p.readVoice === "builtin" ? "builtin" : "device",
       rate: typeof p.rate === "number" ? p.rate : 1,
+      listenContinue: p.listenContinue !== false,
       apiBase: typeof p.apiBase === "string" ? p.apiBase : "",
       apiKey: typeof p.apiKey === "string" ? p.apiKey : "",
     },

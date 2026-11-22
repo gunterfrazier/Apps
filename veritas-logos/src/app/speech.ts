@@ -10,7 +10,7 @@ import { cacheHas, engineKey, voiceKey, type VoiceManifest } from "../voice/mode
 import { getData, toast } from "./store";
 
 export type SpeechStatus =
-  | { state: "idle" }
+  | { state: "idle"; finished?: boolean }
   | { state: "downloading"; loaded: number; total: number }
   | { state: "preparing" }
   | { state: "reading"; verse: number };
@@ -64,7 +64,7 @@ function readDevice(lines: SpeechLine[], onStatus: (s: SpeechStatus) => void): (
   let i = 0;
   const next = () => {
     if (cancelled) return;
-    if (i >= lines.length) { onStatus({ state: "idle" }); return; }
+    if (i >= lines.length) { onStatus({ state: "idle", finished: true }); return; }
     const line = lines[i++];
     if (!line.text) { next(); return; }
     const u = new SpeechSynthesisUtterance(line.text);
@@ -204,7 +204,7 @@ function readBuiltIn(lines: SpeechLine[], onStatus: (s: SpeechStatus) => void): 
         if (units[i].first || i === 0) report({ state: "reading", verse: units[i].verse });
         await play(pcm, sampleRate, units[i + 1]?.first === false ? 0.12 : 0.35);
       }
-      if (!stopped) { finish(); onStatus({ state: "idle" }); }
+      if (!stopped) { finish(); onStatus({ state: "idle", finished: true }); }
     } catch (e) {
       if (stopped) return;
       finish();

@@ -2,6 +2,7 @@ import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { connectCloud, getData, isOwnNavigation, navigate, noteNavigation, onLeave, useData, useRoute } from "./store";
 import { PassagePeek, Toast } from "./ui";
+import { Player } from "./player-ui";
 import { hashForReference, parseReadParts, readHash } from "./routes";
 import { refOf } from "../core/bible";
 import { ReadPage } from "./pages/read";
@@ -217,7 +218,9 @@ function App() {
     observer.observe(el);
     return () => observer.disconnect();
   }, [route.startsWith("kids-")]);
-  if (route.startsWith("kids-")) return <Boundary route={route}><KidsPage route={route.slice(5)} /></Boundary>;
+  // The Kids pages have no tabs along the bottom, so the mini player sits lower there.
+  useEffect(() => { document.documentElement.classList.toggle("no-tabbar", route.startsWith("kids-")); }, [route.startsWith("kids-")]);
+  if (route.startsWith("kids-")) return <><Boundary route={route}><KidsPage route={route.slice(5)} /></Boundary><Player /></>;
   const { node, tab } = pageFor(route, askDraft, () => setAskDraft(null));
   return (
     <div className="app">
@@ -251,6 +254,7 @@ function App() {
       </nav>
       {palette && <CommandPalette onClose={() => setPalette(false)} onAsk={(text) => { setAskDraft({ text }); navigate("ask"); }} />}
       <PassagePeek />
+      <Player />
       <AiWorkPill route={route} />
       <Toast />
     </div>
