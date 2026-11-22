@@ -915,7 +915,7 @@ mark { background: color-mix(in srgb, #ffd43b 55%, transparent); color: inherit;
 .sg-welcome .sg-sub { margin-top: 0; }
 .sg-mark { width: 20cqmin; height: 20cqmin; border-radius: 5cqmin; overflow: hidden; display: grid; place-items: center; background: #fff; color: var(--brand); font: 800 8cqmin var(--display); box-shadow: 0 2cqmin 6cqmin rgba(0, 0, 0, .25); }
 .sg-mark img { width: 100%; height: 100%; object-fit: contain; padding: 8%; box-sizing: border-box; }
-.sg-church { position: absolute; left: 0; right: 0; bottom: 5cqmin; font: 600 3.2cqmin var(--display); opacity: .85; }
+.sg-church { font: 600 3.2cqmin var(--display); opacity: .85; }
 .sg-verse { justify-content: center; height: 100%; box-sizing: border-box; }
 .sg-scripture { font-family: var(--serif); font-size: 6.6cqmin; line-height: 1.34; text-wrap: balance; }
 .sg-ref { font: 600 3.6cqmin var(--display); margin-top: 3.4cqmin; opacity: .8; }
@@ -2052,3 +2052,15 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 
 .playlist-track { display: grid; grid-template-columns: auto minmax(0, 1fr); }
 .playlist-track-actions { grid-column: 2; margin: 0; }
+
+
+.sg-welcome .slide-text-position, .slide > .slide-text-position, .slide.has-bg > .slide-text-position {
+  position: absolute; inset: 5%; display: flex; flex-direction: column; pointer-events: none;
+  align-items: var(--slide-text-align, center); justify-content: var(--slide-text-vertical, center);
+  text-align: var(--slide-text-direction, center); overflow-wrap: anywhere;
+}
+.sg-welcome-content { gap: 3.4cqmin; }
+.slide-text-position[data-position^="top-"] { --slide-text-vertical: flex-start; }
+.slide-text-position[data-position^="bottom-"] { --slide-text-vertical: flex-end; }
+.slide-text-position[data-position$="-left"] { --slide-text-align: flex-start; --slide-text-direction: left; }
+.slide-text-position[data-position$="-right"] { --slide-text-align: flex-end; --slide-text-direction: right; }
