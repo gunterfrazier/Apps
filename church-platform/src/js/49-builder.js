@@ -202,6 +202,7 @@ Forms["dblock-save"] = (d, f) => {
   if (i >= 0) doc.blocks[i] = { ...doc.blocks[i], ...b }; else doc.blocks.push({ id: uid(), ...b });
   if (d._pos !== undefined && d._pos !== "") moveItem(doc.blocks, i >= 0 ? i : doc.blocks.length - 1, +d._pos);
   if (doc.kind === "lesson" && S.on("kidsintro")) doc.kidsBookends = Boolean(d.kidsBookends);
+  if (doc.kind === "lesson" && S.on("presentations")) doc.stageTools = Boolean(d.stageTools);
   touch(doc); closeSheet(); render();
 };
 Actions["dblock-delete"] = (el) => { const d = S.get("docs", el.dataset.doc); d.blocks.splice(+el.dataset.i, 1); touch(d); closeSheet(); render(); };
@@ -216,6 +217,7 @@ Actions["doc-details"] = (el) => {
     ${d.kind === "sermon" ? html`<label class="field"><span>Location</span><select name="locationId">${locationOptions(d.locationId)}</select></label>` : ""}
     ${bgField(d, "Background behind the slides (optional)", "A photo or a motion background that loops silently behind points, Scripture and text.")}
     ${d.kind === "lesson" ? html`<label class="check"><input type="checkbox" name="shareWithParents" ${attr(d.shareWithParents, "checked")}><span>Share the on-screen parts with parents</span></label>` : ""}
+    ${d.kind === "lesson" && S.on("presentations") ? html`<label class="check"><input type="checkbox" name="stageTools" ${attr(stageToolsOn(d), "checked")}><span>This class meets in the sanctuary<small class="faint" style="display:block">Adds the stage display, stage window and messages to the stage when presenting. Classrooms don't have them.</small></span></label>` : ""}
     ${d.kind === "lesson" && S.on("kidsintro") ? html`<label class="check"><input type="checkbox" name="kidsBookends" ${attr(kidsBookendsOn(d), "checked")}><span>Open with the Veritas Logos Kids intro and close with the credits<small class="faint" style="display:block">The intro shows this lesson's title and passage; the credits name the lesson, teacher, class and church.</small></span></label>` : ""}
     <div class="btns"><button class="btn">Save</button><button type="button" class="btn danger" data-act="doc-delete-ask" data-id="${d.id}">Delete</button></div></form>`);
 };

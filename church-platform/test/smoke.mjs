@@ -2449,6 +2449,15 @@ await step("kids intro and credits open and close a children's lesson", async ()
   await page.waitForFunction(() => __app.S.get("docs", "riverside-doc-story").kidsBookends === false);
   await page.click("[data-act=kids-ends]"); await page.waitForFunction(() => __app.S.get("docs", "riverside-doc-story").kidsBookends === true);
 });
+await step("lessons leave out stage tools unless taught in the sanctuary", async () => {
+  await goTo("present-doc-riverside-doc-story"); await page.waitForSelector("#stage");
+  if (await page.locator('form[data-form=stage-msg], [data-act=pres-mode][data-mode="stage"], [data-route^="stage-"]').count()) throw new Error("a classroom lesson shouldn't show the stage tools");
+  await page.evaluate(() => { __app.S.get("docs", "riverside-doc-story").stageTools = true; __app.S.save(); __app.render(); });
+  await page.waitForSelector('form[data-form=stage-msg]');
+  await page.evaluate(() => { delete __app.S.get("docs", "riverside-doc-story").stageTools; __app.S.save(); });
+  // Sermons keep them.
+  await goTo("present-service-riverside-svc-1"); await page.waitForSelector('form[data-form=stage-msg]');
+});
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");
   await page.fill("#scrim input[name=name]", "Kindergarten, 11:00"); await page.check('#scrim input[name=days][value="0"]'); await page.fill("#scrim input[name=time]", "11:00");

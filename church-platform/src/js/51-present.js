@@ -117,6 +117,9 @@ function startSlideVideos(root = document) {
 new MutationObserver(() => { if (document.querySelector(".slide-video[data-embed]:not([data-live])")) startSlideVideos(); })
   .observe(document.documentElement, { childList: true, subtree: true });
 
+/** Whether a lesson, sermon or study shows the stage tools when presented. Lessons only when taught in the sanctuary. */
+const stageToolsOn = (d) => !d || d.kind !== "lesson" || d.stageTools === true;
+
 function slideHtml(s, c = S.church()) {
   if (!s) return html`<div class="slide k-black"></div>`;
   const body = (() => {
@@ -215,14 +218,17 @@ Screens.present = (tail) => {
   const at = liveAt(slides, pres), cur = timedSlide(at.cur, pres.segAt), next = at.next, L = pres.live;
   const shown = pres.black ? { kind: "black" } : pres.logo ? { kind: "logo" } : cur;
   const inRoom = !!pres.room;
-  if (inRoom && pres.mode === "stage") pres.mode = "slideshow";
+  // Stage tools (the Stage view, stage window and messages to the stage) belong to the sanctuary. Classrooms don't
+  // have stage displays, so lessons leave them out unless the lesson says it's taught there (Details).
+  const noStage = inRoom || (kind === "doc" && !stageToolsOn(item));
+  if (noStage && pres.mode === "stage") pres.mode = "slideshow";
   const stageMode = pres.mode === "stage";
   let lastSection = null;
   return {
     present: true,
     page: html`<div class="present ${stageMode ? "operator-stage" : pres.mode}">
       <header class="present-bar"><a class="icon-btn" href="#${thisDevice() ? "booth" : inRoom ? `roompresent-${roomKey(pres.room.loc, pres.room.room)}` : data.back}" aria-label="Back">${icon("back")}</a><b class="present-title">${data.title}</b>
-        <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a>${inRoom ? "" : html`<a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a>`}</nav></header>
+        <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a>${noStage ? "" : html`<a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a>`}</nav></header>
       ${inRoom ? roomStrip() : ""}${mediaStrip()}
       ${pres.mode === "scroll" ? html`<div class="scroll-slides">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<h2 class="sec-head" style="color:#fff;margin-top:22px">${s.section}</h2>`) : ""}<div class="stage" aria-label="Slide ${i + 1}">${slideHtml(s)}</div>${s.notes ? html`<p class="scroll-notes">${icon("lock")} ${s.notes}</p>` : ""}`)}</div>`
       : html`<div class="present-main">
@@ -238,7 +244,7 @@ Screens.present = (tail) => {
           <button class="btn ghost" data-act="pres-media" aria-pressed="${!!pres.media}" aria-label="Show a video, website or file" title="Show a video, website or file">${icon("play")}<span class="lbl">Media</span></button>
           <button class="btn ghost" data-act="pres-full" aria-label="Full screen" title="Full screen (F)">${icon("expand")}<span class="lbl">Full screen</span></button>
           ${!IN_PREVIEW && presChannel && !inRoom ? html`<button class="btn ghost" data-act="pres-window" data-key="${tail}" aria-label="Open display window">${icon("screen")}<span class="lbl">Display window</span></button>
-            <button class="btn ghost" data-act="pres-open" data-route="stage-${tail}" data-name="our-faithful-stage" aria-label="Open stage display">${icon("music")}<span class="lbl">Stage window</span></button>` : ""}
+            ${noStage ? "" : html`<button class="btn ghost" data-act="pres-open" data-route="stage-${tail}" data-name="our-faithful-stage" aria-label="Open stage display">${icon("music")}<span class="lbl">Stage window</span></button>`}` : ""}
           ${inRoom ? "" : html`<button class="btn ghost" data-act="pres-overlay" data-key="${tail}" aria-label="Livestream overlay">${icon("live")}<span class="lbl">Overlay</span></button>
           <button class="btn ghost" data-act="pres-captions" aria-pressed="${pres.cc}" aria-label="Live captions">${icon("chat")}<span class="lbl">Captions</span></button>`}
         </div>
@@ -246,7 +252,7 @@ Screens.present = (tail) => {
         ${pres.cc ? html`<p class="cc-live" aria-live="polite"><b>Captions</b> <span data-captions>${pres.captions || "Listening..."}</span></p>` : ""}
         <div class="present-side">
           ${stageMode ? html`<div><b class="faint">The audience sees</b><div class="stage mini">${slideHtml(shown)}</div></div>` : html`<div class="present-notes"><b>Notes</b><p>${cur?.notes || "No notes for this slide."}</p></div>`}
-          ${inRoom ? "" : html`<form class="stage-msg" data-form="stage-msg" novalidate><label for="stage-msg-in"><b>Message to the stage</b></label>
+          ${noStage ? "" : html`<form class="stage-msg" data-form="stage-msg" novalidate><label for="stage-msg-in"><b>Message to the stage</b></label>
             <div class="copy-line"><input id="stage-msg-in" type="text" name="msg" value="${pres.msg}" maxlength="80" placeholder="Repeat the chorus"><button class="btn sm">Send</button></div>
             ${pres.msg ? html`<button type="button" class="linkish" data-act="stage-msg-clear">Clear "${pres.msg}"</button>` : html`<small class="faint">Shows on the stage display, not the audience screen.</small>`}</form>`}
           ${stageMode ? "" : next ? html`<div><b class="faint">Next</b><div class="stage mini">${slideHtml(next)}</div></div>` : html`<p class="faint">This is the last slide.</p>`}
