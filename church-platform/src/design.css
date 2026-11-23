@@ -469,3 +469,22 @@ html[data-theme="sepia"] { --logo-text: #6d5844; }
 .kids-ends-pics .stage { width: 132px; margin: 0; border-radius: 8px; }
 .kids-ends-text { flex: 1; min-width: 200px; display: grid; gap: 2px; }
 .kids-ends-text .faint { font-size: .9rem; }
+
+/* ---------- Family page (what a lesson sends home) ---------- */
+.tag.home { display: inline-flex; align-items: center; gap: 3px; background: var(--ok-soft); color: var(--ok); }
+.tag.home .i, .tag .i { width: 12px; height: 12px; }
+.icon-btn.on { color: var(--ok); }
+.family-panel { padding: 16px; border-radius: var(--r-l); background: var(--surface); border: 1.5px solid var(--line); margin-top: 18px; }
+.family-panel .sec-head { margin-top: 0; }
+.fam-sec .sec-head { display: flex; align-items: center; justify-content: flex-start; gap: 8px; }
+.fam-sec .sec-head .i { width: 20px; height: 20px; color: var(--brand-ink); }
+.fam-text h3 { margin: 6px 0 2px; font-size: 1rem; }
+.fam-text p { margin: 0 0 8px; }
+.fam-list { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+.fam-cards { display: grid; gap: 10px; }
+.fam-card { padding: 12px 14px; border-radius: var(--r-m); background: var(--surface); border: 1.5px solid var(--line); }
+.fam-card p { margin: 4px 0 0; }
+.fam-prints { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.fam-print { margin: 0; display: grid; gap: 6px; justify-items: start; }
+.fam-print img { width: 100%; aspect-ratio: 3 / 4; object-fit: contain; background: #fff; border-radius: var(--r-s); border: 1.5px solid var(--line); }
+.fam-print figcaption { font-size: .9rem; color: var(--ink-2); }

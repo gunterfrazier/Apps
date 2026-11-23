@@ -124,7 +124,7 @@ Screens.build = (id) => {
       </div>
       ${d.kind === "lesson" && S.on("kidsintro") ? kidsBookendsPanel(d) : ""}
       ${d.passage ? pastPanel(d.passage, { doc: d.id, label: "You've preached or taught on this before", max: 3 }) : ""}
-      <p class="faint">${d.kind === "sermon" ? "Published sermons can be followed by members during the service." : d.kind === "lesson" ? `Published lessons show to the class${d.shareWithParents ? " and in parents' portal" : ""}.` : "Published guides show on the group's page."} Items marked private never appear on screen or to members.</p>
+      <p class="faint">${d.kind === "sermon" ? "Published sermons can be followed by members during the service." : d.kind === "lesson" ? `Published lessons show to the class${d.shareWithParents ? ", and the family page goes to parents" : ""}.` : "Published guides show on the group's page."} Items marked private never appear on screen or to members.</p>
 
       <section class="sec"><div class="sec-head"><h2>Blocks</h2><span class="faint">${d.blocks.filter((b) => b.show && b.type !== "note").length} on screen, ${d.blocks.filter((b) => !b.show || b.type === "note").length} private</span></div>
       ${d.blocks.length > 1 ? html`<p class="faint" style="margin-top:-4px">Drag ${icon("grip")} to change the order.</p>` : ""}
@@ -132,8 +132,10 @@ Screens.build = (id) => {
         const shown = b.show && b.type !== "note";
         if (shown) slide++;
         return html`<div class="block-card ${shown ? "" : "private"}" data-index="${i}">
-          <div class="block-top">${dragHandle(`${BLOCKS[b.type].label} ${i + 1}`)}<span class="tag ${shown ? "brand" : ""}">${shown ? `On screen ${slide}` : "Private"}</span><b>${BLOCKS[b.type].label}</b>
+          <div class="block-top">${dragHandle(`${BLOCKS[b.type].label} ${i + 1}`)}<span class="tag ${shown ? "brand" : ""}">${shown ? `On screen ${slide}` : "Private"}</span>${d.kind === "lesson" && b.home && b.type !== "note" ? html`<span class="tag home" title="On the family page">${icon("home")}Send home</span>` : ""}${b.print && b.image ? html`<span class="tag">${icon("print")}Printable</span>` : ""}<b>${BLOCKS[b.type].label}</b>
             <span class="row-tools">${b.type !== "note" ? html`<button class="icon-btn" data-act="block-vis" data-doc="${d.id}" data-i="${i}" aria-label="${shown ? "Keep private" : "Show on screen"}" title="${shown ? "Shown on screen. Tap to keep private." : "Private. Tap to show on screen."}">${icon(shown ? "eye" : "eyeoff")}</button>` : ""}
+            ${d.kind === "lesson" && b.type !== "note" ? html`<button class="icon-btn ${b.home ? "on" : ""}" data-act="block-home" data-doc="${d.id}" data-i="${i}" aria-pressed="${b.home ? "true" : "false"}" aria-label="${b.home ? "Don't send home" : "Send home on the family page"}" title="${b.home ? "On the family page. Tap to take it off." : "Tap to send it home on the family page."}">${icon("home")}</button>` : ""}
+            ${b.print && b.image ? html`<button class="icon-btn" data-act="block-print" data-doc="${d.id}" data-i="${i}" aria-label="Print ${b.caption || "this page"}">${icon("print")}</button>` : ""}
             <button class="icon-btn" data-act="dblock-move" data-doc="${d.id}" data-i="${i}" data-dir="-1" aria-label="Move up" ${attr(i === 0, "disabled")}>${icon("up")}</button><button class="icon-btn" data-act="dblock-move" data-doc="${d.id}" data-i="${i}" data-dir="1" aria-label="Move down" ${attr(i === d.blocks.length - 1, "disabled")}>${icon("down")}</button>
             <button class="icon-btn" data-act="dblock-edit" data-doc="${d.id}" data-i="${i}" aria-label="Edit">${icon("edit")}</button></span></div>
           <div class="block-body">${blockSummary(b)}</div>
@@ -142,7 +144,8 @@ Screens.build = (id) => {
       }) : empty("Add Scripture, points, keynotes, media or cues below.")}</div>
       <div class="add-blocks">${Object.entries(BLOCKS).map(([k, t]) => html`<button class="chip" data-act="dblock-new" data-doc="${d.id}" data-type="${k}">${icon(t.icon)}${t.label}</button>`)}
         ${S.list("savedBlocks").length ? html`<button class="chip" data-act="saved-blocks" data-doc="${d.id}">${icon("bookmark")}Saved items</button>` : ""}
-        ${S.list("layouts").some((l) => l.kind === d.kind) ? html`<button class="chip" data-act="layout-insert" data-kind="${d.kind}" data-id="${d.id}">${icon("layers")}From a layout</button>` : ""}</div></section>`,
+        ${S.list("layouts").some((l) => l.kind === d.kind) ? html`<button class="chip" data-act="layout-insert" data-kind="${d.kind}" data-id="${d.id}">${icon("layers")}From a layout</button>` : ""}</div></section>
+      ${d.kind === "lesson" ? familyPanel(d) : ""}`,
     after() { makeSortable($("#sort-list"), (from, to, kb) => { if (moveItem(d.blocks, from, to)) { touch(d); render(); if (kb) $$("#sort-list [data-drag]")[to]?.focus(); } }); },
   };
 };
@@ -169,7 +172,7 @@ function blockEditor(docId, i, b) {
       <button type="button" class="btn ghost sm" data-act="fill-bible">${icon("word")}Fill from the Bible</button>`; break;
     case "media": fields = html`${imageField("image", "Picture or graphic", b.image, "", 1920)}
       <label class="field"><span>Video or link (optional)</span><input type="url" name="url" value="${b.url || ""}" placeholder="https://youtube.com/watch?v=..."></label>
-      <div class="btns" style="margin-top:-4px">${mediaFindBtn("url", "video", 1920, "Find a video")}</div><small class="faint">A video file (.mp4) plays on the slide, silent and looping, like a motion background. A YouTube link opens as a button.</small>
+      <div class="btns" style="margin-top:-4px">${mediaFindBtn("url", "video", 1920, "Find a video")}</div><small class="faint">A video file (.mp4) plays on the slide, silent and looping. A YouTube or Vimeo link plays on the slide when it comes up.</small>
       <label class="field"><span>Caption</span><input type="text" name="caption" value="${b.caption || ""}" maxlength="120"></label>`; break;
     case "text": fields = html`<label class="field"><span>Heading</span><input type="text" name="title" value="${b.title || ""}" maxlength="90"></label><label class="field"><span>Text</span><textarea name="text">${b.text || ""}</textarea></label>`; break;
     case "action": fields = html`<label class="field"><span>Cue</span><input type="text" name="label" value="${b.label || "Cue"}" list="cue-list" maxlength="40"><datalist id="cue-list">${CUES.map((c) => html`<option value="${c}">`)}</datalist></label>
@@ -178,7 +181,10 @@ function blockEditor(docId, i, b) {
     default: fields = html`<label class="field"><span>${type === "keynote" ? "Big statement" : type === "question" ? "Question" : type === "note" ? "Note to yourself" : "Point"}</span><textarea name="text" style="min-height:90px" required>${b.text || ""}</textarea></label>`;
   }
   openSheet(`${i < 0 ? "Add" : "Edit"}: ${BLOCKS[type].label}`, html`<form data-form="dblock-save" novalidate><input type="hidden" name="_doc" value="${docId}"><input type="hidden" name="_i" value="${i}"><input type="hidden" name="_type" value="${type}">
-    ${fields}${showToggle}${notes}
+    ${fields}${showToggle}
+    ${S.get("docs", docId)?.kind === "lesson" && type !== "note" ? html`<label class="check"><input type="checkbox" name="home" ${attr(b.home, "checked")}><span><b>Send home on the family page</b><br><span class="faint">Parents see it in the parent portal, even if it's private in class.</span></span></label>` : ""}
+    ${type === "media" ? html`<label class="check"><input type="checkbox" name="print" ${attr(b.print, "checked")}><span><b>Printable handout</b><br><span class="faint">A coloring page or worksheet: gets a Print button here and on the family page.</span></span></label>` : ""}
+    ${notes}
     ${(() => { const n = S.get("docs", docId).blocks.length; return positionField(i >= 0 ? n : n + 1, i >= 0 ? i : n); })()}
     <div class="btns"><button class="btn">${i < 0 ? "Add" : "Save"}</button>${i >= 0 ? html`<button type="button" class="btn ghost" data-act="item-save" data-kind="block" data-source="${docId}" data-i="${i}">${icon("bookmark")}Save for reuse</button><button type="button" class="btn danger" data-act="dblock-delete" data-doc="${docId}" data-i="${i}">Delete</button>` : ""}</div></form>`, { wide: true });
 }
@@ -193,6 +199,8 @@ Actions["fill-bible"] = async (el) => {
 Forms["dblock-save"] = (d, f) => {
   const doc = S.get("docs", d._doc), type = d._type;
   const b = { type, show: type === "note" ? false : !!d.show, notes: d.notes || "" };
+  if (doc.kind === "lesson" && type !== "note") b.home = Boolean(d.home);
+  if (type === "media") b.print = Boolean(d.print);
   if (type === "scripture") { if (!parseRef(d.ref)) return formError(f, "Enter a Bible reference like John 3:16."); Object.assign(b, { ref: refLabel(parseRef(d.ref)), translation: d.translation, text: d.text }); }
   else if (type === "media") { if (!d.image && !d.url) return formError(f, "Add a picture or a link."); if (d.url && !isUrl(d.url)) return formError(f, "The link should start with https://"); Object.assign(b, { image: d.image, url: d.url, caption: d.caption }); }
   else if (type === "text") Object.assign(b, { title: d.title, text: d.text });
@@ -201,8 +209,6 @@ Forms["dblock-save"] = (d, f) => {
   const i = +d._i;
   if (i >= 0) doc.blocks[i] = { ...doc.blocks[i], ...b }; else doc.blocks.push({ id: uid(), ...b });
   if (d._pos !== undefined && d._pos !== "") moveItem(doc.blocks, i >= 0 ? i : doc.blocks.length - 1, +d._pos);
-  if (doc.kind === "lesson" && S.on("kidsintro")) doc.kidsBookends = Boolean(d.kidsBookends);
-  if (doc.kind === "lesson" && S.on("presentations")) doc.stageTools = Boolean(d.stageTools);
   touch(doc); closeSheet(); render();
 };
 Actions["dblock-delete"] = (el) => { const d = S.get("docs", el.dataset.doc); d.blocks.splice(+el.dataset.i, 1); touch(d); closeSheet(); render(); };
@@ -216,7 +222,7 @@ Actions["doc-details"] = (el) => {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Date</span><input type="date" name="date" value="${d.date}"></label><label class="field"><span>Time</span><input type="time" name="time" value="${d.time || ""}"></label></div>
     ${d.kind === "sermon" ? html`<label class="field"><span>Location</span><select name="locationId">${locationOptions(d.locationId)}</select></label>` : ""}
     ${bgField(d, "Background behind the slides (optional)", "A photo or a motion background that loops silently behind points, Scripture and text.")}
-    ${d.kind === "lesson" ? html`<label class="check"><input type="checkbox" name="shareWithParents" ${attr(d.shareWithParents, "checked")}><span>Share the on-screen parts with parents</span></label>` : ""}
+    ${d.kind === "lesson" ? html`<label class="check"><input type="checkbox" name="shareWithParents" ${attr(d.shareWithParents, "checked")}><span>Send the family page to parents<small class="faint" style="display:block">The parent portal shows the family page (below the blocks), not the slides.</small></span></label>` : ""}
     ${d.kind === "lesson" && S.on("presentations") ? html`<label class="check"><input type="checkbox" name="stageTools" ${attr(stageToolsOn(d), "checked")}><span>This class meets in the sanctuary<small class="faint" style="display:block">Adds the stage display, stage window and messages to the stage when presenting. Classrooms don't have them.</small></span></label>` : ""}
     ${d.kind === "lesson" && S.on("kidsintro") ? html`<label class="check"><input type="checkbox" name="kidsBookends" ${attr(kidsBookendsOn(d), "checked")}><span>Open with the Veritas Logos Kids intro and close with the credits<small class="faint" style="display:block">The intro shows this lesson's title and passage; the credits name the lesson, teacher, class and church.</small></span></label>` : ""}
     <div class="btns"><button class="btn">Save</button><button type="button" class="btn danger" data-act="doc-delete-ask" data-id="${d.id}">Delete</button></div></form>`);
@@ -226,6 +232,8 @@ Forms["doc-details"] = (d, f) => {
   if (d.passage && !parseRef(d.passage)) return formError(f, "That passage doesn't look like a Bible reference.");
   const doc = S.get("docs", d.id);
   Object.assign(doc, { bg: d.bg || "", title: d.title, passage: d.passage ? refLabel(parseRef(d.passage)) : "", topic: d.topic, date: d.date || doc.date, time: d.time, ...(doc.kind === "sermon" ? { locationId: d.locationId || null } : {}), ...(doc.kind === "lesson" ? { shareWithParents: !!d.shareWithParents } : {}) });
+  if (doc.kind === "lesson" && S.on("kidsintro")) doc.kidsBookends = Boolean(d.kidsBookends);
+  if (doc.kind === "lesson" && S.on("presentations")) doc.stageTools = Boolean(d.stageTools);
   touch(doc); closeSheet(); render();
 };
 Actions["doc-delete-ask"] = (el) => {

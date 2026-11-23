@@ -347,6 +347,7 @@ function qrCanvas(text, px = 8) {
 
 // ---------- Icons ----------
 const ICONS = {
+  print: '<path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7Z"/>',
   home: '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   word: '<path d="M4 5.5C6.5 4 9 4 12 6c3-2 5.5-2 8-.5V19c-2.5-1.5-5-1.5-8 .5-3-2-5.5-2-8-.5Z"/><path d="M12 6v13.5"/>',
   calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',

@@ -2458,6 +2458,36 @@ await step("lessons leave out stage tools unless taught in the sanctuary", async
   // Sermons keep them.
   await goTo("present-service-riverside-svc-1"); await page.waitForSelector('form[data-form=stage-msg]');
 });
+await step("family page: coloring pages print, For parents goes home, parents see it", async () => {
+  const blocks = await page.evaluate(() => __app.S.get("docs", "riverside-doc-story").blocks.map((b) => ({ type: b.type, show: b.show, home: !!b.home, print: !!b.print, title: b.title || b.caption || "" })));
+  const coloring = blocks.find((b) => /^Coloring page/.test(b.title)), parents = blocks.find((b) => b.title === "For parents");
+  if (!coloring || coloring.show || !coloring.print || !coloring.home) throw new Error(`the coloring page should be private, printable and sent home: ${JSON.stringify(coloring)}`);
+  if (!parents || parents.show || !parents.home) throw new Error(`For parents should be private and sent home: ${JSON.stringify(parents)}`);
+  // The builder shows the family page, and editing a block keeps the lesson's other settings.
+  await goTo("build-riverside-doc-story"); await page.waitForSelector(".family-panel [data-act=family-edit]");
+  await page.click(".family-panel [data-act=family-edit]");
+  await page.fill("#scrim textarea[name=projects]", "Make a paper sheep and hide it for your family to find");
+  await page.fill("#scrim textarea[name=links]", "Lost sheep song https://example.org/lost-sheep-song");
+  await sheetSubmit(); await sheetGone();
+  await page.click('[data-act=dblock-edit][data-i="1"]'); await sheetSubmit(); await sheetGone();
+  if (await page.evaluate(() => __app.S.get("docs", "riverside-doc-story").kidsBookends === false)) throw new Error("saving a block shouldn't switch the kids intro off");
+  // A parent of a child in the class sees it in the parent portal, with the coloring page to print.
+  await page.evaluate(() => {
+    const S = __app.S, me = S.me(), g = S.get("gatherings", S.get("docs", "riverside-doc-story").gatheringId);
+    let kid = me.household.find((p) => p.kind === "child");
+    if (!kid) { kid = { id: "kid-fam-test", name: "Ava", kind: "child", birth: "2018-04-02" }; me.household.push(kid); }
+    if (!g.members.some((m) => m.childId === kid.id)) g.members.push({ userId: me.id, childId: kid.id, status: "member", joined: new Date().toISOString() });
+    S.save();
+  });
+  await goTo("parents"); await page.waitForSelector('a[href="#familypage-riverside-doc-story"]');
+  await page.click('a[href="#familypage-riverside-doc-story"]'); await page.waitForSelector(".fam-print");
+  const text = await page.textContent("#app");
+  for (const want of ["What we learned", "For parents", "Ask your child", "Take-home projects", "Make a paper sheep", "Print at home", "Read together", "Lost sheep song"]) if (!text.includes(want)) throw new Error(`the family page should include “${want}”`);
+  await shot("25-family-page");
+  // Printing builds a print page with the coloring page on it.
+  await page.click(".fam-print [data-act=family-print]");
+  await page.waitForFunction(() => [...document.querySelectorAll("iframe[srcdoc]")].some((f) => f.srcdoc.includes("coloring") || f.srcdoc.includes("<img")));
+});
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");
   await page.fill("#scrim input[name=name]", "Kindergarten, 11:00"); await page.check('#scrim input[name=days][value="0"]'); await page.fill("#scrim input[name=time]", "11:00");

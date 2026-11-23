@@ -6,7 +6,7 @@
 // SEED_VERSION says which sample data a demo or training session was built from. When it goes up, sessions on the
 // older sample data start over on the new one (20-store.js), so everyone trying the app sees the latest features.
 // Raise it whenever new sample data is added here or in the other seed files.
-const SEED_VERSION = 20;
+const SEED_VERSION = 21;
 
 /** What's new, for the card on Home in the demo and training. Newest first. */
 const WHATS_NEW = [
@@ -81,6 +81,7 @@ function fillPendingStoryLessons() {
     if (s) {
       d.blocks = storyBlocks(s, d.storyPending.age, d.storyPending.len, new Set(["game", "scripture", "story", "video", "questions", "craft", "coloring", "pray", "parents", "resources"]));
       d.topic ||= s.topic;
+      mergeFamily(d, storyFamily(s, d.storyPending.age), true);
       d.blocks.filter((b) => b.type === "scripture" && !b.text).forEach((b) => fillScripture(b).then(() => S.save()).catch(() => {}));
     }
     delete d.storyPending;
