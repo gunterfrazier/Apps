@@ -23,7 +23,7 @@ function footerLogoSrc(c, f) {
 }
 /** The footer itself. where: "slides" or "signage". kind: the slide's kind, to stay off full-screen media. */
 function screenFooterHtml(c, where, kind = "", f = screenFooterOf(c)) {
-  if (!c || !f[where] || kind === "black" || kind === "logo" || (f.hideOnMedia && (kind === "media" || kind === "video"))) return "";
+  if (!c || !f[where] || kind === "black" || kind === "logo" || kind === "kids" || (f.hideOnMedia && (kind === "media" || kind === "video"))) return "";
   const src = footerLogoSrc(c, f);
   const lines = [f.text, f.website && c.website ? c.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "") : "", f.phone && c.phone ? c.phone : ""].filter(Boolean);
   if (!src && !lines.length) return "";

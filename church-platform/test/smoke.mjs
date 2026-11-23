@@ -1749,7 +1749,7 @@ await step("rooms: numbers and where they are, and a room display teachers prese
   // A teacher with the room presents from their phone; the display follows, without its QR card.
   await goTo("roompresent-riverside-main~Room%20201"); await expectText("What do you want to show?"); await shot("52-room-present");
   await page.click('[data-act=room-start][data-key^="doc-"] >> nth=0'); await page.waitForSelector(".room-strip");
-  await tv.waitForSelector(".display .slide.k-title", { timeout: 10000 });
+  await tv.waitForSelector(".display .slide.k-title, .display .slide.k-kids", { timeout: 10000 });
   const first = await tv.textContent(".display .slide");
   await page.click('[data-act="pres-go"][data-d="1"]');
   await tv.waitForFunction((t) => document.querySelector(".display .slide")?.textContent !== t, first, { timeout: 10000 });
@@ -1759,7 +1759,7 @@ await step("rooms: numbers and where they are, and a room display teachers prese
   await page.click(".room-strip [data-act=room-stop]"); await tv.waitForSelector(".sign-player", { timeout: 8000 });
   await page.waitForFunction(() => location.hash.startsWith("#roompresent-"));
   // So does time running out, on the display by itself and on the presenter's phone.
-  await page.click('[data-act=room-start][data-key^="doc-"] >> nth=0'); await tv.waitForSelector(".display .slide.k-title", { timeout: 10000 });
+  await page.click('[data-act=room-start][data-key^="doc-"] >> nth=0'); await tv.waitForSelector(".display .slide.k-title, .display .slide.k-kids", { timeout: 10000 });
   await tv.evaluate(() => __app.S.state.roomSessions.forEach((x) => { x.until = new Date(Date.now() - 1000).toISOString(); }));
   await tv.waitForSelector(".sign-player", { timeout: 8000 });
   await page.evaluate(() => { __app.pres.room.until = Date.now() - 1000; });
@@ -2423,14 +2423,70 @@ await step("story video plays on the slide, and lessons delete", async () => {
   const url = await page.evaluate((id) => __app.S.get("docs", id).blocks.find((b) => b.type === "media" && b.url)?.url, id);
   if (!/youtube|vimeo/.test(url || "")) throw new Error(`the story lesson should carry a playable video link: ${url}`);
   await goTo(`present-doc-${id}`);
-  for (let i = 0; i < 80 && !(await page.locator("#stage .slide-video iframe").count()); i++) { await page.keyboard.press("ArrowRight"); await page.waitForTimeout(40); }
-  const src = await page.getAttribute("#stage .slide-video iframe", "src");
+  for (let i = 0; i < 80 && !(await page.locator("#stage .slide-video:not([data-kids]) iframe").count()); i++) { await page.keyboard.press("ArrowRight"); await page.waitForTimeout(40); }
+  const src = await page.getAttribute("#stage .slide-video:not([data-kids]) iframe", "src");
   if (!/autoplay=1/.test(src) || !/mute=1/.test(src)) throw new Error(`the video should autoplay, muted on the presenter's screen: ${src}`);
   // Delete from the list, after a confirmation.
   await goTo("docs-lesson");
   await page.click(`.doc-row [data-act=doc-delete-ask][aria-label="Delete Video check"]`); await page.waitForSelector("#scrim [data-act=doc-delete]");
   await page.click("#scrim [data-act=doc-delete]"); await page.waitForFunction((id) => !__app.S.get("docs", id), id);
   if (await page.locator('.doc-row [aria-label="Delete Video check"]').count()) throw new Error("the deleted lesson should leave the list");
+});
+await step("kids intro and credits open and close a children's lesson", async () => {
+  // The intro plays first with the lesson's title and passage; the credits play last and name the lesson and teacher.
+  await goTo("build-riverside-doc-story"); await page.waitForSelector(".kids-ends");
+  await goTo("present-doc-riverside-doc-story"); await page.waitForSelector("#stage .kids-bookend iframe");
+  const first = decodeURIComponent(await page.getAttribute("#stage .kids-bookend iframe", "src")).replace(/\+/g, " ");
+  if (!first.includes("play=intro") || !first.includes("title=The lost sheep") || !first.includes("Luke 15:3-7") || !first.includes("mute=1")) throw new Error(`the first slide should be the intro with the title: ${first}`);
+  for (let i = 0; i < 80 && !(await page.locator('#stage [data-title="Closing credits"] iframe').count()); i++) { await page.keyboard.press("ArrowRight"); await page.waitForTimeout(40); }
+  const last = decodeURIComponent(await page.getAttribute('#stage [data-title="Closing credits"] iframe', "src")).replace(/\+/g, " ");
+  if (!last.includes("play=outro") || !last.includes("TODAY'S LESSON : The lost sheep") || !/TEACHER : \S/.test(last)) throw new Error(`the last slide should be the credits: ${last}`);
+  // The player itself takes the title (precompiled styles, no CDN), and a lesson can switch the intro off.
+  const player = await page.context().newPage(); await player.goto(new URL("kids/intro.html?play=intro&title=Noah%27s%20Ark&ref=Genesis%206-9&mute=1&autoplay=0", page.url()).href);
+  if ((await player.textContent("#ep-card-title")).trim() !== "Noah's Ark" || await player.locator("script[src*=tailwind]").count()) throw new Error("the kids player should show the lesson's title");
+  await player.close();
+  await goTo("build-riverside-doc-story"); await page.click("[data-act=kids-ends]");
+  await page.waitForFunction(() => __app.S.get("docs", "riverside-doc-story").kidsBookends === false);
+  await page.click("[data-act=kids-ends]"); await page.waitForFunction(() => __app.S.get("docs", "riverside-doc-story").kidsBookends === true);
+});
+await step("lessons leave out stage tools unless taught in the sanctuary", async () => {
+  await goTo("present-doc-riverside-doc-story"); await page.waitForSelector("#stage");
+  if (await page.locator('form[data-form=stage-msg], [data-act=pres-mode][data-mode="stage"], [data-route^="stage-"]').count()) throw new Error("a classroom lesson shouldn't show the stage tools");
+  await page.evaluate(() => { __app.S.get("docs", "riverside-doc-story").stageTools = true; __app.S.save(); __app.render(); });
+  await page.waitForSelector('form[data-form=stage-msg]');
+  await page.evaluate(() => { delete __app.S.get("docs", "riverside-doc-story").stageTools; __app.S.save(); });
+  // Sermons keep them.
+  await goTo("present-service-riverside-svc-1"); await page.waitForSelector('form[data-form=stage-msg]');
+});
+await step("family page: coloring pages print, For parents goes home, parents see it", async () => {
+  const blocks = await page.evaluate(() => __app.S.get("docs", "riverside-doc-story").blocks.map((b) => ({ type: b.type, show: b.show, home: !!b.home, print: !!b.print, title: b.title || b.caption || "" })));
+  const coloring = blocks.find((b) => /^Coloring page/.test(b.title)), parents = blocks.find((b) => b.title === "For parents");
+  if (!coloring || coloring.show || !coloring.print || !coloring.home) throw new Error(`the coloring page should be private, printable and sent home: ${JSON.stringify(coloring)}`);
+  if (!parents || parents.show || !parents.home) throw new Error(`For parents should be private and sent home: ${JSON.stringify(parents)}`);
+  // The builder shows the family page, and editing a block keeps the lesson's other settings.
+  await goTo("build-riverside-doc-story"); await page.waitForSelector(".family-panel [data-act=family-edit]");
+  await page.click(".family-panel [data-act=family-edit]");
+  await page.fill("#scrim textarea[name=projects]", "Make a paper sheep and hide it for your family to find");
+  await page.fill("#scrim textarea[name=links]", "Lost sheep song https://example.org/lost-sheep-song");
+  await sheetSubmit(); await sheetGone();
+  await page.click('[data-act=dblock-edit][data-i="1"]'); await sheetSubmit(); await sheetGone();
+  if (await page.evaluate(() => __app.S.get("docs", "riverside-doc-story").kidsBookends === false)) throw new Error("saving a block shouldn't switch the kids intro off");
+  // A parent of a child in the class sees it in the parent portal, with the coloring page to print.
+  await page.evaluate(() => {
+    const S = __app.S, me = S.me(), g = S.get("gatherings", S.get("docs", "riverside-doc-story").gatheringId);
+    let kid = me.household.find((p) => p.kind === "child");
+    if (!kid) { kid = { id: "kid-fam-test", name: "Ava", kind: "child", birth: "2018-04-02" }; me.household.push(kid); }
+    if (!g.members.some((m) => m.childId === kid.id)) g.members.push({ userId: me.id, childId: kid.id, status: "member", joined: new Date().toISOString() });
+    S.save();
+  });
+  await goTo("parents"); await page.waitForSelector('a[href="#familypage-riverside-doc-story"]');
+  await page.click('a[href="#familypage-riverside-doc-story"]'); await page.waitForSelector(".fam-print");
+  const text = await page.textContent("#app");
+  for (const want of ["What we learned", "For parents", "Ask your child", "Take-home projects", "Make a paper sheep", "Print at home", "Read together", "Lost sheep song"]) if (!text.includes(want)) throw new Error(`the family page should include “${want}”`);
+  await shot("25-family-page");
+  // Printing builds a print page with the coloring page on it.
+  await page.click(".fam-print [data-act=family-print]");
+  await page.waitForFunction(() => [...document.querySelectorAll("iframe[srcdoc]")].some((f) => f.srcdoc.includes("coloring") || f.srcdoc.includes("<img")));
 });
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");

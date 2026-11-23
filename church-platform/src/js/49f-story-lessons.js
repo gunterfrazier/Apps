@@ -162,9 +162,9 @@ Screens.storyplan = (arg) => {
           ${s.videos.length ? piece("video", "Video", `${s.videos[0].title} (${s.videos[0].creator})`) : ""}
           ${piece("questions", "Questions and quiz", ed.question)}
           ${s.craft ? piece("craft", st.age === "teen" ? "Activity" : "Craft", `${s.craft.title}, ${s.craft.supplies.length} supplies`) : ""}
-          ${piece("coloring", "Coloring page", st.age === "teen" ? "Usually for younger kids" : s.drawPrompt, st.age !== "teen")}
+          ${piece("coloring", "Coloring page", `${st.age === "teen" ? "Usually for younger kids. " : `${s.drawPrompt}. `}Private in class, ready to print, and on the family page`, st.age !== "teen")}
           ${piece("pray", "Prayer and big idea", s.topic)}
-          ${piece("parents", "Take-home for parents", "Shows in the parent portal when you publish")}
+          ${piece("parents", "Family page for parents", "A summary, questions to ask, reading and videos, sent to the parent portal when you publish. Private in class.")}
           ${piece("resources", "Teacher resources", res.length ? `${res.length} publisher lesson${res.length === 1 ? "" : "s"}, private to teachers` : "Credits and links, private to teachers")}
         </div></section>
         ${hasWork ? html`<fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">This lesson already has blocks</legend>
@@ -190,6 +190,7 @@ Forms["story-use"] = async (data, f) => {
   d.blocks = replace ? blocks : [...d.blocks, ...blocks];
   if (!d.passage || replace) { const r = parseRef(s.reference) || parseRef(s.reading); if (r) d.passage = refLabel(r); }
   if (!d.topic) d.topic = s.topic;
+  if (pieces.has("parents") || pieces.has("questions") || pieces.has("video")) mergeFamily(d, storyFamily(s, f.dataset.age), replace);
   if (d.titleFromStory || !d.title) { d.title = s.title; delete d.titleFromStory; }
   d.storyId = s.id; d.updated = new Date().toISOString(); S.save();
   toast(`${s.title} is in your lesson. Edit anything before you publish.`);
@@ -205,33 +206,32 @@ function storyBlocks(s, age, len, pieces) {
   const out = [];
   const game = s.game?.[age] || s.game?.young;
   if (pieces.has("game") && game) out.push(B("action", { label: plan.game.label, text: `${game.title} (${plan.game.min} min). ${game.instructions}` }, false));
-  if (pieces.has("scripture")) out.push(B("scripture", { ref: age === "teen" && s.teenReading ? s.teenReading.split(";")[0].trim() : s.reading.split(";")[0].trim(), translation: "BSB", text: "" }));
+  if (pieces.has("scripture")) out.push(B("scripture", { home: true, ref: age === "teen" && s.teenReading ? s.teenReading.split(";")[0].trim() : s.reading.split(";")[0].trim(), translation: "BSB", text: "" }));
   if (pieces.has("story")) {
     if (s.picture) out.push(B("media", { image: storyPic(s, age), url: "", caption: s.title }));
     ed.paragraphs.forEach((p, i) => out.push(B("text", { title: s.scenes[i] || s.title, text: p }, true, i === 0 ? `${plan.story.label}: about ${plan.story.min} minutes for all ${ed.paragraphs.length} scenes.` : "")));
   }
   // A video that plays on the slide (YouTube or Vimeo) first; one that only opens on its own site comes after.
   const vids = [...s.videos].sort((a, b) => (mediaFromLink(b.url, "video")?.type === "frame") - (mediaFromLink(a.url, "video")?.type === "frame"));
-  if (pieces.has("video") && vids[0]) out.push(B("media", { image: "", url: vids[0].url, caption: `${vids[0].title} (${vids[0].creator})` }, true, `About ${plan.video?.min || 5} minutes. It plays on the screen when this slide comes up; check it before class.${vids[1] ? ` Another option: ${vids[1].title}, ${vids[1].url}` : ""}`));
+  if (pieces.has("video") && vids[0]) out.push(B("media", { home: true, image: "", url: vids[0].url, caption: `${vids[0].title} (${vids[0].creator})` }, true, `About ${plan.video?.min || 5} minutes. It plays on the screen when this slide comes up; check it before class.${vids[1] ? ` Another option: ${vids[1].title}, ${vids[1].url}` : ""}`));
   if (pieces.has("questions")) {
-    out.push(B("question", { text: ed.question }));
+    out.push(B("question", { text: ed.question, home: true }));
     const a = s.activity;
     out.push(B("question", { text: `${a.prompt} ${a.options.map((o, i) => `${"ABC"[i]}) ${o}`).join("  ")}` }, true, `Answer: ${a.options[a.answer]}. ${a.explanation}`));
   }
   if (pieces.has("craft") && s.craft) {
     const steps = s.craft.steps[age] || s.craft.steps.young || [];
-    out.push(B("action", { label: "Craft", text: `${s.craft.title} (${plan.craft?.min || s.craft.minutes} min). You'll need: ${s.craft.supplies.join(", ")}. ${steps.map((x, i) => `${i + 1}. ${x}`).join(" ")}` }, false));
+    out.push(B("action", { label: "Craft", home: true, text: `${s.craft.title} (${plan.craft?.min || s.craft.minutes} min). You'll need: ${s.craft.supplies.join(", ")}. ${steps.map((x, i) => `${i + 1}. ${x}`).join(" ")}` }, false));
     out.push(B("media", { image: famPic(s.craft.picture), url: "", caption: s.craft.title }));
   }
-  if (pieces.has("coloring") && s.picture) out.push(B("media", { image: famPic(s.picture.coloring), url: "", caption: `Coloring page: ${s.drawPrompt}` }, true, plan.review ? `${plan.review.label}: ${plan.review.min} minutes. Print one for each child.` : "Print one for each child to take home."));
+  // Coloring pages are printed, not shown: private in class, on the family page with a Print button.
+  if (pieces.has("coloring") && s.picture) out.push(B("media", { image: famPic(s.picture.coloring), url: "", caption: `Coloring page: ${s.drawPrompt}`, print: true, home: true }, false, plan.review ? `${plan.review.label}: ${plan.review.min} minutes. Print one for each child.` : "Print one for each child to take home."));
   if (pieces.has("pray")) {
-    out.push(B("keynote", { text: s.topic }, true, "Today's big idea. Say it together."));
+    out.push(B("keynote", { text: s.topic, home: true }, true, "Today's big idea. Say it together."));
     out.push(B("action", { label: "Prayer", text: `Pray together (${plan.pray.min} min): thank God for what this story shows about ${s.topic.toLowerCase()}, and ask for help to live it this week.` }, false));
   }
-  if (pieces.has("parents")) {
-    const vid = s.videos[0];
-    out.push(B("text", { title: "For parents", text: `Today we learned ${s.title} (${s.reference}). Ask your child: ${ed.question}${vid ? ` Watch it together: ${vid.title}, ${vid.url}` : ""}` }));
-  }
+  // The For parents note goes home on the family page instead of on a slide.
+  if (pieces.has("parents")) out.push(B("text", { title: "For parents", home: true, text: `Today we learned ${s.title} (${s.reference}). ${ed.paragraphs[0] || ""}` }, false, "Sent home on the family page."));
   if (pieces.has("resources")) {
     const res = s.resources[age] || [];
     out.push(B("note", { text: `${res.length ? `Publisher lessons for this story: ${res.map((r) => `${r.title} (${r.provider}${r.forTeachers ? ", for teachers" : ""}): ${r.url}`).join("; ")}. ` : ""}${familyLib.credit}` }, false));

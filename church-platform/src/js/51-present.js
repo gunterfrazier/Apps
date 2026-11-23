@@ -41,7 +41,13 @@ function docSlides(d, withTitle = true) {
   });
   if (pending.length && out.length) out[out.length - 1].notes = [out[out.length - 1].notes, ...pending].filter(Boolean).join("\n");
   if (d.bg) out.forEach((x) => { if (BG_KINDS.includes(x.kind) && !x.bg) x.bg = d.bg; });
-  return applySlideDesign(out, d.slideDesign);
+  const designed = applySlideDesign(out, d.slideDesign);
+  // A children's lesson opens with the Veritas Logos Kids intro and closes with its credits (49h-kids-intro.js).
+  if (!kidsBookendsOn(d)) return designed;
+  const [intro, outro] = kidsBookendSlides(d);
+  // The intro ends on the lesson's title card, so the plain title slide would only repeat it (its notes move over).
+  if (designed[0]?.editKey === "title") { const t = designed.shift(); if (t.notes) intro.notes = `${intro.notes}\n${t.notes}`; }
+  return [{ ...intro, section: designed[0]?.section }, ...designed, { ...outro, section: designed[designed.length - 1]?.section }];
 }
 /** Slides that show words, which can sit on a photo or motion background. */
 const BG_KINDS = ["title", "lyrics", "scripture", "keynote", "point", "question", "text", "countdown"];
@@ -97,16 +103,22 @@ function startSlideVideos(root = document) {
     const stage = box.closest(".stage");
     // Only the presenter's main slide (#stage) and the screens themselves; every other slide picture stays a picture.
     if (!stage || !(stage.id === "stage" || box.closest(".display"))) return;
-    const onDisplay = Boolean(box.closest(".display")), url = new URL(box.dataset.embed);
-    url.searchParams.set("autoplay", "1"); url.searchParams.set("playsinline", "1");
-    if (url.hostname.includes("youtube")) { url.searchParams.set("rel", "0"); url.searchParams.set("mute", onDisplay ? "0" : "1"); }
-    else url.searchParams.set("muted", onDisplay ? "0" : "1");
+    const onDisplay = Boolean(box.closest(".display")), url = new URL(box.dataset.embed, location.href);
+    if (box.dataset.kids) url.searchParams.set("mute", onDisplay ? "0" : "1"); // the kids intro starts on its own
+    else {
+      url.searchParams.set("autoplay", "1"); url.searchParams.set("playsinline", "1");
+      if (url.hostname.includes("youtube")) { url.searchParams.set("rel", "0"); url.searchParams.set("mute", onDisplay ? "0" : "1"); }
+      else url.searchParams.set("muted", onDisplay ? "0" : "1");
+    }
     box.dataset.live = "1";
     box.innerHTML = `<iframe src="${esc(url.href)}" title="${esc(box.dataset.title || "Video")}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
   });
 }
 new MutationObserver(() => { if (document.querySelector(".slide-video[data-embed]:not([data-live])")) startSlideVideos(); })
   .observe(document.documentElement, { childList: true, subtree: true });
+
+/** Whether a lesson, sermon or study shows the stage tools when presented. Lessons only when taught in the sanctuary. */
+const stageToolsOn = (d) => !d || d.kind !== "lesson" || d.stageTools === true;
 
 function slideHtml(s, c = S.church()) {
   if (!s) return html`<div class="slide k-black"></div>`;
@@ -125,6 +137,7 @@ function slideHtml(s, c = S.church()) {
       case "point": return html`<div class="slide-center"><div class="slide-point">${s.body}</div></div>`;
       case "question": return html`<div class="slide-center"><div class="slide-kicker">Think about it</div><div class="slide-point">${s.body}</div></div>`;
       case "text": return html`<div class="slide-text">${s.title ? html`<div class="slide-title small">${s.title}</div>` : ""}<div class="slide-body">${s.body}</div></div>`;
+      case "kids": return kidsSlideHtml(s);
       case "media": if (!s.image && isVideoUrl(s.url)) return html`<video class="slide-image" src="${s.url}" autoplay muted loop playsinline aria-label="${s.body || "Video"}"></video>${s.body ? html`<div class="slide-caption">${s.body}</div>` : ""}`;
         // A YouTube or Vimeo link plays on the slide. Small previews show its picture; the live slide gets the player.
         if (!s.image && s.url) { const frame = mediaFromLink(s.url, "video"); if (frame?.type === "frame") { const yt = youtubeSermonId(s.url);
@@ -205,14 +218,17 @@ Screens.present = (tail) => {
   const at = liveAt(slides, pres), cur = timedSlide(at.cur, pres.segAt), next = at.next, L = pres.live;
   const shown = pres.black ? { kind: "black" } : pres.logo ? { kind: "logo" } : cur;
   const inRoom = !!pres.room;
-  if (inRoom && pres.mode === "stage") pres.mode = "slideshow";
+  // Stage tools (the Stage view, stage window and messages to the stage) belong to the sanctuary. Classrooms don't
+  // have stage displays, so lessons leave them out unless the lesson says it's taught there (Details).
+  const noStage = inRoom || (kind === "doc" && !stageToolsOn(item));
+  if (noStage && pres.mode === "stage") pres.mode = "slideshow";
   const stageMode = pres.mode === "stage";
   let lastSection = null;
   return {
     present: true,
     page: html`<div class="present ${stageMode ? "operator-stage" : pres.mode}">
       <header class="present-bar"><a class="icon-btn" href="#${thisDevice() ? "booth" : inRoom ? `roompresent-${roomKey(pres.room.loc, pres.room.room)}` : data.back}" aria-label="Back">${icon("back")}</a><b class="present-title">${data.title}</b>
-        <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a>${inRoom ? "" : html`<a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a>`}</nav></header>
+        <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a>${noStage ? "" : html`<a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a>`}</nav></header>
       ${inRoom ? roomStrip() : ""}${mediaStrip()}
       ${pres.mode === "scroll" ? html`<div class="scroll-slides">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<h2 class="sec-head" style="color:#fff;margin-top:22px">${s.section}</h2>`) : ""}<div class="stage" aria-label="Slide ${i + 1}">${slideHtml(s)}</div>${s.notes ? html`<p class="scroll-notes">${icon("lock")} ${s.notes}</p>` : ""}`)}</div>`
       : html`<div class="present-main">
@@ -228,7 +244,7 @@ Screens.present = (tail) => {
           <button class="btn ghost" data-act="pres-media" aria-pressed="${!!pres.media}" aria-label="Show a video, website or file" title="Show a video, website or file">${icon("play")}<span class="lbl">Media</span></button>
           <button class="btn ghost" data-act="pres-full" aria-label="Full screen" title="Full screen (F)">${icon("expand")}<span class="lbl">Full screen</span></button>
           ${!IN_PREVIEW && presChannel && !inRoom ? html`<button class="btn ghost" data-act="pres-window" data-key="${tail}" aria-label="Open display window">${icon("screen")}<span class="lbl">Display window</span></button>
-            <button class="btn ghost" data-act="pres-open" data-route="stage-${tail}" data-name="our-faithful-stage" aria-label="Open stage display">${icon("music")}<span class="lbl">Stage window</span></button>` : ""}
+            ${noStage ? "" : html`<button class="btn ghost" data-act="pres-open" data-route="stage-${tail}" data-name="our-faithful-stage" aria-label="Open stage display">${icon("music")}<span class="lbl">Stage window</span></button>`}` : ""}
           ${inRoom ? "" : html`<button class="btn ghost" data-act="pres-overlay" data-key="${tail}" aria-label="Livestream overlay">${icon("live")}<span class="lbl">Overlay</span></button>
           <button class="btn ghost" data-act="pres-captions" aria-pressed="${pres.cc}" aria-label="Live captions">${icon("chat")}<span class="lbl">Captions</span></button>`}
         </div>
@@ -236,7 +252,7 @@ Screens.present = (tail) => {
         ${pres.cc ? html`<p class="cc-live" aria-live="polite"><b>Captions</b> <span data-captions>${pres.captions || "Listening..."}</span></p>` : ""}
         <div class="present-side">
           ${stageMode ? html`<div><b class="faint">The audience sees</b><div class="stage mini">${slideHtml(shown)}</div></div>` : html`<div class="present-notes"><b>Notes</b><p>${cur?.notes || "No notes for this slide."}</p></div>`}
-          ${inRoom ? "" : html`<form class="stage-msg" data-form="stage-msg" novalidate><label for="stage-msg-in"><b>Message to the stage</b></label>
+          ${noStage ? "" : html`<form class="stage-msg" data-form="stage-msg" novalidate><label for="stage-msg-in"><b>Message to the stage</b></label>
             <div class="copy-line"><input id="stage-msg-in" type="text" name="msg" value="${pres.msg}" maxlength="80" placeholder="Repeat the chorus"><button class="btn sm">Send</button></div>
             ${pres.msg ? html`<button type="button" class="linkish" data-act="stage-msg-clear">Clear "${pres.msg}"</button>` : html`<small class="faint">Shows on the stage display, not the audience screen.</small>`}</form>`}
           ${stageMode ? "" : next ? html`<div><b class="faint">Next</b><div class="stage mini">${slideHtml(next)}</div></div>` : html`<p class="faint">This is the last slide.</p>`}
@@ -352,7 +368,7 @@ Screens.slides = (tail) => {
   if (!item) return { redirect: "ministry" };
   const { slides, back } = slidesFor(kind, id);
   return { title: "Slide backgrounds", back, body: html`
-    <div class="rows">${slides.map((slide, index) => html`<button class="row" data-act="slide-design" data-kind="${kind}" data-id="${id}" data-key="${slide.editKey}">
+    <div class="rows">${slides.map((slide, index) => !slide.editKey ? "" : html`<button class="row" data-act="slide-design" data-kind="${kind}" data-id="${id}" data-key="${slide.editKey}">
       <span class="body"><span class="t">${index + 1}. ${slide.section || item.title} · ${slideLabel(slide)}</span></span>${icon("edit")}
     </button>`)}</div>` };
 };
