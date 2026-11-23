@@ -207,6 +207,7 @@ const MODULES = [
   ["presentations", "Service plans and presenting", "Orders of service, songs, slides, stage display and booth", "Worship and teaching"],
   ["lessons", "Lesson, sermon and study builders", "Build sermons, Sunday school lessons and study guides", "Worship and teaching"],
   ["storylessons", "Lessons from Bible stories", "Start kids lessons from the Veritas Logos Family Library", "Worship and teaching"],
+  ["kidsintro", "Veritas Logos Kids intro and credits", "Children's lessons open with the animated intro and their title, and close with credits", "Worship and teaching"],
   ["veritas", "Veritas Logos Bible links", "Links from passages to Veritas Logos study tools", "Worship and teaching"],
   ["events", "Events", "Calendar, registration and reminders", "Connect"],
   ["tickets", "Tickets and payments", "Paid events, tickets, payment kiosks and receipts", "Connect"],

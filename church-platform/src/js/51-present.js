@@ -41,7 +41,13 @@ function docSlides(d, withTitle = true) {
   });
   if (pending.length && out.length) out[out.length - 1].notes = [out[out.length - 1].notes, ...pending].filter(Boolean).join("\n");
   if (d.bg) out.forEach((x) => { if (BG_KINDS.includes(x.kind) && !x.bg) x.bg = d.bg; });
-  return applySlideDesign(out, d.slideDesign);
+  const designed = applySlideDesign(out, d.slideDesign);
+  // A children's lesson opens with the Veritas Logos Kids intro and closes with its credits (49h-kids-intro.js).
+  if (!kidsBookendsOn(d)) return designed;
+  const [intro, outro] = kidsBookendSlides(d);
+  // The intro ends on the lesson's title card, so the plain title slide would only repeat it (its notes move over).
+  if (designed[0]?.editKey === "title") { const t = designed.shift(); if (t.notes) intro.notes = `${intro.notes}\n${t.notes}`; }
+  return [{ ...intro, section: designed[0]?.section }, ...designed, { ...outro, section: designed[designed.length - 1]?.section }];
 }
 /** Slides that show words, which can sit on a photo or motion background. */
 const BG_KINDS = ["title", "lyrics", "scripture", "keynote", "point", "question", "text", "countdown"];
@@ -97,10 +103,13 @@ function startSlideVideos(root = document) {
     const stage = box.closest(".stage");
     // Only the presenter's main slide (#stage) and the screens themselves; every other slide picture stays a picture.
     if (!stage || !(stage.id === "stage" || box.closest(".display"))) return;
-    const onDisplay = Boolean(box.closest(".display")), url = new URL(box.dataset.embed);
-    url.searchParams.set("autoplay", "1"); url.searchParams.set("playsinline", "1");
-    if (url.hostname.includes("youtube")) { url.searchParams.set("rel", "0"); url.searchParams.set("mute", onDisplay ? "0" : "1"); }
-    else url.searchParams.set("muted", onDisplay ? "0" : "1");
+    const onDisplay = Boolean(box.closest(".display")), url = new URL(box.dataset.embed, location.href);
+    if (box.dataset.kids) url.searchParams.set("mute", onDisplay ? "0" : "1"); // the kids intro starts on its own
+    else {
+      url.searchParams.set("autoplay", "1"); url.searchParams.set("playsinline", "1");
+      if (url.hostname.includes("youtube")) { url.searchParams.set("rel", "0"); url.searchParams.set("mute", onDisplay ? "0" : "1"); }
+      else url.searchParams.set("muted", onDisplay ? "0" : "1");
+    }
     box.dataset.live = "1";
     box.innerHTML = `<iframe src="${esc(url.href)}" title="${esc(box.dataset.title || "Video")}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
   });
@@ -125,6 +134,7 @@ function slideHtml(s, c = S.church()) {
       case "point": return html`<div class="slide-center"><div class="slide-point">${s.body}</div></div>`;
       case "question": return html`<div class="slide-center"><div class="slide-kicker">Think about it</div><div class="slide-point">${s.body}</div></div>`;
       case "text": return html`<div class="slide-text">${s.title ? html`<div class="slide-title small">${s.title}</div>` : ""}<div class="slide-body">${s.body}</div></div>`;
+      case "kids": return kidsSlideHtml(s);
       case "media": if (!s.image && isVideoUrl(s.url)) return html`<video class="slide-image" src="${s.url}" autoplay muted loop playsinline aria-label="${s.body || "Video"}"></video>${s.body ? html`<div class="slide-caption">${s.body}</div>` : ""}`;
         // A YouTube or Vimeo link plays on the slide. Small previews show its picture; the live slide gets the player.
         if (!s.image && s.url) { const frame = mediaFromLink(s.url, "video"); if (frame?.type === "frame") { const yt = youtubeSermonId(s.url);
@@ -352,7 +362,7 @@ Screens.slides = (tail) => {
   if (!item) return { redirect: "ministry" };
   const { slides, back } = slidesFor(kind, id);
   return { title: "Slide backgrounds", back, body: html`
-    <div class="rows">${slides.map((slide, index) => html`<button class="row" data-act="slide-design" data-kind="${kind}" data-id="${id}" data-key="${slide.editKey}">
+    <div class="rows">${slides.map((slide, index) => !slide.editKey ? "" : html`<button class="row" data-act="slide-design" data-kind="${kind}" data-id="${id}" data-key="${slide.editKey}">
       <span class="body"><span class="t">${index + 1}. ${slide.section || item.title} · ${slideLabel(slide)}</span></span>${icon("edit")}
     </button>`)}</div>` };
 };
