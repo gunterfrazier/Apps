@@ -525,3 +525,24 @@ html[data-theme="sepia"] { --logo-text: #6d5844; }
 .bg-set.on, .bg-scene.on { border-color: var(--brand); background: var(--brand-soft); }
 .bg-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; max-height: 260px; overflow: auto; }
 .bg-scene { padding: 2px; border: 2px solid transparent; border-radius: 10px; background: none; cursor: pointer; }
+
+/* Block cards fit a phone: the tools wrap under the label instead of pushing the card off the screen. */
+.block-card { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.block-top { flex-wrap: wrap; row-gap: 2px; }
+.block-top > .tag { flex: none; }
+.block-top b { flex: 1 1 110px; }
+.block-top .row-tools { margin-left: auto; }
+
+/* ---------- Phone widths: nothing pushes the page sideways ---------- */
+/* Fieldsets and selects otherwise grow to fit their widest content (a long option, a row of chips). */
+fieldset { min-width: 0; }
+select { max-width: 100%; text-overflow: ellipsis; }
+.report-filters > label { min-width: 0; max-width: 100%; }
+.report-filters select { max-width: 100%; }
+/* Tab bars with more tabs than fit scroll sideways inside themselves. */
+.seg { overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.seg::-webkit-scrollbar { display: none; }
+.seg a, .seg button { flex: 1 0 auto; }
+/* The volunteer scheduler: the matrix scrolls in its own box. */
+.sched-workbench > * { min-width: 0; }
+.sched-matrix-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
