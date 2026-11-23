@@ -27,6 +27,13 @@ function screenFooterHtml(c, where, kind = "", f = screenFooterOf(c)) {
   const src = footerLogoSrc(c, f);
   const lines = [f.text, f.website && c.website ? c.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "") : "", f.phone && c.phone ? c.phone : ""].filter(Boolean);
   if (!src && !lines.length) return "";
+  // "custom": the logo and the words each sit where they were dragged (centre point, % of the screen), at their own size.
+  if (f.position === "custom") {
+    const at = (p, z) => `left:${+p.x}%;top:${+p.y}%;zoom:${+z || 1}`;
+    return html`<div class="sfoot custom sz-${f.size} in-${where}" aria-hidden="true">
+      ${src ? html`<img class="sfoot-logo sfoot-free" data-part="logo" src="${src}" alt="" style="${at(f.logoAt || { x: 88, y: 88 }, f.logoZoom)}">` : ""}
+      ${lines.length ? html`<div class="sfoot-text sfoot-free" data-part="text" style="${at(f.textAt || { x: 50, y: 92 }, f.textZoom)}">${lines.map((l) => html`<span>${l}</span>`)}</div>` : ""}</div>`;
+  }
   return html`<div class="sfoot ${f.position} sz-${f.size} in-${where}" aria-hidden="true">
     ${src ? html`<img class="sfoot-logo" src="${src}" alt="">` : ""}
     ${lines.length ? html`<div class="sfoot-text">${lines.map((l) => html`<span>${l}</span>`)}</div>` : ""}</div>`;
@@ -51,7 +58,10 @@ AdminScreens.screenfooter = () => {
           <label class="row switch-row"><span class="body"><span class="t">Leave photos and videos clear</span><span class="s">Not on slides that are a full-screen picture or video</span></span><input type="checkbox" class="switch" name="hideOnMedia" ${attr(f.hideOnMedia, "checked")}></label>
         </div></section>
         <section class="sec"><h2 class="sec-head">Where</h2>
-          <div class="pos-grid" role="radiogroup" aria-label="Where on the screen">${FOOTER_POSITIONS.map(([k, l]) => html`<label class="pos-cell ${k}"><input type="radio" name="position" value="${k}" ${attr(f.position === k, "checked")}><span>${l}</span></label>`)}</div></section>
+          <div class="pos-grid" role="radiogroup" aria-label="Where on the screen">${FOOTER_POSITIONS.map(([k, l]) => html`<label class="pos-cell ${k}"><input type="radio" name="position" value="${k}" ${attr(f.position === k, "checked")}><span>${l}</span></label>`)}</div>
+          <label class="pos-own"><input type="radio" name="position" value="custom" ${attr(f.position === "custom", "checked")}><span>${icon("grip")}Your own spot: drag the logo and the words on the slide above, and pinch (or Ctrl and scroll) to resize them</span></label>
+          <input type="hidden" name="lx" value="${f.logoAt?.x ?? 88}"><input type="hidden" name="ly" value="${f.logoAt?.y ?? 88}"><input type="hidden" name="lz" value="${f.logoZoom || 1}">
+          <input type="hidden" name="tx" value="${f.textAt?.x ?? 50}"><input type="hidden" name="ty" value="${f.textAt?.y ?? 92}"><input type="hidden" name="tz" value="${f.textZoom || 1}"></section>
         <section class="sec"><h2 class="sec-head">Logo</h2>
           <div class="logo-picks"><label class="logo-pick"><input type="radio" name="logo" value="none" ${attr(f.logo === "none", "checked")}><span class="lp-img">${icon("x")}</span><small>No logo</small></label>
             ${logos.map(([id, name, src]) => html`<label class="logo-pick"><input type="radio" name="logo" value="${id}" ${attr(f.logo === id, "checked")}><span class="lp-img"><img src="${src}" alt=""></span><small>${name}</small></label>`)}</div>
@@ -68,7 +78,9 @@ AdminScreens.screenfooter = () => {
 const footerFromForm = (form) => {
   const fd = new FormData(form);
   return { slides: fd.has("slides"), signage: fd.has("signage"), hideOnMedia: fd.has("hideOnMedia"), position: fd.get("position") || "bottom-right",
-    logo: fd.get("logo") || "none", size: fd.get("size") || "m", text: (fd.get("text") || "").trim().slice(0, 70), website: fd.has("website"), phone: fd.has("phone") };
+    logo: fd.get("logo") || "none", size: fd.get("size") || "m", text: (fd.get("text") || "").trim().slice(0, 70), website: fd.has("website"), phone: fd.has("phone"),
+    logoAt: { x: Math.round(+fd.get("lx")), y: Math.round(+fd.get("ly")) }, textAt: { x: Math.round(+fd.get("tx")), y: Math.round(+fd.get("ty")) },
+    logoZoom: Math.round(+fd.get("lz") * 100) / 100 || 1, textZoom: Math.round(+fd.get("tz") * 100) / 100 || 1 };
 };
 Inputs["screen-footer-live"] = (form) => {
   const c = S.church(), f = footerFromForm(form), box = $("#sfoot-preview");
@@ -84,3 +96,41 @@ Forms["screen-footer"] = (d, form) => {
   toast("Saved. Screens update the next time they change slides.");
   render();
 };
+
+// ----- Your own spot: drag the logo or the words on the slide preview; pinch to resize -----
+/** Starting your own spot from a corner: the pieces start where that corner put them. */
+function footerToCustom(form) {
+  const stage = $("#sfoot-preview .stage"), r = stage?.getBoundingClientRect(); if (!r) return;
+  [["logo", ".sfoot-logo", "lx", "ly"], ["text", ".sfoot-text", "tx", "ty"]].forEach(([, sel, kx, ky]) => {
+    const el = $(`.sfoot ${sel}`, stage); if (!el) return; const b = el.getBoundingClientRect();
+    form.elements[kx].value = Math.round(((b.left + b.width / 2 - r.left) / r.width) * 100);
+    form.elements[ky].value = Math.round(((b.top + b.height / 2 - r.top) / r.height) * 100);
+  });
+  form.elements.position.value = "custom";
+}
+document.addEventListener("pointerdown", (e) => {
+  const part = e.target.closest?.("#sfoot-preview .stage .sfoot-logo, #sfoot-preview .stage .sfoot-text");
+  if (!part || Pinch.active || e.button > 0) return;
+  const form = part.closest("form"), stage = part.closest(".stage"); e.preventDefault();
+  if (form.elements.position.value !== "custom") { footerToCustom(form); Inputs["screen-footer-live"](form); }
+  const logo = part.classList.contains("sfoot-logo"), [kx, ky] = logo ? ["lx", "ly"] : ["tx", "ty"];
+  const r = stage.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY, sx = +form.elements[kx].value, sy = +form.elements[ky].value;
+  const move = (ev) => {
+    if (Pinch.active) return;
+    form.elements[kx].value = Math.max(2, Math.min(98, sx + ((ev.clientX - x0) / r.width) * 100));
+    form.elements[ky].value = Math.max(3, Math.min(97, sy + ((ev.clientY - y0) / r.height) * 100));
+    Inputs["screen-footer-live"](form);
+  };
+  const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); document.removeEventListener("pointercancel", up); };
+  document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up);
+});
+onPinch("#sfoot-preview .stage", {
+  start(target, stage) {
+    const form = stage.closest("form"), part = target.closest(".sfoot-logo, .sfoot-text") || $(".sfoot-logo, .sfoot-text", stage);
+    if (!part) return null;
+    if (form.elements.position.value !== "custom") { footerToCustom(form); Inputs["screen-footer-live"](form); }
+    const k = part.classList.contains("sfoot-logo") ? "lz" : "tz";
+    return { form, k, z: +form.elements[k].value || 1 };
+  },
+  change(st, scale) { st.form.elements[st.k].value = Math.max(0.4, Math.min(3, st.z * scale)); Inputs["screen-footer-live"](st.form); },
+});

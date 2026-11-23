@@ -60,7 +60,7 @@ function onPinch(root, handlers) { pinchAreas.push({ root, ...handlers }); }
       if (!state) return;
       wheelJob = { area, state, scale: 1 };
     }
-    wheelJob.scale *= Math.exp(-e.deltaY / 220);
+    wheelJob.scale *= Math.exp(-e.deltaY / 400);
     wheelJob.area.change(wheelJob.state, wheelJob.scale, 0);
     clearTimeout(wheelTimer);
     wheelTimer = setTimeout(() => { wheelJob?.area.end?.(wheelJob.state); wheelJob = null; }, 260);

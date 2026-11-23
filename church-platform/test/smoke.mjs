@@ -2504,6 +2504,7 @@ await step("story backgrounds match the story on every slide", async () => {
   // The demo's Zacchaeus lesson uses the Zacchaeus pictures, in story order, with the words in each picture's open side.
   await goTo("build-riverside-doc-zacchaeus"); await page.waitForSelector(".bg-panel .bg-strip img");
   await goTo("present-doc-riverside-doc-zacchaeus"); await page.waitForSelector("#stage .slide");
+  for (let i = 0; i < 40; i++) await page.keyboard.press("ArrowLeft"); // from the first slide
   const seen = [];
   for (let i = 0; i < 40; i++) {
     const info = await page.evaluate(() => { const s = document.querySelector("#stage .slide"); const img = s?.querySelector(".slide-bg"); return { cls: s?.className || "", src: img?.getAttribute("src") || "" }; });
@@ -2621,6 +2622,41 @@ await step("brand colors from the logo, banner pinch and lock, landing page colo
     await goTo(`page-${await page.evaluate(() => __app.S.church().id)}`);
     if (!(await page.evaluate(() => getComputedStyle(document.querySelector(".public-page")).getPropertyValue("--brand").trim()))) throw new Error("the landing page should use its accent");
   } finally { await page.setViewportSize(was); }
+});
+await step("arrange a slide by hand, and put the footer in its own spot", async () => {
+  // Edit slide: drag the words, resize them, zoom and move the story picture behind them.
+  await page.evaluate(() => { const d = __app.S.get("docs", "riverside-doc-zacchaeus"); d.bgStory = "zacchaeus"; __app.S.save(); __app.render(); });
+  await goTo("build-riverside-doc-zacchaeus");
+  await page.waitForSelector(".bg-panel .bg-strip img", { state: "attached" }); // the story pictures have loaded
+  await goTo("slides-doc-riverside-doc-zacchaeus"); await page.click(".rows [data-act=slide-design] >> nth=2"); await page.waitForSelector("#sa-stage .slide .slide-bg");
+  await page.evaluate(() => document.querySelector("#sa-stage").scrollIntoView({ block: "center" })); await page.waitForTimeout(400);
+  const st = await page.locator("#sa-stage").boundingBox(), mid = [st.x + st.width / 2, st.y + st.height / 2];
+  await page.mouse.move(...mid); await page.mouse.down(); await page.mouse.move(mid[0] + 40, mid[1] + 20, { steps: 5 }); await page.mouse.up();
+  await page.keyboard.down("Control"); await page.mouse.wheel(0, -120); await page.keyboard.up("Control"); await page.waitForTimeout(350);
+  if (await page.isDisabled('[data-act=sa-mode][data-mode="photo"]')) throw new Error("this slide's story picture should be adjustable");
+  await page.click('[data-act=sa-mode][data-mode="photo"]'); await page.mouse.move(...mid);
+  await page.keyboard.down("Control"); await page.mouse.wheel(0, -200); await page.keyboard.up("Control"); await page.waitForTimeout(350);
+  await page.click("#scrim form[data-form=slide-design] > button.btn"); await sheetGone();
+  const design = await page.evaluate(() => Object.values(__app.S.get("docs", "riverside-doc-zacchaeus").slideDesign || {}).find((x) => x.words));
+  if (!design?.words?.x || !(design.words.s > 1) || !(design.bgFit?.z > 1)) throw new Error(`the slide should keep its arranged words and photo: ${JSON.stringify(design)}`);
+  // The presentation shows it that way.
+  await goTo("present-doc-riverside-doc-zacchaeus"); await page.waitForSelector("#stage"); for (let i = 0; i < 40; i++) await page.keyboard.press("ArrowLeft");
+  for (let i = 0; i < 40 && !(await page.locator("#stage .slide.words-moved").count()); i++) { await page.keyboard.press("ArrowRight"); await page.waitForTimeout(30); }
+  const shown = await page.evaluate(() => { const sl = document.querySelector("#stage .slide.words-moved"); return sl ? sl.className + " | " + (sl.querySelector(".slide-bg")?.getAttribute("style") || "no picture") : "none"; });
+  if (!/scale\(/.test(shown)) throw new Error(`the slide should show its zoomed photo: ${shown}`);
+  // Footer: drag the words to their own spot and pinch them bigger.
+  await page.evaluate(() => { const f = __app.S.church().screenFooter || {}; __app.S.updateChurch({ screenFooter: { ...f, slides: true, website: true, text: "Wi-Fi: Guest" } }); });
+  await goTo("admin-screenfooter"); await page.waitForSelector("#sfoot-preview .stage .sfoot-text");
+  await page.evaluate(() => document.querySelector("#sfoot-preview .stage").scrollIntoView({ block: "center" })); await page.waitForTimeout(400);
+  const t = await page.locator("#sfoot-preview .stage .sfoot-text").boundingBox();
+  // Drag the words to the middle of the slide.
+  const sb = await page.locator("#sfoot-preview .stage").first().boundingBox();
+  await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2); await page.mouse.down(); await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2, { steps: 6 }); await page.mouse.up();
+  await page.keyboard.down("Control"); await page.mouse.wheel(0, -150); await page.keyboard.up("Control"); await page.waitForTimeout(300);
+  await page.click("form[data-form=screen-footer] .btns .btn");
+  const f = await page.evaluate(() => __app.S.church().screenFooter);
+  if (f.position !== "custom" || !(f.textZoom > 1) || Math.abs(f.textAt.x - 50) > 6 || Math.abs(f.textAt.y - 50) > 6) throw new Error(`the footer should keep its own spot: ${JSON.stringify(f)}`);
+  await page.evaluate(() => { const f = __app.S.church().screenFooter; __app.S.updateChurch({ screenFooter: { ...f, slides: false, position: "bottom-right" } }); });
 });
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");
