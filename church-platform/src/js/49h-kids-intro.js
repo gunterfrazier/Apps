@@ -2,13 +2,14 @@
 // A children's lesson opens with the animated Veritas Logos Kids intro, its ribbon and title card showing the lesson's
 // title and passage, and closes with the credits, which name the lesson, its teacher, its class and the church.
 // The player is kids/intro.html (from Veritas Logos); a slide plays it full screen with the lesson's details.
-// Lessons for younger classes get them by default; each lesson can turn them off (Details), and a church can turn
+// Only lessons built from the Family Library get them, by default for younger classes; each lesson can turn them off (Details), and a church can turn
 // the feature off (Admin, Features).
 
 const KIDS_SECS = { intro: 14, outro: 25 };
 /** Whether this lesson opens and closes with the kids intro and credits. */
 function kidsBookendsOn(d) {
-  if (!d || d.kind !== "lesson" || !S.on("kidsintro")) return false;
+  // Only lessons built from the Veritas Logos Family Library open with its intro.
+  if (!d || d.kind !== "lesson" || !S.on("kidsintro") || !d.storyId) return false;
   if (typeof d.kidsBookends === "boolean") return d.kidsBookends;
   const g = d.gatheringId && S.get("gatherings", d.gatheringId);
   return classAge(g) !== "teen"; // On for children's classes; youth and adult classes can switch it on.

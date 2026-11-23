@@ -186,21 +186,27 @@ Forms["story-use"] = async (data, f) => {
   if (!d || !s) return;
   const pieces = new Set([...f.querySelectorAll("input[name=piece]:checked")].map((x) => x.value));
   if (!pieces.size) return formError(f, "Choose at least one part to include.");
-  const blocks = storyBlocks(s, f.dataset.age, +f.dataset.len, pieces);
   const replace = data.mode === "replace" || !d.blocks.some((b) => b.type !== "scripture" || b.text);
-  // A new lesson keeps nothing but its empty Scripture slot, which the story's reading fills.
-  d.blocks = replace ? blocks : [...d.blocks, ...blocks];
-  if (!d.passage || replace) { const r = parseRef(s.reference) || parseRef(s.reading); if (r) d.passage = refLabel(r); }
-  if (!d.topic) d.topic = s.topic;
-  if (storyBgSet(s.id) && (replace || !d.bgStory)) d.bgStory = s.id;
-  if (pieces.has("parents") || pieces.has("questions") || pieces.has("video")) mergeFamily(d, storyFamily(s, f.dataset.age), replace);
-  if (d.titleFromStory || !d.title) { d.title = s.title; delete d.titleFromStory; }
-  d.storyId = s.id; d.updated = new Date().toISOString(); S.save();
+  const blocks = applyStory(d, s, f.dataset.age, +f.dataset.len, pieces, replace);
   toast(`${s.title} is in your lesson. Edit anything before you publish.`);
   go(`build-${d.id}`);
   await Promise.all(blocks.filter((b) => b.type === "scripture" && b.ref && !b.text).map((b) => fillScripture(b).catch(() => {})));
   S.save(); render();
 };
+
+/** Puts a story into a lesson (adding to it, or replacing what's there) and returns the new blocks. */
+function applyStory(d, s, age, len, pieces, replace) {
+  const blocks = storyBlocks(s, age, len, pieces);
+  // A new lesson keeps nothing but its empty Scripture slot, which the story's reading fills.
+  d.blocks = replace ? blocks : [...d.blocks, ...blocks];
+  if (!d.passage || replace) { const r = parseRef(s.reference) || parseRef(s.reading); if (r) d.passage = refLabel(r); }
+  if (!d.topic) d.topic = s.topic;
+  if (storyBgSet(s.id) && (replace || !d.bgStory)) d.bgStory = s.id;
+  if (pieces.has("parents") || pieces.has("questions") || pieces.has("video")) mergeFamily(d, storyFamily(s, age), replace);
+  if (d.titleFromStory || !d.title) { d.title = s.title; delete d.titleFromStory; }
+  d.storyId = s.id; d.updated = new Date().toISOString(); S.save();
+  return blocks;
+}
 
 /** The story as lesson blocks. Teacher-only parts are private; the rest shows on screen and to parents. */
 function storyBlocks(s, age, len, pieces) {

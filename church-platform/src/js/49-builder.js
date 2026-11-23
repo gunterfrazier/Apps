@@ -23,15 +23,15 @@ function canEditDoc(d) {
   if (!S.isMember() || !d) return false;
   if (d.authorId === S.me().id && S.can(DOC_KINDS[d.kind].perm)) return true;
   if (d.kind === "sermon") return S.can("build.sermons");
-  const g = d.gatheringId && S.get("gatherings", d.gatheringId);
+  const gid = d.gatheringId || d.formerGatheringId, g = gid && S.get("gatherings", gid); // Unassigned drafts: their old class's teachers
   if (d.kind === "lesson") return S.can("build.lessons") && (S.can("manage.classes") || (g && isLeader(g)));
   return S.can("build.studies") && (S.can("manage.classes") || (g && isLeader(g)));
 }
 function docRow(d) {
   const g = d.gatheringId && S.get("gatherings", d.gatheringId);
   // The list row is the lesson's link plus its own Delete button, so a lesson can go without opening it first.
-  if (!canEditDoc(d)) return html`<a class="row" href="#build-${d.id}"><span class="lead-ic">${icon(DOC_KINDS[d.kind].icon)}</span><span class="body"><span class="t">${d.title}</span><span class="s">${DOC_KINDS[d.kind].label}${d.passage ? `, ${d.passage}` : ""}${g ? `, ${g.name}` : ""}, ${fmtShort(fromIsoDay(d.date))}${d.published ? "" : ", draft"}</span></span>${icon("chev")}</a>`;
-  return html`<div class="row doc-row"><a class="doc-link" href="#build-${d.id}"><span class="lead-ic">${icon(DOC_KINDS[d.kind].icon)}</span><span class="body"><span class="t">${d.title}</span><span class="s">${DOC_KINDS[d.kind].label}${d.passage ? `, ${d.passage}` : ""}${g ? `, ${g.name}` : ""}, ${fmtShort(fromIsoDay(d.date))}${d.published ? "" : ", draft"}</span></span></a>
+  if (!canEditDoc(d)) return html`<a class="row" href="#build-${d.id}"><span class="lead-ic">${icon(DOC_KINDS[d.kind].icon)}</span><span class="body"><span class="t">${d.title}</span><span class="s">${DOC_KINDS[d.kind].label}${d.passage ? `, ${d.passage}` : ""}${g ? `, ${g.name}` : ""}, ${docWhen(d, true)}${d.published || !d.date ? "" : ", draft"}</span></span>${icon("chev")}</a>`;
+  return html`<div class="row doc-row"><a class="doc-link" href="#build-${d.id}"><span class="lead-ic">${icon(DOC_KINDS[d.kind].icon)}</span><span class="body"><span class="t">${d.title}</span><span class="s">${DOC_KINDS[d.kind].label}${d.passage ? `, ${d.passage}` : ""}${g ? `, ${g.name}` : ""}, ${docWhen(d, true)}${d.published || !d.date ? "" : ", draft"}</span></span></a>
     <button type="button" class="icon-btn" data-act="doc-delete-ask" data-id="${d.id}" aria-label="Delete ${d.title}">${icon("trash")}</button></div>`;
 }
 
@@ -45,7 +45,8 @@ Screens.docs = (kind) => {
     title: k.many, back: "ministry",
     body: html`${blockedLesson ? html`<div class="panel" style="margin-top:16px"><p style="margin:0">The lesson builder opens once you're assigned to teach a class. Ask whoever schedules classes to add you as a teacher.</p></div>`
         : html`<div class="btns" style="margin-top:16px"><button class="btn" data-act="new-doc" data-kind="${kind}">${icon("plus")}New ${k.label.toLowerCase()}</button><a class="btn ghost" href="#layouts-${kind}">${icon("layers")}Layouts</a></div>`}
-      <div class="rows" style="margin-top:14px">${docs.length ? docs.map(docRow) : empty(`No ${k.many.toLowerCase()} yet.`)}</div>`,
+      <div class="rows" style="margin-top:14px">${docs.some((d) => d.date) ? docs.filter((d) => d.date).map(docRow) : empty(`No ${k.many.toLowerCase()} yet.`)}</div>
+      ${docs.some((d) => !d.date) ? html`<section class="sec"><h2 class="sec-head">Unassigned drafts</h2><p class="faint" style="margin-top:-4px">No class, date or time yet. Open one to put it on a calendar.</p><div class="rows">${docs.filter((d) => !d.date).map(docRow)}</div></section>` : ""}`,
   };
 };
 
@@ -54,6 +55,22 @@ Actions["new-doc"] = (el) => {
   const classes = S.visible("gatherings", { ignoreCampus: true }).filter((g) => (kind === "lesson" ? g.type === "class" : g.type === "group") && (S.can("manage.classes") || isLeader(g)));
   const preset = el.dataset.gathering;
   const next = kind === "sermon" ? upcomingServices(S.church(), 1)[0] : null;
+  // Lessons: class, then date and time on the class's calendar, then what to start from, then (unless it's a library
+  // story, which brings its own) a title and passage.
+  if (kind === "lesson") {
+    const g = S.get("gatherings", preset) || classes[0], n = nextClassDay(g);
+    openSheet("New lesson", html`<form data-form="new-doc" class="new-lesson" novalidate><input type="hidden" name="kind" value="lesson">
+      ${lessonWhenFields({ classes, gid: g?.id, date: n.date, time: n.time })}
+      ${startFromField(kind, el.dataset.layout)}
+      <div class="sf-story-note" hidden>${icon("book")}<span></span></div>
+      <div class="sf-details">
+        <label class="field"><span>Title</span><input type="text" name="title" maxlength="90" placeholder="What's this lesson called?"></label>
+        <label class="field"><span>Main passage <span class="faint">(optional)</span></span><input type="text" name="passage" maxlength="40" placeholder="John 15:1-8"></label></div>
+      <button class="btn block">Create lesson</button></form>`);
+    const form = $("#scrim form[data-form=new-doc]");
+    lessonWhenRefresh(form); startFromRefresh(form);
+    return;
+  }
   openSheet(`New ${k.label.toLowerCase()}`, html`<form data-form="new-doc" novalidate><input type="hidden" name="kind" value="${kind}">
     <label class="field"><span>Title</span><input type="text" name="title" required maxlength="90"></label>
     <label class="field"><span>Main passage</span><input type="text" name="passage" maxlength="40" placeholder="John 15:1-8"><small>Fills the layout's first empty Scripture slot, or becomes the first item.</small></label>
@@ -69,9 +86,12 @@ Actions["new-doc"] = (el) => {
 Forms["new-doc"] = (d, f) => {
   const storyId = d.from?.startsWith("story:") ? d.from.slice(6) : "";
   if (storyId) d.from = "story";
-  if (!d.title && d.from !== "story") return formError(f, "Give it a title.");
+  if (d.kind === "lesson") { const problem = lessonWhenProblem(f, d); if (problem) return formError(f, problem); }
+  if (!d.title && d.from !== "story") { f.elements.title?.focus(); return formError(f, d.kind === "lesson" ? "Give the lesson a title." : "Give it a title."); }
   if (d.passage && !parseRef(d.passage)) return formError(f, "That passage doesn't look like a Bible reference.");
   if (d.kind === "lesson" && !d.gatheringId) return formError(f, "Choose the class this lesson is for.");
+  const replaced = d.replaceId && S.get("docs", d.replaceId);
+  if (replaced) unassignLesson(replaced);
   const g = d.gatheringId && S.get("gatherings", d.gatheringId);
   const blocks = d.from?.startsWith("layout:") ? layoutCopy(S.get("layouts", d.from.slice(7))) : [];
   if (d.passage) {
@@ -83,6 +103,15 @@ Forms["new-doc"] = (d, f) => {
   closeSheet(true);
   const toFill = blocks.filter((b) => b.type === "scripture" && b.ref && !b.text);
   if (toFill.length) Promise.all(toFill.map(fillScripture)).then(() => { S.save(); if (location.hash === `#build-${doc.id}`) render(); });
+  if (replaced) toast(`${replaced.title} is now an unassigned draft, with no date or time.`);
+  // A library story builds the whole lesson: its title, every part, the edition closest to the class's ages.
+  const story = storyId && familyLib?.stories.find((x) => x.id === storyId);
+  if (story) {
+    const age = closestEdition(story, classAge(g)), made = applyStory(doc, story, age, lessonLength(), allStoryPieces(story, age), true);
+    go(`build-${doc.id}`);
+    Promise.all(made.filter((b) => b.type === "scripture" && b.ref && !b.text).map((b) => fillScripture(b).catch(() => {}))).then(() => { S.save(); render(); });
+    return;
+  }
   if (storyId) { go(`storyplan-${doc.id}~${storyId}`); return; }
   if (d.from === "story") { storyQuery = ""; go(`storylesson-${doc.id}`); return; }
   go(`build-${doc.id}`);
@@ -103,6 +132,7 @@ Screens.build = (id) => {
   const d = S.get("docs", id);
   if (!d) return { redirect: "ministry" };
   if (!canEditDoc(d)) return { redirect: `outline-${id}` };
+  maybeAskUnassigned(d);
   const g = d.gatheringId && S.get("gatherings", d.gatheringId);
   let slide = 0;
   return {
@@ -110,7 +140,8 @@ Screens.build = (id) => {
     body: html`
       <p style="margin:16px 0 4px"><span class="tag brand">${DOC_KINDS[d.kind].label}</span> ${d.published ? html`<span class="tag ok">Published</span>` : html`<span class="tag">Draft</span>`}</p>
       <h1>${d.title}</h1>
-      <p class="muted" style="margin-top:4px">${[d.passage, g?.name, `${fmtDay(fromIsoDay(d.date))}${d.time ? ` at ${timeLabel(d.time)}` : ""}`, d.locationId && multiCampus() ? locName(d.locationId) : ""].filter(Boolean).join(". ")}</p>
+      <p class="muted" style="margin-top:4px">${[d.passage, g?.name, docWhen(d), d.locationId && multiCampus() ? locName(d.locationId) : ""].filter(Boolean).join(". ")}</p>
+      ${isUnassigned(d) ? html`<div class="demo-note">${icon("calendar")}<div>Unassigned draft: no class, date or time yet. <button class="btn ghost sm" data-act="doc-assign" data-id="${d.id}" style="margin-top:6px">Assign to a class</button></div></div>` : ""}
       <div class="btns">
         ${S.can("present") || canEditDoc(d) ? html`<a class="btn sm" href="#present-doc-${d.id}">${icon("screen")}Present</a>` : ""}
         <a class="btn ghost sm" href="#slides-doc-${d.id}">${icon("image")}Edit slides</a>
@@ -122,7 +153,7 @@ Screens.build = (id) => {
           <a class="btn ghost sm" href="#lessonschurch-${d.id}">${icon("book")}Start from Lessons.church</a>` : ""}
         ${canAI() ? html`<button class="btn ghost sm" data-act="ai-build" data-id="${d.id}">${icon("bolt")}${d.kind === "lesson" && !d.blocks.some((b) => b.type !== "scripture") ? "Draft this lesson" : "Draft questions"}</button>` : ""}
       </div>
-      ${d.kind === "lesson" && S.on("kidsintro") ? kidsBookendsPanel(d) : ""}
+      ${d.kind === "lesson" && S.on("kidsintro") && d.storyId ? kidsBookendsPanel(d) : ""}
       ${d.kind === "lesson" && S.on("storylessons") ? storyBgPanel(d) : ""}
       ${d.passage ? pastPanel(d.passage, { doc: d.id, label: "You've preached or taught on this before", max: 3 }) : ""}
       <p class="faint">${d.kind === "sermon" ? "Published sermons can be followed by members during the service." : d.kind === "lesson" ? `Published lessons show to the class${d.shareWithParents ? ", and the family page goes to parents" : ""}.` : "Published guides show on the group's page."} Items marked private never appear on screen or to members.</p>
@@ -220,27 +251,29 @@ Actions["doc-details"] = (el) => {
     <label class="field"><span>Title</span><input type="text" name="title" value="${d.title}" required maxlength="90"></label>
     <label class="field"><span>Main passage</span><input type="text" name="passage" value="${d.passage}" maxlength="40"></label>
     <label class="field"><span>Topic</span><input type="text" name="topic" value="${d.topic || ""}" maxlength="30"><small>Used for the Veritas Logos study guide link.</small></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Date</span><input type="date" name="date" value="${d.date}"></label><label class="field"><span>Time</span><input type="time" name="time" value="${d.time || ""}"></label></div>
+    ${d.kind === "lesson" ? html`<div class="field"><span>Class, date and time</span><div class="lw-summary"><span>${[S.get("gatherings", d.gatheringId)?.name, docWhen(d)].filter(Boolean).join(", ")}</span>
+      <button type="button" class="btn ghost sm" data-act="doc-assign" data-id="${d.id}">${icon("calendar")}${d.date ? "Move" : "Assign to a class"}</button></div></div>`
+    : html`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Date</span><input type="date" name="date" value="${d.date}"></label><label class="field"><span>Time</span><input type="time" name="time" value="${d.time || ""}"></label></div>`}
     ${d.kind === "sermon" ? html`<label class="field"><span>Location</span><select name="locationId">${locationOptions(d.locationId)}</select></label>` : ""}
     ${bgField(d, "Background behind the slides (optional)", "A photo or a motion background that loops silently behind points, Scripture and text.")}
     ${d.kind === "lesson" ? html`<label class="check"><input type="checkbox" name="shareWithParents" ${attr(d.shareWithParents, "checked")}><span>Send the family page to parents<small class="faint" style="display:block">The parent portal shows the family page (below the blocks), not the slides.</small></span></label>` : ""}
     ${d.kind === "lesson" && S.on("presentations") ? html`<label class="check"><input type="checkbox" name="stageTools" ${attr(stageToolsOn(d), "checked")}><span>This class meets in the sanctuary<small class="faint" style="display:block">Adds the stage display, stage window and messages to the stage when presenting. Classrooms don't have them.</small></span></label>` : ""}
-    ${d.kind === "lesson" && S.on("kidsintro") ? html`<label class="check"><input type="checkbox" name="kidsBookends" ${attr(kidsBookendsOn(d), "checked")}><span>Open with the Veritas Logos Kids intro and close with the credits<small class="faint" style="display:block">The intro shows this lesson's title and passage; the credits name the lesson, teacher, class and church.</small></span></label>` : ""}
+    ${d.kind === "lesson" && S.on("kidsintro") && d.storyId ? html`<label class="check"><input type="checkbox" name="kidsBookends" ${attr(kidsBookendsOn(d), "checked")}><span>Open with the Veritas Logos Kids intro and close with the credits<small class="faint" style="display:block">The intro shows this lesson's title and passage; the credits name the lesson, teacher, class and church.</small></span></label>` : ""}
     <div class="btns"><button class="btn">Save</button><button type="button" class="btn danger" data-act="doc-delete-ask" data-id="${d.id}">Delete</button></div></form>`);
 };
 Forms["doc-details"] = (d, f) => {
   if (!d.title && d.from !== "story") return formError(f, "Give it a title.");
   if (d.passage && !parseRef(d.passage)) return formError(f, "That passage doesn't look like a Bible reference.");
   const doc = S.get("docs", d.id);
-  Object.assign(doc, { bg: d.bg || "", title: d.title, passage: d.passage ? refLabel(parseRef(d.passage)) : "", topic: d.topic, date: d.date || doc.date, time: d.time, ...(doc.kind === "sermon" ? { locationId: d.locationId || null } : {}), ...(doc.kind === "lesson" ? { shareWithParents: !!d.shareWithParents } : {}) });
-  if (doc.kind === "lesson" && S.on("kidsintro")) doc.kidsBookends = Boolean(d.kidsBookends);
+  Object.assign(doc, { bg: d.bg || "", title: d.title, passage: d.passage ? refLabel(parseRef(d.passage)) : "", topic: d.topic, ...(doc.kind === "lesson" ? {} : { date: d.date || doc.date, time: d.time }), ...(doc.kind === "sermon" ? { locationId: d.locationId || null } : {}), ...(doc.kind === "lesson" ? { shareWithParents: !!d.shareWithParents } : {}) });
+  if (doc.kind === "lesson" && S.on("kidsintro") && doc.storyId) doc.kidsBookends = Boolean(d.kidsBookends);
   if (doc.kind === "lesson" && S.on("presentations")) doc.stageTools = Boolean(d.stageTools);
   touch(doc); closeSheet(); render();
 };
 Actions["doc-delete-ask"] = (el) => {
   const d = S.get("docs", el.dataset.id); if (!d) return;
   const word = DOC_KINDS[d.kind].label.toLowerCase(), g = d.gatheringId && S.get("gatherings", d.gatheringId);
-  openSheet(`Delete this ${word}?`, html`<p><b>${d.title}</b>${g ? html` for ${g.name}` : ""}, ${fmtShort(fromIsoDay(d.date))}, with its ${plural(d.blocks.length, "block")}, notes and slides.${d.published ? " It's published, so people who can see it now won't anymore." : ""} This can't be undone.</p>
+  openSheet(`Delete this ${word}?`, html`<p><b>${d.title}</b>${g ? html` for ${g.name}` : ""}, ${docWhen(d, true)}, with its ${plural(d.blocks.length, "block")}, notes and slides.${d.published ? " It's published, so people who can see it now won't anymore." : ""} This can't be undone.</p>
     <div class="btns"><button class="btn danger" data-act="doc-delete" data-id="${d.id}">${icon("trash")}Delete ${word}</button><button class="btn ghost" data-act="close-sheet">Keep it</button></div>`);
 };
 Actions["doc-delete"] = (el) => {
@@ -263,7 +296,7 @@ Screens.resource = (id) => {
   slide = 0;
   return {
     title: "Presenter page", back: canEditDoc(d) ? `build-${d.id}` : "services",
-    body: html`<h1 style="margin-top:16px">${d.title}</h1><p class="muted">${[d.passage, `${fmtDay(fromIsoDay(d.date))}${d.time ? ` at ${timeLabel(d.time)}` : ""}`].filter(Boolean).join(". ")}</p>
+    body: html`<h1 style="margin-top:16px">${d.title}</h1><p class="muted">${[d.passage, docWhen(d)].filter(Boolean).join(". ")}</p>
       <div class="btns"><a class="btn sm" href="#present-doc-${d.id}">${icon("screen")}Present</a><button class="btn ghost sm" data-act="copy" data-done="Presenter page copied" data-text="${text}">${icon("copy")}Copy as text</button></div>
       <label class="field"><span>Resource notes</span><textarea class="notes" style="min-height:110px" data-input="doc-resource" data-id="${d.id}" ${attr(!canEditDoc(d), "readonly")} placeholder="Reminders, timing, illustrations, people to thank...">${d.resource || ""}</textarea></label>
       <ol class="resource">${d.blocks.map((b) => {
@@ -286,7 +319,7 @@ Screens.outline = (id) => {
   return {
     title: d.title, back: g ? `gathering-${g.id}` : "word",
     body: html`<p style="margin:16px 0 4px"><span class="tag brand">${DOC_KINDS[d.kind].label}</span>${g ? html` <span class="tag">${g.name}</span>` : ""}</p><h1>${d.title}</h1>
-      <p class="muted">${[d.passage, fmtDay(fromIsoDay(d.date))].filter(Boolean).join(", ")}</p>
+      <p class="muted">${[d.passage, docWhen(d)].filter(Boolean).join(", ")}</p>
       <div class="btns">${listenBtn(`doc:${d.id}`)}${canEditDoc(d) ? html`<a class="btn ghost sm" href="#build-${d.id}">${icon("edit")}Edit</a>` : ""}</div>
       <div class="outline-view">${blocks.map((b) => {
         switch (b.type) {

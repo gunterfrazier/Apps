@@ -106,7 +106,7 @@ Screens.familypage = (id) => {
   return {
     title: "Family page", back: canEditDoc(d) && !S.on("parents") ? `build-${d.id}` : S.on("parents") ? "parents" : `build-${d.id}`,
     body: html`<div class="fam-head"><p style="margin:16px 0 4px"><span class="tag brand">Take home</span>${g ? html` <span class="tag">${g.name}</span>` : ""}</p><h1>${d.title}</h1>
-      <p class="muted" style="margin-top:4px">${[d.passage, fmtDay(fromIsoDay(d.date))].filter(Boolean).join(", ")}</p></div>
+      <p class="muted" style="margin-top:4px">${[d.passage, (d.date ? fmtDay(fromIsoDay(d.date)) : "")].filter(Boolean).join(", ")}</p></div>
       ${canEditDoc(d) && !familySent(d) ? html`<div class="demo-note">${icon("info")}<div>Parents can't see this yet: ${!d.shareWithParents ? "sending it to parents is off" : "the lesson isn't published"}.</div></div>` : ""}
       <div class="btns">${p.printables.length ? html`<button class="btn sm" data-act="family-print" data-id="${d.id}" data-what="printables">${icon("print")}Print ${p.printables.length === 1 ? "the coloring page" : "the printables"}</button>` : ""}
         <button class="btn ghost sm" data-act="family-print" data-id="${d.id}" data-what="all">${icon("print")}Print this page</button>
@@ -150,7 +150,7 @@ Actions["family-print"] = (el) => {
   if (what === "printables") { printDoc(`${d.title}: printables`, pages(p.printables)); return; }
   const g = d.gatheringId && S.get("gatherings", d.gatheringId);
   const list = (items, tag = "ul") => `<${tag}>${items.map((x) => `<li>${x}</li>`).join("")}</${tag}>`;
-  const sheet = `<div class="sheet"><h1>${esc(d.title)}</h1><p class="muted">${esc([g?.name, d.passage, fmtDay(fromIsoDay(d.date)), S.church()?.name].filter(Boolean).join(" · "))}</p>
+  const sheet = `<div class="sheet"><h1>${esc(d.title)}</h1><p class="muted">${esc([g?.name, d.passage, (d.date ? fmtDay(fromIsoDay(d.date)) : ""), S.church()?.name].filter(Boolean).join(" · "))}</p>
     ${p.summary.length ? `<h2>What we learned</h2>${p.summary.map((x) => `${x.title ? `<b>${esc(x.title)}</b>` : ""}<p class="pre">${esc(x.text)}</p>`).join("")}` : ""}
     ${p.questions.length ? `<h2>Ask your child</h2>${list(p.questions.map(esc), "ol")}` : ""}
     ${p.projects.length ? `<h2>Take-home projects</h2>${list(p.projects.map((x) => `${x.title ? `<b>${esc(x.title)}:</b> ` : ""}${esc(x.text)}`))}` : ""}

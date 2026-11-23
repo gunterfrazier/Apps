@@ -15,7 +15,7 @@ function startFromOptions(kind, q, age) {
     ${pic === undefined ? "" : pic ? html`<img src="${pic}" alt="" loading="lazy" decoding="async">` : html`<span class="sf-ic">${icon("book")}</span>`}
     <span class="sf-body"><b>${title}</b>${sub ? html`<span class="faint">${sub}</span>` : ""}${badges?.length ? html`<span class="sf-badges">${badges}</span>` : ""}</span></button>`;
   const badge = (text, cls = "", ic, title) => html`<span class="sf-badge ${cls}" ${title ? raw(`title="${esc(title)}"`) : ""}>${ic ? icon(ic) : ""}${text}</span>`;
-  const storyOpt = (s) => {
+  const storyOpt = (s, fits = true) => {
     const ages = FAMILY_AGES.filter(([a]) => s.editions[a]);
     const playable = s.videos.some((v) => mediaFromLink(v.url, "video")?.type === "frame");
     return opt(`story:${s.id}`, s.title, `${s.reference}, ${s.topic}`, [
@@ -24,8 +24,12 @@ function startFromOptions(kind, q, age) {
       s.videos.length ? badge(playable ? "Video plays on screen" : "Video link", "", "play") : badge("No video", "off"),
       s.craft ? badge("Craft") : "", s.game ? badge("Game") : "",
       typeof storyBgSet === "function" && storyBgSet(s.id) ? badge("Story pictures", "", "image") : "",
-    ], storyPic(s, age));
+    ], storyPic(s, fits ? age : closestEdition(s, age)));
   };
+  // Stories written for the class's age group come first; the rest follow a divider that says so. They can still be
+  // used: the lesson uses the edition closest to the class's ages.
+  const fit = stories.filter((s) => s.editions[age]), other = stories.filter((s) => !s.editions[age]);
+  const ageLabel = (FAMILY_AGES.find(([a]) => a === age) || [, ""])[1];
   const blank = !n || norm(`blank ${word}`).includes(n);
   return html`
     ${blank ? opt("", `A blank ${word}`, "Start with an empty page and add blocks yourself.") : ""}
@@ -33,7 +37,8 @@ function startFromOptions(kind, q, age) {
     ${storiesOn ? html`<p class="sf-head">Family Library stories${familyLib ? html` <span class="faint">${stories.length}</span>` : ""}</p>
       ${familyLibFailed ? html`<p class="faint">The Family Library couldn't load. Check your connection and reopen this.</p>`
         : !familyLib ? html`<p class="faint">Loading stories…</p>`
-        : stories.length ? stories.map(storyOpt)
+        : stories.length ? html`${fit.map((s) => storyOpt(s))}
+          ${other.length ? html`<div class="sf-divider" role="separator">${icon("info")}<span><b>Not written for ${ageLabel.replace("Ages", "ages")}</b>, this class's age group. You can still use them; the lesson uses the closest age edition, so check it fits.</span></div>${other.map((s) => storyOpt(s, false))}` : ""}`
         : html`<p class="faint">No stories match “${q}”. Try a person like Moses, a place like Jericho, or a passage like Luke 15.</p>`}` : ""}
     ${!blank && !layouts.length && !storiesOn ? html`<p class="faint">Nothing matches “${q}”.</p>` : ""}`;
 }
@@ -62,8 +67,15 @@ Actions["sf-pick"] = (el) => {
   form.querySelectorAll(".sf-opt").forEach((b) => b.setAttribute("aria-pressed", String(b === el)));
   // A story names the lesson and sets its passage unless the teacher already typed them.
   const s = el.dataset.value.startsWith("story:") && familyLib?.stories.find((x) => x.id === el.dataset.value.slice(6));
-  if (form.elements.title) form.elements.title.placeholder = s ? s.title : "";
+  if (form.elements.title) form.elements.title.placeholder = s ? s.title : form.classList.contains("new-lesson") ? "What's this lesson called?" : "";
   if (form.elements.passage) form.elements.passage.placeholder = s ? s.reference : "John 15:1-8";
+  // New lesson: a library story brings its own title, passage and every part; a blank lesson or layout asks for a title.
+  const note = form.querySelector(".sf-story-note"), details = form.querySelector(".sf-details");
+  if (note && details) {
+    note.hidden = !s; details.hidden = Boolean(s);
+    if (s) note.querySelector("span").innerHTML = `<b>${esc(s.title)}</b> (${esc(s.reference)}) builds the whole lesson: the story, Scripture, video, questions, craft, coloring page, prayer and the family page. You can change any of it after.`;
+    else if (!form.elements.title.value) form.elements.title.focus({ preventScroll: true });
+  }
 };
 // Enter in the search picks the first match rather than creating the lesson.
 document.addEventListener("keydown", (e) => {

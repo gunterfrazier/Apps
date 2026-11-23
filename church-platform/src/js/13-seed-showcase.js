@@ -6,7 +6,7 @@
 // SEED_VERSION says which sample data a demo or training session was built from. When it goes up, sessions on the
 // older sample data start over on the new one (20-store.js), so everyone trying the app sees the latest features.
 // Raise it whenever new sample data is added here or in the other seed files.
-const SEED_VERSION = 22;
+const SEED_VERSION = 23;
 
 /** What's new, for the card on Home in the demo and training. Newest first. */
 const WHATS_NEW = [
@@ -67,6 +67,10 @@ function addShowcase(st) {
     st.docs.push({ id: "riverside-doc-zacchaeus", churchId: R, kind: "lesson", title: "Zacchaeus", passage: "Luke 19:1-10", topic: "", date: isoDay(after), time: "09:00",
       locationId: MAIN, gatheringId: elem.id, authorId: elem.leaders?.[0] || "u-linda", published: false, shareWithParents: true, resource: "", blocks: [], bgStory: "zacchaeus",
       storyId: "zacchaeus", storyPending: { id: "zacchaeus", age: "young", len: 45 }, updated: ago(1) });
+    // An unassigned draft (no class, date or time), as if a lesson had been replaced on the calendar.
+    st.docs.push({ id: "riverside-doc-draft", churchId: R, kind: "lesson", title: "The vine and the branches", passage: "John 15:1-8", topic: "", date: "", time: "",
+      locationId: MAIN, gatheringId: null, formerGatheringId: elem.id, authorId: elem.leaders?.[0] || "u-linda", published: false, shareWithParents: true, resource: "",
+      blocks: [{ id: "rdd-1", type: "scripture", ref: "John 15:1-8", translation: "BSB", text: "", show: true, notes: "" }, { id: "rdd-2", type: "point", text: "Stay connected to Jesus", show: true, notes: "" }], updated: ago(3) });
   }
 
   // ----- Setup guide: the first topics done, so the checklist shows progress -----
