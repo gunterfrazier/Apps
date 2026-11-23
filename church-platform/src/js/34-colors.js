@@ -74,7 +74,11 @@ Inputs["cp-hex"] = (el, e) => {
 
 // ----- Colors in a picture -----
 const imageColorCache = new Map();
-/** The main colors in an image, most important first: a handful of distinct, usable colors, not the white page. */
+/**
+ * The colors in an image that a church would use as brand colors, most important first. White, black and greys are
+ * left out (they're the page, the outline or anti-aliasing), unless the picture has no real colors at all. Small but
+ * strong accents count: a gold cross on a navy logo shows up even though it covers little of the picture.
+ */
 function imageColors(src, count = 6) {
   if (imageColorCache.has(src)) return imageColorCache.get(src);
   const p = new Promise((resolve) => {
@@ -82,31 +86,51 @@ function imageColors(src, count = 6) {
     if (/^https?:/.test(src)) img.crossOrigin = "anonymous";
     img.onload = () => {
       try {
-        const size = 96, scale = Math.min(1, size / Math.max(img.naturalWidth, img.naturalHeight));
+        const size = 160, scale = Math.min(1, size / Math.max(img.naturalWidth, img.naturalHeight));
         const w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
         const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
         const ctx = cv.getContext("2d", { willReadFrequently: true });
         ctx.drawImage(img, 0, 0, w, h);
         const data = ctx.getImageData(0, 0, w, h).data, bins = new Map();
+        let total = 0;
         for (let i = 0; i < data.length; i += 4) {
           if (data[i + 3] < 200) continue;
+          total++;
           const r = data[i], g = data[i + 1], b = data[i + 2];
           const key = (r >> 4) << 8 | (g >> 4) << 4 | (b >> 4);
           const bin = bins.get(key) || { n: 0, r: 0, g: 0, b: 0 };
           bin.n++; bin.r += r; bin.g += g; bin.b += b; bins.set(key, bin);
         }
-        const colors = [...bins.values()].map((x) => {
-          const r = x.r / x.n, g = x.g / x.n, b = x.b / x.n, max = Math.max(r, g, b), min = Math.min(r, g, b);
-          const sat = max ? (max - min) / max : 0, light = (max + min) / 510;
-          // Weight by how much of the picture it covers, favoring real colors over near-white and near-black.
-          const score = x.n * (0.35 + sat) * (light > 0.94 || light < 0.06 ? 0.25 : 1);
-          return { rgb: [r, g, b], score };
-        }).sort((a, b) => b.score - a.score);
-        const picked = [];
-        for (const c of colors) {
-          if (picked.every((p) => Math.hypot(p.rgb[0] - c.rgb[0], p.rgb[1] - c.rgb[1], p.rgb[2] - c.rgb[2]) > 52)) picked.push(c);
-          if (picked.length >= count) break;
-        }
+        const all = [...bins.values()].filter((x) => x.n >= Math.max(2, total * 0.002)).map((x) => {
+          const rgb = [x.r / x.n, x.g / x.n, x.b / x.n], [hue, sat, light] = rgbToHsl(rgb);
+          // A real color: enough saturation, not so light or dark that it reads as white or black.
+          const colorful = sat >= 0.22 && light > 0.1 && light < 0.85 && (Math.max(...rgb) - Math.min(...rgb)) > 28;
+          // Coverage counts, but with a square root, so a small strong accent isn't drowned by a big field.
+          return { rgb, hue, sat, light, n: x.n, colorful, score: Math.sqrt(x.n) * (0.4 + sat) };
+        });
+        const pick = (list) => {
+          const out = [];
+          for (const c of list.sort((a, b) => b.score - a.score)) {
+            // Distinct: a different hue, or the same hue clearly lighter or darker.
+            const near = out.some((o) => { const dh = Math.min(Math.abs(o.hue - c.hue), 360 - Math.abs(o.hue - c.hue)); return dh < 22 && Math.abs(o.light - c.light) < 0.18; });
+            if (!near) out.push(c);
+            if (out.length >= count) break;
+          }
+          return out;
+        };
+        // Edges between two colors (teal fading into white, say) aren't colors of their own: drop any color that sits
+        // on the line between two of the picture's main colors, white or black.
+        const big = [...all].sort((a, b) => b.n - a.n).slice(0, 24).concat([{ rgb: [255, 255, 255], n: Infinity }, { rgb: [0, 0, 0], n: Infinity }]);
+        const blend = (c) => big.some((p, i) => p !== c && p.n > c.n && big.slice(i + 1).some((q) => {
+          if (q === c || q.n <= c.n) return false;
+          const d = q.rgb.map((v, k) => v - p.rgb[k]), len = d.reduce((a, v) => a + v * v, 0); if (!len) return false;
+          const t = c.rgb.reduce((a, v, k) => a + (v - p.rgb[k]) * d[k], 0) / len;
+          if (t < 0.12 || t > 0.88) return false;
+          return Math.hypot(...c.rgb.map((v, k) => v - (p.rgb[k] + d[k] * t))) < 16;
+        }));
+        let picked = pick(all.filter((c) => c.colorful && !blend(c)));
+        // Nothing colorful (a black and white logo): offer its greys, still not pure white or black.
+        if (!picked.length) picked = pick(all.filter((c) => c.light > 0.06 && c.light < 0.94));
         resolve(picked.map((c) => "#" + c.rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")));
       } catch { resolve([]); } // A picture from another site that doesn't allow reading its pixels.
     };
@@ -116,6 +140,32 @@ function imageColors(src, count = 6) {
   imageColorCache.set(src, p);
   return p;
 }
+function rgbToHsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (!d) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, s, l];
+}
+
+// ----- Brand colors: the logo's colors, kept with the church for the banner and landing page -----
+const paletteKey = (src) => src ? `${src.length}:${src.slice(-40)}` : "";
+/** The church's brand colors from its logo (may be empty until worked out). */
+const brandPalette = (c = S.church()) => (c?.logo && c.paletteKey === paletteKey(c.logo) ? c.palette || [] : []);
+/** Works out the brand colors when the logo is new or changed, then redraws. Only managers save them. */
+function ensurePalette(c = S.church()) {
+  if (!c?.logo || c.paletteKey === paletteKey(c.logo) || ensurePalette.busy === c.logo) return;
+  if (!(S.can("manage.church") || S.can("manage.page"))) return;
+  ensurePalette.busy = c.logo;
+  imageColors(c.logo).then((colors) => {
+    ensurePalette.busy = "";
+    if (S.church()?.id !== c.id) return;
+    S.updateChurch({ palette: colors, paletteKey: paletteKey(c.logo) });
+    if (/^#admin-(banner|page|account)/.test(location.hash)) { keepDraftIfBanner(); const y = scrollY; render(); scrollTo(0, y); }
+  });
+}
+const keepDraftIfBanner = () => { if (typeof keepDraft === "function" && typeof bannerDraft !== "undefined" && bannerDraft) keepDraft(); };
 /** Fills in every "colors from" row on the page. Runs after each render. */
 function hydrateColorSuggestions(root = document) {
   $$("[data-suggest-src]:not([data-ready])", root).forEach(async (box) => {
@@ -126,7 +176,7 @@ function hydrateColorSuggestions(root = document) {
     if (!inPicker && !manager) { box.hidden = true; return; }
     box.innerHTML = flat(html`<span class="cp-suggest-k">${box.dataset.suggestLabel}</span><span class="cp-suggest-row">${colors.map((col) =>
       html`<button type="button" class="cp-swatch" style="background:${col}" data-act="${inPicker ? "cp-pick" : "use-church-color"}" data-color="${col}" aria-label="${inPicker ? col : `Use ${col} as the church color`}"></button>`)}</span>
-      ${inPicker ? "" : html`<small class="faint">Tap one to try it as your church color.</small>`}`);
+      ${inPicker ? "" : html`<small class="faint">Tap one to try it as your church color. ${box.dataset.suggestSrc === S.church()?.logo ? "They're also your brand colors: you can use them in the home banner and the landing page." : ""}</small>`}`);
   });
 }
 /** A color from a picture becomes the church color: in this form's picker if it has one, otherwise as a draft look. */
