@@ -2371,7 +2371,12 @@ await step("invite a friend by text or email", async () => {
   await page.click("[data-act=close-sheet]"); await sheetGone();
 });
 await step("lesson builder", async () => {
-  await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
+  // New lesson asks for the class, then a date on the class's calendar, then what to start from; a blank lesson needs a title.
+  await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.waitForSelector("#scrim .lcal-day");
+  const order = await page.evaluate(() => [...document.querySelectorAll("#scrim form > .field > span:first-child")].map((x) => x.textContent.trim().split(" ")[0]));
+  if (order.join(",").indexOf("Class,Date,Start") !== 0) throw new Error(`New lesson should ask class, date, then start from: ${order}`);
+  await sheetSubmit(); await page.waitForSelector("#scrim .err");
+  await page.fill("#scrim input[name=title]", "God made everything"); await page.fill("#scrim input[name=passage]", "Genesis 1:1-5");
   await sheetSubmit(); await page.waitForSelector("text=Blocks"); await page.waitForFunction(() => document.body.textContent.includes("In the beginning"));
   await page.click('[data-act=dblock-new][data-type="question"]'); await page.fill("#scrim textarea[name=text]", "What did God make first?"); await sheetSubmit(); await sheetGone();
   await page.click("[data-act=doc-publish]");
@@ -2389,12 +2394,19 @@ await step("lesson from a Bible story", async () => {
   await page.fill("#scrim input[name=sfq]", "Goliath"); await page.waitForSelector('#scrim .sf-opt[data-value="story:david"]'); await shot("23-story-search");
   const badges = await page.textContent('#scrim .sf-opt[data-value="story:david"] .sf-badges');
   if (!/Full lesson/.test(badges) || !/Ages 9–12/.test(badges) || !/Video/.test(badges)) throw new Error(`the story should show what it comes with: ${badges}`);
-  await page.click('#scrim .sf-opt[data-value="story:david"]'); await sheetSubmit(); await page.waitForSelector(".plan-list");
+  // Picking a story builds the whole lesson with the story's title, straight into the editor.
+  await page.click('#scrim .sf-opt[data-value="story:david"]');
+  if (await page.isVisible("#scrim input[name=title]")) throw new Error("a library story brings its own title");
+  await sheetSubmit(); await page.waitForFunction(() => location.hash.startsWith("#build-"));
+  const built = await page.evaluate(() => { const d = __app.S.state.docs.find((x) => x.storyId === "david"); return d && { id: d.id, title: d.title, video: d.blocks.some((b) => b.type === "media" && b.url), craft: d.blocks.some((b) => b.label === "Craft"), coloring: d.blocks.some((b) => b.print) }; });
+  if (built?.title !== "David and Goliath" || !built.video || !built.craft || !built.coloring) throw new Error(`the story should build the whole lesson: ${JSON.stringify(built)}`);
+  // The plan screen can still rework it.
+  await goTo(`storyplan-${built.id}~david`); await page.waitForSelector(".plan-list");
   if (!(await page.textContent('[data-act=story-len][aria-pressed="true"]')).includes("45")) throw new Error("lessons should default to 45 minutes");
   if (!(await page.textContent(".plan-list")).includes("12 min")) throw new Error("the 45-minute plan should give the craft 12 minutes");
   await page.click('[data-act=story-len][data-len="60"]'); await page.waitForFunction(() => document.querySelector(".plan-list").textContent.includes("15 min"));
   await page.click('[data-act=story-age][data-age="middle"]'); await page.waitForSelector('[data-act=story-age][data-age="middle"][aria-pressed="true"]'); await shot("24-story-plan");
-  await page.uncheck('form[data-form=story-use] input[value="video"]');
+  await page.uncheck('form[data-form=story-use] input[value="video"]'); await page.check('form[data-form=story-use] input[name=mode][value="replace"]');
   await page.click("form[data-form=story-use] button.btn"); await page.waitForFunction(() => location.hash.startsWith("#build-"));
   const doc = await page.evaluate(() => { const d = __app.S.state.docs.find((x) => x.storyId === "david"); return d && { title: d.title, passage: d.passage, types: d.blocks.map((b) => b.type), videos: d.blocks.filter((b) => b.type === "media" && b.url).length, text: JSON.stringify(d.blocks) }; });
   if (doc?.title !== "David and Goliath") throw new Error(`the story should name the lesson: ${doc?.title}`);
@@ -2529,6 +2541,32 @@ await step("nothing runs off the side on a phone", async () => {
     await goTo("teams");
     if (await page.evaluate(() => { const t = document.querySelector('.seg [aria-current="page"]'), bar = t?.closest(".seg"); if (!t) return false; const a = t.getBoundingClientRect(), b = bar.getBoundingClientRect(); return a.left < b.left - 1 || a.right > b.right + 1; })) throw new Error("the current tab should be in view");
   } finally { await page.setViewportSize(was); }
+});
+await step("lesson calendar: replace a lesson, unassigned drafts, library-only kids intro", async () => {
+  // The calendar shows the picture of a lesson already planned; picking its day offers to replace it or pick again.
+  const z = await page.evaluate(() => { const d = __app.S.get("docs", "riverside-doc-zacchaeus"); return { date: d.date, gid: d.gatheringId }; });
+  await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.waitForSelector("#scrim .lcal-day");
+  await page.selectOption("#scrim select[name=gatheringId]", z.gid);
+  for (let i = 0; i < 4 && !(await page.locator(`#scrim .lcal-day[data-date="${z.date}"]`).count()); i++) await page.click('#scrim [data-act=lw-month][data-step="1"]');
+  if (!(await page.locator(`#scrim .lcal-day.has[data-date="${z.date}"] img`).count())) throw new Error("a day with a lesson should show its picture");
+  await page.click(`#scrim .lcal-day[data-date="${z.date}"]`); await page.waitForSelector("#scrim [data-act=lw-replace]");
+  // Not choosing stops the save; Keep it clears the date.
+  await page.fill("#scrim input[name=title]", "Jesus and Zacchaeus, take two"); await sheetSubmit(); await page.waitForSelector("#scrim .err");
+  await page.click("#scrim [data-act=lw-replace]");
+  if (!/saved as a draft with no date or time/.test(await page.textContent("#scrim .lw-clash"))) throw new Error("replacing should say the old lesson becomes an unassigned draft");
+  await sheetSubmit(); await page.waitForFunction(() => location.hash.startsWith("#build-"));
+  const after = await page.evaluate(() => { const d = __app.S.get("docs", "riverside-doc-zacchaeus"); return { date: d.date, time: d.time, g: d.gatheringId }; });
+  if (after.date || after.time || after.g) throw new Error(`the replaced lesson should have no class, date or time: ${JSON.stringify(after)}`);
+  // A blank lesson doesn't get the kids intro; a library one does.
+  if (await page.locator(".kids-ends").count()) throw new Error("only Family Library lessons get the kids intro");
+  // Opening the unassigned draft asks to assign it; assigning puts it back on a calendar.
+  await goTo("docs-lesson"); await page.waitForSelector("text=Unassigned drafts");
+  await goTo("build-riverside-doc-zacchaeus"); await page.waitForSelector("#scrim [data-act=doc-assign]");
+  await page.click("#scrim [data-act=doc-assign]"); await page.waitForSelector("#scrim form[data-form=doc-assign] .lcal-day");
+  await sheetSubmit(); await sheetGone();
+  const back = await page.evaluate(() => { const d = __app.S.get("docs", "riverside-doc-zacchaeus"); return { date: d.date, g: d.gatheringId }; });
+  if (!back.date || !back.g) throw new Error("assigning should give the lesson a class and date");
+  if (!(await page.locator(".kids-ends").count())) throw new Error("the Family Library lesson keeps its kids intro");
 });
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");
