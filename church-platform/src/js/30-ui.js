@@ -459,3 +459,12 @@ function imageField(name, label, value, hint, max) {
     <button type="button" class="btn ghost sm" data-act="clear-image" data-field="${name}">Remove</button></div>${hint ? html`<small>${hint}</small>` : ""}
     <div class="img-colors" data-colors-for="${name}">${value ? html`<div class="cp-suggest" data-suggest-src="${value}" data-suggest-label="Colors in this picture"></div>` : ""}</div></div>`;
 }
+// A tab bar that scrolls sideways on a phone keeps the current tab in view.
+new MutationObserver(() => {
+  document.querySelectorAll('.seg [aria-current="page"], .seg [aria-pressed="true"]').forEach((t) => {
+    const bar = t.closest(".seg"); if (!bar || bar.scrollWidth <= bar.clientWidth || bar.dataset.centered === t.textContent) return;
+    bar.dataset.centered = t.textContent;
+    const at = t.getBoundingClientRect().left - bar.getBoundingClientRect().left + bar.scrollLeft;
+    bar.scrollLeft = Math.max(0, at - (bar.clientWidth - t.offsetWidth) / 2);
+  });
+}).observe(document.documentElement, { childList: true, subtree: true });

@@ -2517,6 +2517,19 @@ await step("story backgrounds match the story on every slide", async () => {
   if (!/Story pictures/.test(await page.textContent('#scrim .sf-opt[data-value="story:zacchaeus"]'))) throw new Error("Zacchaeus should show that it has story pictures");
   await page.keyboard.press("Escape");
 });
+await step("nothing runs off the side on a phone", async () => {
+  // Screens that used to push the page sideways at phone width: lesson blocks, tab bars, long selects, the scheduler.
+  const was = page.viewportSize(); await page.setViewportSize({ width: 375, height: 812 });
+  try {
+    for (const r of ["build-riverside-doc-zacchaeus", "build-riverside-doc-story", "teams", "schedule-matrix", "schedule-calendar", "rollcall", "admin-texting", "familypage-riverside-doc-story", "docs-lesson", "home", "admin"]) {
+      await goTo(r); await page.waitForTimeout(150);
+      const extra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      if (extra > 0) throw new Error(`#${r} is ${extra}px wider than a phone screen`);
+    }
+    await goTo("teams");
+    if (await page.evaluate(() => { const t = document.querySelector('.seg [aria-current="page"]'), bar = t?.closest(".seg"); if (!t) return false; const a = t.getBoundingClientRect(), b = bar.getBoundingClientRect(); return a.left < b.left - 1 || a.right > b.right + 1; })) throw new Error("the current tab should be in view");
+  } finally { await page.setViewportSize(was); }
+});
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");
   await page.fill("#scrim input[name=name]", "Kindergarten, 11:00"); await page.check('#scrim input[name=days][value="0"]'); await page.fill("#scrim input[name=time]", "11:00");
