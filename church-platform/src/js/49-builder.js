@@ -122,6 +122,7 @@ Screens.build = (id) => {
           <a class="btn ghost sm" href="#lessonschurch-${d.id}">${icon("book")}Start from Lessons.church</a>` : ""}
         ${canAI() ? html`<button class="btn ghost sm" data-act="ai-build" data-id="${d.id}">${icon("bolt")}${d.kind === "lesson" && !d.blocks.some((b) => b.type !== "scripture") ? "Draft this lesson" : "Draft questions"}</button>` : ""}
       </div>
+      ${d.kind === "lesson" && S.on("kidsintro") ? kidsBookendsPanel(d) : ""}
       ${d.passage ? pastPanel(d.passage, { doc: d.id, label: "You've preached or taught on this before", max: 3 }) : ""}
       <p class="faint">${d.kind === "sermon" ? "Published sermons can be followed by members during the service." : d.kind === "lesson" ? `Published lessons show to the class${d.shareWithParents ? " and in parents' portal" : ""}.` : "Published guides show on the group's page."} Items marked private never appear on screen or to members.</p>
 
@@ -200,6 +201,7 @@ Forms["dblock-save"] = (d, f) => {
   const i = +d._i;
   if (i >= 0) doc.blocks[i] = { ...doc.blocks[i], ...b }; else doc.blocks.push({ id: uid(), ...b });
   if (d._pos !== undefined && d._pos !== "") moveItem(doc.blocks, i >= 0 ? i : doc.blocks.length - 1, +d._pos);
+  if (doc.kind === "lesson" && S.on("kidsintro")) doc.kidsBookends = Boolean(d.kidsBookends);
   touch(doc); closeSheet(); render();
 };
 Actions["dblock-delete"] = (el) => { const d = S.get("docs", el.dataset.doc); d.blocks.splice(+el.dataset.i, 1); touch(d); closeSheet(); render(); };
@@ -214,6 +216,7 @@ Actions["doc-details"] = (el) => {
     ${d.kind === "sermon" ? html`<label class="field"><span>Location</span><select name="locationId">${locationOptions(d.locationId)}</select></label>` : ""}
     ${bgField(d, "Background behind the slides (optional)", "A photo or a motion background that loops silently behind points, Scripture and text.")}
     ${d.kind === "lesson" ? html`<label class="check"><input type="checkbox" name="shareWithParents" ${attr(d.shareWithParents, "checked")}><span>Share the on-screen parts with parents</span></label>` : ""}
+    ${d.kind === "lesson" && S.on("kidsintro") ? html`<label class="check"><input type="checkbox" name="kidsBookends" ${attr(kidsBookendsOn(d), "checked")}><span>Open with the Veritas Logos Kids intro and close with the credits<small class="faint" style="display:block">The intro shows this lesson's title and passage; the credits name the lesson, teacher, class and church.</small></span></label>` : ""}
     <div class="btns"><button class="btn">Save</button><button type="button" class="btn danger" data-act="doc-delete-ask" data-id="${d.id}">Delete</button></div></form>`);
 };
 Forms["doc-details"] = (d, f) => {

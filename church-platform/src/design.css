@@ -451,3 +451,21 @@ html[data-theme="sepia"] { --logo-text: #6d5844; }
 .doc-row .icon-btn { margin-right: 8px; color: var(--ink-3); }
 .doc-row .icon-btn:hover { color: var(--warn); }
 .doc-row .doc-link:hover { background: color-mix(in srgb, var(--brand) 4%, var(--surface)); }
+
+/* ---------- Veritas Logos Kids intro and credits slides ---------- */
+.slide.k-kids { padding: 0; background: #070a14; }
+.kids-bookend img { object-fit: cover; }
+.kids-card { position: absolute; inset: 0 26% 4%; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #2b1a36; }
+.kids-card small { font: 700 1.25cqw/1.2 var(--sans); letter-spacing: .22em; text-transform: uppercase; color: #a5560c; margin-bottom: .8cqw; }
+.kids-card b { font: 700 3.9cqw/1.12 "Fredoka", var(--display); }
+.kids-card span { margin-top: 1.4cqw; padding: .4cqw 1.4cqw; border-radius: 99px; background: #fbbf24; font: 700 1.5cqw/1.3 var(--sans); }
+.kids-bookend .slide-video-play { position: absolute; right: 3cqw; bottom: 3cqw; width: 7cqw; height: 7cqw; }
+.kids-bookend[data-live] .kids-card { display: none; }
+
+/* In the lesson builder */
+.kids-ends { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 14px 0 4px; padding: 12px; border-radius: var(--r-m); background: var(--surface); border: 1.5px solid var(--line); }
+.kids-ends.off { background: var(--sunken); }
+.kids-ends-pics { display: flex; gap: 8px; }
+.kids-ends-pics .stage { width: 132px; margin: 0; border-radius: 8px; }
+.kids-ends-text { flex: 1; min-width: 200px; display: grid; gap: 2px; }
+.kids-ends-text .faint { font-size: .9rem; }
