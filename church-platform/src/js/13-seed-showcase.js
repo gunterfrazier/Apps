@@ -8,15 +8,20 @@
 // Raise it whenever new sample data is added here or in the other seed files.
 const SEED_VERSION = 23;
 
-/** What's new, for the card on Home in the demo and training. Newest first. */
+/**
+ * What's new, for the card on Home in the demo and training. Newest first. Each row says who may open it (the same
+ * check its screen makes), so people only see what their role and privileges let them use.
+ */
 const WHATS_NEW = [
-  ["storylesson", "book", "Lessons from Bible stories", "Plan a kids lesson from the Family Library in a few taps", "docs-lesson"],
-  ["appearance", "image", "Your app, your look", "Colors, fonts, Home sections and tabs", "admin-appearance"],
-  ["medialib", "layers", "Media library", "Free photos, videos and motion backgrounds for slides and screens", "medialib"],
-  ["watch", "play", "Watch and listen", "Past services and your own audio playlist", "live"],
-  ["setup", "list", "Setup guide", "A checklist for getting your church ready", "admin-setupguide"],
-  ["radio", "shield", "Security radio", "Push-to-talk and private messages for the safety team", "security"],
+  ["storylesson", "book", "Lessons from Bible stories", "Plan a kids lesson from the Family Library in a few taps", "docs-lesson", () => S.on("storylessons") && S.can("build.lessons")],
+  ["appearance", "image", "Your app, your look", "Colors, fonts, Home sections and tabs", "admin-appearance", () => S.can("manage.church")],
+  ["medialib", "layers", "Media library", "Free photos, videos and motion backgrounds for slides and screens", "medialib", () => canBuild()],
+  ["watch", "play", "Watch and listen", "Past services and your own audio playlist", "live", () => true],
+  ["setup", "list", "Setup guide", "A checklist for getting your church ready", "admin-setupguide", () => S.can("manage.church")],
+  ["radio", "shield", "Security radio", "Push-to-talk and private messages for the safety team", "security", () => isSecurityMember()],
 ];
+/** The What's new rows this person can open: allowed by their role, and the feature is on for this church. */
+const whatsNewFor = () => WHATS_NEW.filter(([, , , , route, can]) => !featureOffFor(route) && can());
 
 {
   const featureSeed = buildSeed;

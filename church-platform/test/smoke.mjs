@@ -2658,6 +2658,26 @@ await step("arrange a slide by hand, and put the footer in its own spot", async 
   if (f.position !== "custom" || !(f.textZoom > 1) || Math.abs(f.textAt.x - 50) > 6 || Math.abs(f.textAt.y - 50) > 6) throw new Error(`the footer should keep its own spot: ${JSON.stringify(f)}`);
   await page.evaluate(() => { const f = __app.S.church().screenFooter; __app.S.updateChurch({ screenFooter: { ...f, slides: false, position: "bottom-right" } }); });
 });
+await step("What's new only lists what this person can open", async () => {
+  const asRole = (r) => page.evaluate((r) => { const S = __app.S, c = S.church(); if (r === "primary") c.ownerId = S.me().id; else { if (c.ownerId === S.me().id) c.ownerId = "u-dana"; S.membership(c.id).roleId = r; } delete S.state.whatsNewClosed; S.save(); __app.render(); }, r);
+  // The card shows in the demo and training; here we check the rows it would list.
+  const rows = () => page.evaluate(() => __app.whatsNewFor().map((x) => "#" + x[4]));
+  try {
+    await asRole("primary"); await goTo("home");
+    const all = await rows();
+    if (!all.includes("#admin-appearance") || !all.includes("#docs-lesson")) throw new Error(`the owner should see every update: ${all}`);
+    // A member sees none of the leaders' tools.
+    await asRole("member"); await goTo("home");
+    const member = await rows();
+    if (member.some((r) => /admin-|docs-|medialib/.test(r))) throw new Error(`a member shouldn't see tools they can't open: ${member}`);
+    // Every row a member does see opens for them (no redirect).
+    for (const r of member) { await goTo(r.slice(1)); if (await page.evaluate(() => location.hash) !== r) throw new Error(`${r} didn't open for a member`); }
+    // A teacher sees lessons but not the church's appearance.
+    await asRole("teacher"); await goTo("home");
+    const teacher = await rows();
+    if (!teacher.includes("#docs-lesson") || teacher.includes("#admin-appearance")) throw new Error(`a teacher should see lessons but not appearance: ${teacher}`);
+  } finally { await asRole("primary"); }
+});
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");
   await page.fill("#scrim input[name=name]", "Kindergarten, 11:00"); await page.check('#scrim input[name=days][value="0"]'); await page.fill("#scrim input[name=time]", "11:00");
