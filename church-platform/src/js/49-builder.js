@@ -29,7 +29,10 @@ function canEditDoc(d) {
 }
 function docRow(d) {
   const g = d.gatheringId && S.get("gatherings", d.gatheringId);
-  return html`<a class="row" href="#build-${d.id}"><span class="lead-ic">${icon(DOC_KINDS[d.kind].icon)}</span><span class="body"><span class="t">${d.title}</span><span class="s">${DOC_KINDS[d.kind].label}${d.passage ? `, ${d.passage}` : ""}${g ? `, ${g.name}` : ""}, ${fmtShort(fromIsoDay(d.date))}${d.published ? "" : ", draft"}</span></span>${icon("chev")}</a>`;
+  // The list row is the lesson's link plus its own Delete button, so a lesson can go without opening it first.
+  if (!canEditDoc(d)) return html`<a class="row" href="#build-${d.id}"><span class="lead-ic">${icon(DOC_KINDS[d.kind].icon)}</span><span class="body"><span class="t">${d.title}</span><span class="s">${DOC_KINDS[d.kind].label}${d.passage ? `, ${d.passage}` : ""}${g ? `, ${g.name}` : ""}, ${fmtShort(fromIsoDay(d.date))}${d.published ? "" : ", draft"}</span></span>${icon("chev")}</a>`;
+  return html`<div class="row doc-row"><a class="doc-link" href="#build-${d.id}"><span class="lead-ic">${icon(DOC_KINDS[d.kind].icon)}</span><span class="body"><span class="t">${d.title}</span><span class="s">${DOC_KINDS[d.kind].label}${d.passage ? `, ${d.passage}` : ""}${g ? `, ${g.name}` : ""}, ${fmtShort(fromIsoDay(d.date))}${d.published ? "" : ", draft"}</span></span></a>
+    <button type="button" class="icon-btn" data-act="doc-delete-ask" data-id="${d.id}" aria-label="Delete ${d.title}">${icon("trash")}</button></div>`;
 }
 
 Screens.docs = (kind) => {
@@ -54,15 +57,18 @@ Actions["new-doc"] = (el) => {
   openSheet(`New ${k.label.toLowerCase()}`, html`<form data-form="new-doc" novalidate><input type="hidden" name="kind" value="${kind}">
     <label class="field"><span>Title</span><input type="text" name="title" required maxlength="90"></label>
     <label class="field"><span>Main passage</span><input type="text" name="passage" maxlength="40" placeholder="John 15:1-8"><small>Fills the layout's first empty Scripture slot, or becomes the first item.</small></label>
-    <label class="field"><span>Start from</span><select name="from"><option value="">A blank ${k.label.toLowerCase()}</option>${kind === "lesson" && S.on("storylessons") ? html`<option value="story">A Bible story from the Family Library</option>` : ""}${layoutOptions(kind, el.dataset.layout)}</select></label>
-    ${kind !== "sermon" ? html`<label class="field"><span>${kind === "lesson" ? "Class" : "Group (optional)"}</span><select name="gatheringId">${kind === "study" ? html`<option value="">No group</option>` : ""}${classes.map((g) => html`<option value="${g.id}" ${attr(g.id === preset, "selected")}>${g.name}</option>`)}</select></label>` : ""}
+    ${startFromField(kind, el.dataset.layout)}
+    ${kind !== "sermon" ? html`<label class="field"><span>${kind === "lesson" ? "Class" : "Group (optional)"}</span><select name="gatheringId" data-input="sf-search">${kind === "study" ? html`<option value="">No group</option>` : ""}${classes.map((g) => html`<option value="${g.id}" ${attr(g.id === preset, "selected")}>${g.name}</option>`)}</select></label>` : ""}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <label class="field"><span>Date</span><input type="date" name="date" value="${isoDay(next?.start || nextWeekday(0, "23:59"))}"></label>
       <label class="field"><span>Time</span><input type="time" name="time" value="${next?.time || "09:00"}"></label></div>
     ${kind === "sermon" ? html`<label class="field"><span>Location</span><select name="locationId">${locationOptions(next?.location?.id)}</select></label>` : ""}
     <button class="btn block">Create</button></form>`);
+  startFromRefresh($(".sf-list")?.closest("form"));
 };
 Forms["new-doc"] = (d, f) => {
+  const storyId = d.from?.startsWith("story:") ? d.from.slice(6) : "";
+  if (storyId) d.from = "story";
   if (!d.title && d.from !== "story") return formError(f, "Give it a title.");
   if (d.passage && !parseRef(d.passage)) return formError(f, "That passage doesn't look like a Bible reference.");
   if (d.kind === "lesson" && !d.gatheringId) return formError(f, "Choose the class this lesson is for.");
@@ -77,6 +83,7 @@ Forms["new-doc"] = (d, f) => {
   closeSheet(true);
   const toFill = blocks.filter((b) => b.type === "scripture" && b.ref && !b.text);
   if (toFill.length) Promise.all(toFill.map(fillScripture)).then(() => { S.save(); if (location.hash === `#build-${doc.id}`) render(); });
+  if (storyId) { go(`storyplan-${doc.id}~${storyId}`); return; }
   if (d.from === "story") { storyQuery = ""; go(`storylesson-${doc.id}`); return; }
   go(`build-${doc.id}`);
 };
@@ -207,7 +214,7 @@ Actions["doc-details"] = (el) => {
     ${d.kind === "sermon" ? html`<label class="field"><span>Location</span><select name="locationId">${locationOptions(d.locationId)}</select></label>` : ""}
     ${bgField(d, "Background behind the slides (optional)", "A photo or a motion background that loops silently behind points, Scripture and text.")}
     ${d.kind === "lesson" ? html`<label class="check"><input type="checkbox" name="shareWithParents" ${attr(d.shareWithParents, "checked")}><span>Share the on-screen parts with parents</span></label>` : ""}
-    <div class="btns"><button class="btn">Save</button><button type="button" class="btn danger" data-act="doc-delete" data-id="${d.id}">Delete</button></div></form>`);
+    <div class="btns"><button class="btn">Save</button><button type="button" class="btn danger" data-act="doc-delete-ask" data-id="${d.id}">Delete</button></div></form>`);
 };
 Forms["doc-details"] = (d, f) => {
   if (!d.title && d.from !== "story") return formError(f, "Give it a title.");
@@ -216,7 +223,18 @@ Forms["doc-details"] = (d, f) => {
   Object.assign(doc, { bg: d.bg || "", title: d.title, passage: d.passage ? refLabel(parseRef(d.passage)) : "", topic: d.topic, date: d.date || doc.date, time: d.time, ...(doc.kind === "sermon" ? { locationId: d.locationId || null } : {}), ...(doc.kind === "lesson" ? { shareWithParents: !!d.shareWithParents } : {}) });
   touch(doc); closeSheet(); render();
 };
-Actions["doc-delete"] = (el) => { const d = S.get("docs", el.dataset.id); S.remove("docs", d.id); closeSheet(true); toast("Deleted"); go(`docs-${d.kind}`); };
+Actions["doc-delete-ask"] = (el) => {
+  const d = S.get("docs", el.dataset.id); if (!d) return;
+  const word = DOC_KINDS[d.kind].label.toLowerCase(), g = d.gatheringId && S.get("gatherings", d.gatheringId);
+  openSheet(`Delete this ${word}?`, html`<p><b>${d.title}</b>${g ? html` for ${g.name}` : ""}, ${fmtShort(fromIsoDay(d.date))}, with its ${plural(d.blocks.length, "block")}, notes and slides.${d.published ? " It's published, so people who can see it now won't anymore." : ""} This can't be undone.</p>
+    <div class="btns"><button class="btn danger" data-act="doc-delete" data-id="${d.id}">${icon("trash")}Delete ${word}</button><button class="btn ghost" data-act="close-sheet">Keep it</button></div>`);
+};
+Actions["doc-delete"] = (el) => {
+  const d = S.get("docs", el.dataset.id); if (!d) return;
+  const onIt = new RegExp(`^#(build|resource|storylesson|storyplan|present-\\w+)-${d.id}`).test(location.hash);
+  S.remove("docs", d.id); closeSheet(true); toast(`Deleted “${d.title}”`);
+  if (onIt) go(`docs-${d.kind}`); else render();
+};
 
 // ---------- Presenter page: every block in order, with slide numbers and private notes ----------
 Screens.resource = (id) => {

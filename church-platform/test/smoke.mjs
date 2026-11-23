@@ -1420,7 +1420,7 @@ await step("reorder and layouts in the sermon builder", async () => {
   await page.check('#scrim input[name=i0_mode][value=empty]', { force: true }); await sheetSubmit(); await sheetGone();
   await goTo("docs-sermon"); await page.click("[data-act=new-doc]");
   await page.fill("#scrim input[name=title]", "From a layout"); await page.fill("#scrim input[name=passage]", "Romans 12:1-2");
-  await page.selectOption("#scrim select[name=from]", { label: "Three-point sermon" }); await sheetSubmit();
+  await page.fill("#scrim input[name=sfq]", "three-point"); await page.click('#scrim .sf-opt[data-title="Three-point sermon"]'); await sheetSubmit();
   await page.waitForFunction(() => document.body.textContent.includes("living sacrifice"));
   const n = (await titles()).length; if (n !== 7) throw new Error(`doc from layout has ${n} items, expected 7`);
   await page.click("[data-act=saved-blocks]"); await page.click("#scrim [data-act=saved-block-add] >> text=Opening keynote"); await sheetGone();
@@ -2384,11 +2384,12 @@ await step("sample church shows the newest features", async () => {
 });
 await step("lesson from a Bible story", async () => {
   // A new lesson that starts from the Family Library takes the story's title.
-  await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.selectOption("#scrim select[name=from]", "story"); await sheetSubmit();
-  await page.waitForSelector(".story-card"); await shot("23-story-search");
-  // Searching a person finds their stories; the class's ages pick the edition.
-  await page.fill("#story-q", "Goliath"); await page.waitForSelector('#story-results .story-card[href*="~david"]');
-  await page.click('#story-results .story-card[href*="~david"]'); await page.waitForSelector(".plan-list");
+  // "Start from" is a search: each story shows its age editions and what it comes with before it's chosen.
+  await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.waitForSelector('#scrim .sf-opt[data-value^="story:"]');
+  await page.fill("#scrim input[name=sfq]", "Goliath"); await page.waitForSelector('#scrim .sf-opt[data-value="story:david"]'); await shot("23-story-search");
+  const badges = await page.textContent('#scrim .sf-opt[data-value="story:david"] .sf-badges');
+  if (!/Full lesson/.test(badges) || !/Ages 9–12/.test(badges) || !/Video/.test(badges)) throw new Error(`the story should show what it comes with: ${badges}`);
+  await page.click('#scrim .sf-opt[data-value="story:david"]'); await sheetSubmit(); await page.waitForSelector(".plan-list");
   if (!(await page.textContent('[data-act=story-len][aria-pressed="true"]')).includes("45")) throw new Error("lessons should default to 45 minutes");
   if (!(await page.textContent(".plan-list")).includes("12 min")) throw new Error("the 45-minute plan should give the craft 12 minutes");
   await page.click('[data-act=story-len][data-len="60"]'); await page.waitForFunction(() => document.querySelector(".plan-list").textContent.includes("15 min"));
@@ -2415,6 +2416,21 @@ await step("lesson from a Bible story", async () => {
   await page.click("form[data-form=lc-use] button.btn"); await page.waitForFunction(() => location.hash.startsWith("#build-"));
   const lcDoc = await page.evaluate(() => { const d = __app.S.state.docs.find((x) => x.lessonsChurch?.lessonId === "l1"); return d && d.blocks.map((b) => [b.type, b.label || b.title || "", b.text || b.ref || ""].join("|")); });
   if (!lcDoc || !lcDoc.some((b) => b.includes("lessons.church/kids/heroes/esther/")) || !lcDoc.some((b) => b.startsWith("keynote|") && b.includes("God puts us")) || lcDoc.findIndex((b) => b.includes("Welcome game")) > lcDoc.findIndex((b) => b.includes("Large group")) || !lcDoc.some((b) => b.includes("Balloons"))) throw new Error("Lessons.church outline: " + JSON.stringify(lcDoc));
+});
+await step("story video plays on the slide, and lessons delete", async () => {
+  // The story's video is on the lesson's media block, and it plays on the presenter's main slide (muted there).
+  const id = await page.evaluate(() => { const S = __app.S, { id: _, ...rest } = S.get("docs", "riverside-doc-story"); return S.add("docs", { ...structuredClone(rest), title: "Video check" }).id; });
+  const url = await page.evaluate((id) => __app.S.get("docs", id).blocks.find((b) => b.type === "media" && b.url)?.url, id);
+  if (!/youtube|vimeo/.test(url || "")) throw new Error(`the story lesson should carry a playable video link: ${url}`);
+  await goTo(`present-doc-${id}`);
+  for (let i = 0; i < 80 && !(await page.locator("#stage .slide-video iframe").count()); i++) { await page.keyboard.press("ArrowRight"); await page.waitForTimeout(40); }
+  const src = await page.getAttribute("#stage .slide-video iframe", "src");
+  if (!/autoplay=1/.test(src) || !/mute=1/.test(src)) throw new Error(`the video should autoplay, muted on the presenter's screen: ${src}`);
+  // Delete from the list, after a confirmation.
+  await goTo("docs-lesson");
+  await page.click(`.doc-row [data-act=doc-delete-ask][aria-label="Delete Video check"]`); await page.waitForSelector("#scrim [data-act=doc-delete]");
+  await page.click("#scrim [data-act=doc-delete]"); await page.waitForFunction((id) => !__app.S.get("docs", id), id);
+  if (await page.locator('.doc-row [aria-label="Delete Video check"]').count()) throw new Error("the deleted lesson should leave the list");
 });
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");

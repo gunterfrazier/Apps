@@ -418,3 +418,36 @@ html[data-theme="sepia"] { --logo-text: #6d5844; }
 .lp-img { width: 72px; height: 48px; display: grid; place-items: center; border-radius: 8px; background: repeating-conic-gradient(#d9dce3 0 25%, #f4f5f8 0 50%) 0 0 / 10px 10px; }
 .lp-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .logo-pick small { font-size: .74rem; color: var(--ink-2); overflow-wrap: anywhere; }
+
+/* ---------- Video slides: the player fills the slide ---------- */
+.slide-video { position: absolute; inset: 0; display: grid; place-items: center; background: #000; }
+.slide-video img, .slide-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
+.slide-video-play { position: relative; z-index: 1; display: grid; place-items: center; width: 12cqw; height: 12cqw; border-radius: 50%; background: rgba(0, 0, 0, .55); color: #fff; }
+.slide-video-play .i { width: 45%; height: 45%; }
+.slide-video[data-live] + .slide-caption { display: none; }
+
+/* ---------- New lesson: searchable "Start from" ---------- */
+.sf > span:first-child { display: block; }
+.sf-chosen { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; font-weight: 600; color: var(--brand-ink); }
+.sf-chosen .i { width: 18px; height: 18px; flex: none; }
+.sf-list { max-height: 340px; overflow: auto; margin-top: 8px; border: 1.5px solid var(--line); border-radius: 14px; padding: 6px; display: grid; gap: 4px; }
+.sf-head { margin: 10px 8px 2px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+.sf-list > .faint { margin: 4px 8px 8px; }
+.sf-opt { display: flex; gap: 12px; align-items: flex-start; width: 100%; text-align: left; padding: 10px; border: 1.5px solid transparent; border-radius: 12px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.sf-opt:hover { background: var(--brand-soft); }
+.sf-opt[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); }
+.sf-opt img, .sf-ic { flex: none; width: 56px; height: 56px; border-radius: 10px; object-fit: cover; display: grid; place-items: center; background: var(--sunken); color: var(--ink-3); }
+.sf-body { display: grid; gap: 2px; min-width: 0; }
+.sf-body .faint { font-size: 13px; }
+.sf-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.sf-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 99px; font-size: 11.5px; font-weight: 600; background: var(--sunken); color: var(--ink-2); }
+.sf-badge .i { width: 12px; height: 12px; }
+.sf-badge.off { opacity: .6; }
+.sf-badge.mine { background: var(--brand-soft); color: var(--brand-ink); box-shadow: inset 0 0 0 1px var(--brand-line); }
+
+/* Lesson list rows: the link fills the row and Delete sits at the end. */
+.row.doc-row { padding: 0; gap: 0; cursor: default; }
+.doc-row .doc-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 14px 6px 14px 16px; color: inherit; text-decoration: none; border-radius: inherit; }
+.doc-row .icon-btn { margin-right: 8px; color: var(--ink-3); }
+.doc-row .icon-btn:hover { color: var(--warn); }
+.doc-row .doc-link:hover { background: color-mix(in srgb, var(--brand) 4%, var(--surface)); }
