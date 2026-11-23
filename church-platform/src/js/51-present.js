@@ -87,6 +87,27 @@ function slidesFor(kind, id) {
   const p = S.get("services", id); return p ? { title: p.title, slides: serviceSlides(p), back: `service-${p.id}` } : null;
 }
 
+/**
+ * Puts a player in each video slide that's showing for real: on a display, or the presenter's main slide. Small
+ * previews (Next, the slide list) keep the picture, so nothing plays twice. The presenter's copy starts muted, so the
+ * sound comes from the screen the room hears.
+ */
+function startSlideVideos(root = document) {
+  $$(".slide-video[data-embed]:not([data-live])", root).forEach((box) => {
+    const stage = box.closest(".stage");
+    // Only the presenter's main slide (#stage) and the screens themselves; every other slide picture stays a picture.
+    if (!stage || !(stage.id === "stage" || box.closest(".display"))) return;
+    const onDisplay = Boolean(box.closest(".display")), url = new URL(box.dataset.embed);
+    url.searchParams.set("autoplay", "1"); url.searchParams.set("playsinline", "1");
+    if (url.hostname.includes("youtube")) { url.searchParams.set("rel", "0"); url.searchParams.set("mute", onDisplay ? "0" : "1"); }
+    else url.searchParams.set("muted", onDisplay ? "0" : "1");
+    box.dataset.live = "1";
+    box.innerHTML = `<iframe src="${esc(url.href)}" title="${esc(box.dataset.title || "Video")}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+  });
+}
+new MutationObserver(() => { if (document.querySelector(".slide-video[data-embed]:not([data-live])")) startSlideVideos(); })
+  .observe(document.documentElement, { childList: true, subtree: true });
+
 function slideHtml(s, c = S.church()) {
   if (!s) return html`<div class="slide k-black"></div>`;
   const body = (() => {
@@ -105,6 +126,9 @@ function slideHtml(s, c = S.church()) {
       case "question": return html`<div class="slide-center"><div class="slide-kicker">Think about it</div><div class="slide-point">${s.body}</div></div>`;
       case "text": return html`<div class="slide-text">${s.title ? html`<div class="slide-title small">${s.title}</div>` : ""}<div class="slide-body">${s.body}</div></div>`;
       case "media": if (!s.image && isVideoUrl(s.url)) return html`<video class="slide-image" src="${s.url}" autoplay muted loop playsinline aria-label="${s.body || "Video"}"></video>${s.body ? html`<div class="slide-caption">${s.body}</div>` : ""}`;
+        // A YouTube or Vimeo link plays on the slide. Small previews show its picture; the live slide gets the player.
+        if (!s.image && s.url) { const frame = mediaFromLink(s.url, "video"); if (frame?.type === "frame") { const yt = youtubeSermonId(s.url);
+          return html`<div class="slide-video" data-embed="${frame.url}" data-title="${s.body || "Video"}">${yt ? html`<img src="${youtubeThumbnailUrl(yt)}" alt="">` : ""}<span class="slide-video-play">${icon("play")}</span></div>${s.body ? html`<div class="slide-caption">${s.body}</div>` : ""}`; } }
         return s.image ? html`<img class="slide-image" src="${s.image}" alt="${s.body || ""}">${s.body ? html`<div class="slide-caption">${s.body}</div>` : ""}` : html`<div class="slide-center"><div class="slide-mono">${icon("play")}</div><div class="slide-sub">${s.body || "Video"}</div></div>`;
       case "countdown": { const end = s.end || s.startAt; return html`<div class="slide-center"><div class="slide-countdown" data-cd-end="${end}">${cdText((end - Date.now()) / 1000)}</div>${s.body ? html`<div class="slide-sub">${s.body}</div>` : ""}</div>`; }
       case "qr": return html`<div class="slide-qr"><div class="qr-box">${raw(qrSvg(s.url, { size: 400 }))}</div><div><div class="slide-title small">${s.title}</div>${s.body ? html`<div class="slide-body">${s.body}</div>` : ""}<div class="slide-sub">Scan with your phone's camera</div></div></div>`;

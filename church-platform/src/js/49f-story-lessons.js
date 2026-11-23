@@ -210,7 +210,9 @@ function storyBlocks(s, age, len, pieces) {
     if (s.picture) out.push(B("media", { image: storyPic(s, age), url: "", caption: s.title }));
     ed.paragraphs.forEach((p, i) => out.push(B("text", { title: s.scenes[i] || s.title, text: p }, true, i === 0 ? `${plan.story.label}: about ${plan.story.min} minutes for all ${ed.paragraphs.length} scenes.` : "")));
   }
-  if (pieces.has("video") && s.videos[0]) out.push(B("media", { image: "", url: s.videos[0].url, caption: `${s.videos[0].title} (${s.videos[0].creator})` }, true, `About ${plan.video?.min || 5} minutes. Check the video before class.${s.videos[1] ? ` Another option: ${s.videos[1].title}, ${s.videos[1].url}` : ""}`));
+  // A video that plays on the slide (YouTube or Vimeo) first; one that only opens on its own site comes after.
+  const vids = [...s.videos].sort((a, b) => (mediaFromLink(b.url, "video")?.type === "frame") - (mediaFromLink(a.url, "video")?.type === "frame"));
+  if (pieces.has("video") && vids[0]) out.push(B("media", { image: "", url: vids[0].url, caption: `${vids[0].title} (${vids[0].creator})` }, true, `About ${plan.video?.min || 5} minutes. It plays on the screen when this slide comes up; check it before class.${vids[1] ? ` Another option: ${vids[1].title}, ${vids[1].url}` : ""}`));
   if (pieces.has("questions")) {
     out.push(B("question", { text: ed.question }));
     const a = s.activity;
