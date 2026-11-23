@@ -41,7 +41,7 @@ function docSlides(d, withTitle = true) {
   });
   if (pending.length && out.length) out[out.length - 1].notes = [out[out.length - 1].notes, ...pending].filter(Boolean).join("\n");
   if (d.bg) out.forEach((x) => { if (BG_KINDS.includes(x.kind) && !x.bg) x.bg = d.bg; });
-  const designed = applySlideDesign(out, d.slideDesign);
+  const designed = applySlideDesign(d.bgStory ? applyStoryBackgrounds(d, out) : out, d.slideDesign);
   // A children's lesson opens with the Veritas Logos Kids intro and closes with its credits (49h-kids-intro.js).
   if (!kidsBookendsOn(d)) return designed;
   const [intro, outro] = kidsBookendSlides(d);
@@ -84,7 +84,11 @@ function serviceSlides(p) {
 function applySlideDesign(slides, designs) {
   return slides.map((slide) => {
     const design = designs?.[slide.editKey];
-    return design ? { ...slide, bg: design.bg || slide.bg, showLogo: design.showLogo, churchLabel: design.churchLabel, namePosition: design.namePosition } : slide;
+    if (!design) return slide;
+    const out = { ...slide, bg: design.bg || slide.bg, showLogo: design.showLogo, churchLabel: design.churchLabel, namePosition: design.namePosition };
+    // A picture picked for this slide: a story scene brings its text placement; anything else uses the usual shading.
+    if (design.bg) { const scene = typeof bgSceneFor === "function" && bgSceneFor(design.bg); Object.assign(out, scene ? { bgZone: scene.zone, bgTone: scene.tone, bgScene: scene.id } : { bgZone: "", bgTone: "", bgScene: "" }); }
+    return out;
   });
 }
 function slidesFor(kind, id) {
@@ -150,7 +154,8 @@ function slideHtml(s, c = S.church()) {
   })();
   const bg = s.kind === "logo" && !s.bg ? raw(` style="--b:${esc(c.color)};background:${esc(bannerBackground(bannerOf(c), c.color))}"`) : "";
   const back = s.bg || "";
-  return html`<div class="slide k-${s.kind} ${back ? "has-bg" : ""}"${bg}>${back ? (isVideoUrl(back) ? html`<video class="slide-bg" src="${back}" autoplay muted loop playsinline aria-hidden="true"></video>` : html`<img class="slide-bg" src="${back}" alt="" aria-hidden="true">`) : ""}${body}${s.footer ? html`<div class="slide-foot">${s.footer}</div>` : ""}${typeof screenFooterHtml === "function" ? screenFooterHtml(c, "slides", s.kind) : ""}</div>`;
+  const zone = back && s.bgZone ? ` bgz-${s.bgZone} tone-${s.bgTone === "dark" ? "dark" : "light"}` : "";
+  return html`<div class="slide k-${s.kind} ${back ? "has-bg" : ""}${zone}"${bg}>${back ? (isVideoUrl(back) ? html`<video class="slide-bg" src="${back}" autoplay muted loop playsinline aria-hidden="true"></video>` : html`<img class="slide-bg" src="${back}" alt="" aria-hidden="true">`) : ""}${body}${s.footer ? html`<div class="slide-foot">${s.footer}</div>` : ""}${typeof screenFooterHtml === "function" ? screenFooterHtml(c, "slides", s.kind) : ""}</div>`;
 }
 
 // live: a song section the operator picked that isn't next in the plan ({ label, i, returnTo, slides }). It plays, then the plan carries on after returnTo.
@@ -380,6 +385,7 @@ Actions["slide-design"] = (el) => {
   openSheet("Edit slide", html`<form data-form="slide-design" novalidate>
     <input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${id}"><input type="hidden" name="key" value="${key}">
     ${bgField(design, "Slide background", "Remove a custom background to use the default for this slide.")}
+    ${kind === "doc" && typeof storyBgSceneField === "function" ? storyBgSceneField(item) : ""}
     ${slide.kind === "logo" ? html`${slideLogoField(design.showLogo)}${slideChurchLabelFields(design, S.church(), "with-logo")}` : ""}
     <button class="btn">Save slide</button></form>`);
 };

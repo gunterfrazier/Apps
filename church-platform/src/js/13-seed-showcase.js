@@ -6,7 +6,7 @@
 // SEED_VERSION says which sample data a demo or training session was built from. When it goes up, sessions on the
 // older sample data start over on the new one (20-store.js), so everyone trying the app sees the latest features.
 // Raise it whenever new sample data is added here or in the other seed files.
-const SEED_VERSION = 21;
+const SEED_VERSION = 22;
 
 /** What's new, for the card on Home in the demo and training. Newest first. */
 const WHATS_NEW = [
@@ -62,6 +62,11 @@ function addShowcase(st) {
     st.docs.push({ id: "riverside-doc-story", churchId: R, kind: "lesson", title: "The lost sheep", passage: "Luke 15:3-7", topic: "", date: isoDay(next), time: "09:00",
       locationId: MAIN, gatheringId: elem.id, authorId: elem.leaders?.[0] || "u-linda", published: true, shareWithParents: true, resource: "", blocks: [],
       storyId: "lost-sheep", storyPending: { id: "lost-sheep", age: "young", len: 45 }, updated: ago(1) });
+    // A second lesson the week after, with the Zacchaeus story pictures behind every slide.
+    const after = new Date(next); after.setDate(after.getDate() + 7);
+    st.docs.push({ id: "riverside-doc-zacchaeus", churchId: R, kind: "lesson", title: "Zacchaeus", passage: "Luke 19:1-10", topic: "", date: isoDay(after), time: "09:00",
+      locationId: MAIN, gatheringId: elem.id, authorId: elem.leaders?.[0] || "u-linda", published: false, shareWithParents: true, resource: "", blocks: [], bgStory: "zacchaeus",
+      storyId: "zacchaeus", storyPending: { id: "zacchaeus", age: "young", len: 45 }, updated: ago(1) });
   }
 
   // ----- Setup guide: the first topics done, so the checklist shows progress -----

@@ -1,0 +1,928 @@
+{
+ "about": "Veritas Logos Kids story slide backgrounds (16:9). zone: where text reads best (left, right, center). tone: light images take dark text, dark images take white text. The last scene of each story is the reflection and memory verse scene.",
+ "sets": [
+  {
+   "story": "baby-moses",
+   "set": "baby-moses",
+   "title": "Baby Moses",
+   "scripture": "Exodus 1–2",
+   "phase": "Phase 1",
+   "scenes": [
+    {
+     "id": "bm-1",
+     "num": 1,
+     "title": "Pharaoh's Palace Decree",
+     "cast": [
+      "Marcus",
+      "Toby"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/baby-moses/01.jpg"
+    },
+    {
+     "id": "bm-2",
+     "num": 2,
+     "title": "Preparing the Reed Basket",
+     "cast": [
+      "Maya",
+      "Zoe",
+      "Sam"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/baby-moses/02.jpg"
+    },
+    {
+     "id": "bm-3",
+     "num": 3,
+     "title": "Nighttime Walk to the Nile",
+     "cast": [
+      "Maya",
+      "Zoe",
+      "Eli"
+     ],
+     "zone": "center",
+     "tone": "dark",
+     "file": "backgrounds/baby-moses/03.jpg"
+    },
+    {
+     "id": "bm-4",
+     "num": 4,
+     "title": "Floating Among the Reeds",
+     "cast": [
+      "Eli",
+      "Chloe"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/baby-moses/04.jpg"
+    },
+    {
+     "id": "bm-5",
+     "num": 5,
+     "title": "Miriam Watches from the Reeds",
+     "cast": [
+      "Zoe",
+      "Benny",
+      "Bella"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/baby-moses/05.jpg"
+    },
+    {
+     "id": "bm-6",
+     "num": 6,
+     "title": "Pharaoh's Daughter Finds the Basket",
+     "cast": [
+      "Bella",
+      "Chloe"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/baby-moses/06.jpg"
+    },
+    {
+     "id": "bm-7",
+     "num": 7,
+     "title": "Miriam's Brave Offer",
+     "cast": [
+      "Zoe",
+      "Bella",
+      "Leo"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/baby-moses/07.jpg"
+    },
+    {
+     "id": "bm-8",
+     "num": 8,
+     "title": "Storytime Reflection & Memory Verse",
+     "cast": [
+      "Miss Clara",
+      "Sam",
+      "Maya"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/baby-moses/08.jpg"
+    }
+   ]
+  },
+  {
+   "story": "burning-bush",
+   "set": "burning-bush",
+   "title": "Moses & the Burning Bush",
+   "scripture": "Exodus 3–4",
+   "phase": "Phase 1",
+   "scenes": [
+    {
+     "id": "bb-1",
+     "num": 1,
+     "title": "Tending the Flock in Midian",
+     "cast": [
+      "Leo",
+      "Sam",
+      "Chloe"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/burning-bush/01.jpg"
+    },
+    {
+     "id": "bb-2",
+     "num": 2,
+     "title": "Spotting the Glow on Mount Horeb",
+     "cast": [
+      "Leo",
+      "Maya"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/burning-bush/02.jpg"
+    },
+    {
+     "id": "bb-3",
+     "num": 3,
+     "title": "The Bush That Does Not Burn",
+     "cast": [
+      "Leo",
+      "Eli"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/burning-bush/03.jpg"
+    },
+    {
+     "id": "bb-4",
+     "num": 4,
+     "title": "Holy Ground: Taking Off Shoes",
+     "cast": [
+      "Leo",
+      "Toby"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/burning-bush/04.jpg"
+    },
+    {
+     "id": "bb-5",
+     "num": 5,
+     "title": "Nighttime Wonder by the Bush",
+     "cast": [
+      "Leo",
+      "Sam",
+      "Zoe"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/burning-bush/05.jpg"
+    },
+    {
+     "id": "bb-6",
+     "num": 6,
+     "title": "The Staff & Sock-Puppet Snake Sign",
+     "cast": [
+      "Leo",
+      "Toby",
+      "Chloe"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/burning-bush/06.jpg"
+    },
+    {
+     "id": "bb-7",
+     "num": 7,
+     "title": "God Promises Aaron Will Help",
+     "cast": [
+      "Leo",
+      "Benny",
+      "Bella",
+      "Zoe"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/burning-bush/07.jpg"
+    },
+    {
+     "id": "bb-8",
+     "num": 8,
+     "title": "Storytime Reflection & Memory Verse",
+     "cast": [
+      "Miss Clara",
+      "Leo",
+      "Maya"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/burning-bush/08.jpg"
+    }
+   ]
+  },
+  {
+   "story": "jesus-is-born",
+   "set": "birth-of-jesus",
+   "title": "The Birth of Jesus",
+   "scripture": "Luke 2 / Matthew 2",
+   "phase": "Phase 1",
+   "scenes": [
+    {
+     "id": "bj-1",
+     "num": 1,
+     "title": "The Angel Gabriel Visits Mary",
+     "cast": [
+      "Maya",
+      "Zoe"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/jesus-is-born/01.jpg"
+    },
+    {
+     "id": "bj-2",
+     "num": 2,
+     "title": "The Journey to Bethlehem",
+     "cast": [
+      "Leo",
+      "Maya",
+      "Chloe"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/jesus-is-born/02.jpg"
+    },
+    {
+     "id": "bj-3",
+     "num": 3,
+     "title": "No Room at the Inn",
+     "cast": [
+      "Toby",
+      "Leo",
+      "Maya"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/jesus-is-born/03.jpg"
+    },
+    {
+     "id": "bj-4",
+     "num": 4,
+     "title": "The Manger Under the Star",
+     "cast": [
+      "Maya",
+      "Leo",
+      "Eli"
+     ],
+     "zone": "center",
+     "tone": "dark",
+     "file": "backgrounds/jesus-is-born/04.jpg"
+    },
+    {
+     "id": "bj-5",
+     "num": 5,
+     "title": "Angels Announce Good News",
+     "cast": [
+      "Sam",
+      "Benny",
+      "Zoe",
+      "Bella"
+     ],
+     "zone": "right",
+     "tone": "dark",
+     "file": "backgrounds/jesus-is-born/05.jpg"
+    },
+    {
+     "id": "bj-6",
+     "num": 6,
+     "title": "Shepherds Hurry to Bethlehem",
+     "cast": [
+      "Sam",
+      "Benny",
+      "Chloe"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/jesus-is-born/06.jpg"
+    },
+    {
+     "id": "bj-7",
+     "num": 7,
+     "title": "The Wise Men Bring Gifts",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Benny"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/jesus-is-born/07.jpg"
+    },
+    {
+     "id": "bj-8",
+     "num": 8,
+     "title": "Storytime Reflection & Memory Verse",
+     "cast": [
+      "Miss Clara",
+      "Sam",
+      "Zoe"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/jesus-is-born/08.jpg"
+    }
+   ]
+  },
+  {
+   "story": "galilee",
+   "set": "calms-the-storm",
+   "title": "Jesus Calms the Storm",
+   "scripture": "Mark 4:35–41",
+   "phase": "Phase 1",
+   "scenes": [
+    {
+     "id": "cs-1",
+     "num": 1,
+     "title": "Boarding the Boat at Dusk",
+     "cast": [
+      "Leo",
+      "Benny",
+      "Bella",
+      "Sam"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/galilee/01.jpg"
+    },
+    {
+     "id": "cs-2",
+     "num": 2,
+     "title": "Smooth Sailing at Twilight",
+     "cast": [
+      "Leo",
+      "Maya",
+      "Zoe"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/galilee/02.jpg"
+    },
+    {
+     "id": "cs-3",
+     "num": 3,
+     "title": "Dark Clouds Gather",
+     "cast": [
+      "Toby",
+      "Eli"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/galilee/03.jpg"
+    },
+    {
+     "id": "cs-4",
+     "num": 4,
+     "title": "Big Waves & Bailing Water",
+     "cast": [
+      "Benny",
+      "Toby",
+      "Chloe"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/galilee/04.jpg"
+    },
+    {
+     "id": "cs-5",
+     "num": 5,
+     "title": "Waking Up Jesus in the Storm",
+     "cast": [
+      "Zoe",
+      "Maya",
+      "Sam",
+      "Leo"
+     ],
+     "zone": "right",
+     "tone": "dark",
+     "file": "backgrounds/galilee/05.jpg"
+    },
+    {
+     "id": "cs-6",
+     "num": 6,
+     "title": "Peace! Be Still!",
+     "cast": [
+      "Leo",
+      "Eli"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/galilee/06.jpg"
+    },
+    {
+     "id": "cs-7",
+     "num": 7,
+     "title": "Calm Glassy Sea & Rainbow",
+     "cast": [
+      "Maya",
+      "Toby",
+      "Marcus",
+      "Zoe"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/galilee/07.jpg"
+    },
+    {
+     "id": "cs-8",
+     "num": 8,
+     "title": "Storytime Reflection & Memory Verse",
+     "cast": [
+      "Miss Clara",
+      "Toby",
+      "Eli"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/galilee/08.jpg"
+    }
+   ]
+  },
+  {
+   "story": "samaritan",
+   "set": "good-samaritan",
+   "title": "The Good Samaritan",
+   "scripture": "Luke 10:25–37",
+   "phase": "Phase 2",
+   "scenes": [
+    {
+     "id": "gs-1",
+     "num": 1,
+     "title": "Who Is My Neighbor?",
+     "cast": [
+      "Leo",
+      "Maya",
+      "Toby"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/samaritan/01.jpg"
+    },
+    {
+     "id": "gs-2",
+     "num": 2,
+     "title": "Setting Out on the Jericho Road",
+     "cast": [
+      "Benny"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/samaritan/02.jpg"
+    },
+    {
+     "id": "gs-3",
+     "num": 3,
+     "title": "Playful Ambush on the Canyon Road",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Benny"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/samaritan/03.jpg"
+    },
+    {
+     "id": "gs-4",
+     "num": 4,
+     "title": "Passing By on the Other Side",
+     "cast": [
+      "Benny",
+      "Marcus",
+      "Toby"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/samaritan/04.jpg"
+    },
+    {
+     "id": "gs-5",
+     "num": 5,
+     "title": "The Good Samaritan Stops to Help",
+     "cast": [
+      "Zoe",
+      "Benny",
+      "Chloe"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/samaritan/05.jpg"
+    },
+    {
+     "id": "gs-6",
+     "num": 6,
+     "title": "Journey to the Inn at Sunset",
+     "cast": [
+      "Zoe",
+      "Benny",
+      "Eli"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/samaritan/06.jpg"
+    },
+    {
+     "id": "gs-7",
+     "num": 7,
+     "title": "Caring for the Neighbor at the Inn",
+     "cast": [
+      "Zoe",
+      "Bella",
+      "Benny"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/samaritan/07.jpg"
+    },
+    {
+     "id": "gs-8",
+     "num": 8,
+     "title": "Storytime Reflection & Memory Verse",
+     "cast": [
+      "Miss Clara",
+      "Zoe",
+      "Benny"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/samaritan/08.jpg"
+    }
+   ]
+  },
+  {
+   "story": "zacchaeus",
+   "set": "zacchaeus",
+   "title": "Zacchaeus",
+   "scripture": "Luke 19:1–10",
+   "phase": "Phase 2",
+   "scenes": [
+    {
+     "id": "zc-1",
+     "num": 1,
+     "title": "Jericho Tax Booth",
+     "cast": [
+      "Sam",
+      "Benny",
+      "Bella"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/zacchaeus/01.jpg"
+    },
+    {
+     "id": "zc-2",
+     "num": 2,
+     "title": "Crowds Gather to See Jesus",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Maya",
+      "Sam",
+      "Benny"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/zacchaeus/02.jpg"
+    },
+    {
+     "id": "zc-3",
+     "num": 3,
+     "title": "Climbing the Sycamore Tree",
+     "cast": [
+      "Sam",
+      "Chloe"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/zacchaeus/03.jpg"
+    },
+    {
+     "id": "zc-4",
+     "num": 4,
+     "title": "Jesus Calls Zacchaeus Down",
+     "cast": [
+      "Leo",
+      "Sam",
+      "Zoe"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/zacchaeus/04.jpg"
+    },
+    {
+     "id": "zc-5",
+     "num": 5,
+     "title": "Hurrying Down with Joy",
+     "cast": [
+      "Sam",
+      "Eli",
+      "Toby"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/zacchaeus/05.jpg"
+    },
+    {
+     "id": "zc-6",
+     "num": 6,
+     "title": "Joyful Dinner at Zacchaeus's House",
+     "cast": [
+      "Leo",
+      "Sam",
+      "Maya",
+      "Zoe"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/zacchaeus/06.jpg"
+    },
+    {
+     "id": "zc-7",
+     "num": 7,
+     "title": "Giving Back Four Times Over",
+     "cast": [
+      "Sam",
+      "Benny",
+      "Bella",
+      "Chloe"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/zacchaeus/07.jpg"
+    },
+    {
+     "id": "zc-8",
+     "num": 8,
+     "title": "Storytime Reflection & Memory Verse",
+     "cast": [
+      "Miss Clara",
+      "Sam",
+      "Marcus"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/zacchaeus/08.jpg"
+    }
+   ]
+  },
+  {
+   "story": "creation",
+   "set": "god-makes-the-world",
+   "title": "God Makes the World",
+   "scripture": "Genesis 1–2",
+   "phase": "Phase 2",
+   "scenes": [
+    {
+     "id": "cr-1",
+     "num": 1,
+     "title": "Day 1: Let There Be Light!",
+     "cast": [
+      "Eli",
+      "Maya"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/creation/01.jpg"
+    },
+    {
+     "id": "cr-2",
+     "num": 2,
+     "title": "Day 2: Sky & Fluffy Clouds",
+     "cast": [
+      "Eli",
+      "Zoe"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/creation/02.jpg"
+    },
+    {
+     "id": "cr-3",
+     "num": 3,
+     "title": "Day 3: Land, Trees & Flowers",
+     "cast": [
+      "Zoe",
+      "Benny",
+      "Bella"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/creation/03.jpg"
+    },
+    {
+     "id": "cr-4",
+     "num": 4,
+     "title": "Day 4: Sun, Moon & Stars",
+     "cast": [
+      "Leo",
+      "Maya",
+      "Toby"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/creation/04.jpg"
+    },
+    {
+     "id": "cr-5",
+     "num": 5,
+     "title": "Day 5: Fish & Birds",
+     "cast": [
+      "Chloe",
+      "Sam"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/creation/05.jpg"
+    },
+    {
+     "id": "cr-6",
+     "num": 6,
+     "title": "Day 6: Animals of Every Kind",
+     "cast": [
+      "Chloe",
+      "Sam"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/creation/06.jpg"
+    },
+    {
+     "id": "cr-7",
+     "num": 7,
+     "title": "Day 6: God Saw It Was Very Good!",
+     "cast": [
+      "Benny",
+      "Bella",
+      "Leo",
+      "Maya"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/creation/07.jpg"
+    },
+    {
+     "id": "cr-8",
+     "num": 8,
+     "title": "Day 7: God Rested & Blessed the Day",
+     "cast": [
+      "Toby",
+      "Zoe",
+      "Sam"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/creation/08.jpg"
+    },
+    {
+     "id": "cr-9",
+     "num": 9,
+     "title": "Storytime Reflection & Memory Verse",
+     "cast": [
+      "Miss Clara",
+      "Eli",
+      "Chloe"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/creation/09.jpg"
+    }
+   ]
+  },
+  {
+   "story": "noah",
+   "set": "noah-and-the-ark",
+   "title": "Noah & the Ark",
+   "scripture": "Genesis 6–9",
+   "phase": "Phase 2",
+   "scenes": [
+    {
+     "id": "na-1",
+     "num": 1,
+     "title": "God's Blueprint for the Ark",
+     "cast": [
+      "Toby",
+      "Maya"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/noah/01.jpg"
+    },
+    {
+     "id": "na-2",
+     "num": 2,
+     "title": "Hammering & Building Together",
+     "cast": [
+      "Toby",
+      "Marcus",
+      "Benny",
+      "Bella"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/noah/02.jpg"
+    },
+    {
+     "id": "na-3",
+     "num": 3,
+     "title": "Animals Marching Two by Two",
+     "cast": [
+      "Chloe",
+      "Sam"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/noah/03.jpg"
+    },
+    {
+     "id": "na-4",
+     "num": 4,
+     "title": "First Raindrops on the Ark",
+     "cast": [
+      "Eli",
+      "Toby"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/noah/04.jpg"
+    },
+    {
+     "id": "na-5",
+     "num": 5,
+     "title": "Floating Safely Through the Night",
+     "cast": [
+      "Toby",
+      "Zoe",
+      "Sam"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/noah/05.jpg"
+    },
+    {
+     "id": "na-6",
+     "num": 6,
+     "title": "Inside the Cozy Ark",
+     "cast": [
+      "Chloe",
+      "Zoe",
+      "Sam"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/noah/06.jpg"
+    },
+    {
+     "id": "na-7",
+     "num": 7,
+     "title": "The Dove Returns with an Olive Leaf",
+     "cast": [
+      "Toby",
+      "Maya"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/noah/07.jpg"
+    },
+    {
+     "id": "na-8",
+     "num": 8,
+     "title": "God's Rainbow Promise!",
+     "cast": [
+      "Toby",
+      "Leo",
+      "Zoe",
+      "Benny",
+      "Sam"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/noah/08.jpg"
+    },
+    {
+     "id": "na-9",
+     "num": 9,
+     "title": "Storytime Reflection & Memory Verse",
+     "cast": [
+      "Miss Clara",
+      "Toby",
+      "Chloe"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/noah/09.jpg"
+    }
+   ]
+  }
+ ]
+}

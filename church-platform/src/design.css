@@ -488,3 +488,40 @@ html[data-theme="sepia"] { --logo-text: #6d5844; }
 .fam-print { margin: 0; display: grid; gap: 6px; justify-items: start; }
 .fam-print img { width: 100%; aspect-ratio: 3 / 4; object-fit: contain; background: #fff; border-radius: var(--r-s); border: 1.5px solid var(--line); }
 .fam-print figcaption { font-size: .9rem; color: var(--ink-2); }
+
+/* ---------- Story backgrounds: words sit in the open part of the picture ---------- */
+.slide.has-bg[class*="bgz-"]::before { background: none; }
+.slide.has-bg[class*="bgz-"] { justify-content: flex-start; padding-top: 6.5cqw; }
+.slide.bgz-left { align-items: flex-start; }
+.slide.bgz-right { align-items: flex-end; }
+.slide.bgz-center { align-items: center; }
+.slide[class*="bgz-"] > :not(.slide-bg, .slide-foot, .sfoot) { max-width: 48%; }
+.slide.bgz-center > :not(.slide-bg, .slide-foot, .sfoot) { max-width: 46%; }
+.slide.bgz-left > :not(.slide-bg), .slide.bgz-left .slide-center { text-align: left; align-items: flex-start; }
+.slide.bgz-right > :not(.slide-bg), .slide.bgz-right .slide-center { text-align: right; align-items: flex-end; }
+.slide[class*="bgz-"] .slide-title { font-size: 4.6cqw; }
+.slide[class*="bgz-"] .slide-point, .slide[class*="bgz-"] .slide-keynote { font-size: 3.8cqw; }
+.slide[class*="bgz-"] .slide-body, .slide[class*="bgz-"] .slide-verses { font-size: 2.5cqw; line-height: 1.4; }
+/* A soft wash behind the words, from the side they're on, so they read over any picture. */
+.slide.has-bg.bgz-left::before { background: linear-gradient(90deg, var(--wash) 0%, var(--wash) 30%, transparent 62%); }
+.slide.has-bg.bgz-right::before { background: linear-gradient(270deg, var(--wash) 0%, var(--wash) 30%, transparent 62%); }
+.slide.has-bg.bgz-center::before { background: radial-gradient(ellipse 34% 46% at 50% 34%, var(--wash) 0%, transparent 100%); }
+.slide.tone-light { --wash: rgba(255, 251, 242, .74); color: #23163a; }
+.slide.tone-dark { --wash: rgba(6, 9, 26, .62); color: #fff; }
+.slide.tone-light > :not(.slide-bg) { text-shadow: 0 1px 2px rgba(255, 255, 255, .7); }
+.slide.tone-dark > :not(.slide-bg) { text-shadow: 0 2px 8px rgba(0, 0, 0, .55); }
+.slide.tone-light :is(.slide-kicker, .slide-ref, .slide-sub) { opacity: .85; }
+
+/* In the lesson builder and the slide sheet */
+.bg-panel { padding: 16px; border-radius: var(--r-l); background: var(--surface); border: 1.5px solid var(--line); margin-top: 18px; }
+.bg-panel .sec-head { margin-top: 0; }
+.bg-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin: 8px 0 10px; scroll-snap-type: x mandatory; }
+.bg-strip figure { margin: 0; flex: none; width: 150px; scroll-snap-align: start; }
+.bg-strip img, .bg-set img, .bg-scene img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; display: block; }
+.bg-strip figcaption { font-size: 12px; color: var(--ink-2); margin-top: 4px; line-height: 1.3; }
+.bg-sets { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.bg-set { display: grid; gap: 6px; text-align: left; padding: 8px; border-radius: 12px; border: 2px solid var(--line); background: var(--surface); color: inherit; font: inherit; cursor: pointer; }
+.bg-set > span { display: grid; gap: 1px; }
+.bg-set.on, .bg-scene.on { border-color: var(--brand); background: var(--brand-soft); }
+.bg-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; max-height: 260px; overflow: auto; }
+.bg-scene { padding: 2px; border: 2px solid transparent; border-radius: 10px; background: none; cursor: pointer; }

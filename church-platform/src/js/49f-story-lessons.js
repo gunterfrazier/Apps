@@ -8,8 +8,10 @@
 let familyLib = null, familyLibLoading = null, familyLibFailed = false;
 function loadFamilyLib() {
   if (familyLib || familyLibLoading) return familyLibLoading;
+  // The story backgrounds are optional: lessons work without them.
+  const bgs = fetch("family-lib/backgrounds.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
   familyLibLoading = fetch("family-lib/lessons.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then((d) => { familyLib = d; if (typeof fillPendingStoryLessons === "function") fillPendingStoryLessons(); render(); return d; })
+    .then(async (d) => { d.bgSets = (await bgs)?.sets || []; familyLib = d; if (typeof fillPendingStoryLessons === "function") fillPendingStoryLessons(); render(); return d; })
     .catch(() => { familyLibFailed = true; familyLibLoading = null; render(); });
   return familyLibLoading;
 }
@@ -190,6 +192,7 @@ Forms["story-use"] = async (data, f) => {
   d.blocks = replace ? blocks : [...d.blocks, ...blocks];
   if (!d.passage || replace) { const r = parseRef(s.reference) || parseRef(s.reading); if (r) d.passage = refLabel(r); }
   if (!d.topic) d.topic = s.topic;
+  if (storyBgSet(s.id) && (replace || !d.bgStory)) d.bgStory = s.id;
   if (pieces.has("parents") || pieces.has("questions") || pieces.has("video")) mergeFamily(d, storyFamily(s, f.dataset.age), replace);
   if (d.titleFromStory || !d.title) { d.title = s.title; delete d.titleFromStory; }
   d.storyId = s.id; d.updated = new Date().toISOString(); S.save();

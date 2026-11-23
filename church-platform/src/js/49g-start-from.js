@@ -23,6 +23,7 @@ function startFromOptions(kind, q, age) {
       ...ages.map(([a, label]) => badge(label, a === age ? "mine" : "", "", a === age ? "The edition for this class" : "")),
       s.videos.length ? badge(playable ? "Video plays on screen" : "Video link", "", "play") : badge("No video", "off"),
       s.craft ? badge("Craft") : "", s.game ? badge("Game") : "",
+      typeof storyBgSet === "function" && storyBgSet(s.id) ? badge("Story pictures", "", "image") : "",
     ], storyPic(s, age));
   };
   const blank = !n || norm(`blank ${word}`).includes(n);
