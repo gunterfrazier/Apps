@@ -61,7 +61,7 @@ Screens.page = (id) => {
   const c = S.church(id || S.state.current);
   if (!c) return { redirect: "churches" };
   return {
-    page: html`<div class="public-page" style="--brand:${c.color};--on-brand:${onColor(c.color)}">
+    page: html`<div class="public-page ${c.landing.tint ? "tinted" : ""}" style="${raw(esc(landingStyle(c)))}">
       <header class="home-top"><div class="wrap">
         <div class="home-bar"><span class="switcher">${churchMark(c, 40)}<span><strong>${c.name}</strong><small>${churchCity(c)}</small></span></span>
           ${S.isMember(c.id) ? html`<a class="btn sm" href="#home">Open app</a>` : html`<button class="btn sm" data-act="join-church" data-id="${c.id}">Join</button>`}</div>
@@ -73,6 +73,29 @@ Screens.page = (id) => {
   };
 };
 
+/** The landing page's colors: its accent (buttons, headings, links) and an optional soft background tint. */
+function landingStyle(c) {
+  const accent = normHex(c.landing.accent || "", null) || c.color, tint = normHex(c.landing.tint || "", null);
+  return `--brand:${accent};--on-brand:${onColor(accent)};--brand-ink:${accent}${tint ? `;--page-tint:${tint}` : ""}`;
+}
+function landingColorsPanel(c) {
+  ensurePalette(c);
+  const palette = brandPalette(c), tint = c.landing.tint || "";
+  const tints = [["", "None"], [c.color, "Church color"], ...palette.map((col, n) => [col, n ? `Logo color ${n + 1}` : "Logo color"])].filter(([v], n, all) => all.findIndex(([w]) => w.toLowerCase() === v.toLowerCase()) === n);
+  return html`<section class="sec"><h2 class="sec-head">Page colors</h2>
+    <form class="panel" data-form="landing-colors" novalidate>
+      ${palette.length ? html`<p class="faint" style="margin-top:0">Your logo's colors are first in each list. Change the logo in Account details and these follow.</p>` : ""}
+      <div class="field" style="margin-top:0"><span>Accent: buttons, headings and links</span>${colorPicker("accent", c.landing.accent || c.color, { sources: churchColorSources(c), label: "Accent color" })}</div>
+      ${palette.length ? html`<div class="brand-row"><span class="faint">Logo colors</span>${palette.map((col) => html`<button type="button" class="cp-swatch" style="background:${col}" data-act="landing-accent" data-color="${col}" aria-label="Use ${col} as the accent"></button>`)}</div>` : ""}
+      <fieldset class="field" style="border:0;padding:0"><legend>Background tint</legend><div class="radios swatch-radios">${tints.map(([v, l]) => html`<label><input type="radio" name="tint" value="${v}" ${attr(tint.toLowerCase() === v.toLowerCase(), "checked")}><span>${v ? html`<i style="background:${v}"></i>` : ""}${l}</span></label>`)}</div>
+        <small class="faint">A soft wash of the color behind the page.</small></fieldset>
+      <div class="btns"><button class="btn sm">Save colors</button><a class="btn ghost sm" href="#page-${c.id}">${icon("eye")}See the page</a></div></form></section>`;
+}
+Actions["landing-accent"] = (el) => setPickerColor($("[data-cpick]", el.closest("form")), el.dataset.color);
+Forms["landing-colors"] = (d) => {
+  const c = S.church(); c.landing.accent = normHex(d.accent, null) && normHex(d.accent, null) !== c.color ? normHex(d.accent, null) : ""; c.landing.tint = normHex(d.tint || "", null) || "";
+  S.save(); render(); toast("Page colors saved");
+};
 AdminScreens.page = () => {
   const blocked = guard("manage.page"); if (blocked) return blocked;
   const c = S.church(), blocks = c.landing.blocks;
@@ -82,6 +105,7 @@ AdminScreens.page = () => {
       <label class="check panel" style="padding:12px 16px"><input type="checkbox" data-change="landing-home" ${attr(c.landing.showOnHome, "checked")}><span><b>Also show these blocks on members' Home screen</b><br><span class="faint">Service times, sermon and contact blocks stay on the public page only, since Home already has them.</span></span></label>
       <div class="btns"><a class="btn ghost sm" href="#page-${c.id}">${icon("eye")}Preview public page</a>${S.can("qr.create") ? html`<button class="btn ghost sm" data-act="qr-for" data-target="page-${c.id}" data-label="${c.name}">${icon("qr")}QR code</button>` : ""}<a class="btn ghost sm" href="#admin-banner-from-page">${icon("image")}Edit shared banner</a>
         ${S.can("manage.church") ? html`<a class="btn ghost sm" href="#admin-account">${icon("link")}Website and social links</a>` : ""}</div>
+      ${landingColorsPanel(c)}
       <section class="sec"><div class="landing-blocks-head"><h2 class="sec-head">Page blocks</h2>
       <button type="button" class="btn sm" data-act="block-add">${icon("plus")}Add a block</button></div>
       <div class="rows">${blocks.length ? blocks.map((b, i) => html`<div class="row"><span class="lead-ic">${icon(BLOCK_TYPES[b.type]?.icon || "note")}</span>

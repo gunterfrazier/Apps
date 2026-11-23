@@ -588,3 +588,35 @@ select { max-width: 100%; text-overflow: ellipsis; }
 .sf-story-note .i { width: 18px; height: 18px; flex: none; color: var(--brand-ink); margin-top: 1px; }
 .sf-story-note[hidden], .sf-details[hidden] { display: none; }
 .lcal-prev .i { transform: rotate(180deg); }
+
+/* ---------- Banner editor: preview stays in view, pieces can be picked, pinched and locked ---------- */
+/* On phones the preview sticks under the header while the settings scroll beneath it. */
+@media (max-width: 899px) {
+  .banner-preview-shell { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 62px); z-index: 6; margin: 0 -16px; padding: 8px 16px 10px; background: var(--canvas); box-shadow: 0 10px 14px -12px rgba(0, 0, 0, .35); }
+  .banner-preview-shell .banner-preview-head { margin-bottom: 6px; }
+  .banner-preview-shell .banner-preview-head h2 { font-size: 1rem; }
+  .banner-preview-tip { font-size: 12.5px; line-height: 1.35; }
+}
+/* Smaller preview: the same banner at a reduced scale, so more of the settings fit. */
+.banner-preview-shell.small .banner-preview { zoom: .58; }
+.banner-preview-shell.small .banner-preview-tip { display: none; }
+.banner-preview-size { min-height: 34px; }
+#banner-preview .banner { touch-action: pan-y; }
+#banner-preview [data-move] { touch-action: none; }
+#banner-preview [data-move].sel { outline: 2px solid #fff; outline-offset: 4px; box-shadow: 0 0 0 4px rgba(0, 0, 0, .35); border-radius: 6px; }
+#banner-preview [data-move][data-locked] { pointer-events: auto; cursor: pointer; }
+.graphic-row.sel { box-shadow: 0 0 0 2px var(--brand), var(--sh-1); }
+.graphic-head .lock-btn { margin-left: auto; }
+.lock-btn.on { background: var(--brand-soft); color: var(--brand-ink); border-color: var(--brand); }
+.lock-btn .i { width: 16px; height: 16px; }
+.pane-lock { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; font-size: 13px; }
+.swatch-radios span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch-radios i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25); flex: none; }
+.g-any { margin-top: 8px; }
+.range input:disabled { opacity: .4; }
+/* Landing page colors */
+.public-page.tinted { background: color-mix(in srgb, var(--page-tint) 9%, var(--canvas)); min-height: 100vh; }
+.public-page.tinted .block, .public-page.tinted .panel { background: color-mix(in srgb, var(--page-tint) 4%, var(--surface)); }
+.brand-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
+.brand-row .faint { font-size: 13px; margin-right: 4px; }
+.crop-stage { touch-action: none; }

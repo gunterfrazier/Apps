@@ -38,14 +38,18 @@ function bannerTextColor(b, churchColor) {
   if (b.text.color === "white") return "#ffffff";
   if (b.text.color === "dark") return "#111827";
   if (b.text.color === "brand") return churchColor;
+  if (/^#[0-9a-f]{6}$/i.test(b.text.color || "")) return b.text.color; // a brand color from the logo
   if (b.bg.type === "image" && b.bg.image) return "#ffffff";
   return onColor(b.bg.type === "color" ? b.bg.color || churchColor : churchColor);
 }
 function bannerBackground(b, color) {
   if (b.bg.type === "image" && b.bg.image) return `linear-gradient(rgba(0,0,0,${(b.bg.dim ?? 35) / 100}), rgba(0,0,0,${(b.bg.dim ?? 35) / 100})), url("${b.bg.image}") center / cover no-repeat`;
   if (b.bg.type === "color") return b.bg.color || color;
+  if (b.bg.preset === "logo" && b.bg.colors?.length >= 2) return logoGradient(b.bg.colors);
   return (BANNER_PRESETS[b.bg.preset] || BANNER_PRESETS.aurora).css;
 }
+/** A gradient from the logo's brand colors. */
+const logoGradient = ([a, b2, c3]) => `radial-gradient(circle at 85% 15%, ${c3 || b2}55, transparent 45%), linear-gradient(135deg, ${a}, ${b2})`;
 const bannerLogoAsset = (b) => (b.logos || []).find((logo) => logo.id === b.logo.assetId);
 const bannerLogoSrc = (c, b) => bannerLogoAsset(b)?.src || c.logo || "";
 
@@ -58,10 +62,10 @@ function bannerHtml(c, b = bannerOf(c), { mini = false, name = false } = {}) {
   const logo = b.logo.size !== "off" ? (logoSrc ? html`<img class="bn-logo ${b.logo.size} ${b.logo.frame === "none" ? "bare" : ""}" src="${logoSrc}" alt="">` : html`<span class="bn-logo mono ${b.logo.size}" style="background:${onColor(c.color) === "#ffffff" ? "#ffffff" : "#111827"};color:${c.color}">${initials(c.name)}</span>`) : "";
   return html`<div class="banner ${mini ? "mini" : b.height || "tall"} align-${b.text.align || "left"}" style="--b:${color};--bink:${ink};background:${raw(esc(bannerBackground(b, color)))}" role="img" aria-label="${[c.name, b.text.headline, b.text.sub].filter(Boolean).join(". ")}">
     ${(b.graphics || []).map((g) => html`<img class="bn-graphic" alt="" src="${graphicSrc(g)}" data-move="g:${g.id}" ${attr(g.locked || b.locked, "data-locked")} style="left:${g.x}%;top:${g.y}%;width:${g.size}%;opacity:${(g.opacity ?? 100) / 100};transform:translate(-50%,-50%) rotate(${g.rotate || 0}deg)">`)}
-    ${!mini && logo && b.logo.pos ? html`<div class="bn-free bn-free-logo" data-move="logo" ${attr(b.logo.locked || b.locked, "data-locked")} style="left:${b.logo.pos.x}%;top:${b.logo.pos.y}%">${logo}</div>` : ""}
-    ${b.logo.align === "top" && !mini && logo && !b.logo.pos ? html`<div class="bn-top" data-move="logo">${logo}</div>` : ""}
+    ${!mini && logo && b.logo.pos ? html`<div class="bn-free bn-free-logo" data-move="logo" ${attr(b.logo.locked || b.locked, "data-locked")} style="left:${b.logo.pos.x}%;top:${b.logo.pos.y}%;zoom:${b.logo.scale || 1}">${logo}</div>` : ""}
+    ${b.logo.align === "top" && !mini && logo && !b.logo.pos ? html`<div class="bn-top" data-move="logo" style="zoom:${b.logo.scale || 1}">${logo}</div>` : ""}
     <div class="bn-content">
-      ${!mini ? html`<div class="bn-text ${b.text.pos ? "bn-free" : ""}" data-move="text" ${attr(b.text.locked || b.locked, "data-locked")} ${b.text.pos ? raw(` style="left:${+b.text.pos.x}%;top:${+b.text.pos.y}%"`) : ""}>${b.logo.align !== "top" && !b.logo.pos && logo ? html`<span class="bn-logo-wrap" data-move="logo" ${attr(b.logo.locked || b.locked, "data-locked")}>${logo}</span>` : ""}
+      ${!mini ? html`<div class="bn-text ${b.text.pos ? "bn-free" : ""}" data-move="text" ${attr(b.text.locked || b.locked, "data-locked")} style="${raw(`zoom:${+(b.text.scale || 1)};${b.text.pos ? `left:${+b.text.pos.x}%;top:${+b.text.pos.y}%` : ""}`)}">${b.logo.align !== "top" && !b.logo.pos && logo ? html`<span class="bn-logo-wrap" data-move="logo" ${attr(b.logo.locked || b.locked, "data-locked")} style="zoom:${(b.logo.scale || 1) / (b.text.scale || 1)}">${logo}</span>` : ""}
         ${name ? html`<p class="bn-name">${c.name}</p>` : ""}
         ${words.length ? html`<h2 class="bn-head st-${b.text.style} sz-${b.text.size} ${b.text.shadow ? "shadow" : ""}" ${b.text.font ? raw(` style="${esc(fontCss(b.text.font))}"`) : ""}>${b.text.style === "stacked" ? words.map((w, i) => html`<span class="${i % 2 ? "thin" : ""}">${w}</span>`) : b.text.style === "highlight" ? html`<span class="mark">${b.text.headline}</span>` : b.text.headline}</h2>` : ""}
         ${b.text.sub ? html`<p class="bn-sub ${b.text.shadow ? "shadow" : ""}" ${b.text.subFont && b.text.font ? raw(` style="${esc(fontCss(b.text.font).replace(/font-weight:\d+;/, ""))}"`) : ""}>${b.text.sub}</p>` : ""}</div>` : ""}</div>
@@ -84,15 +88,33 @@ function refreshBannerArrange() {
   const box = $("#banner-arrange"), c = S.church();
   if (box) box.innerHTML = flat(bannerArrangeList(bannerDraft));
   const prev = $("#banner-preview"); if (prev) prev.innerHTML = flat(bannerHtml(c, bannerDraft));
+  if (bannerSelected) $$("#banner-preview [data-move]").forEach((x) => x.classList.toggle("sel", x.dataset.move === bannerSelected));
 }
 const bannerPiece = (b, key) => key === "text" ? b.text : key === "logo" ? b.logo : (b.graphics || []).find((g) => `g:${g.id}` === key);
-Actions["banner-lock"] = (el) => { keepDraft(); const p = bannerPiece(bannerDraft, el.dataset.key); if (p) p.locked = !p.locked; refreshBannerArrange(); };
-Actions["banner-lock-all"] = () => { keepDraft(); bannerDraft.locked = !bannerDraft.locked; refreshBannerArrange(); toast(bannerDraft.locked ? "Everything is locked in place" : "Unlocked"); };
+Actions["banner-lock"] = (el) => {
+  keepDraft(); const key = el.dataset.key, p = bannerPiece(bannerDraft, key); if (!p) return;
+  p.locked = !p.locked; refreshBannerArrange(); syncBannerLocks();
+  toast(p.locked ? "Locked in place" : "Unlocked");
+};
+/** Lock buttons everywhere show the same thing, and a locked graphic's place, size and turn can't be changed. */
+function syncBannerLocks() {
+  const f = bannerForm(); if (!f || !bannerDraft) return;
+  $$("[data-act=banner-lock][data-key]", f).forEach((b) => {
+    const p = bannerPiece(bannerDraft, b.dataset.key), on = !!p?.locked;
+    b.setAttribute("aria-pressed", String(on));
+    const label = b.querySelector(".lbl"); if (label) label.textContent = on ? "Locked" : "Lock";
+    b.classList.toggle("on", on);
+  });
+  (bannerDraft.graphics || []).forEach((g, i) => ["size", "x", "y", "rotate"].forEach((k) => { const r = $(`input[name="g${i}_${k}"]`, f); if (r) r.disabled = !!(g.locked || bannerDraft.locked); }));
+}
+Actions["banner-lock-all"] = () => { keepDraft(); bannerDraft.locked = !bannerDraft.locked; refreshBannerArrange(); syncBannerLocks(); toast(bannerDraft.locked ? "Everything is locked in place" : "Unlocked"); };
 Actions["banner-place-auto"] = (el) => { keepDraft(); const p = bannerPiece(bannerDraft, el.dataset.key); if (p) { delete p.pos; p.locked = false; } refreshBannerArrange(); };
 // Dragging in the preview. Pieces move as a percentage of the banner, so they land in the same place at every width.
 document.addEventListener("pointerdown", (e) => {
   const piece = e.target.closest?.("#banner-preview [data-move]");
-  if (!piece || piece.hasAttribute("data-locked") || !bannerDraft || e.button > 0) return;
+  if (!piece || !bannerDraft || e.button > 0 || Pinch.active) return;
+  // A locked piece can't move, but tapping it still picks it, so its settings come up.
+  if (piece.hasAttribute("data-locked")) { selectBannerPiece(piece.dataset.move); return; }
   // Read the form first: it replaces the text and logo settings, and the drag has to move the current ones.
   keepDraft();
   const banner = piece.closest(".banner"), box = banner.getBoundingClientRect(), key = piece.dataset.move, p = bannerPiece(bannerDraft, key);
@@ -101,10 +123,11 @@ document.addEventListener("pointerdown", (e) => {
   const r = piece.getBoundingClientRect();
   const start = key.startsWith("g:") ? { x: p.x, y: p.y } : p.pos || { x: ((r.left + r.width / 2) - box.left) / box.width * 100, y: ((r.top + r.height / 2) - box.top) / box.height * 100 };
   const x0 = e.clientX, y0 = e.clientY;
-  let moved = false;
+  let moved = false, pinched = false;
   piece.setPointerCapture?.(e.pointerId);
   piece.classList.add("dragging");
   const move = (ev) => {
+    if (Pinch.active || pinched) { pinched = true; return; } // two fingers: that's a pinch, not a drag
     const x = Math.max(0, Math.min(100, start.x + (ev.clientX - x0) / box.width * 100)), y = Math.max(0, Math.min(100, start.y + (ev.clientY - y0) / box.height * 100));
     if (!moved && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 3) return;
     if (!moved && !key.startsWith("g:") && !p.pos) { p.pos = start; $("#banner-preview").innerHTML = flat(bannerHtml(S.church(), bannerDraft)); }
@@ -115,7 +138,8 @@ document.addEventListener("pointerdown", (e) => {
   };
   const up = () => {
     document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); document.removeEventListener("pointercancel", up);
-    if (!moved) return;
+    piece.classList.remove("dragging");
+    if (!moved) { if (!pinched && !Pinch.active) selectBannerPiece(key); return; }
     // Graphics keep their sliders in step.
     if (key.startsWith("g:")) { const i = bannerDraft.graphics.indexOf(p), f = bannerForm(); ["x", "y"].forEach((k) => { const r = f && $(`input[name="g${i}_${k}"]`, f); if (r) { r.value = p[k]; if (r.nextElementSibling) r.nextElementSibling.textContent = `${p[k]}%`; } }); }
     refreshBannerArrange();
@@ -123,9 +147,59 @@ document.addEventListener("pointerdown", (e) => {
   document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up);
 });
 
+// ----- Picking a piece in the preview, and pinching it to resize (and twist a graphic to turn it) -----
+let bannerSelected = "";
+/** Tapping a piece in the preview opens its settings and marks it, so it's clear what's being changed. */
+function selectBannerPiece(key) {
+  bannerSelected = key;
+  const f = bannerForm(); if (!f) return;
+  $$("#banner-preview [data-move]").forEach((el) => el.classList.toggle("sel", el.dataset.move === key));
+  showBannerSection(f, key === "text" ? "text" : key === "logo" ? "logo" : "graphics");
+  const i = key.startsWith("g:") ? bannerDraft.graphics.findIndex((g) => `g:${g.id}` === key) : -1;
+  $$(".graphic-row", f).forEach((row, n) => row.classList.toggle("sel", n === i));
+  const target = i >= 0 ? $$(".graphic-row", f)[i] : $(`#banner-${key === "text" ? "text" : "logo"}`);
+  target?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+/** Puts a value into its slider and the number beside it. */
+function setBannerRange(name, value, unit = "%") {
+  const r = bannerForm() && $(`input[name="${name}"]`, bannerForm());
+  if (r) { r.value = value; if (r.nextElementSibling) r.nextElementSibling.textContent = `${value}${unit}`; }
+}
+onPinch("#banner-preview .banner", {
+  start(target) {
+    if (!bannerDraft || !bannerForm()) return null;
+    keepDraft();
+    const el = target.closest("[data-move]"), key = el?.dataset.move || bannerSelected;
+    const p = key && bannerPiece(bannerDraft, key);
+    if (!p) { toast("Tap a graphic, the headline or the logo first, then pinch it"); return null; }
+    if (p.locked || bannerDraft.locked) { toast("That's locked. Unlock it to resize it."); return null; }
+    selectBannerPiece(key);
+    return key.startsWith("g:") ? { key, p, size: p.size, rotate: p.rotate || 0 } : { key, p, scale: p.scale || 1 };
+  },
+  change(st, scale, turn) {
+    const el = $(`#banner-preview [data-move="${st.key}"]`);
+    if (st.key.startsWith("g:")) {
+      const i = bannerDraft.graphics.indexOf(st.p);
+      st.p.size = Math.round(clampN(st.size * scale, 4, 120));
+      // Turning snaps to straight within a few degrees, so a pinch doesn't tilt it by accident.
+      let r = Math.round(st.rotate + turn); if (Math.abs(r % 90) < 5 || Math.abs(r % 90) > 85) r = Math.round(r / 90) * 90;
+      st.p.rotate = ((r + 540) % 360) - 180;
+      if (el) { el.style.width = `${st.p.size}%`; el.style.transform = `translate(-50%,-50%) rotate(${st.p.rotate}deg)`; }
+      setBannerRange(`g${i}_size`, st.p.size); setBannerRange(`g${i}_rotate`, st.p.rotate, "°");
+    } else {
+      st.p.scale = Math.round(clampN(st.scale * scale, 0.5, 2.5) * 100) / 100;
+      setBannerRange(st.key === "text" ? "textScale" : "logoScale", Math.round(st.p.scale * 100));
+      $("#banner-preview").innerHTML = flat(bannerHtml(S.church(), bannerDraft));
+      $$("#banner-preview [data-move]").forEach((x) => x.classList.toggle("sel", x.dataset.move === st.key));
+    }
+  },
+  end() { refreshBannerArrange(); },
+});
+
 // ---------- The banner designer ----------
 const BANNER_SECTIONS = { background: "Background", logo: "Logo", text: "Text", graphics: "Graphics", layout: "Layout" };
-let bannerDraft = null, bannerDraftFor = "", bannerSection = "background", bannerPhonePreview = false;
+let bannerDraft = null, bannerDraftFor = "", bannerSection = "background", bannerPhonePreview = false, bannerPreviewSmall = false;
 const bannerScope = () => JSON.stringify([S.church()?.id, S.me().id]);
 const bannerForm = () => $('form[data-form="banner-save"]');
 function renderBannerEditor(back = "admin") {
@@ -141,26 +215,35 @@ function renderBannerEditor(back = "admin") {
   const pane = (name, content) => html`<section class="banner-pane" id="banner-${name}" data-banner-pane="${name}" ${attr(bannerSection !== name, "hidden")}>
     <h2 class="sec-head">${BANNER_SECTIONS[name]}</h2>${content}</section>`;
   const opt = (name, value, label, cur) => html`<label><input type="radio" name="${name}" value="${value}" ${attr(cur === value, "checked")}><span>${label}</span></label>`;
-  const range = (name, label, value, min, max, unit = "") => html`<label class="range"><span>${label}</span><input type="range" name="${name}" min="${min}" max="${max}" value="${value}"><output>${value}${unit}</output></label>`;
+  const range = (name, label, value, min, max, unit = "", off = false) => html`<label class="range"><span>${label}</span><input type="range" name="${name}" min="${min}" max="${max}" value="${value}" ${attr(off, "disabled")}><output>${value}${unit}</output></label>`;
+  ensurePalette(c);
+  const palette = brandPalette(c);
+  // A lock button for a piece, the same everywhere it appears.
+  const lockBtn = (key, locked) => html`<button type="button" class="btn ghost sm lock-btn ${locked ? "on" : ""}" data-act="banner-lock" data-key="${key}" aria-pressed="${!!locked}" ${attr(b.locked, "disabled")}>${icon("lock")}<span class="lbl">${locked ? "Locked" : "Lock"}</span></button>`;
+  // Color choices as swatches: the fixed ones, then the logo's brand colors.
+  const colorRadios = (name, choices, cur) => html`<div class="radios swatch-radios">${choices.map(([v, l]) => html`<label title="${l}"><input type="radio" name="${name}" value="${v}" ${attr(cur === v, "checked")}><span>${/^#/.test(v) ? html`<i style="background:${v}"></i>` : ""}${l}</span></label>`)}</div>`;
+  const brandChoices = palette.map((col, n) => [col, n === 0 ? "Logo color" : `Logo color ${n + 1}`]);
   return {
     title: "Home banner", back,
     body: html`<form data-form="banner-save" data-input="banner-live" class="banner-form" novalidate>
       <input type="hidden" name="returnTo" value="${back}">
       <div class="banner-workspace">
-        <aside class="banner-preview-shell" aria-label="Banner preview">
+        <aside class="banner-preview-shell ${bannerPreviewSmall ? "small" : ""}" aria-label="Banner preview">
           <div class="banner-preview-head"><h2>Live preview</h2>
+            <button type="button" class="chip banner-preview-size" data-act="banner-preview-size" aria-pressed="${bannerPreviewSmall}">${bannerPreviewSmall ? "Bigger preview" : "Smaller preview"}</button>
             <div class="banner-preview-width" role="group" aria-label="Preview width">
               <button type="button" class="chip" data-act="banner-preview-width" data-width="phone" aria-pressed="${bannerPhonePreview}">Phone</button>
               <button type="button" class="chip" data-act="banner-preview-width" data-width="wide" aria-pressed="${!bannerPhonePreview}">Wide</button>
             </div>
           </div>
           <div class="banner-preview" id="banner-preview" data-width="${bannerPhonePreview ? "phone" : "wide"}">${bannerHtml(c, b)}</div>
-          <p class="faint">Used on Home and your public landing page.</p>
+          <p class="faint banner-preview-tip">Tap a piece to edit it, drag to move it, pinch to resize it${"ontouchstart" in window ? "" : " (or Ctrl and scroll)"}. Twist a graphic with two fingers to turn it.</p>
         </aside>
         <div class="banner-tools">
           <nav class="banner-sections" aria-label="Banner settings">${Object.entries(BANNER_SECTIONS).map(([key, label]) =>
             html`<button type="button" class="chip" data-act="banner-section" data-section="${key}" aria-controls="banner-${key}" aria-pressed="${bannerSection === key}">${label}</button>`)}</nav>
         ${pane("text", html`<div class="panel">
+          <div class="pane-lock">${lockBtn("text", b.text.locked)}<span class="faint">Locking keeps the words where they are and at this size.</span></div>
           <label class="field" style="margin-top:0"><span>Headline</span><input type="text" name="headline" value="${b.text.headline}" maxlength="40"></label>
           <label class="field"><span>Smaller line</span><input type="text" name="sub" value="${b.text.sub}" maxlength="80" placeholder="Sundays at 9 and 11"></label>
           <fieldset class="field" style="border:0;padding:0"><legend>Style</legend><div class="style-picks">${Object.entries(TEXT_STYLES).map(([k, l]) => html`<label><input type="radio" name="style" value="${k}" ${attr(b.text.style === k, "checked")}><span class="st-${k}"><span class="${k === "highlight" ? "mark" : ""}">${l}</span></span></label>`)}</div></fieldset>
@@ -168,13 +251,14 @@ function renderBannerEditor(back = "admin") {
             <label class="check" style="margin-top:8px"><input type="checkbox" name="subFont" ${attr(b.text.subFont, "checked")}><span>Use this font for the smaller line too</span></label></fieldset>
           <div class="two"><fieldset class="field" style="border:0;padding:0"><legend>Size</legend><div class="radios">${opt("size", "m", "M", b.text.size)}${opt("size", "l", "L", b.text.size)}${opt("size", "xl", "XL", b.text.size)}</div></fieldset>
             <fieldset class="field" style="border:0;padding:0"><legend>Line up</legend><div class="radios">${opt("align", "left", "Left", b.text.align)}${opt("align", "center", "Center", b.text.align)}</div></fieldset></div>
-          <fieldset class="field" style="border:0;padding:0"><legend>Text color</legend><div class="radios">${opt("color", "auto", "Automatic", b.text.color)}${opt("color", "white", "White", b.text.color)}${opt("color", "dark", "Dark", b.text.color)}${opt("color", "brand", "Church color", b.text.color)}</div></fieldset>
+          ${range("textScale", "Fine-tune the size", Math.round((b.text.scale || 1) * 100), 50, 250, "%", b.text.locked || b.locked)}
+          <fieldset class="field" style="border:0;padding:0"><legend>Text color</legend>${colorRadios("color", [["auto", "Automatic"], ["white", "White"], ["dark", "Dark"], ["brand", "Church color"], ...brandChoices], b.text.color)}</fieldset>
           <label class="check"><input type="checkbox" name="shadow" ${attr(b.text.shadow, "checked")}><span>Soft shadow behind the text</span></label>
         </div>`)}
 
         ${pane("background", html`<div class="panel">
           <div class="radios">${opt("bgType", "gradient", "Gradient", b.bg.type)}${opt("bgType", "color", "Color", b.bg.type)}${opt("bgType", "image", "Photo", b.bg.type)}</div>
-          <div class="preset-picks" ${attr(b.bg.type !== "gradient", "hidden")}>${Object.entries(BANNER_PRESETS).map(([k, p]) => html`<label><input type="radio" name="preset" value="${k}" ${attr(b.bg.preset === k, "checked")}><span style="--b:${c.color};background:${raw(esc(p.css))}"></span><small>${p.label}</small></label>`)}</div>
+          <div class="preset-picks" ${attr(b.bg.type !== "gradient", "hidden")}>${palette.length >= 2 ? html`<label><input type="radio" name="preset" value="logo" ${attr(b.bg.preset === "logo", "checked")}><span style="background:${raw(esc(logoGradient(palette)))}"></span><small>Your logo's colors</small></label>` : ""}${Object.entries(BANNER_PRESETS).map(([k, p]) => html`<label><input type="radio" name="preset" value="${k}" ${attr(b.bg.preset === k, "checked")}><span style="--b:${c.color};background:${raw(esc(p.css))}"></span><small>${p.label}</small></label>`)}</div>
           <div class="field bg-color" ${attr(b.bg.type !== "color", "hidden")}><span>Color</span>${colorPicker("bgColor", b.bg.color || c.color, { sources: churchColorSources(c), label: "Banner color" })}</div>
           <div class="bg-image" ${attr(b.bg.type !== "image", "hidden")}>${imageField("bgImage", "Photo", b.bg.image, "A wide photo works best. It's resized so it loads fast.", 1800)}${range("dim", "Darken the photo", b.bg.dim ?? 35, 0, 75, "%")}</div>
         </div>`)}
@@ -197,17 +281,23 @@ function renderBannerEditor(back = "admin") {
             <button type="button" class="btn ghost sm" data-act="banner-logo-clean" ${attr(!bannerLogoSrc(c, b), "hidden")}>Remove background</button>
             <button type="button" class="btn ghost sm" data-act="banner-logo-remove" ${attr(!bannerLogoAsset(b), "hidden")}>Remove from library</button>
           </div>
+          <div class="pane-lock">${lockBtn("logo", b.logo.locked)}<span class="faint">Locking keeps the logo where it is and at this size.</span></div>
           <fieldset class="field"><legend>Size</legend><div class="radios">${opt("logoSize", "off", "Hide", b.logo.size)}${opt("logoSize", "sm", "Small", b.logo.size)}${opt("logoSize", "md", "Medium", b.logo.size)}${opt("logoSize", "lg", "Large", b.logo.size)}</div></fieldset>
+          ${range("logoScale", "Fine-tune the size", Math.round((b.logo.scale || 1) * 100), 50, 250, "%", b.logo.locked || b.locked)}
           <fieldset class="field"><legend>Position</legend><div class="radios">${opt("logoAlign", "left", "With the text", b.logo.align)}${opt("logoAlign", "top", "Top of banner", b.logo.align)}</div></fieldset>
           <fieldset class="field" data-logo-frame ${attr(!bannerLogoSrc(c, b), "hidden")}><legend>Frame</legend><div class="radios">${opt("logoFrame", "none", "No frame", b.logo.frame || "tile")}${opt("logoFrame", "tile", "White tile", b.logo.frame || "tile")}</div></fieldset>
         </div>`)}
 
         ${pane("graphics", html`
-          ${(b.graphics || []).map((g, i) => html`<div class="panel graphic-row"><div class="graphic-head"><img src="${graphicSrc({ ...g, color: g.kind === "builtin" ? (g.color === "#ffffff" ? "#667085" : g.color) : g.color })}" alt=""><b>${g.kind === "builtin" ? GRAPHICS[g.builtin]?.label : "Your graphic"}</b>
+          ${(b.graphics || []).map((g, i) => { const held = !!(g.locked || b.locked), fixed = [["#ffffff", "White"], ["#111827", "Dark"], [c.color, "Church color"], ["#f5c451", "Gold"], ...brandChoices].filter(([v], n, all) => all.findIndex(([w]) => w.toLowerCase() === v.toLowerCase()) === n);
+            const custom = g.kind === "builtin" && !fixed.some(([v]) => v.toLowerCase() === (g.color || "").toLowerCase());
+            return html`<div class="panel graphic-row ${bannerSelected === `g:${g.id}` ? "sel" : ""}"><div class="graphic-head"><img src="${graphicSrc({ ...g, color: g.kind === "builtin" ? (g.color === "#ffffff" ? "#667085" : g.color) : g.color })}" alt=""><b>${g.kind === "builtin" ? GRAPHICS[g.builtin]?.label : "Your graphic"}</b>
+              ${lockBtn(`g:${g.id}`, g.locked)}
               <button type="button" class="icon-btn" data-act="banner-graphic-remove" data-i="${i}" aria-label="Remove graphic">${icon("trash")}</button></div>
-            ${range(`g${i}_size`, "Size", g.size, 4, 120, "%")}${range(`g${i}_x`, "Left to right", g.x, 0, 100, "%")}${range(`g${i}_y`, "Top to bottom", g.y, 0, 100, "%")}${range(`g${i}_rotate`, "Turn", g.rotate || 0, -180, 180, "°")}${range(`g${i}_opacity`, "Strength", g.opacity ?? 100, 5, 100, "%")}
-            ${g.kind === "builtin" ? html`<div class="radios">${[["#ffffff", "White"], ["#111827", "Dark"], [c.color, "Church color"], ["#f5c451", "Gold"]].map(([v, l]) => html`<label><input type="radio" name="g${i}_color" value="${v}" ${attr(g.color === v, "checked")}><span>${l}</span></label>`)}</div>` : ""}
-          </div>`)}
+            ${range(`g${i}_size`, "Size", g.size, 4, 120, "%", held)}${range(`g${i}_x`, "Left to right", g.x, 0, 100, "%", held)}${range(`g${i}_y`, "Top to bottom", g.y, 0, 100, "%", held)}${range(`g${i}_rotate`, "Turn", g.rotate || 0, -180, 180, "°", held)}${range(`g${i}_opacity`, "Strength", g.opacity ?? 100, 5, 100, "%")}
+            ${g.kind === "builtin" ? html`${colorRadios(`g${i}_color`, [...fixed, ...(custom ? [[g.color, "Your color"]] : [])], g.color)}
+              <label class="btn ghost sm g-any">${icon("edit")}Any color<input type="color" class="sr" value="${normHex(g.color, "#ffffff")}" data-input="g-any" data-i="${i}"></label>` : ""}
+          </div>`; })}
           <div class="panel"><b>Add a graphic</b><div class="graphic-picks">${Object.entries(GRAPHICS).map(([k, g]) => html`<button type="button" data-act="banner-graphic-add" data-builtin="${k}" aria-label="Add ${g.label}"><img src="${graphicSrc({ kind: "builtin", builtin: k, color: "#475467" })}" alt=""><small>${g.label}</small></button>`)}</div>
             <label class="btn ghost sm" style="margin-top:10px">${icon("image")}Upload your own<input type="file" accept="image/*" class="sr" data-change="banner-graphic-upload"></label><small class="faint" style="display:block;margin-top:6px">PNG files with a see-through background work best.</small></div>
         `)}
@@ -238,15 +328,19 @@ Actions["banner-preview-width"] = (button) => {
 /** Reads the designer form into the draft and refreshes the preview, without re-rendering the form. */
 function bannerFromForm(f) {
   const fd = new FormData(f), v = (k) => fd.get(k), b = bannerDraft;
+  if (fd.has("textScale")) b.text.scale = +fd.get("textScale") / 100;
+  if (fd.has("logoScale")) b.logo.scale = +fd.get("logoScale") / 100;
   b.text = { ...b.text, headline: v("headline") || "", sub: v("sub") || "", style: v("style") || "bold", size: v("size") || "l", align: v("align") || "left", color: v("color") || "auto", shadow: !!v("shadow"), font: v("font") || "", subFont: !!v("subFont") };
-  b.bg = { type: v("bgType") || "gradient", preset: v("preset") || b.bg.preset, color: v("bgColor") || b.bg.color, image: v("bgImage") || "", dim: +(v("dim") ?? b.bg.dim) };
+  b.bg = { type: v("bgType") || "gradient", preset: v("preset") || b.bg.preset, color: v("bgColor") || b.bg.color, image: v("bgImage") || "", dim: +(v("dim") ?? b.bg.dim), colors: b.bg.colors };
+  // The logo gradient keeps the colors it was made with, so it doesn't change if the logo does.
+  if (b.bg.preset === "logo") { const pal = brandPalette(S.church()); if (pal.length >= 2) b.bg.colors = pal.slice(0, 3); }
   b.logo = { ...b.logo, assetId: v("logoAsset") || "", size: v("logoSize") || "md", align: v("logoAlign") || "left", frame: v("logoFrame") || b.logo.frame || "tile" };
   b.height = v("height") || "tall";
   b.graphics.forEach((g, i) => { ["size", "x", "y", "rotate", "opacity"].forEach((k) => { if (fd.has(`g${i}_${k}`)) g[k] = +fd.get(`g${i}_${k}`); }); if (fd.has(`g${i}_color`)) g.color = fd.get(`g${i}_color`); });
   return b;
 }
 Inputs["banner-live"] = (form, e) => {
-  if (e?.target?.type === "range") { const o = e.target.nextElementSibling; if (o) o.textContent = e.target.value + (/opacity|size|_x|_y|dim/.test(e.target.name) ? "%" : /rotate/.test(e.target.name) ? "°" : ""); }
+  if (e?.target?.type === "range") { const o = e.target.nextElementSibling; if (o) o.textContent = e.target.value + (/opacity|size|_x|_y|dim|Scale/.test(e.target.name) ? "%" : /rotate/.test(e.target.name) ? "°" : ""); }
   const b = bannerFromForm(form);
   $(".preset-picks", form).hidden = b.bg.type !== "gradient"; $(".bg-color", form).hidden = b.bg.type !== "color"; $(".bg-image", form).hidden = b.bg.type !== "image";
   const c = S.church(), hasLogo = !!bannerLogoSrc(c, b);
@@ -254,6 +348,20 @@ Inputs["banner-live"] = (form, e) => {
   $("[data-act=banner-logo-clean]", form).hidden = !hasLogo;
   $("[data-act=banner-logo-remove]", form).hidden = !bannerLogoAsset(b);
   $("#banner-preview").innerHTML = flat(bannerHtml(c, b));
+  if (bannerSelected) $$("#banner-preview [data-move]").forEach((x) => x.classList.toggle("sel", x.dataset.move === bannerSelected));
+};
+// "Any color" for a graphic: adds (or updates) a "Your color" choice and picks it.
+Inputs["g-any"] = (el) => {
+  const f = el.form, i = el.dataset.i, box = el.closest(".graphic-row").querySelector(".swatch-radios");
+  let mine = $(`input[name="g${i}_color"][data-mine]`, box);
+  if (!mine) { box.insertAdjacentHTML("beforeend", flat(html`<label title="Your color"><input type="radio" name="g${i}_color" data-mine value="${el.value}"><span><i style="background:${el.value}"></i>Your color</span></label>`)); mine = $(`input[name="g${i}_color"][data-mine]`, box); }
+  mine.value = el.value; mine.nextElementSibling.querySelector("i").style.background = el.value; mine.checked = true;
+  Inputs["banner-live"](f);
+};
+Actions["banner-preview-size"] = (button) => {
+  bannerPreviewSmall = !bannerPreviewSmall;
+  button.closest(".banner-preview-shell").classList.toggle("small", bannerPreviewSmall);
+  button.setAttribute("aria-pressed", String(bannerPreviewSmall)); button.textContent = bannerPreviewSmall ? "Bigger preview" : "Smaller preview";
 };
 document.addEventListener("change", (e) => { const f = e.target.closest?.('form[data-input="banner-live"]'); if (f && e.target.type === "radio") Inputs["banner-live"](f, e); });
 Forms["banner-save"] = (d, f) => {

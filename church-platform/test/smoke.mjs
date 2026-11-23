@@ -1270,7 +1270,7 @@ await step("theme switch, features, colors, fonts, crop and screen footer", asyn
   const drag = async (dx, dy) => { await page.evaluate(() => document.querySelector("#banner-preview .banner").scrollIntoView({ block: "center" })); const t = await page.locator("#banner-preview [data-move=text]").boundingBox();
     const x = t.x + t.width / 2, y = t.y + t.height / 2; await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx, y + dy, { steps: 5 }); await page.mouse.up(); };
   const x0 = await rel(); await drag(60, -20); const x1 = await rel();
-  await page.click("[data-act=banner-section][data-section=layout]"); await page.click("[data-act=banner-lock][data-key=text]");
+  await page.click("[data-act=banner-section][data-section=layout]"); await page.click("#banner-arrange [data-act=banner-lock][data-key=text]");
   await drag(80, 30); const x2 = await rel();
   if (Math.abs(x1 - x0) < 20 || Math.abs(x2 - x1) > 1) throw new Error(`the headline should move when dragged and stay put once locked: ${x0}, ${x1}, ${x2}`);
   await page.click("[data-act=banner-discard]");
@@ -2567,6 +2567,60 @@ await step("lesson calendar: replace a lesson, unassigned drafts, library-only k
   const back = await page.evaluate(() => { const d = __app.S.get("docs", "riverside-doc-zacchaeus"); return { date: d.date, g: d.gatheringId }; });
   if (!back.date || !back.g) throw new Error("assigning should give the lesson a class and date");
   if (!(await page.locator(".kids-ends").count())) throw new Error("the Family Library lesson keeps its kids intro");
+});
+await step("brand colors from the logo, banner pinch and lock, landing page colors", async () => {
+  // A logo with navy, teal and a small gold cross on white: its brand colors are those three, not white or greys.
+  await page.evaluate(() => {
+    const cv = document.createElement("canvas"); cv.width = 400; cv.height = 140; const x = cv.getContext("2d");
+    x.fillStyle = "#fff"; x.fillRect(0, 0, 400, 140); x.fillStyle = "#0c2c4c"; x.beginPath(); x.arc(70, 70, 60, 0, 7); x.fill();
+    x.fillStyle = "#14808a"; x.beginPath(); x.arc(70, 80, 38, 0, 7); x.fill(); x.fillStyle = "#e89a2c"; x.fillRect(64, 20, 12, 70); x.fillRect(48, 38, 44, 10);
+    x.fillStyle = "#0c2c4c"; x.font = "bold 44px sans-serif"; x.fillText("RIVERSIDE", 140, 70);
+    __app.S.updateChurch({ logo: cv.toDataURL("image/png") });
+  });
+  const was = page.viewportSize(); await page.setViewportSize({ width: 390, height: 844 });
+  try {
+    await goTo("admin-banner"); await page.waitForFunction(() => (__app.S.church().palette || []).length >= 3);
+    const pal = await page.evaluate(() => __app.S.church().palette);
+    const near = (hex, want) => { const a = [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16)), b = [1, 3, 5].map((k) => parseInt(want.slice(k, k + 2), 16)); return Math.hypot(...a.map((v, k) => v - b[k])) < 30; };
+    if (!["#0c2c4c", "#14808a", "#e89a2c"].every((w) => pal.some((p) => near(p, w))) || pal.some((p) => /^#(f[0-9a-f]){3}$|^#(0[0-9a-f]){3}$/i.test(p))) throw new Error(`the logo's colors should be navy, teal and gold: ${pal}`);
+    // The preview stays in view while the settings scroll.
+    if (await page.evaluate(() => getComputedStyle(document.querySelector(".banner-preview-shell")).position) !== "sticky") throw new Error("the banner preview should stay in view on a phone");
+    // Start from an unlocked banner (an earlier step locks pieces).
+    await page.evaluate(() => { const b = __app.S.church().banner; if (b) { b.locked = false; (b.graphics || []).forEach((g) => { g.locked = false; }); if (b.text) b.text.locked = false; __app.S.save(); } });
+    await page.click("[data-act=banner-discard]");
+    await goTo("admin-banner"); await page.click('[data-act=banner-section][data-section="graphics"]');
+    if (!(await page.locator('input[name="g0_color"][value="#e89a2c"], input[name="g0_color"]').evaluateAll((els) => els.some((e) => /^#e[0-9a-f]{5}$/i.test(e.value))))) throw new Error("graphics should offer the logo's colors");
+    // Pinch a graphic in the preview to resize it.
+    // Pinch the first graphic whose middle isn't under the words or logo.
+    await page.evaluate(() => scrollTo(0, 0));
+    const gi = await page.evaluate(() => [...document.querySelectorAll("#banner-preview .bn-graphic")].findIndex((g) => { const r = g.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === g; }));
+    if (gi < 0) throw new Error("no graphic is free to pinch in the preview");
+    const box = await page.locator("#banner-preview .bn-graphic").nth(gi).boundingBox(), cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+    const cdp = await page.context().newCDPSession(page), tp = (d) => [{ x: cx - d, y: cy, id: 1 }, { x: cx + d, y: cy, id: 2 }];
+    const size0 = +(await page.inputValue(`input[name="g${gi}_size"]`));
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: tp(12) });
+    for (const d of [16, 22, 30]) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: tp(d) });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    if (+(await page.inputValue(`input[name="g${gi}_size"]`)) <= size0) throw new Error(`pinching a graphic should make it bigger (${size0})`);
+    // Lock it: its sliders stop, and dragging it doesn't move it.
+    await page.click(".graphic-row >> nth=0 >> [data-act=banner-lock]");
+    if (!(await page.isDisabled('input[name="g0_x"]'))) throw new Error("a locked graphic's sliders should be off");
+    const x0 = await page.inputValue('input[name="g0_x"]'), b2 = await page.locator("#banner-preview .bn-graphic").first().boundingBox();
+    await page.mouse.move(b2.x + b2.width / 2, b2.y + b2.height / 2); await page.mouse.down(); await page.mouse.move(b2.x + 5, b2.y + 40, { steps: 5 }); await page.mouse.up();
+    if (await page.inputValue('input[name="g0_x"]') !== x0) throw new Error("a locked graphic shouldn't move");
+    // Text can take a logo color.
+    await page.click('[data-act=banner-section][data-section="text"]');
+    if (!(await page.locator('input[name=color][value^="#"]').count())) throw new Error("text should offer the logo's colors");
+    await page.click("[data-act=banner-discard]");
+    // Landing page: the accent and a tint from the logo.
+    await goTo("admin-page"); await page.waitForSelector("form[data-form=landing-colors] [data-act=landing-accent]");
+    await page.click("form[data-form=landing-colors] [data-act=landing-accent] >> nth=2");
+    await page.click('form[data-form=landing-colors] input[name=tint] >> nth=1'); await page.click("form[data-form=landing-colors] button.btn");
+    const lc = await page.evaluate(() => __app.S.church().landing);
+    if (!lc.accent || !lc.tint) throw new Error(`landing colors should save: ${JSON.stringify(lc)}`);
+    await goTo(`page-${await page.evaluate(() => __app.S.church().id)}`);
+    if (!(await page.evaluate(() => getComputedStyle(document.querySelector(".public-page")).getPropertyValue("--brand").trim()))) throw new Error("the landing page should use its accent");
+  } finally { await page.setViewportSize(was); }
 });
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");

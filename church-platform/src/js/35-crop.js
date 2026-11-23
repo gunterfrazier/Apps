@@ -78,11 +78,12 @@ Actions["crop-apply"] = () => {
 // Move the box by dragging it; resize by its corners.
 document.addEventListener("pointerdown", (e) => {
   const boxEl = e.target.closest?.("#crop-box");
-  if (!boxEl || !cropJob) return;
+  if (!boxEl || !cropJob || Pinch.active) return;
   e.preventDefault();
   const handle = e.target.dataset.h || "", { view } = cropJob, start = { ...cropJob.box }, x0 = e.clientX, y0 = e.clientY;
   boxEl.setPointerCapture?.(e.pointerId);
   const move = (ev) => {
+    if (Pinch.active) return; // two fingers resize the box instead
     const dx = (ev.clientX - x0) / view.w, dy = (ev.clientY - y0) / view.h, b = cropJob.box;
     if (!handle) { b.x = start.x + dx; b.y = start.y + dy; }
     else {
@@ -113,3 +114,14 @@ Actions["crop-image"] = (el) => {
     imageFieldChanged(form, name, url);
   });
 };
+
+// Two fingers on the picture resize the crop box around its middle (and Ctrl with the wheel on a computer).
+onPinch("#crop-stage", {
+  start() { return cropJob ? { box: { ...cropJob.box } } : null; },
+  change(st, scale) {
+    const b = cropJob.box, cx = st.box.x + st.box.w / 2, cy = st.box.y + st.box.h / 2;
+    b.w = Math.max(0.05, Math.min(1, st.box.w * scale)); b.h = Math.max(0.05, Math.min(1, st.box.h * scale));
+    b.x = cx - b.w / 2; b.y = cy - b.h / 2;
+    cropPlace();
+  },
+});
