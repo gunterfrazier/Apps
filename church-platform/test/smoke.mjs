@@ -2488,6 +2488,35 @@ await step("family page: coloring pages print, For parents goes home, parents se
   await page.click(".fam-print [data-act=family-print]");
   await page.waitForFunction(() => [...document.querySelectorAll("iframe[srcdoc]")].some((f) => f.srcdoc.includes("coloring") || f.srcdoc.includes("<img")));
 });
+await step("story backgrounds match the story on every slide", async () => {
+  // The demo's Zacchaeus lesson uses the Zacchaeus pictures, in story order, with the words in each picture's open side.
+  await goTo("build-riverside-doc-zacchaeus"); await page.waitForSelector(".bg-panel .bg-strip img");
+  await goTo("present-doc-riverside-doc-zacchaeus"); await page.waitForSelector("#stage .slide");
+  const seen = [];
+  for (let i = 0; i < 40; i++) {
+    const info = await page.evaluate(() => { const s = document.querySelector("#stage .slide"); const img = s?.querySelector(".slide-bg"); return { cls: s?.className || "", src: img?.getAttribute("src") || "" }; });
+    if (info.src) seen.push(info);
+    await page.keyboard.press("ArrowRight"); await page.waitForTimeout(30);
+  }
+  const scenes = [...new Set(seen.map((x) => x.src))];
+  if (scenes.length < 4 || !scenes.every((x) => x.startsWith("family-lib/backgrounds/zacchaeus/"))) throw new Error(`the slides should walk through the Zacchaeus scenes: ${scenes.join(", ")}`);
+  if (!seen.every((x) => /bgz-(left|right|center)/.test(x.cls) && /tone-(light|dark)/.test(x.cls))) throw new Error("each story picture should place the words and set their color");
+  if (!seen.some((x) => /k-question/.test(x.cls) && x.src.endsWith("/08.jpg"))) throw new Error("questions should use the reflection scene");
+  // One slide can take a different scene, and it keeps that scene's text placement.
+  await goTo("slides-doc-riverside-doc-zacchaeus"); await page.click(".rows [data-act=slide-design] >> nth=0"); await page.waitForSelector("#scrim .bg-scene");
+  await page.click('#scrim .bg-scene[data-url$="zacchaeus/03.jpg"]'); await sheetSubmit(); await sheetGone();
+  const first = await page.evaluate(() => { const S = __app.S, d = S.get("docs", "riverside-doc-zacchaeus"); return Object.values(d.slideDesign || {})[0]?.bg; });
+  if (!first?.endsWith("zacchaeus/03.jpg")) throw new Error(`the slide should keep the scene picked for it: ${first}`);
+  // Another set, then off.
+  await goTo("build-riverside-doc-zacchaeus"); await page.click(".bg-panel [data-act=bg-set-pick]"); await page.click('#scrim .bg-set[data-story="noah"]');
+  await page.waitForFunction(() => __app.S.get("docs", "riverside-doc-zacchaeus").bgStory === "noah");
+  await page.click('.bg-panel [data-act=bg-set-use][data-story=""]'); await page.waitForFunction(() => !__app.S.get("docs", "riverside-doc-zacchaeus").bgStory);
+  // Start from shows which stories have pictures.
+  await goTo("docs-lesson"); await page.click("[data-act=new-doc]"); await page.fill("#scrim input[name=sfq]", "Zacchaeus");
+  await page.waitForSelector('#scrim .sf-opt[data-value="story:zacchaeus"]');
+  if (!/Story pictures/.test(await page.textContent('#scrim .sf-opt[data-value="story:zacchaeus"]'))) throw new Error("Zacchaeus should show that it has story pictures");
+  await page.keyboard.press("Escape");
+});
 await step("classes admin", async () => {
   await goTo("admin-gatherings"); await page.click("[data-act=admin-edit]:not([data-id])");
   await page.fill("#scrim input[name=name]", "Kindergarten, 11:00"); await page.check('#scrim input[name=days][value="0"]'); await page.fill("#scrim input[name=time]", "11:00");

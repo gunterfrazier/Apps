@@ -273,7 +273,7 @@ function bgField(s, label = "Background (optional)", hint = "A photo, or a worsh
 }
 Actions["sign-slide-delete"] = (el) => { S.get("signage", el.dataset.pl).slides.splice(+el.dataset.i, 1); S.save(); closeSheet(); render(); };
 
-const validSlideBackground = (url) => !url || isUrl(url) || /^data:image\//.test(url);
+const validSlideBackground = (url) => !url || isUrl(url) || /^data:image\//.test(url) || /^family-lib\/backgrounds\/[\w/-]+\.jpg$/.test(url);
 function showSlideLogo(c, background, show = true) {
   const inherited = bannerOf(c).bg;
   const image = background || (inherited.type === "image" ? inherited.image : "");
