@@ -85,7 +85,7 @@ function applySlideDesign(slides, designs) {
   return slides.map((slide) => {
     const design = designs?.[slide.editKey];
     if (!design) return slide;
-    const out = { ...slide, bg: design.bg || slide.bg, showLogo: design.showLogo, churchLabel: design.churchLabel, namePosition: design.namePosition };
+    const out = { ...slide, bg: design.bg || slide.bg, showLogo: design.showLogo, churchLabel: design.churchLabel, namePosition: design.namePosition, bgFit: design.bgFit, words: design.words };
     // A picture picked for this slide: a story scene brings its text placement; anything else uses the usual shading.
     if (design.bg) { const scene = typeof bgSceneFor === "function" && bgSceneFor(design.bg); Object.assign(out, scene ? { bgZone: scene.zone, bgTone: scene.tone, bgScene: scene.id } : { bgZone: "", bgTone: "", bgScene: "" }); }
     return out;
@@ -155,7 +155,10 @@ function slideHtml(s, c = S.church()) {
   const bg = s.kind === "logo" && !s.bg ? raw(` style="--b:${esc(c.color)};background:${esc(bannerBackground(bannerOf(c), c.color))}"`) : "";
   const back = s.bg || "";
   const zone = back && s.bgZone ? ` bgz-${s.bgZone} tone-${s.bgTone === "dark" ? "dark" : "light"}` : "";
-  return html`<div class="slide k-${s.kind} ${back ? "has-bg" : ""}${zone}"${bg}>${back ? (isVideoUrl(back) ? html`<video class="slide-bg" src="${back}" autoplay muted loop playsinline aria-hidden="true"></video>` : html`<img class="slide-bg" src="${back}" alt="" aria-hidden="true">`) : ""}${body}${s.footer ? html`<div class="slide-foot">${s.footer}</div>` : ""}${typeof screenFooterHtml === "function" ? screenFooterHtml(c, "slides", s.kind) : ""}</div>`;
+  // A photo can be zoomed and moved within the slide (bgFit), and the words moved and resized (words): 51b-slide-arrange.js.
+  const fit = back && s.bgFit ? `object-position:${+s.bgFit.x}% ${+s.bgFit.y}%;transform:scale(${+s.bgFit.z || 1});transform-origin:${+s.bgFit.x}% ${+s.bgFit.y}%` : "";
+  const words = s.kind !== "logo" && s.words && (s.words.x || s.words.y || (s.words.s && s.words.s !== 1)) ? ` style="--wx:${+s.words.x || 0};--wy:${+s.words.y || 0};--ws:${+s.words.s || 1}"` : "";
+  return html`<div class="slide k-${s.kind} ${back ? "has-bg" : ""}${zone}${words ? " words-moved" : ""}"${bg}${raw(words)}>${back ? (isVideoUrl(back) ? html`<video class="slide-bg" src="${back}" autoplay muted loop playsinline aria-hidden="true" style="${fit}"></video>` : html`<img class="slide-bg" src="${back}" alt="" aria-hidden="true" style="${fit}">`) : ""}${body}${s.footer ? html`<div class="slide-foot">${s.footer}</div>` : ""}${typeof screenFooterHtml === "function" ? screenFooterHtml(c, "slides", s.kind) : ""}</div>`;
 }
 
 // live: a song section the operator picked that isn't next in the plan ({ label, i, returnTo, slides }). It plays, then the plan carries on after returnTo.
@@ -387,7 +390,9 @@ Actions["slide-design"] = (el) => {
     ${bgField(design, "Slide background", "Remove a custom background to use the default for this slide.")}
     ${kind === "doc" && typeof storyBgSceneField === "function" ? storyBgSceneField(item) : ""}
     ${slide.kind === "logo" ? html`${slideLogoField(design.showLogo)}${slideChurchLabelFields(design, S.church(), "with-logo")}` : ""}
+    ${slideArrangeField(slide, design)}
     <button class="btn">Save slide</button></form>`);
+  slideArrangeStart($("#scrim form[data-form=slide-design]"), slide);
 };
 Forms["slide-design"] = (d, form) => {
   const item = editableSlideDeck(d.kind, d.id);
@@ -395,7 +400,7 @@ Forms["slide-design"] = (d, form) => {
   if (!slide) return formError(form, "This slide is no longer available.");
   if (!validSlideBackground(d.bg)) return formError(form, "Choose an image or a background from the media library.");
   const designs = { ...item.slideDesign };
-  const design = { bg: d.bg || "" };
+  const design = { bg: d.bg || "", ...slideArrangeFromForm(d, slide.bg) };
   if (slide.kind === "logo") {
     if (!d.showLogo) design.showLogo = false;
     if (d.churchLabel !== S.church().name) design.churchLabel = String(d.churchLabel || "").slice(0, 120);

@@ -620,3 +620,22 @@ select { max-width: 100%; text-overflow: ellipsis; }
 .brand-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
 .brand-row .faint { font-size: 13px; margin-right: 4px; }
 .crop-stage { touch-action: none; }
+
+/* ---------- Arranging a slide: moved and resized words ---------- */
+.slide.words-moved > :not(.slide-bg, .slide-foot, .sfoot) { translate: calc(var(--wx) * 1cqw) calc(var(--wy) * 1cqw); zoom: var(--ws); }
+.sa-mode { margin: 4px 0 8px; }
+.sa-stage { cursor: grab; touch-action: none; user-select: none; }
+.sa-stage:active { cursor: grabbing; }
+.sa-stage .slide-bg { pointer-events: none; }
+.sa-stage[data-mode="words"] .slide > :not(.slide-bg, .slide-foot, .sfoot) { outline: 1.5px dashed rgba(255, 255, 255, .6); outline-offset: 6px; border-radius: 4px; }
+.sa-stage[data-mode="photo"]::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 3px var(--brand); border-radius: inherit; pointer-events: none; }
+.sa-tip { display: block; margin-top: 6px; }
+/* Screen footer: your own spot */
+.sfoot.custom { position: absolute; inset: 0; display: block; pointer-events: none; padding: 0; background: none; }
+.sfoot.custom .sfoot-free { position: absolute; transform: translate(-50%, -50%); margin: 0; }
+#sfoot-preview .stage .sfoot-logo, #sfoot-preview .stage .sfoot-text { pointer-events: auto; cursor: grab; touch-action: none; outline: 1.5px dashed rgba(255, 255, 255, .55); outline-offset: 3px; border-radius: 4px; }
+#sfoot-preview .stage { touch-action: pan-y; }
+.pos-own { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); cursor: pointer; font-size: 14px; }
+.pos-own:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+.pos-own .i { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.sfoot.custom { max-width: none; }
