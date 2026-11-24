@@ -1,17 +1,26 @@
 // Keeps the app shell available offline. Bump VERSION whenever you deploy a new build.
-const VERSION = "our-faithful-v24";
+const VERSION = "our-faithful-v25";
+// Pictures and videos a screen saved so it keeps playing without internet (see 71b-screens.js). Kept across updates.
+const MEDIA = "our-faithful-screen-media";
+const mediaSaved = new Set();
+caches.open(MEDIA).then((c) => c.keys()).then((keys) => keys.forEach((r) => mediaSaved.add(r.url))).catch(() => {});
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png", "./icons/favicon.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", (e) => {
-  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION && k !== MEDIA).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+  // A screen's saved pictures and videos: from the cache first, so an outage doesn't blank the screen.
+  if (mediaSaved.has(req.url)) {
+    e.respondWith(caches.open(MEDIA).then((c) => c.match(req.url, { ignoreVary: true })).then((r) => r || fetch(req)));
+    return;
+  }
   // Fonts: cache after first use so the app keeps its type offline.
   if (url.hostname.endsWith("fonts.googleapis.com") || url.hostname.endsWith("fonts.gstatic.com")) {
     e.respondWith(caches.open(VERSION).then(async (c) => (await c.match(req)) || fetch(req).then((res) => { c.put(req, res.clone()); return res; })));
@@ -35,4 +44,24 @@ self.addEventListener("notificationclick", (e) => {
     if (open) { open.navigate(url); return open.focus(); }
     return self.clients.openWindow(url);
   }));
+});
+
+// A screen asks to save everything it might show: { type: "ofc-cache", urls }. Things no longer needed are dropped.
+// It answers on the message port with how many are saved.
+self.addEventListener("message", (e) => {
+  const d = e.data || {};
+  if (d.type !== "ofc-cache" || !Array.isArray(d.urls)) return;
+  e.waitUntil((async () => {
+    const c = await caches.open(MEDIA), want = new Set(d.urls.map((u) => new URL(u, self.registration.scope).href));
+    for (const r of await c.keys()) if (!want.has(r.url)) { await c.delete(r); mediaSaved.delete(r.url); }
+    let saved = 0;
+    for (const u of want) {
+      if (await c.match(u)) { saved++; mediaSaved.add(u); continue; }
+      try {
+        const same = new URL(u).origin === location.origin, res = await fetch(u, { mode: same ? "same-origin" : "no-cors", credentials: "omit" });
+        if (res.ok || res.type === "opaque") { await c.put(u, res); mediaSaved.add(u); saved++; }
+      } catch { /* not reachable now: tried again on the next check-in */ }
+    }
+    e.ports[0]?.postMessage({ saved, total: want.size });
+  })());
 });

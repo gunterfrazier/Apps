@@ -172,8 +172,8 @@ function drawRoom() {
     inner = html`<div class="display"><div class="stage">${slideHtml(data ? slideFor(data, m || { index: 0 }) : { kind: "logo" })}</div></div>`;
   } else if (d.settings?.idle === "mirror") {
     const m = follow.msg, data = m && routeData(m.key);
-    inner = data ? html`<div class="display"><div class="stage">${slideHtml(slideFor(data, { ...m, index: clamp(m.index || 0, 0, data.slides.length - 1) }))}</div></div>` : idleHtml("display", d.settings?.playlistId);
-  } else inner = idleHtml("display", d.settings?.playlistId);
+    inner = data ? html`<div class="display"><div class="stage">${slideHtml(slideFor(data, { ...m, index: clamp(m.index || 0, 0, data.slides.length - 1) }))}</div></div>` : idleHtml("display", devicePlaylistNow(d));
+  } else inner = idleHtml("display", devicePlaylistNow(d));
   const hint = !ses && d.settings?.hint !== false ? roomHint(d) : "";
   app.innerHTML = flat(html`${inner || html`<div class="display"><div class="stage">${slideHtml({ kind: "logo" })}</div></div>`}${hint}${deviceExitBtn()}`);
 }

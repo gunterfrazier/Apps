@@ -56,6 +56,7 @@ Screens.devices = () => {
     title: "Screens and devices", back: hasAdminTools() ? "admin" : "ministry",
     body: html`<p class="muted" style="margin-top:16px">Sign in the church's shared screens and tablets as devices, not as people. Each one does one job and stays signed in. Remove a device to sign it out.</p>
       <div class="btns"><button class="btn" data-act="device-new">${icon("plus")}Add a device</button><a class="btn ghost" href="#admin-rooms">${icon("door")}Rooms</a><a class="btn ghost" href="#signs">${icon("image")}Signage playlists</a></div>
+      ${screenHealthPanel()}
       ${Object.entries(DEVICE_TYPES).map(([k, [label, ic]]) => { const ds = list.filter((d) => d.type === k); return ds.length ? html`<section class="sec"><h2 class="sec-head">${label}s</h2><div class="rows">${ds.map((d) => { const st = deviceStatus(d);
         return html`<button class="row" data-act="device-open" data-id="${d.id}"><span class="lead-ic">${icon(ic)}</span><span class="body"><span class="t">${d.name}</span><span class="s">${[d.locationId ? locName(d.locationId) : "", deviceSummary(d)].filter(Boolean).join(". ")}</span></span>
           <span class="tag ${st === "Online" ? "ok" : st === "Code expired" ? "warn" : st === "Waiting to pair" ? "brand" : ""}">${st}</span></button>`; })}</div></section>` : ""; })}
@@ -89,8 +90,10 @@ function deviceForm(d = { type: "signage", settings: {} }) {
     <div class="dev-opt" data-for="signage" ${attr(d.type !== "signage", "hidden")}><label class="field"><span>Playlist</span><select name="playlistId"><option value="">Choose a playlist</option>${lists.map((p) => html`<option value="${p.id}" ${attr(p.id === s.playlistId, "selected")}>${p.name}</option>`)}</select>${!lists.length ? html`<small><a href="#signs">Make a playlist first</a></small>` : ""}</label></div>
     <div class="dev-opt" data-for="display stage overlay" ${attr(!["display", "stage", "overlay"].includes(d.type), "hidden")}><label class="field"><span>Between services, show</span><select name="idlePlaylistId"><option value="">The church's logo</option>${lists.map((p) => html`<option value="${p.id}" ${attr(p.id === s.idlePlaylistId, "selected")}>${p.name} (signage)</option>`)}</select><small>Switches to the booth's slides as soon as it starts presenting${d.locationId ? "" : " at this location"}.</small></label></div>
     <div class="dev-opt" data-for="kiosk" ${attr(d.type !== "kiosk", "hidden")}><label class="field"><span>Label size</span><select name="labelSize">${Object.entries(LABEL_SIZES).map(([k, [l]]) => html`<option value="${k}" ${attr(k === (s.labelSize || "4x2"), "selected")}>${l}</option>`)}</select></label></div>
+    ${scheduleFields(d)}
     ${deviceMapFields(d)}
     <label class="field"><span>Exit code (optional)</span><input type="text" name="exitPin" inputmode="numeric" maxlength="6" value="${s.exitPin || ""}" autocomplete="off" placeholder="4 to 6 digits"><small>Needed to take the device out of its job on the device itself.</small></label>
+    ${d.id && SCREEN_TYPES.includes(d.type) ? html`<a class="btn ghost sm" href="#screenremote-${d.id}" style="margin-top:8px">${icon("screen")}Remote: see and change what's playing</a>` : ""}
     <div class="btns"><button class="btn">${d.id ? "Save" : "Add and get a pairing code"}</button>${d.id ? html`<button type="button" class="btn danger" data-act="device-remove" data-id="${d.id}">Remove device</button>` : ""}</div></form>`;
 }
 Inputs["device-type"] = (form, e) => {
@@ -115,6 +118,8 @@ Forms["device-save"] = (d, f) => {
   let settings = { playlistId: d.playlistId || null, idlePlaylistId: d.idlePlaylistId || null, labelSize: d.labelSize || "4x2", exitPin: d.exitPin || "" }, locationId = d.locationId || null;
   if (d.type === "room") { const i = d.roomKey.indexOf("~"); locationId = d.roomKey.slice(0, i); settings = { room: d.roomKey.slice(i + 1), idle: d.idle === "mirror" ? "mirror" : "signage", playlistId: d.roomPlaylistId || null, hint: !!d.hint, exitPin: d.exitPin || "" }; }
   Object.assign(settings, deviceMapSettings(d));
+  const sched = scheduleFromForm(d); if (sched.error) return formError(f, sched.error);
+  settings.schedule = sched.rules;
   if (d.id) { const dev = S.get("devices", d.id); Object.assign(dev, { name: d.name, locationId, settings }); S.save(); devicePing(dev, { name: dev.name, locationId: dev.locationId, settings }); closeSheet(); toast("Saved"); render(); return; }
   const dev = S.add("devices", { name: d.name, type: d.type, locationId, settings, status: "waiting", code: pairCode(), codeExpires: new Date(Date.now() + 30 * 60e3).toISOString(), deviceUser: null, lastSeen: null, at: new Date().toISOString() });
   closeSheet(true); render(); pairSheet(dev);
@@ -274,7 +279,7 @@ let wake = null;
 async function keepAwake() { try { if (!wake && "wakeLock" in navigator && document.visibilityState === "visible") { wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release", () => { wake = null; }); } } catch { wake = null; } }
 document.addEventListener("visibilitychange", () => { if (thisDevice()) keepAwake(); });
 // Let staff see each device is alive.
-setInterval(() => { const d = thisDevice(); if (d) { d.lastSeen = new Date().toISOString(); S.save(); devicePing(d, { lastSeen: d.lastSeen }); } }, 2 * 60e3);
+setInterval(() => { const d = thisDevice(); if (d) { d.lastSeen = new Date().toISOString(); d.health = screenReport(); S.save(); devicePing(d, { lastSeen: d.lastSeen, health: d.health }); } }, 2 * 60e3);
 /** A small lock in the corner of every device screen: leave device mode with the exit code. */
 const deviceExitBtn = () => thisDevice() ? html`<button class="device-exit" data-act="device-exit" aria-label="Device settings">${icon("lock")}</button>` : "";
 Actions["device-exit"] = () => {
@@ -317,17 +322,23 @@ function followListen(draw, onRoom) {
   if (Backend.on) Backend.onBroadcast(on);
 }
 /** What a following screen shows with nothing presenting: the idle playlist, or the church's logo. */
-function idleHtml(kind, playlistId = thisDevice()?.settings?.idlePlaylistId) {
+function idleHtml(kind, playlistId = devicePlaylistNow(thisDevice())) {
   const pl = playlistId && S.get("signage", playlistId);
   if (kind === "overlay") return html`<div class="ov-frame"></div>`;
-  if (pl) { const sl = signageSlides(pl); if (!sl.length) return ""; const i = Math.floor(Date.now() / 1000 / (pl.seconds || 10)) % sl.length; return html`<div class="sign-player">${signFrame(pl, sl[i], { live: true })}</div>`; }
+  if (pl) { const dev = thisDevice(), sl = signageSlides(pl); if (!sl.length) return ""; if (dev) cacheScreenMedia(dev);
+    const { i } = playPosition(sl, Date.now(), dev?.control); return html`<div class="sign-player">${signFrame(pl, sl[i], { live: true })}${dev ? offlineBadge() : ""}</div>`; }
   return html`<div class="display"><div class="stage">${slideHtml({ kind: "logo" })}</div></div>`;
 }
 function drawFollow(kind) {
   const m = follow.msg, data = m && routeData(m.key), app = $("#app");
   applyBrand();
   if (kind !== "stage" && kind !== "overlay" && mediaDraw(app, m)) return;   // a video, website or file in place of the slides
-  if (!data) { app.innerHTML = flat(html`${idleHtml(kind)}${deviceExitBtn()}`); return; }
+  if (!data) {
+    app.innerHTML = flat(html`${idleHtml(kind)}${deviceExitBtn()}`);
+    // Between services the playlist (and its schedule) keeps moving.
+    clearTimeout(drawFollow.idle); drawFollow.idle = setTimeout(() => { const m2 = follow.msg; if (!(m2 && routeData(m2.key)) && /-follow$/.test(location.hash)) drawFollow(kind); }, 5000);
+    return;
+  }
   const st = { ...m, index: clamp(m.index || 0, 0, data.slides.length - 1) };
   if (kind === "stage") { stageRedraw = () => drawFollow("stage"); app.innerHTML = flat(html`${stageMonitor(data, st, true)}${deviceExitBtn()}`); }
   else if (kind === "overlay") app.innerHTML = flat(html`<div class="ov-frame">${overlayHtml(liveAt(data.slides, st).cur, st)}</div>${deviceExitBtn()}`);
