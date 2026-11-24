@@ -84,6 +84,16 @@ Set it up once, in the Cloudflare dashboard:
 4. Save and deploy. Each later push to the branch redeploys the site.
 5. The site's own domain is veritaslogos.com, registered at GoDaddy. Cloudflare serves a bare domain like this only when the domain's nameservers are Cloudflare's: add the domain to Cloudflare (free plan), set GoDaddy's nameservers to the two Cloudflare gives, and once it's active, add `veritaslogos.com` and `www.veritaslogos.com` under the Pages project's Custom domains.
 
+**The website and the app.** `veritaslogos.com/` is the Veritas Logos website (`site/`), and the app is at
+`veritaslogos.com/app/`. The build puts the app in `dist/app/` and the website around it, with the root's own files from
+`site-root/`: `_redirects` for the app's old file addresses, a one-time `sw.js` that moves offline downloads to the app's
+new address and then removes itself, the old `embed.html`, and `veritas-embed.js` pointed at `/app/`. The website sends
+anything meant for the app straight on: a `#place` in the app, sign-in and YouVersion returns (`?code`, `?state`),
+anyone with Veritas Logos saved or signed in on the device, and the installed app. `/?home` always shows the website.
+The redirect URLs above (`https://veritaslogos.com/**`) already cover `/app/`, and YouVersion still returns to
+`https://veritaslogos.com`, which forwards. Watch mode (`npm run dev`) serves the app alone at the root, as before.
+The preview page in `dist-artifact/` loads `app.js` and `app.css` from `dist/app/`.
+
 Cloudflare's dashboard also offers Workers (Create application > Import a repository), which asks for a deploy command instead of an output directory. That works too, with `wrangler.jsonc`: name the project `veritas-logos`, set the build command to `npm run build`, the deploy command to `npx wrangler deploy` and the path (root directory) to `veritas-logos`. The site is then at `https://veritas-logos.<your-subdomain>.workers.dev`, so add that address to the Supabase secret `BIBLE_WEB_ORIGINS` (or ask for the function's default to be changed).
 
 `site.config.json` holds the website's settings, which the build writes into `dist/index.html`:
@@ -102,7 +112,7 @@ How it's built:
 - Sign-in and storage are a free Supabase project, "Veritas Logos" (`fxssrtexwwmqrxzlgnmy`, US East). Each reader's data is one row per document in `user_docs`: a `profile` row for settings and notes, and a `guide-<id>` row per guide. `supabase/migrations/` creates it, with row-level security so readers reach only their own rows, limits of 2 MB per row and 25 MB or 2,000 rows per reader, and `delete_my_account()`. Supabase's security check flags that function because signed-in readers can run it; that's intended, as it deletes only the caller's own account.
 - Apply `supabase/migrations/20261120083000_family_profiles.sql` to the Veritas Logos project before publishing the Family library. The migration adds adult-owned family profile rows with nickname, age group and theme. Account deletion removes these rows. Study backups cover the reader's study data, while family profiles are stored in the account. The age previews work without an account. Kids and teens have a separate reading interface with a visible link back to the family screen.
 - `src/account/` is the sign-in code, built into its own `account.js` so only the website loads it. `src/app/account.ts` connects it to the app, and `src/app/pages/account.tsx` is the Account page (`#account`, or the round button in the header).
-- `public/privacy.html` is the privacy page that Google's sign-in setup asks for.
+- `site/privacy/` (veritaslogos.com/privacy/) is the privacy page that Google's sign-in setup and Google Play ask for, and `site/delete-account/` is the account deletion page Google Play asks for.
 
 Set it up once, in the dashboards (none of these steps cost anything):
 
@@ -110,7 +120,7 @@ Set it up once, in the dashboards (none of these steps cost anything):
 2. **Branded account emails.** In Authentication > Emails > Templates, install the [Veritas Logos templates](supabase/templates/README.md) for confirming an email address, signing in, and resetting a password.
 3. **Addresses.** In Authentication > URL Configuration, set the Site URL to `https://veritaslogos.com` and add these redirect URLs: `https://veritaslogos.com/**`, `https://www.veritaslogos.com/**`, `https://apps-c5t.pages.dev/**` and `https://*.apps-c5t.pages.dev/**`.
 4. **Passwords.** In Authentication > Sign In / Providers > Email, keep "Confirm email" on and set the minimum password length to 8.
-5. **Google.** In Google Cloud Console, set up the OAuth consent screen (app name Veritas Logos, home page `https://veritaslogos.com`, privacy policy `https://veritaslogos.com/privacy.html`, scopes email, profile and openid only) and publish it to production. Create an OAuth client ID of type Web application, with authorized JavaScript origins `https://veritaslogos.com` and `https://apps-c5t.pages.dev`, and the authorized redirect URI `https://fxssrtexwwmqrxzlgnmy.supabase.co/auth/v1/callback`. Paste its client ID and secret into Supabase under Authentication > Sign In / Providers > Google and turn it on. The Google button appears on the site by itself once Google is on.
+5. **Google.** In Google Cloud Console, set up the OAuth consent screen (app name Veritas Logos, home page `https://veritaslogos.com`, privacy policy `https://veritaslogos.com/privacy/`, scopes email, profile and openid only) and publish it to production. Create an OAuth client ID of type Web application, with authorized JavaScript origins `https://veritaslogos.com` and `https://apps-c5t.pages.dev`, and the authorized redirect URI `https://fxssrtexwwmqrxzlgnmy.supabase.co/auth/v1/callback`. Paste its client ID and secret into Supabase under Authentication > Sign In / Providers > Google and turn it on. The Google button appears on the site by itself once Google is on.
 6. **The privacy address.** The privacy page gives `privacy@veritaslogos.com` for questions. Cloudflare's free Email Routing can forward it to your own inbox once the domain is on Cloudflare.
 
 **Optional passkey pilot.** After deploying the website, open **Authentication → Passkeys** in Supabase. Set the relying party display name to `Veritas Logos`, the relying party ID to `veritaslogos.com`, and the allowed origins to `https://veritaslogos.com,https://www.veritaslogos.com`. The app shows passkeys on those origins in supported browsers when Supabase reports that passkey authentication is enabled. Keep the relying party ID stable once readers enroll. With a test account, sign in by email, add a passkey in Account, sign out, sign back in with the passkey, then remove it and verify email sign-in. Supabase currently labels the integration experimental. [Supabase passkey documentation](https://supabase.com/docs/guides/auth/passkeys)

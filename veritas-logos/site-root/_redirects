@@ -1,0 +1,13 @@
+# Veritas Logos moved to /app/; the root is its website. Old addresses of the app's files go to their new place.
+/privacy.html      /privacy/                   301
+/data/*            /app/data/:splat            301
+/voice/*           /app/voice/:splat           301
+/family/*          /app/family/:splat          301
+/licenses/*        /app/licenses/:splat        301
+/app.js            /app/app.js                 301
+/app.css           /app/app.css                301
+/account.js        /app/account.js             301
+/voice-worker.js   /app/voice-worker.js        301
+/embed.js          /app/embed.js               301
+/embed.css         /app/embed.css              301
+/manifest.webmanifest /app/manifest.webmanifest 301

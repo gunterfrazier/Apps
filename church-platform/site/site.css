@@ -183,3 +183,14 @@ p { margin: 0; }
 .legal .btn { margin-top: 4px; }
 .legal a.btn, .legal a.btn:hover { color: #fff; }
 .done-note { background: #e8f5ee; color: #14532d; border-radius: 12px; padding: 14px 18px; margin: 0 0 24px; font-weight: 600; }
+
+/* ---------- Veritas Logos, from the same team ---------- */
+.sister { background: var(--night); color: #dfe4f2; padding: 44px 0; margin: -44px 0 40px; }
+.sister-in { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 22px; align-items: start; }
+.sister h2 { font-size: 1.4rem; color: #fff; }
+.sister p { margin-top: 10px; color: #b9c1d6; max-width: 64ch; }
+.sister-links { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.sister-links a { color: #fff; }
+.sister-mark { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; background: #fff; }
+.sister .vl-mark { width: 34px; height: 38px; }
+@media (max-width: 520px) { .sister-in { grid-template-columns: 1fr; } }
