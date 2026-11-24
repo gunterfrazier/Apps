@@ -299,6 +299,30 @@ Good to know:
 - **If a build fails** on the Node version, add the environment variable `NODE_VERSION` = `22` under **Settings, Variables and Secrets**.
 - **Sign-in email from your own domain.** Step 3.3 can now use a sender at `ourfaithfulchurch.com` (Resend, Postmark, Brevo or SendGrid) instead of the Gmail account. Add the DNS records they give you in Cloudflare.
 
+## Church web addresses
+
+Every church's landing page has its own web address, made from its church ID (Admin, Account details):
+
+- **`ourfaithfulchurch.com/riverside`** works as soon as the app is on Cloudflare Pages, with nothing to set up. Pages
+  answers any unknown address with the app, and the app opens that church's page.
+- **`riverside.ourfaithfulchurch.com`** needs a wildcard DNS record and a small Cloudflare Worker
+  (`church-platform/church-sites`), because Pages can't serve a wildcard subdomain:
+  1. In Cloudflare, **ourfaithfulchurch.com, DNS, Records, Add record**: type **A**, name **`*`**, IPv4 address
+     **`192.0.2.0`**, **Proxied** (orange cloud). Records you already have (www, mail) keep working as they are.
+  2. Make an API token: **My Profile, API Tokens, Create Token**, the **Edit Cloudflare Workers** template, limited to
+     your account and the ourfaithfulchurch.com zone. Copy your **Account ID** from the domain's overview page.
+  3. In GitHub, **Settings, Secrets and variables, Actions**, add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+     Then **Actions, Church subdomains (Cloudflare Worker), Run workflow**.
+  4. Open `https://riverside-marietta.ourfaithfulchurch.com/` (any live church's ID works). When it shows the page,
+     set `churchSubdomains: true` in `public/config.js` so the app shows subdomain addresses.
+- **A shorter domain** (optional): add it to Cloudflare, add a route for it in `church-sites/wrangler.toml`, set
+  `SHORT_DOMAIN` there and `shortDomain` in `config.js`. `SHORT.example/riverside` then forwards to the church's page.
+
+On a church subdomain only the public pages open (landing page, Plan your visit, campus map). Joining, signing in and
+everything else go to the app's main address, where sign-ins and paired devices live. When a church changes its ID, its
+old address keeps working and shows the new one. Names the app uses itself (admin, give, help and others) can't be
+church IDs.
+
 ## Demo and training
 
 Share these links with churches you're inviting, or with new staff and volunteers:

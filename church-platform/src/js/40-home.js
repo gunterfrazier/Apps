@@ -137,7 +137,9 @@ Screens.start = (mode) => {
       <p class="muted" style="margin-top:12px">This creates a church account, separate from your own. You'll be its <b>primary account holder</b>: you choose its roles, features and defaults, and can hand the account to someone else later.</p>
       <h2 style="margin-top:20px">Church account</h2>
       <label class="field"><span>Church name</span><input type="text" name="name" required maxlength="60" data-input="suggest-handle"></label>
-      <label class="field"><span>Church ID</span><input type="text" name="handle" maxlength="30" placeholder="grace-point-savannah" pattern="[a-z0-9-]+"><small>A unique ID people can search for. Lowercase letters, numbers and hyphens.</small></label>
+      <label class="field"><span>Church ID and web address</span><input type="text" name="handle" maxlength="30" placeholder="grace-point-savannah" autocapitalize="none" spellcheck="false" data-input="handle-preview">
+        <small data-handle-preview>Your web address: ${churchAddress(null, "your-church")}</small><small>A unique ID people can search for. Lowercase letters, numbers and hyphens.</small></label>
+      <label class="field"><span>Church website <span class="faint">(optional)</span></span><input type="url" name="website" placeholder="https://"><small><b>Don't have one? We can help.</b> Leave this blank and your church's landing page becomes its website, at the address above. You build the page after setup.</small></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <label class="field"><span>Church email</span><input type="email" name="email"></label>
         <label class="field"><span>Church phone</span><input type="tel" name="phone"></label></div>
@@ -167,15 +169,18 @@ Screens.start = (mode) => {
     </form>`,
   };
 };
-Inputs["suggest-handle"] = (el) => { const h = $("input[name=handle]", el.form); if (!h.dataset.touched) h.value = slugify(el.value).slice(0, 30); };
+Inputs["suggest-handle"] = (el) => { const h = $("input[name=handle]", el.form); if (!h.dataset.touched) { h.value = suggestHandle(el.value); Inputs["handle-preview"](h); } };
 document.addEventListener("input", (e) => { if (e.target.name === "handle") e.target.dataset.touched = "1"; });
 Actions["add-start-loc"] = () => { $("#loc-rows").insertAdjacentHTML("beforeend", flat(startLocRow(startLocRows++))); $(`input[name=locName${startLocRows - 1}]`).focus(); };
-Forms["start-church"] = (d, f, fd) => {
+Forms["start-church"] = async (d, f, fd) => {
   const guided = f.hasAttribute("data-guided-registration");
   if (guided && Number(f.dataset.setupStep) < 3) return Actions["setup-next"]({ form: f });
   if (!d.name) return registrationFieldError(f, 0, "Enter your church's name.");
-  const handle = slugify(d.handle || d.name);
-  if (S.churches().some((c) => c.handle === handle)) return registrationFieldError(f, 0, `The church ID "${handle}" is taken. Try another.`);
+  const handle = d.handle ? slugify(d.handle).slice(0, 30) : suggestHandle(d.name);
+  const problem = handleProblem(handle);
+  if (problem) return registrationFieldError(f, 0, problem);
+  if (await handleTakenOnline(handle)) return registrationFieldError(f, 0, `${churchAddress(null, handle)} is taken. Try adding your city, like ${handle}-springfield.`);
+  if (d.website && !isUrl(d.website)) return registrationFieldError(f, 0, "The website should start with https://, or leave it blank to use your landing page.");
   const locations = [], codes = new Set();
   for (let i = 0; i < 20; i++) {
     if (!(`locName${i}` in d)) break;
@@ -191,8 +196,8 @@ Forms["start-church"] = (d, f, fd) => {
   const chosenColor = /^#[0-9a-fA-F]{6}$/.test(d.customColor || "") ? d.customColor.toLowerCase() : (d.color || BRAND_COLORS[0]);
   const selected = guided ? chosenSetupTopics(fd.getAll("setupTopic")) : [];
   const setup = guided ? { modules: Object.fromEntries(MODULES.map(([id]) => [id, selected.includes(id)])), setupGuide: { selected, done: {} } } : {};
-  const c = S.createChurch({ ...setup, name: d.name, handle, email: d.email || "", phone: d.phone || "", city: d.city || "", tagline: d.tagline || "", color: chosenColor, sign: ["Welcome", d.tagline || ""], locations });
-  toast(`${c.name} is ready. You're its primary account holder.`); go(guided ? "admin-setupguide" : "admin");
+  const c = S.createChurch({ ...setup, name: d.name, handle, email: d.email || "", phone: d.phone || "", city: d.city || "", tagline: d.tagline || "", website: d.website || "", color: chosenColor, sign: ["Welcome", d.tagline || ""], locations });
+  toast(`${c.name} is ready at ${churchAddress(c)}. You're its primary account holder.`); go(guided ? "admin-setupguide" : "admin");
 };
 
 // ---------- Home ----------

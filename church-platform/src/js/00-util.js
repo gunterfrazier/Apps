@@ -54,6 +54,37 @@ function forwardHome() {
 /** True when this page is on its way to the app's one address, so nothing should start here. */
 const FORWARDING = forwardHome();
 
+// ---------- Church web addresses ----------
+// Every church's landing page has a web address built from its church ID: ourfaithfulchurch.com/riverside, and, once
+// the wildcard DNS record and the church-sites Worker are set up (SETUP.md, config.js: churchSubdomains),
+// riverside.ourfaithfulchurch.com. A church without a website can use it as its website.
+const SITE_DOMAIN = (() => { try { return (PLATFORM.siteDomain || (PLATFORM.home ? new URL(PLATFORM.home).hostname : "") || "ourfaithfulchurch.com").toLowerCase(); } catch { return "ourfaithfulchurch.com"; } })();
+const SITE_HANDLE_RE = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
+// Names a church can't use: the app's own pages and files, and subdomains kept for the platform.
+const RESERVED_HANDLES = new Set(("www app apps admin api mail email help support status docs blog news about pricing plans " +
+  "join signin sign-in signup sign-up login logout register start churches church page pages pair setup welcome settings " +
+  "home give giving t go tv screens screen display stage overlay kiosk nfc qr link links site sites " +
+  "privacy terms legal security abuse contact press careers store shop download downloads " +
+  "icons kids bible hymns demo training vendor family-lib config manifest assets static media files cdn " +
+  "our-faithful ourfaithful our-faithful-church veritas veritas-logos").split(" "));
+/** The church this address is for: a subdomain (riverside.ourfaithfulchurch.com) or a path (/riverside). */
+const CHURCH_SITE = (() => {
+  if (IN_PREVIEW || FORWARDING || !/^https?:$/.test(location.protocol)) return null;
+  const host = location.hostname.toLowerCase();
+  if (host.endsWith(`.${SITE_DOMAIN}`)) {
+    const sub = host.slice(0, -SITE_DOMAIN.length - 1);
+    if (!sub.includes(".") && SITE_HANDLE_RE.test(sub) && !RESERVED_HANDLES.has(sub)) return { handle: sub, subdomain: true };
+  }
+  const m = location.pathname.match(/^\/([A-Za-z0-9-]+)$/), h = m?.[1].toLowerCase();
+  return h && SITE_HANDLE_RE.test(h) && !RESERVED_HANDLES.has(h) ? { handle: h, subdomain: false } : null;
+})();
+/** The app's own address, for links that leave a church subdomain (joining, signing in) or a church path. */
+const APP_HOME = (() => {
+  if (!CHURCH_SITE) return location.origin + location.pathname;
+  if (!CHURCH_SITE.subdomain) return `${location.origin}/`;
+  return `${location.protocol}//${SITE_DOMAIN}${location.port ? `:${location.port}` : ""}/`;
+})();
+
 // ---------- Demo and training sandboxes ----------
 // "Try the demo" and "Training" run the app on practice data kept in this browser only: nothing reaches a church's
 // real data, no money moves, and Reset starts over. They open with ?demo or ?training and stay on until Exit

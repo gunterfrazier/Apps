@@ -38,7 +38,9 @@ const server = createServer((req, res) => {
     });
     return res.end(body.subarray(start, end + 1));
   }
-  const p = join(root, path.replace(/\/$/, "/index.html"));
+  // A church's web address (/riverside-marietta) is the app's page, as Cloudflare Pages serves it.
+  let p = join(root, path.replace(/\/$/, "/index.html"));
+  if (/^\/[A-Za-z0-9-]+\/?$/.test(path) && !existsSync(p)) p = join(root, "index.html");
   // Leave out config.js so the test runs in browser-only mode with the sample churches.
   if (!p.startsWith(root) || !existsSync(p) || p.endsWith("config.js")) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { "content-type": types[extname(p)] || "application/octet-stream" }); res.end(readFileSync(p));
@@ -3195,6 +3197,73 @@ await step("google tv app opens pairing", async () => {
   if (!(await p.evaluate(() => document.activeElement?.matches(".pair-input")))) throw new Error("pairing code box isn't focused for the remote");
   await p.screenshot({ path: join(shots, "tv-pair.png") });
   await tv.close();
+});
+
+await step("church web addresses", async () => {
+  const visit = async (url, opts = {}) => {
+    const cx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    if (opts.config) await cx.addInitScript((c) => { window.OUR_FAITHFUL_CONFIG = c; }, opts.config);
+    const p = await cx.newPage();
+    p.on("pageerror", (e) => errors.push(`web address pageerror: ${e.message}`));
+    await p.route(/^https?:\/\/(?!localhost|[a-z0-9-]+\.localhost)/, (r) => r.abort());
+    await p.goto(url); await p.waitForSelector("#app > *"); await p.waitForTimeout(400);
+    return { p, cx };
+  };
+  // The path, and the path with a slash (config.js and the icons still load from the root).
+  for (const path of ["riverside-marietta", "Riverside-Marietta/"]) {
+    const { p, cx } = await visit(base + path);
+    const t = await p.textContent("#app");
+    if (!t.includes("Riverside Community Church") || !(await p.$(".public-page"))) throw new Error(`/${path} should open Riverside's landing page`);
+    if (path.endsWith("/") && (await p.evaluate(() => location.pathname)) !== "/Riverside-Marietta") throw new Error("the slash on the end should be dropped");
+    if (path === "riverside-marietta") await p.screenshot({ path: join(shots, "web-address.png") });
+    await cx.close();
+  }
+  // Nothing there: a friendly page, not the app's sign-up.
+  { const { p, cx } = await visit(base + "no-such-church");
+    if (!(await p.textContent("#app")).includes("There's no church at this address")) throw new Error("an unknown address should say so");
+    await cx.close(); }
+  // The app's own pages aren't church addresses.
+  { const { p, cx } = await visit(base + "#churches");
+    if (await p.$(".site-missing")) throw new Error("the app's root shouldn't look for a church"); await cx.close(); }
+  // A church subdomain (riverside-marietta.localhost stands in for riverside-marietta.ourfaithfulchurch.com).
+  { const port = new URL(base).port;
+    const { p, cx } = await visit(`http://riverside-marietta.localhost:${port}/`, { config: { siteDomain: "localhost" } });
+    if (!(await p.textContent("#app")).includes("Riverside Community Church")) throw new Error("the church subdomain should open its landing page");
+    const join = await p.getAttribute(".public-page .home-bar a.btn", "href");
+    if (!join?.startsWith(`http://localhost:${port}/#church-`)) throw new Error(`joining from a subdomain should go to the app's address, got ${join}`);
+    // Anything else goes to the app's address.
+    await Promise.all([p.waitForURL(`http://localhost:${port}/#give`), p.evaluate(() => { location.hash = "give"; })]);
+    await cx.close(); }
+  // Account details: the address shows as it's typed, a reserved name is refused, and a new address keeps the old one working.
+  // An admin at Riverside for this part (earlier steps may have left the tester in a limited role); put back after.
+  const role = await page.evaluate(() => {
+    const S = __app.S, me = S.me().id; S.state.current = "riverside";
+    let m = S.state.memberships.find((x) => x.churchId === "riverside" && x.userId === me);
+    if (!m) { m = { churchId: "riverside", userId: me, roleId: "member", locations: [], joined: new Date().toISOString() }; S.state.memberships.push(m); }
+    const was = m.roleId, admin = S.state.churches.riverside.roles.find((r) => r.id === "admin");
+    m.roleId = admin.id; S.save(); return was;
+  });
+  await page.evaluate(() => __app.render());
+  await goTo("admin-account");
+  const was = await page.inputValue('input[name="handle"]');
+  await page.fill('input[name="handle"]', "admin"); await page.waitForTimeout(50);
+  if (!/kept for/.test(await page.textContent("[data-handle-preview]"))) throw new Error("a reserved address should be flagged as it's typed");
+  await page.click('form[data-form="admin-account"] button.btn:not([type=button])'); await page.waitForTimeout(150);
+  if ((await page.evaluate(() => __app.S.state.churches.riverside.handle)) !== was) throw new Error("a reserved address shouldn't save");
+  await page.fill('input[name="handle"]', "riverside-test"); await page.waitForTimeout(50);
+  if (!(await page.textContent("[data-handle-preview]")).includes("ourfaithfulchurch.com/riverside-test")) throw new Error("the preview should show the new address");
+  await page.click('form[data-form="admin-account"] button.btn:not([type=button])'); await page.waitForTimeout(200);
+  const saved = await page.evaluate(() => { const c = __app.S.state.churches.riverside; return { handle: c.handle, old: c.oldHandles }; });
+  if (saved.handle !== "riverside-test" || !saved.old?.includes(was)) throw new Error(`expected the new address with the old one kept, got ${JSON.stringify(saved)}`);
+  // The old address, in this same browser, opens the page and shows the new address.
+  const old = await ctx.newPage(); await old.goto(base + was); await old.waitForSelector(".public-page");
+  if ((await old.evaluate(() => location.pathname)) !== "/riverside-test") throw new Error("the old address should show the new one");
+  await old.close();
+  await goTo("admin-page"); await page.waitForSelector(".web-address .web-address-url"); await shot("web-address-admin");
+  // Put it back for anything after.
+  await goTo("admin-account"); await page.fill('input[name="handle"]', was);
+  await page.click('form[data-form="admin-account"] button.btn:not([type=button])'); await page.waitForTimeout(150);
+  await page.evaluate((was) => { const S = __app.S; S.state.memberships.find((x) => x.churchId === "riverside" && x.userId === S.me().id).roleId = was; S.save(); }, role);
 });
 
 await browser.close(); server.close();

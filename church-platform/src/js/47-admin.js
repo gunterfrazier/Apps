@@ -368,7 +368,8 @@ AdminScreens.account = () => {
     body: html`<form data-form="admin-account" novalidate style="margin-top:8px">
       <p class="muted">The church account is separate from any one person's account. ${S.userName(c.ownerId)} is its primary account holder.</p>
       <label class="field"><span>Church name</span><input type="text" name="name" value="${c.name}" required maxlength="60"></label>
-      <label class="field"><span>Church ID</span><input type="text" name="handle" value="${c.handle}" maxlength="30"><small>Unique across ${PLATFORM.name}. People can search for it.</small></label>
+      <label class="field"><span>Church ID and web address</span><input type="text" name="handle" value="${c.handle}" maxlength="30" autocapitalize="none" spellcheck="false" data-input="handle-preview" data-church="${c.id}">
+        <small data-handle-preview>Your web address: ${churchAddress(c)}</small><small>Unique across ${PLATFORM.name}. People can search for it. If you change it, the old address keeps working.</small></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <label class="field"><span>Church email</span><input type="email" name="email" value="${c.email}"></label>
         <label class="field"><span>Church phone</span><input type="tel" name="phone" value="${c.phone}"></label></div>
@@ -380,6 +381,8 @@ AdminScreens.account = () => {
         <small>Buttons, links and highlights use it. <a href="#admin-appearance">Appearance</a> has fonts, corners and light or dark.</small></fieldset>
       <p class="faint">The Home banner's background, graphics and text art are under <a href="#admin-banner">Home banner</a>.</p>
       <h2 style="margin-top:22px">Website and social media</h2>
+      ${!isUrl(c.website) ? html`<div class="panel site-offer"><p style="margin:0"><b>Don't have a church website? We can help.</b> Your landing page is a website at <a href="${churchUrl(c)}" target="_blank" rel="noopener">${churchAddress(c)}</a>. Leave Website blank and that's the address people get.</p>
+        ${S.can("manage.page") ? html`<a class="btn ghost sm" href="#admin-page" style="margin-top:10px">${icon("edit")}Build your page</a>` : ""}</div>` : ""}
       ${SOCIAL.map(([k, label]) => html`<label class="field"><span>${label}</span><input type="url" name="s_${k}" value="${k === "website" ? c.website : c.social?.[k] || ""}" placeholder="https://"></label>`)}
       <h2 style="margin-top:22px">Licensing</h2>
       <label class="field"><span>CCLI license number</span><input type="text" name="ccli" value="${c.ccli || ""}" maxlength="20"><small>Shown on song slides, as CCLI requires when lyrics are projected.</small></label>
@@ -387,14 +390,18 @@ AdminScreens.account = () => {
       <div class="btns"><button class="btn block">Save account details</button></div></form>`,
   };
 };
-Forms["admin-account"] = (d, f) => {
+Forms["admin-account"] = async (d, f) => {
   if (!d.name) return formError(f, "Your church needs a name.");
-  const c = S.church(), handle = slugify(d.handle || d.name);
-  if (S.churches().some((x) => x.id !== c.id && x.handle === handle)) return formError(f, `The church ID "${handle}" is taken.`);
+  const c = S.church(), handle = d.handle ? slugify(d.handle).slice(0, 30) : c.handle;
+  const problem = handle !== c.handle && handleProblem(handle, c.id);
+  if (problem) return formError(f, problem);
+  if (handle !== c.handle && await handleTakenOnline(handle, c.id)) return formError(f, `${churchAddress(c, handle)} is taken. Try adding your city, like ${handle}-springfield.`);
   const bad = SOCIAL.find(([k]) => d[`s_${k}`] && !isUrl(d[`s_${k}`]));
   if (bad) return formError(f, `The ${bad[1]} link should start with https://`);
   const chosenColor = /^#[0-9a-fA-F]{6}$/.test(d.customColor || "") ? d.customColor.toLowerCase() : (d.color || c.color);
-  S.updateChurch({ name: d.name, handle, email: d.email, phone: d.phone, city: d.city, tagline: d.tagline, logo: d.logo, color: chosenColor,
+  // A new address: the old one keeps working (its NFC tags, QR codes and links already out there).
+  const oldHandles = handle === c.handle ? c.oldHandles || [] : [...new Set([c.handle, ...(c.oldHandles || [])])].filter((h) => h !== handle).slice(0, 5);
+  S.updateChurch({ name: d.name, handle, oldHandles, email: d.email, phone: d.phone, city: d.city, tagline: d.tagline, logo: d.logo, color: chosenColor,
     website: d.s_website, social: Object.fromEntries(SOCIAL.filter(([k]) => k !== "website").map(([k]) => [k, d[`s_${k}`]])), ccli: d.ccli });
   applyBrand();
 Inputs["brand-picker"] = (el) => {

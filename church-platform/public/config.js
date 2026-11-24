@@ -10,4 +10,9 @@ window.OUR_FAITHFUL_CONFIG = {
   movedFrom: ["gunterfrazier.github.io"],
   // Email sent from the app comes from the sender's name at this domain, verified in Resend (SETUP.md).
   emailDomain: "mail.ourfaithfulchurch.com",
+  // Church web addresses (SETUP.md, "Church web addresses"). Every church's page is at ourfaithfulchurch.com/<church ID>.
+  // Set churchSubdomains to true once the wildcard DNS record and the church-sites Worker are live, and the app shows
+  // <church ID>.ourfaithfulchurch.com instead. shortDomain adds a shorter address, like "ofc.church".
+  churchSubdomains: false,
+  shortDomain: "",
 };

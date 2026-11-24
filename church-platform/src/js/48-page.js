@@ -64,12 +64,13 @@ Screens.page = (id) => {
     page: html`<div class="public-page ${c.landing.tint ? "tinted" : ""}" style="${raw(esc(landingStyle(c)))}">
       <header class="home-top"><div class="wrap">
         <div class="home-bar"><span class="switcher">${churchMark(c, 40)}<span><strong>${c.name}</strong><small>${churchCity(c)}</small></span></span>
-          ${S.isMember(c.id) ? html`<a class="btn sm" href="#home">Open app</a>` : html`<button class="btn sm" data-act="join-church" data-id="${c.id}">Join</button>`}</div>
+          ${CHURCH_SITE?.subdomain ? html`<a class="btn sm" href="${APP_HOME}#church-${c.id}">Open in the app</a>`
+            : S.isMember(c.id) ? html`<a class="btn sm" href="#home">Open app</a>` : html`<button class="btn sm" data-act="join-church" data-id="${c.id}">Join</button>`}</div>
         ${bannerHtml(c)}
         ${c.tagline ? html`<p class="lead" style="margin:14px 2px 0">${c.tagline}</p>` : ""}
       </div></header>
       <main class="view landing">${c.landing.blocks.length ? landingBlocks(c) : html`<section class="block"><p class="muted">${c.name} hasn't built its page yet.</p></section>`}
-        <p class="faint" style="text-align:center;margin-top:30px">${c.name} on ${PLATFORM.name}</p></main></div>`,
+        <p class="faint" style="text-align:center;margin-top:30px">${c.name} on <a href="${APP_HOME}">${PLATFORM.name}</a></p></main></div>`,
   };
 };
 
@@ -105,6 +106,7 @@ AdminScreens.page = () => {
       <label class="check panel" style="padding:12px 16px"><input type="checkbox" data-change="landing-home" ${attr(c.landing.showOnHome, "checked")}><span><b>Also show these blocks on members' Home screen</b><br><span class="faint">Service times, sermon and contact blocks stay on the public page only, since Home already has them.</span></span></label>
       <div class="btns"><a class="btn ghost sm" href="#page-${c.id}">${icon("eye")}Preview public page</a>${S.can("qr.create") ? html`<button class="btn ghost sm" data-act="qr-for" data-target="page-${c.id}" data-label="${c.name}">${icon("qr")}QR code</button>` : ""}<a class="btn ghost sm" href="#admin-banner-from-page">${icon("image")}Edit shared banner</a>
         ${S.can("manage.church") ? html`<a class="btn ghost sm" href="#admin-account">${icon("link")}Website and social links</a>` : ""}</div>
+      ${webAddressPanel(c)}
       ${landingColorsPanel(c)}
       <section class="sec"><div class="landing-blocks-head"><h2 class="sec-head">Page blocks</h2>
       <button type="button" class="btn sm" data-act="block-add">${icon("plus")}Add a block</button></div>
