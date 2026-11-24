@@ -3131,6 +3131,19 @@ await step("backend sync round trip", async () => {
   if (r.rows < 500) throw new Error(`only ${r.rows} rows`);
 });
 
+await step("google tv app opens pairing", async () => {
+  // A fresh TV (its own storage), as the Our Faithful Screens app opens it.
+  const tv = await browser.newContext({ viewport: { width: 1280, height: 720 }, userAgent: "Mozilla/5.0 (Linux; Android 12; BRAVIA 4K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36 OurFaithfulScreens/1.0.0" });
+  const p = await tv.newPage();
+  p.on("pageerror", (e) => errors.push(`tv pageerror: ${e.message}`));
+  await p.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await p.goto(base); await p.waitForSelector(".pair-form"); await p.waitForTimeout(600);
+  if (!(await p.evaluate(() => location.hash === "#pair" && document.documentElement.classList.contains("on-tv")))) throw new Error("TV didn't open pairing");
+  if (!(await p.evaluate(() => document.activeElement?.matches(".pair-input")))) throw new Error("pairing code box isn't focused for the remote");
+  await p.screenshot({ path: join(shots, "tv-pair.png") });
+  await tv.close();
+});
+
 await browser.close(); server.close();
 if (errors.length) { console.error(`FAILED (${errors.length})\n` + errors.join("\n")); process.exit(1); }
 console.log("All screens rendered without errors. Screenshots in .shots/");

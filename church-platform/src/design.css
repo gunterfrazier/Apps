@@ -639,3 +639,10 @@ select { max-width: 100%; text-overflow: ellipsis; }
 .pos-own:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
 .pos-own .i { width: 18px; height: 18px; flex: none; margin-top: 1px; }
 .sfoot.custom { max-width: none; }
+
+/* ---------- On a TV (the Our Faithful Screens app): driven by a remote's arrows ---------- */
+.on-tv :focus-visible, .on-tv :focus { outline: 4px solid #4b75ff !important; outline-offset: 4px; box-shadow: 0 0 0 8px rgba(75,117,255,.25); }
+.on-tv .pair-form { font-size: 1.15rem; }
+.on-tv .pair-form input { font-size: 2rem; letter-spacing: .2em; text-align: center; min-height: 64px; }
+.on-tv .pair-form .btn { min-height: 56px; font-size: 1.15rem; }
+.on-tv body, .on-tv { cursor: none; }

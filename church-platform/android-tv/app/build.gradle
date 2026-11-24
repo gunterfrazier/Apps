@@ -1,0 +1,54 @@
+plugins {
+    id "com.android.application"
+}
+
+// The web app the TV opens. Change it here (or with -PappUrl=...) for a test server.
+def appUrl = project.findProperty("appUrl") ?: "https://ourfaithfulchurch.com/?tv=1"
+
+android {
+    namespace = "com.ourfaithfulchurch.screens"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.ourfaithfulchurch.screens"
+        minSdk = 23            // Android 6: older Android TV boxes still in church closets
+        targetSdk = 36         // Google Play asks TV apps for 34 or higher; 36 matches the phone rule too
+        versionCode = Integer.parseInt(System.getenv("VERSION_CODE") ?: "1")
+        versionName = System.getenv("VERSION_NAME") ?: "1.0.0"
+        buildConfigField "String", "APP_URL", "\"${appUrl}\""
+        buildConfigField "String", "APP_HOST", "\"${new URI(appUrl).host}\""
+    }
+
+    buildFeatures { buildConfig = true }
+
+    // Release signing comes from the environment (GitHub Actions secrets), never from the repository.
+    signingConfigs {
+        release {
+            def ks = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (ks) {
+                storeFile = file(ks)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            if (System.getenv("ANDROID_KEYSTORE_PATH")) signingConfig = signingConfigs.release
+        }
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
