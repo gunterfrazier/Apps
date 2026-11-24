@@ -12,7 +12,7 @@ const PLATFORM = {
   supabaseUrl: "", supabasePublishableKey: "", vapidPublicKey: "", platformFeePercent: 0,
   // When the app has its own domain: home is its one address, and movedFrom lists hosts it used to live at.
   home: "", movedFrom: [],
-  // App email goes out from each sender's own name at this domain (gunterfrazier@mail.ourfaithfulchurch.com), replies to them.
+  // App email goes out from each sender's own name at this domain (wesparker@mail.ourfaithfulchurch.com), replies to them.
   emailDomain: "mail.ourfaithfulchurch.com",
   ...(typeof window !== "undefined" && window.OUR_FAITHFUL_CONFIG ? window.OUR_FAITHFUL_CONFIG : {}),
 };

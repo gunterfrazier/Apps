@@ -67,7 +67,7 @@ export async function notify(db: SupabaseClient, church: string, userId: string,
 //                    unless you set it; functions can't reach ports 25 and 587.
 // EMAIL_FROM is the sender shown, like "Our Faithful Church App <hello@example.org>"; it defaults to SMTP_USER.
 // Email a person sends from the app comes from their own name at EMAIL_PERSONAL_DOMAIN (or EMAIL_FROM's domain), like
-// "Gunter Frazier <gunterfrazier@mail.ourfaithfulchurch.com>", with replies to their real address. The domain must be
+// "Wes Parker <wesparker@mail.ourfaithfulchurch.com>", with replies to their real address. The domain must be
 // verified in Resend. Keep EMAIL_RESERVED and the name rule in step with src/js/84-email.js.
 const EMAIL_RESERVED = ["admin", "administrator", "abuse", "postmaster", "hostmaster", "webmaster", "noreply", "support", "security", "billing", "help", "hello", "info", "office", "pastor", "staff", "root", "mailer", "team", "church"];
 export function personalFrom(name: string): string | undefined {
