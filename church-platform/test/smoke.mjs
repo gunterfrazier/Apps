@@ -2530,6 +2530,22 @@ await step("story backgrounds match the story on every slide", async () => {
   if (!/Story pictures/.test(await page.textContent('#scrim .sf-opt[data-value="story:zacchaeus"]'))) throw new Error("Zacchaeus should show that it has story pictures");
   await page.keyboard.press("Escape");
 });
+await step("Phase 3 and 4 story pictures: all fifteen stories", async () => {
+  // Every story in the background library matches a Family Library story; Joseph (no reflection scene) walks all nine.
+  const sets = await page.evaluate(async () => (await (await fetch("family-lib/backgrounds.json")).json()).sets.map((x) => [x.story, x.scenes.length]));
+  const lib = await page.evaluate(async () => (await (await fetch("family-lib/lessons.json")).json()).stories.map((x) => x.id));
+  const missing = sets.filter(([id]) => !lib.includes(id));
+  if (sets.length < 15 || missing.length) throw new Error(`each background set should match a story: ${sets.length} sets, unmatched ${missing}`);
+  for (const id of ["red-sea", "samuel-hears-god", "jonah", "deborah", "friends-through-the-roof", "feeding-the-crowd", "joseph"]) if (!sets.some(([x, n]) => x === id && n === 9)) throw new Error(`${id} should have its nine scenes`);
+  const id = await page.evaluate(() => { const S = __app.S, { id: _, ...rest } = S.get("docs", "riverside-doc-zacchaeus"); return S.add("docs", { ...structuredClone(rest), title: "Joseph check", bgStory: "joseph", storyId: "joseph", slideDesign: {}, date: "2027-03-07" }).id; });
+  await goTo(`build-${id}`); await page.waitForSelector(".bg-panel .bg-strip img");
+  if (await page.locator(".bg-panel .bg-strip figure").count() !== 9) throw new Error("the builder should show Joseph's nine scenes");
+  await goTo(`present-doc-${id}`); await page.waitForSelector("#stage .slide"); for (let i = 0; i < 40; i++) await page.keyboard.press("ArrowLeft");
+  const seen = new Set();
+  for (let i = 0; i < 40; i++) { const src = await page.evaluate(() => document.querySelector("#stage .slide .slide-bg")?.getAttribute("src") || ""); if (src) seen.add(src); await page.keyboard.press("ArrowRight"); await page.waitForTimeout(25); }
+  if (seen.size < 4 || ![...seen].every((x) => x.startsWith("family-lib/backgrounds/joseph/"))) throw new Error(`the slides should walk Joseph's scenes: ${[...seen]}`);
+  await page.evaluate((id) => __app.S.remove("docs", id), id);
+});
 await step("nothing runs off the side on a phone", async () => {
   // Screens that used to push the page sideways at phone width: lesson blocks, tab bars, long selects, the scheduler.
   const was = page.viewportSize(); await page.setViewportSize({ width: 375, height: 812 });

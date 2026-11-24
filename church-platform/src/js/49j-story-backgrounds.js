@@ -1,6 +1,6 @@
 // ---------- Story backgrounds: illustrated slide backgrounds that match the story being taught ----------
 // The Veritas Logos Kids background library (family-lib/backgrounds.json) has a set of scenes for each story, in story
-// order, ending with a reflection and memory verse scene. Each scene is labeled with where the words read best (left,
+// order, most ending with a reflection and memory verse scene. Each scene is labeled with where the words read best (left,
 // right or center: the open part of the picture) and its tone (light pictures take dark words, dark ones take white).
 // A lesson that uses a set gets one picture per slide: the story slides walk through the scenes in order, and the
 // questions, big idea and prayer use the reflection scene. Each slide can be changed under Slide backgrounds.
@@ -21,7 +21,10 @@ function applyStoryBackgrounds(d, slides) {
   if (!familyLib && !familyLibFailed) { loadFamilyLib(); return slides; } // Loads once, then redraws with the pictures.
   const set = d.bgStory && storyBgSet(d.bgStory);
   if (!set || set.scenes.length < 2) return slides;
-  const story = set.scenes.slice(0, -1), reflect = set.scenes[set.scenes.length - 1];
+  // A set's reflection scene (Storytime Reflection & Memory Verse) is for questions and prayer, and the story walks the
+  // rest. Sets without one walk every scene and reuse the closing scene for questions and prayer.
+  const reflect = set.scenes.find((x) => x.reflection) || set.scenes[set.scenes.length - 1];
+  const story = set.scenes.some((x) => x.reflection) ? set.scenes.filter((x) => x !== reflect) : set.scenes;
   const telling = ["title", "text", "scripture", "point", "lyrics"], thinking = ["question", "keynote"];
   const walk = slides.filter((s) => telling.includes(s.kind));
   return slides.map((s) => {

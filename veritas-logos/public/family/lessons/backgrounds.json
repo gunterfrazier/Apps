@@ -1,5 +1,5 @@
 {
- "about": "Veritas Logos Kids story slide backgrounds (16:9). zone: where text reads best (left, right, center). tone: light images take dark text, dark images take white text. The last scene of each story is the reflection and memory verse scene.",
+ "about": "Veritas Logos Kids story slide backgrounds (16:9). zone: where text reads best (left, right, center). tone: light images take dark text, dark images take white text. A scene marked reflection (Storytime Reflection & Memory Verse) is for questions and prayer; sets without one use their last scene for those.",
  "sets": [
   {
    "story": "baby-moses",
@@ -107,7 +107,8 @@
      ],
      "zone": "center",
      "tone": "light",
-     "file": "backgrounds/baby-moses/08.jpg"
+     "file": "backgrounds/baby-moses/08.jpg",
+     "reflection": true
     }
    ]
   },
@@ -218,7 +219,8 @@
      ],
      "zone": "center",
      "tone": "light",
-     "file": "backgrounds/burning-bush/08.jpg"
+     "file": "backgrounds/burning-bush/08.jpg",
+     "reflection": true
     }
    ]
   },
@@ -331,7 +333,8 @@
      ],
      "zone": "center",
      "tone": "light",
-     "file": "backgrounds/jesus-is-born/08.jpg"
+     "file": "backgrounds/jesus-is-born/08.jpg",
+     "reflection": true
     }
    ]
   },
@@ -445,7 +448,8 @@
      ],
      "zone": "center",
      "tone": "light",
-     "file": "backgrounds/galilee/08.jpg"
+     "file": "backgrounds/galilee/08.jpg",
+     "reflection": true
     }
    ]
   },
@@ -556,7 +560,8 @@
      ],
      "zone": "center",
      "tone": "light",
-     "file": "backgrounds/samaritan/08.jpg"
+     "file": "backgrounds/samaritan/08.jpg",
+     "reflection": true
     }
    ]
   },
@@ -672,7 +677,8 @@
      ],
      "zone": "center",
      "tone": "light",
-     "file": "backgrounds/zacchaeus/08.jpg"
+     "file": "backgrounds/zacchaeus/08.jpg",
+     "reflection": true
     }
    ]
   },
@@ -795,7 +801,8 @@
      ],
      "zone": "center",
      "tone": "light",
-     "file": "backgrounds/creation/09.jpg"
+     "file": "backgrounds/creation/09.jpg",
+     "reflection": true
     }
    ]
   },
@@ -920,7 +927,907 @@
      ],
      "zone": "center",
      "tone": "light",
-     "file": "backgrounds/noah/09.jpg"
+     "file": "backgrounds/noah/09.jpg",
+     "reflection": true
+    }
+   ]
+  },
+  {
+   "story": "red-sea",
+   "set": "red-sea",
+   "title": "Crossing the Red Sea",
+   "scripture": "Exodus 14",
+   "phase": "Phase 3",
+   "scenes": [
+    {
+     "id": "rs-1",
+     "num": 1,
+     "title": "Leaving Egypt Behind",
+     "cast": [
+      "Marcus",
+      "Maya",
+      "Toby"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/red-sea/01.jpg"
+    },
+    {
+     "id": "rs-2",
+     "num": 2,
+     "title": "Pillar of Cloud by Day",
+     "cast": [
+      "Miss Clara",
+      "Leo",
+      "Eli"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/red-sea/02.jpg"
+    },
+    {
+     "id": "rs-3",
+     "num": 3,
+     "title": "Pillar of Fire by Night",
+     "cast": [
+      "Miss Clara",
+      "Zoe",
+      "Sam"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/red-sea/03.jpg"
+    },
+    {
+     "id": "rs-4",
+     "num": 4,
+     "title": "Trapped at the Water's Edge",
+     "cast": [
+      "Bella",
+      "Benny",
+      "Chloe"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/red-sea/04.jpg"
+    },
+    {
+     "id": "rs-5",
+     "num": 5,
+     "title": "Moses Raises His Staff",
+     "cast": [
+      "Marcus",
+      "Toby"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/red-sea/05.jpg"
+    },
+    {
+     "id": "rs-6",
+     "num": 6,
+     "title": "Walls of Water Parting",
+     "cast": [
+      "Leo",
+      "Maya",
+      "Sam"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/red-sea/06.jpg"
+    },
+    {
+     "id": "rs-7",
+     "num": 7,
+     "title": "Walking on Dry Ground",
+     "cast": [
+      "Miss Clara",
+      "Eli",
+      "Chloe"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/red-sea/07.jpg"
+    },
+    {
+     "id": "rs-8",
+     "num": 8,
+     "title": "Safe on the Other Shore",
+     "cast": [
+      "Bella",
+      "Benny",
+      "Zoe"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/red-sea/08.jpg"
+    },
+    {
+     "id": "rs-9",
+     "num": 9,
+     "title": "Miriam's Song of Praise",
+     "cast": [
+      "Maya",
+      "Zoe",
+      "Bella",
+      "Leo"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/red-sea/09.jpg"
+    }
+   ]
+  },
+  {
+   "story": "samuel-hears-god",
+   "set": "samuel-hears-god",
+   "title": "Samuel Hears God",
+   "scripture": "1 Samuel 3",
+   "phase": "Phase 3",
+   "scenes": [
+    {
+     "id": "sh-1",
+     "num": 1,
+     "title": "Hannah's Prayer at the Tabernacle",
+     "cast": [
+      "Miss Clara",
+      "Maya"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/samuel-hears-god/01.jpg"
+    },
+    {
+     "id": "sh-2",
+     "num": 2,
+     "title": "Little Linen Tunic Gift",
+     "cast": [
+      "Miss Clara",
+      "Chloe",
+      "Eli"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/samuel-hears-god/02.jpg"
+    },
+    {
+     "id": "sh-3",
+     "num": 3,
+     "title": "Helping Eli in the Courtyard",
+     "cast": [
+      "Eli",
+      "Toby",
+      "Leo"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/samuel-hears-god/03.jpg"
+    },
+    {
+     "id": "sh-4",
+     "num": 4,
+     "title": "Lamp of God Burning at Night",
+     "cast": [
+      "Eli",
+      "Bella"
+     ],
+     "zone": "center",
+     "tone": "dark",
+     "file": "backgrounds/samuel-hears-god/04.jpg"
+    },
+    {
+     "id": "sh-5",
+     "num": 5,
+     "title": "A Voice in the Dark",
+     "cast": [
+      "Eli"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/samuel-hears-god/05.jpg"
+    },
+    {
+     "id": "sh-6",
+     "num": 6,
+     "title": "Running to Eli's Bedside",
+     "cast": [
+      "Eli",
+      "Toby"
+     ],
+     "zone": "right",
+     "tone": "dark",
+     "file": "backgrounds/samuel-hears-god/06.jpg"
+    },
+    {
+     "id": "sh-7",
+     "num": 7,
+     "title": "Speak, Lord, Your Servant Is Listening",
+     "cast": [
+      "Eli",
+      "Miss Clara"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/samuel-hears-god/07.jpg"
+    },
+    {
+     "id": "sh-8",
+     "num": 8,
+     "title": "Morning Doors of the Tabernacle",
+     "cast": [
+      "Eli",
+      "Sam",
+      "Zoe"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/samuel-hears-god/08.jpg"
+    },
+    {
+     "id": "sh-9",
+     "num": 9,
+     "title": "Samuel Shares God's Word",
+     "cast": [
+      "Eli",
+      "Toby",
+      "Maya",
+      "Marcus"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/samuel-hears-god/09.jpg"
+    }
+   ]
+  },
+  {
+   "story": "jonah",
+   "set": "jonah-great-fish",
+   "title": "Jonah & the Great Fish",
+   "scripture": "Jonah 1–4",
+   "phase": "Phase 3",
+   "scenes": [
+    {
+     "id": "jg-1",
+     "num": 1,
+     "title": "God Calls Jonah to Nineveh",
+     "cast": [
+      "Marcus",
+      "Miss Clara"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/jonah/01.jpg"
+    },
+    {
+     "id": "jg-2",
+     "num": 2,
+     "title": "Boarding the Ship to Tarshish",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Leo"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/jonah/02.jpg"
+    },
+    {
+     "id": "jg-3",
+     "num": 3,
+     "title": "Storm on the Sea",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Sam"
+     ],
+     "zone": "center",
+     "tone": "dark",
+     "file": "backgrounds/jonah/03.jpg"
+    },
+    {
+     "id": "jg-4",
+     "num": 4,
+     "title": "Jonah Asleep Below Deck",
+     "cast": [
+      "Marcus",
+      "Eli"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/jonah/04.jpg"
+    },
+    {
+     "id": "jg-5",
+     "num": 5,
+     "title": "Overboard into the Waves",
+     "cast": [
+      "Marcus",
+      "Leo",
+      "Benny"
+     ],
+     "zone": "right",
+     "tone": "dark",
+     "file": "backgrounds/jonah/05.jpg"
+    },
+    {
+     "id": "jg-6",
+     "num": 6,
+     "title": "Inside the Great Fish",
+     "cast": [
+      "Marcus"
+     ],
+     "zone": "center",
+     "tone": "dark",
+     "file": "backgrounds/jonah/06.jpg"
+    },
+    {
+     "id": "jg-7",
+     "num": 7,
+     "title": "Safe on Dry Land",
+     "cast": [
+      "Marcus",
+      "Maya",
+      "Chloe"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/jonah/07.jpg"
+    },
+    {
+     "id": "jg-8",
+     "num": 8,
+     "title": "Preaching in Nineveh",
+     "cast": [
+      "Marcus",
+      "Bella",
+      "Zoe",
+      "Leo"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/jonah/08.jpg"
+    },
+    {
+     "id": "jg-9",
+     "num": 9,
+     "title": "Shade of the Vine",
+     "cast": [
+      "Marcus",
+      "Miss Clara",
+      "Eli"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/jonah/09.jpg"
+    }
+   ]
+  },
+  {
+   "story": "deborah",
+   "set": "deborah-and-barak",
+   "title": "Deborah & Barak",
+   "scripture": "Judges 4–5",
+   "phase": "Phase 4",
+   "scenes": [
+    {
+     "id": "db-1",
+     "num": 1,
+     "title": "Deborah Under the Palm Tree",
+     "cast": [
+      "Maya",
+      "Miss Clara",
+      "Eli"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/deborah/01.jpg"
+    },
+    {
+     "id": "db-2",
+     "num": 2,
+     "title": "Listening to the People",
+     "cast": [
+      "Maya",
+      "Bella",
+      "Leo",
+      "Sam"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/deborah/02.jpg"
+    },
+    {
+     "id": "db-3",
+     "num": 3,
+     "title": "Calling Barak to Be Brave",
+     "cast": [
+      "Maya",
+      "Marcus"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/deborah/03.jpg"
+    },
+    {
+     "id": "db-4",
+     "num": 4,
+     "title": "Barak Asks Deborah to Come",
+     "cast": [
+      "Marcus",
+      "Maya",
+      "Toby"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/deborah/04.jpg"
+    },
+    {
+     "id": "db-5",
+     "num": 5,
+     "title": "Gathering at Mount Tabor",
+     "cast": [
+      "Marcus",
+      "Maya",
+      "Leo",
+      "Benny",
+      "Chloe"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/deborah/05.jpg"
+    },
+    {
+     "id": "db-6",
+     "num": 6,
+     "title": "Storm Clouds Over the Valley",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Sam"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/deborah/06.jpg"
+    },
+    {
+     "id": "db-7",
+     "num": 7,
+     "title": "God Brings the Victory",
+     "cast": [
+      "Maya",
+      "Marcus",
+      "Zoe",
+      "Eli"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/deborah/07.jpg"
+    },
+    {
+     "id": "db-8",
+     "num": 8,
+     "title": "Deborah's Song of Joy",
+     "cast": [
+      "Maya",
+      "Bella",
+      "Chloe",
+      "Zoe"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/deborah/08.jpg"
+    },
+    {
+     "id": "db-9",
+     "num": 9,
+     "title": "Peace Across the Land",
+     "cast": [
+      "Miss Clara",
+      "Leo",
+      "Benny",
+      "Eli"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/deborah/09.jpg"
+    }
+   ]
+  },
+  {
+   "story": "friends-through-the-roof",
+   "set": "friends-through-roof",
+   "title": "Friends Through the Roof",
+   "scripture": "Mark 2:1–12",
+   "phase": "Phase 4",
+   "scenes": [
+    {
+     "id": "fr-1",
+     "num": 1,
+     "title": "Crowds Gather at the House",
+     "cast": [
+      "Miss Clara",
+      "Maya",
+      "Bella",
+      "Leo"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/friends-through-the-roof/01.jpg"
+    },
+    {
+     "id": "fr-2",
+     "num": 2,
+     "title": "Four Friends Carry the Mat",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Sam",
+      "Leo",
+      "Eli"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/friends-through-the-roof/02.jpg"
+    },
+    {
+     "id": "fr-3",
+     "num": 3,
+     "title": "Too Crowded at the Door",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Chloe"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/friends-through-the-roof/03.jpg"
+    },
+    {
+     "id": "fr-4",
+     "num": 4,
+     "title": "Climbing the Outside Stairs",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Sam",
+      "Eli"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/friends-through-the-roof/04.jpg"
+    },
+    {
+     "id": "fr-5",
+     "num": 5,
+     "title": "Making an Opening in the Roof",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Sam"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/friends-through-the-roof/05.jpg"
+    },
+    {
+     "id": "fr-6",
+     "num": 6,
+     "title": "Lowering Their Friend Down",
+     "cast": [
+      "Eli",
+      "Miss Clara",
+      "Maya"
+     ],
+     "zone": "center",
+     "tone": "dark",
+     "file": "backgrounds/friends-through-the-roof/06.jpg"
+    },
+    {
+     "id": "fr-7",
+     "num": 7,
+     "title": "Jesus Sees Their Faith",
+     "cast": [
+      "Miss Clara",
+      "Eli",
+      "Maya",
+      "Leo"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/friends-through-the-roof/07.jpg"
+    },
+    {
+     "id": "fr-8",
+     "num": 8,
+     "title": "Pick Up Your Mat and Walk",
+     "cast": [
+      "Eli",
+      "Marcus",
+      "Toby",
+      "Chloe"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/friends-through-the-roof/08.jpg"
+    },
+    {
+     "id": "fr-9",
+     "num": 9,
+     "title": "Praising God Together",
+     "cast": [
+      "Maya",
+      "Zoe",
+      "Bella",
+      "Leo",
+      "Eli"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/friends-through-the-roof/09.jpg"
+    }
+   ]
+  },
+  {
+   "story": "feeding-the-crowd",
+   "set": "feeds-the-5000",
+   "title": "Jesus Feeds the 5,000",
+   "scripture": "John 6:1–14",
+   "phase": "Phase 4",
+   "scenes": [
+    {
+     "id": "f5-1",
+     "num": 1,
+     "title": "Crowds Follow by the Lake",
+     "cast": [
+      "Miss Clara",
+      "Marcus",
+      "Maya",
+      "Leo"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/feeding-the-crowd/01.jpg"
+    },
+    {
+     "id": "f5-2",
+     "num": 2,
+     "title": "Teaching on the Green Hillside",
+     "cast": [
+      "Miss Clara",
+      "Bella",
+      "Toby",
+      "Sam"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/feeding-the-crowd/02.jpg"
+    },
+    {
+     "id": "f5-3",
+     "num": 3,
+     "title": "Getting Hungry at Afternoon",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Leo",
+      "Chloe"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/feeding-the-crowd/03.jpg"
+    },
+    {
+     "id": "f5-4",
+     "num": 4,
+     "title": "A Boy Offers Five Loaves & Two Fish",
+     "cast": [
+      "Eli",
+      "Maya",
+      "Chloe",
+      "Toby"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/feeding-the-crowd/04.jpg"
+    },
+    {
+     "id": "f5-5",
+     "num": 5,
+     "title": "Sitting Down on the Grass",
+     "cast": [
+      "Maya",
+      "Chloe",
+      "Zoe",
+      "Bella",
+      "Sam"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/feeding-the-crowd/05.jpg"
+    },
+    {
+     "id": "f5-6",
+     "num": 6,
+     "title": "Jesus Gives Thanks",
+     "cast": [
+      "Miss Clara",
+      "Eli",
+      "Maya",
+      "Leo"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/feeding-the-crowd/06.jpg"
+    },
+    {
+     "id": "f5-7",
+     "num": 7,
+     "title": "Sharing the Feast",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Bella",
+      "Zoe",
+      "Chloe"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/feeding-the-crowd/07.jpg"
+    },
+    {
+     "id": "f5-8",
+     "num": 8,
+     "title": "Twelve Baskets Left Over",
+     "cast": [
+      "Leo",
+      "Sam",
+      "Benny",
+      "Eli"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/feeding-the-crowd/08.jpg"
+    },
+    {
+     "id": "f5-9",
+     "num": 9,
+     "title": "Evening Gratitude by the Water",
+     "cast": [
+      "Miss Clara",
+      "Maya",
+      "Eli",
+      "Zoe"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/feeding-the-crowd/09.jpg"
+    }
+   ]
+  },
+  {
+   "story": "joseph",
+   "set": "joseph",
+   "title": "Joseph",
+   "scripture": "Genesis 37–45",
+   "phase": "Phase 4",
+   "scenes": [
+    {
+     "id": "jo-1",
+     "num": 1,
+     "title": "The Colorful Coat Gift",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Eli"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/joseph/01.jpg"
+    },
+    {
+     "id": "jo-2",
+     "num": 2,
+     "title": "Dreams of Sheaves & Stars",
+     "cast": [
+      "Marcus"
+     ],
+     "zone": "center",
+     "tone": "dark",
+     "file": "backgrounds/joseph/02.jpg"
+    },
+    {
+     "id": "jo-3",
+     "num": 3,
+     "title": "Journey to Find His Brothers",
+     "cast": [
+      "Marcus",
+      "Sam",
+      "Leo"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/joseph/03.jpg"
+    },
+    {
+     "id": "jo-4",
+     "num": 4,
+     "title": "Night in Egypt",
+     "cast": [
+      "Marcus",
+      "Miss Clara"
+     ],
+     "zone": "left",
+     "tone": "dark",
+     "file": "backgrounds/joseph/04.jpg"
+    },
+    {
+     "id": "jo-5",
+     "num": 5,
+     "title": "Helping in Pharaoh's Court",
+     "cast": [
+      "Marcus",
+      "Leo",
+      "Maya"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/joseph/05.jpg"
+    },
+    {
+     "id": "jo-6",
+     "num": 6,
+     "title": "Interpreting Pharaoh's Dreams",
+     "cast": [
+      "Marcus",
+      "Leo"
+     ],
+     "zone": "center",
+     "tone": "dark",
+     "file": "backgrounds/joseph/06.jpg"
+    },
+    {
+     "id": "jo-7",
+     "num": 7,
+     "title": "Gathering Grain in Plenty",
+     "cast": [
+      "Marcus",
+      "Chloe",
+      "Benny",
+      "Sam"
+     ],
+     "zone": "left",
+     "tone": "light",
+     "file": "backgrounds/joseph/07.jpg"
+    },
+    {
+     "id": "jo-8",
+     "num": 8,
+     "title": "Sharing Food with His Brothers",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Sam",
+      "Eli"
+     ],
+     "zone": "right",
+     "tone": "light",
+     "file": "backgrounds/joseph/08.jpg"
+    },
+    {
+     "id": "jo-9",
+     "num": 9,
+     "title": "Joseph Forgives His Family",
+     "cast": [
+      "Marcus",
+      "Toby",
+      "Leo",
+      "Maya",
+      "Eli",
+      "Bella"
+     ],
+     "zone": "center",
+     "tone": "light",
+     "file": "backgrounds/joseph/09.jpg"
     }
    ]
   }
