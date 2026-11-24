@@ -182,7 +182,31 @@ if (watch) {
   console.log(`dist: ${count("dist")} files, ${(size("dist") / 1e6).toFixed(1)} MB. app.js ${(fs.statSync("dist/app.js").size / 1e3).toFixed(0)} KB, embed.js ${(fs.statSync("dist/embed.js").size / 1e3).toFixed(0)} KB, voice ${(size("dist/voice") / 1e6).toFixed(1)} MB + voice-worker.js ${(fs.statSync("dist/voice-worker.js").size / 1e3).toFixed(0)} KB`);
 }
 
+// The website at the root, the app under /app/ (veritaslogos.com/app/). Everything above built the app into dist/;
+// it moves into dist/app/ and the website (site/) goes around it, with the root's own files from site-root/: the
+// redirects for the app's old addresses, a one-time worker that hands offline downloads to the app's new address, the
+// old embed page, and the embed script pointed at /app/. Cloudflare reads _headers only at the root, so the app's
+// headers are written there with /app in front.
+if (!watch) {
+  fs.renameSync("dist", "dist-app-move");
+  fs.mkdirSync("dist");
+  fs.renameSync("dist-app-move", "dist/app");
+  fs.cpSync("site", "dist", { recursive: true });
+  fs.cpSync("site-root", "dist", { recursive: true });
+  fs.cpSync("dist/app/icons", "dist/icons", { recursive: true });
+  const embed = fs.readFileSync("dist/app/veritas-embed.js", "utf8");
+  const rooted = embed.replace('new URL(".", script.src)', 'new URL("app/", script.src)');
+  if (rooted === embed) throw new Error("veritas-embed.js: couldn't point the root copy at /app/");
+  fs.writeFileSync("dist/veritas-embed.js", rooted);
+  const headers = fs.readFileSync("dist/app/_headers", "utf8");
+  const blocks = headers.split(/\n(?=\/)/);
+  const appBlocks = blocks.filter((b) => /^\//.test(b) && !b.startsWith("/*")).map((b) => b.replace(/^\/(\S*)/, (m, rest) => `/app/${rest}`));
+  fs.writeFileSync("dist/_headers", `${headers.trimEnd()}\n${appBlocks.join("\n").trimEnd()}\n`);
+  fs.rmSync("dist/app/_headers");
+}
+
 // The private preview page published to Claude: no document skeleton of its own, and hosted features switched off.
+// (It loads app.js and app.css beside it: dist/app/ holds them.)
 if (!watch) {
   fs.mkdirSync("dist-artifact", { recursive: true });
   fs.writeFileSync("dist-artifact/index.html", `<title>Veritas Logos</title>

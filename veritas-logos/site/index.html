@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>
+// Veritas Logos itself moved to /app/. Links meant for it land here first: send them on before anything shows.
+// A #place in the app, a sign-in or YouVersion return (?code, ?state), anyone with Veritas Logos saved on this device
+// or signed in, and the installed app all go to /app/. Ad and campaign tags (utm_, gclid...) stay. ?home always stays.
+(function () {
+  var l = location, q = l.search, h = l.hash;
+  if (/^www\./.test(l.hostname)) { l.replace(l.protocol + "//" + l.hostname.slice(4) + l.pathname + q + h); return; }
+  if (/[?&]home(=|&|$)/.test(q)) return;
+  var params = q.slice(1).split("&").filter(function (p) { return p && !/^(utm_[a-z]+|gclid|gbraid|wbraid|gad_[a-z_]+|fbclid|msclkid|ref)(=|$)/i.test(p); });
+  if (h.length > 1 || params.length) { l.replace("app/" + q + h); return; }
+  try {
+    for (var i = 0; i < localStorage.length; i++) if (/^sb-.+-auth-token$|^veritas\.logos\.v2$/.test(localStorage.key(i))) { l.replace("app/"); return; }
+    if (matchMedia("(display-mode: standalone)").matches) { l.replace("app/"); return; }
+  } catch (e) { /* storage off: stay */ }
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Veritas Logos: a free Bible study app with Hebrew and Greek, study guides and biblical people</title>
+<meta name="description" content="Read the Bible in 23 translations, see the Hebrew and Greek behind every word, build study guides, and explore biblical people, history and creeds. Free, with no ads.">
+<meta name="theme-color" content="#254ffe">
+<meta property="og:title" content="Veritas Logos">
+<meta property="og:description" content="Read the Bible in 23 translations, see the Hebrew and Greek behind every word, build study guides, and explore biblical people, history and creeds. Free, with no ads.">
+<meta property="og:image" content="img/vl-words.webp">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Instrument+Sans:wght@400;500;600;700&family=Noto+Serif:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the page</a>
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="?home" aria-label="Veritas Logos home"><svg class="vl-mark" viewBox="0 0 48 52" aria-hidden="true"><path class="leaf-blue" d="M2 51 14 12 38 1 31 24Z"/><path class="leaf-silver" d="M4 51 30 31 47 27 42 42Z"/></svg><span class="brand-name"><strong>Veritas</strong><span>Logos</span></span></a>
+    <nav aria-label="Sections"><a href="#study">Study</a><a href="#guides">Guides</a><a href="#people">People</a><a href="#family">Family</a><a href="#faq">Questions</a></nav>
+    <a class="btn" href="app/">Open Veritas Logos</a>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero">
+  <div class="wrap hero-in">
+    <div class="hero-text">
+      <h1>Open the Bible, and go as deep as you want.</h1>
+      <p class="lede">Read in 23 translations. Tap any verse for the Hebrew or Greek behind it, where it's quoted, what the church has said about it and who's in it. Then build a study guide from what you find.</p>
+      <div class="cta"><a class="btn big" href="app/">Open Veritas Logos</a><a class="btn big ghost" href="app/#family">The Family library</a></div>
+      <p class="fine">Free, with no ads and no account needed. Funded by donations.</p>
+    </div>
+    <figure class="interlinear" aria-label="John 1:1, word by word">
+      <figcaption>John 1:1</figcaption>
+      <ol class="il-words">
+        <li><span class="gk" lang="grc">Ἐν</span><span class="tr">en</span><span class="en">In</span></li>
+        <li><span class="gk" lang="grc">ἀρχῇ</span><span class="tr">archē</span><span class="en">beginning</span></li>
+        <li><span class="gk" lang="grc">ἦν</span><span class="tr">ēn</span><span class="en">was</span></li>
+        <li><span class="gk" lang="grc">ὁ</span><span class="tr">ho</span><span class="en">the</span></li>
+        <li class="key"><span class="gk" lang="grc">λόγος</span><span class="tr">logos</span><span class="en">Word</span></li>
+      </ol>
+      <div class="il-note"><p class="il-ref">G3056 &middot; Greek</p><p class="il-def"><b lang="grc">λόγος</b> <i>lógos</i>: something said; a word, a reason, a message. In John, the Word who was with God and was God.</p><p class="il-count">330 times in the New Testament, in 317 verses.</p></div>
+      <p class="il-text">In the beginning was the Word, and the Word was with God, and the Word was God.</p>
+    </figure>
+  </div>
+</section>
+
+<section class="study" id="study" aria-labelledby="study-h">
+  <div class="wrap">
+    <h2 id="study-h">From one verse to the whole picture</h2>
+    <p class="section-lede">Reading stays simple. Everything else waits one tap away, and every fact comes from a named source you can check.</p>
+    <ol class="flow">
+      <li><div class="phone"><img src="img/vl-reader.webp" width="600" height="1298" alt="John 1 in the Berean Standard Bible, with a button to study the chapter."></div><h3>Read</h3><p>23 translations, from the Berean Standard Bible and the King James to the Geneva Bible and the JPS Tanakh. Listen with the built-in read-aloud voice.</p></li>
+      <li><div class="phone"><img src="img/vl-words.webp" width="600" height="1298" loading="lazy" alt="John 1:1 word by word: each Greek word with its pronunciation, meaning, Strong's number and grammar."></div><h3>Tap a verse</h3><p>See every Hebrew or Greek word with its grammar, plus study notes, cross-references, where creeds and confessions cite it, and which topics it belongs to.</p></li>
+      <li><div class="phone"><img src="img/vl-logos.webp" width="600" height="1298" loading="lazy" alt="The Greek word logos: 330 occurrences, its Strong's definition and its lexicon entry."></div><h3>Follow a word</h3><p>Open any word for its definitions, lexicon entries and every place it appears, then search the whole Bible by the original word.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="guides" id="guides" aria-labelledby="guides-h">
+  <div class="wrap split">
+    <div>
+      <h2 id="guides-h">Build a study guide in a few minutes</h2>
+      <p>Start from a passage or a topic, like Matthew 18:21&ndash;35 or forgiveness. Pick the kind of guide you need, and Veritas Logos puts it together from the text, word studies and related passages. Edit it, export it, share it by link, or put it on your church's website.</p>
+      <dl class="formats">
+        <div><dt>Inductive study</dt><dd>Observe, interpret, apply. Good for personal study.</dd></div>
+        <div><dt>Deep exegesis</dt><dd>Original words, structure and context, in more detail.</dd></div>
+        <div><dt>Small group</dt><dd>Discussion questions, different views, leader notes and prayer.</dd></div>
+        <div><dt>Teaching outline</dt><dd>Main idea, outline, illustrations and a handout.</dd></div>
+      </dl>
+      <p class="fine">Choose a theological lens (Reformed, Catholic, Orthodox, Baptist, Pentecostal and more) or read across all traditions.</p>
+    </div>
+    <div class="phones-two"><div class="phone"><img src="img/vl-guide.webp" width="600" height="1298" loading="lazy" alt="New study guide: pick a passage or topic and a format such as Inductive study or Small group."></div><div class="phone"><img src="img/vl-book.webp" width="600" height="1298" loading="lazy" alt="The book guide for John: 21 chapters, its Greek word count and how often it quotes earlier Scripture."></div></div>
+  </div>
+</section>
+
+<section class="people" id="people" aria-labelledby="people-h">
+  <div class="wrap split flip">
+    <div class="phones-two"><div class="phone"><img src="img/vl-tree.webp" width="600" height="1298" loading="lazy" alt="A family tree centered on King David, with Jesse, Abigail, Jerimoth and Abihail."></div><div class="phone"><img src="img/vl-people.webp" width="600" height="1298" loading="lazy" alt="A list of 3,128 biblical people, starting with Adam, Eve, Cain and Abel."></div></div>
+    <div>
+      <h2 id="people-h">The people, places and history around the text</h2>
+      <p>Over 3,000 people of the Bible, each family link backed by the verses that state it. Draw a family tree, trace how two people are related, or see everyone on one timeline. Beside them: a church history timeline of councils, creeds and reformations, 45 creeds and confessions, early Christian writers, and a guide to every book of the Bible.</p>
+    </div>
+  </div>
+</section>
+
+<section class="family" id="family" aria-labelledby="family-h">
+  <div class="wrap split">
+    <div>
+      <h2 id="family-h">The Family library, for kids and teens</h2>
+      <p>Bible stories with pictures, questions to talk about, worksheets, crafts and games, sorted by age. A parent can set up a space for each child with just a nickname and an age group; no child's email or birthday is asked for.</p>
+      <p>Churches use the same lessons in Sunday school through Our Faithful Church App.</p>
+      <p><a class="btn ghost" href="app/#family">Open the Family library</a></p>
+    </div>
+    <div class="phone single"><img src="img/vl-family.webp" width="600" height="1298" loading="lazy" alt="The Family library: Bible stories, art and questions, with a picture of Noah and the animals at the ark."></div>
+  </div>
+</section>
+
+<section class="get" id="get" aria-labelledby="get-h">
+  <div class="wrap">
+    <h2 id="get-h">Use it anywhere</h2>
+    <dl class="get-list">
+      <div><dt>On the web</dt><dd>Works now on any phone, tablet or computer at <a href="app/">veritaslogos.com/app</a>. Download a translation and the study tools to keep reading offline.</dd></div>
+      <div><dt>Android</dt><dd>Coming to Google Play.</dd></div>
+      <div><dt>On your website</dt><dd>Put a passage, a word study, a biblical person or a study guide on any web page with a short snippet of code.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="faq" id="faq" aria-labelledby="faq-h">
+  <div class="wrap faq-in">
+    <h2 id="faq-h">Questions</h2>
+    <div class="faq-list">
+      <details><summary>What does it cost?</summary><p>Nothing. Veritas Logos is free, with no ads and no paid features. It's funded by donations from people who want to see it help more people study the Bible.</p></details>
+      <details><summary>Do I need an account?</summary><p>No. Everything you make stays on your device. Make a free account only if you want your guides, notes and highlights on more than one device.</p></details>
+      <details><summary>Where does the information come from?</summary><p>From named sources you can check: the Bible texts, Strong's and other lexicons, the Tyndale Open Study Notes, Nave's topics, historic creeds and confessions, and open datasets of biblical people. Each one is credited where it's used.</p></details>
+      <details><summary>Is it for one church tradition?</summary><p>No. It shows the historic creeds and writers of many traditions side by side, and you can read through a particular tradition's lens or all of them.</p></details>
+      <details><summary>Can I connect YouVersion?</summary><p>Yes. Connect your YouVersion account to bring your highlights in as you read, and to send highlights you make here back.</p></details>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="foot">
+  <div class="wrap">
+    <aside class="sister" aria-labelledby="sister-h">
+      <a class="sister-mark" href="https://ourfaithfulchurch.com/?home" aria-hidden="true" tabindex="-1"><svg class="ofc-mark sm" viewBox="-3 14 100 64" aria-hidden="true"><g stroke-linejoin="round" stroke-linecap="round" stroke-width="1.6"><g class="ofc-bird"><path d="M30 55 C40 69 57 70 69.03 62.5 A24.3 24.3 0 0 1 68.75 57 C60.5 49 50 42.6 38.5 40.5 A15.5 15.5 0 0 1 30 55 Z"/><path d="M43.3 38.3 C46.5 31 52 25 61 20 C71 18 80 18 88 19 C82 23 76 25 68 27 C74 28 80 30 84 32 C76 36 66 37 59 38 C58.2 39.5 57.3 40.7 55.9 43.4 L55.4 43.1 L54.8 42.8 L54.3 42.5 L53.7 42.3 L53.2 42.0 L52.6 41.7 L52.0 41.5 L51.5 41.2 L50.9 41.0 L50.4 40.7 L49.8 40.5 L49.2 40.2 L48.6 40.0 L48.1 39.8 L47.5 39.6 L46.9 39.4 L46.3 39.2 L45.7 39.0 L45.1 38.8 L44.5 38.6 L43.9 38.4 L43.3 38.3 Z"/><path d="M93 45 C81 45 72 51 72 58.5 C72 66 81 72 93 72 C85 68 79 64 79 58.5 C79 53 85 49 93 45 Z"/><path d="M11 39 L1 42.5 L11 46 Z"/><circle cx="23" cy="42" r="9" fill="none" stroke-width="6.5"/></g><g class="ofc-branch"><path d="M4 45 C4 54 7 62 14 70" fill="none" stroke-width="2.2"/><path d="M0 0 C3 -3.2 8 -3.2 10 0 C8 3.2 3 3.2 0 0 Z" transform="translate(4 51) rotate(-150)"/><path d="M0 0 C3 -3.2 8 -3.2 10 0 C8 3.2 3 3.2 0 0 Z" transform="translate(5.5 56) rotate(-20)"/><path d="M0 0 C3 -3.2 8 -3.2 10 0 C8 3.2 3 3.2 0 0 Z" transform="translate(7.5 62) rotate(-160)"/><path d="M0 0 C3 -3.2 8 -3.2 10 0 C8 3.2 3 3.2 0 0 Z" transform="translate(10.5 66) rotate(-25)"/><circle cx="14.5" cy="71" r="2.3"/></g></g></svg></a>
+      <div>
+        <h2 id="sister-h">From the same team: Our Faithful Church App</h2>
+        <p>Everything a church does in one app: giving, kids check-in, events, groups, sermons and the screens in the building. Its kids lessons come from the Veritas Logos Family Library. Also free, and funded by donations.</p>
+        <p class="sister-links"><a href="https://ourfaithfulchurch.com/?home">Visit ourfaithfulchurch.com</a><a href="https://ourfaithfulchurch.com/app/">Open the Our Faithful app</a></p>
+      </div>
+    </aside>
+    <div class="foot-in">
+      <a class="brand" href="?home"><svg class="vl-mark" viewBox="0 0 48 52" aria-hidden="true"><path class="leaf-blue" d="M2 51 14 12 38 1 31 24Z"/><path class="leaf-silver" d="M4 51 30 31 47 27 42 42Z"/></svg><span class="brand-name"><strong>Veritas</strong><span>Logos</span></span></a>
+      <nav aria-label="Footer"><a href="app/">Open the app</a><a href="app/#family">Family library</a><a href="privacy/">Privacy</a><a href="delete-account/">Delete your account</a><a href="https://ourfaithfulchurch.com/?home">Our Faithful Church App</a></nav>
+      <p class="fine">&copy; 2026 Veritas Logos. Free, with no ads, and funded by donations. Bible text: the Berean Standard Bible and other public-domain and openly licensed sources, credited in the app.</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
