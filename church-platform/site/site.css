@@ -161,3 +161,20 @@ p { margin: 0; }
 .foot nav a { color: var(--ink-2); text-decoration: none; font-size: .95rem; }
 .foot nav a:hover { color: var(--dove); }
 .foot .fine { flex-basis: 100%; }
+
+.end-note { margin-top: 14px; font-size: 1.1rem; color: rgba(255,255,255,.85); }
+
+/* ---------- Privacy policy and other long reading ---------- */
+.legal { max-width: 760px; padding: 48px 0 72px; }
+.legal h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); }
+.legal > .fine { margin-top: 10px; }
+.legal section { margin-top: 44px; }
+.legal h2 { font-size: 1.6rem; }
+.legal h3 { margin-top: 24px; font-size: 1.12rem; }
+.legal p, .legal li { color: var(--ink-2); }
+.legal p { margin-top: 12px; }
+.legal ul { margin: 12px 0 0; padding-left: 1.2rem; }
+.legal li { margin-top: 8px; }
+.legal b { color: var(--ink); }
+.legal-toc { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 28px; padding: 16px 0; border-block: 1px solid var(--line); }
+.legal-toc a { font-size: .95rem; text-decoration: none; }

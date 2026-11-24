@@ -1,5 +1,5 @@
 // ---------- Email on the Connect page: write to another member, or (with "Email groups of people") to a group ----------
-// Email goes out under the sender's own name at the app's mail domain, like gunterfrazier@mail.ourfaithfulchurch.com,
+// Email goes out under the sender's own name at the app's mail domain, like wesparker@mail.ourfaithfulchurch.com,
 // and replies go straight to the sender's own inbox. Nobody sees the other person's address unless they reply.
 // supabase/functions/send-email picks the address the same way (keep EMAIL_RESERVED and emailLocalPart in step).
 const EMAIL_RESERVED = ["admin", "administrator", "abuse", "postmaster", "hostmaster", "webmaster", "noreply", "support", "security", "billing", "help", "hello", "info", "office", "pastor", "staff", "root", "mailer", "team", "church"];

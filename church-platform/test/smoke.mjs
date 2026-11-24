@@ -88,8 +88,8 @@ const sheetGone = () => page.waitForSelector("#scrim", { state: "detached", time
 await page.goto(base + "?debug#event-riverside-e1");
 await step("welcome", async () => {
   await shot("01-welcome");
-  await page.fill("input[name=name]", "Gunter Frazier");
-  await page.fill("input[name=email]", "gunter@example.com");
+  await page.fill("input[name=name]", "Wes Parker");
+  await page.fill("input[name=email]", "wes@example.com");
   await page.click("form[data-form=welcome] button");
   await page.waitForSelector("h1:has-text('Thanksgiving potluck')"); // the link they arrived with
   // "Are you at church?" pops up during real service times; only its own step below should see it.
@@ -1439,7 +1439,7 @@ await step("volunteer scheduling", async () => {
   await goTo("teams"); await expectText("Upcoming services"); await page.click('a[href="#crew-riverside-svc-1"]'); await page.waitForSelector(".crew-row");
   await page.click("[data-act=crew-fill]"); await page.waitForTimeout(150);
   if (await page.$("#scrim")) await page.click("#scrim button[data-act=close-sheet].btn");
-  await expectText("Gunter Frazier"); // nobody else on Media is free, so the scheduler (on the team now) gets a spot
+  await expectText("Wes Parker"); // nobody else on Media is free, so the scheduler (on the team now) gets a spot
   await page.click('[data-act=crew-add][data-position="Keys"]'); await page.click("#cand-list [data-act=crew-assign]:not([disabled]) >> nth=0"); await sheetGone();
   await page.click(".crew-person.pending >> nth=0"); await page.click('#scrim [data-act=crew-set][data-status="accepted"]'); await sheetGone();
   await shot("22-crew");
@@ -2785,7 +2785,7 @@ await step("register a church", async () => {
   await page.click("form[data-form=start-church] button.btn:not([type=button])"); await page.waitForSelector("form[data-form=start-church] .err");
   await page.fill("input[name=locCode1]", "WEST"); await page.check('input[name=locVis1][value=private]', { force: true });
   await page.click("form[data-form=start-church] button.btn:not([type=button])"); await page.waitForSelector("text=Getting started");
-  await expectText("Primary: Gunter Frazier (you)");
+  await expectText("Primary: Wes Parker (you)");
   for (const h of ["home", "word", "plans", "notes", "events", "connect", "classes", "groups", "directory", "give", "history", "checkin", "live", "alerts", "me", "chat", "parents", "admin-roles", "admin-locations", "admin-page"]) await goTo(h);
   await shot("17-new-church");
 });
@@ -3366,6 +3366,14 @@ await step("website at the root sends app links on", async () => {
   // The app's footer links back to the website.
   await goTo("home"); const back = await page.getAttribute(".page-foot .pf-sign a", "href");
   if (back !== `${siteBase}?home`) throw new Error(`the app's sign-off should link to the website, got ${back}`);
+  if ((await page.getAttribute(".page-foot .pf-links a", "href")) !== `${siteBase}privacy/`) throw new Error("the app should link to the privacy policy");
+  // The privacy policy, and the website saying what it costs.
+  { const { p, cx } = await open(siteBase + "privacy/");
+    if (!(await p.textContent("h1")).includes("Privacy policy") || !(await p.textContent("main")).includes("privacy@ourfaithfulchurch.com")) throw new Error("the privacy policy should be at /privacy/");
+    if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error("the privacy policy shouldn't scroll sideways on a phone");
+    await cx.close(); }
+  { const { p, cx } = await open(siteBase + "?home");
+    if (!(await p.textContent("#faq")).includes("What does it cost?")) throw new Error("the website should say what it costs"); await cx.close(); }
 });
 
 await browser.close(); server.close();
