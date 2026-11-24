@@ -51,7 +51,7 @@ function applyBrand() {
   document.title = c ? `${c.name} | ${PLATFORM.name}` : PLATFORM.name;
 }
 
-const OPEN_ROUTES = ["welcome", "churches", "start", "church", "page", "site", "display", "pair", "bible", "reactivate", "help", "familylinks"];
+const OPEN_ROUTES = ["welcome", "churches", "start", "church", "page", "site", "tag", "display", "pair", "bible", "reactivate", "help", "familylinks"];
 // Screens that take a church ID after the dash (#give-riverside), so a QR code opens the right church.
 const CHURCH_SCOPED = ["home", "give", "checkin", "parents", "serve", "live", "events", "classes", "groups", "connect"];
 /** Which church a deep link belongs to, so links and QR codes switch the app to it. */
@@ -91,7 +91,7 @@ function render() {
   // On a church's own subdomain only its public pages open; everything else (joining, signing in) is on the app's address,
   // where sign-ins and paired devices live.
   if (CHURCH_SITE?.subdomain && !["site", "page", "visit", "map"].includes(head)) { location.replace(`${APP_HOME}#${route}`); return; }
-  const signedOutOk = head === "page" || head === "site" || head === "pair" || head === "map" || (head === "visit" && !!tail) || (head === "ticket" && !!tail) || head === "thanks";
+  const signedOutOk = head === "page" || head === "site" || head === "tag" || head === "pair" || head === "map" || (head === "visit" && !!tail) || (head === "ticket" && !!tail) || head === "thanks";
   // A church device that lost its session signs itself back in. Until then it says so, rather than asking for a code.
   if (Backend.on && !Backend.user && head !== "pair" && DeviceSignin.get()) {
     const name = DeviceSignin.get().name || "This screen";

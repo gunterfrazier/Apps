@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- A church's web address with a slash on the end (ourfaithfulchurch.com/riverside/): drop the slash before anything
+<!-- A tag link (ourfaithfulchurch.com/t/give) opens #tag-give at the root. A church's web address with a slash on the end (ourfaithfulchurch.com/riverside/): drop the slash before anything
      loads, so config.js, the icons and the offline helper are found at the site's root. -->
+<script>{ const t = location.pathname.match(/^\/t\/([A-Za-z0-9-]+)\/?$/); if (t) history.replaceState(null, "", "/" + location.search + "#tag-" + t[1].toLowerCase()); }</script>
 <script>if (/^\/[A-Za-z0-9-]+\/+$/.test(location.pathname)) history.replaceState(null, "", location.pathname.replace(/\/+$/, "") + location.search + location.hash);</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#4250d6">
