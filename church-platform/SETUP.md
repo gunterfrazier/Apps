@@ -299,6 +299,18 @@ Good to know:
 - **If a build fails** on the Node version, add the environment variable `NODE_VERSION` = `22` under **Settings, Variables and Secrets**.
 - **Sign-in email from your own domain.** Step 3.3 can now use a sender at `ourfaithfulchurch.com` (Resend, Postmark, Brevo or SendGrid) instead of the Gmail account. Add the DNS records they give you in Cloudflare.
 
+## NFC tags (version 24)
+
+For an existing project, run `supabase/upgrade-24.sql` after version 23. It adds tag links (Ministry tools, **NFC tags**)
+and counts their taps. Until it's run, tag links save on the device that made them but tags won't open for anyone else.
+
+- A tag holds `ourfaithfulchurch.com/t/<code>`. Cloudflare Pages already serves the app for that address, so there's
+  nothing else to set up. Change where a tag link opens any time; tags already written follow.
+- **Writing tags** works in Chrome on Android, and in the Play Store app. iPhones can read tags but can't write them
+  from a web app: use an NFC writing app, or order tags that arrive already written.
+- **Approved suppliers** are listed in `NFC_SUPPLIERS` at the top of `src/js/89b-nfc.js`, with each one's minimum,
+  starting price, delivery time, sizes and what files it needs. Check a supplier's site, then add it there.
+
 ## Church web addresses
 
 Every church's landing page has its own web address, made from its church ID (Admin, Account details):

@@ -40,7 +40,7 @@ const server = createServer((req, res) => {
   }
   // A church's web address (/riverside-marietta) is the app's page, as Cloudflare Pages serves it.
   let p = join(root, path.replace(/\/$/, "/index.html"));
-  if (/^\/[A-Za-z0-9-]+\/?$/.test(path) && !existsSync(p)) p = join(root, "index.html");
+  if (/^\/(t\/)?[A-Za-z0-9-]+\/?$/.test(path) && !existsSync(p)) p = join(root, "index.html");
   // Leave out config.js so the test runs in browser-only mode with the sample churches.
   if (!p.startsWith(root) || !existsSync(p) || p.endsWith("config.js")) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { "content-type": types[extname(p)] || "application/octet-stream" }); res.end(readFileSync(p));
@@ -3263,6 +3263,74 @@ await step("church web addresses", async () => {
   // Put it back for anything after.
   await goTo("admin-account"); await page.fill('input[name="handle"]', was);
   await page.click('form[data-form="admin-account"] button.btn:not([type=button])'); await page.waitForTimeout(150);
+  await page.evaluate((was) => { const S = __app.S; S.state.memberships.find((x) => x.churchId === "riverside" && x.userId === S.me().id).roleId = was; S.save(); }, role);
+});
+
+await step("nfc tags", async () => {
+  // An admin at Riverside for this step; put back after.
+  const role = await page.evaluate(() => {
+    const S = __app.S, me = S.me().id; S.state.current = "riverside";
+    let m = S.state.memberships.find((x) => x.churchId === "riverside" && x.userId === me);
+    if (!m) { m = { churchId: "riverside", userId: me, roleId: "member", locations: [], joined: new Date().toISOString() }; S.state.memberships.push(m); }
+    const was = m.roleId; m.roleId = "admin"; S.save(); return was;
+  });
+  await page.evaluate(() => __app.render());
+  // Ministry tools lists it.
+  await goTo("ministry"); await page.waitForSelector('a.row[href="#nfc"]');
+  await goTo("nfc"); await expectText("A tag opens a link when a phone touches it");
+  // A tag link for giving, from the link library.
+  await goTo("nfc-library"); await page.waitForSelector(".nfc-lib-row");
+  await page.click('.nfc-lib-row:has-text("Give") [data-act=nfc-new]'); await page.waitForSelector("#scrim form[data-form=nfc-save]");
+  if ((await page.inputValue("#scrim input[name=label]")) !== "Give") throw new Error("the library should fill in the name");
+  await page.fill("#scrim input[name=code]", "Give Test"); await page.click("#scrim form[data-form=nfc-save] button.btn:not([type=button])");
+  await page.waitForSelector('.nfc-row[data-tag="give-test"]');
+  const t = await page.evaluate(() => __app.S.state.tagLinks.find((x) => x.code === "give-test"));
+  if (t?.target !== "give-riverside") throw new Error(`the tag link should open giving, got ${t?.target}`);
+  // A code already in use is refused.
+  await page.click("[data-act=nfc-new]"); await page.waitForSelector("#scrim form[data-form=nfc-save]");
+  await page.fill("#scrim input[name=code]", "give-test"); await page.click("#scrim form[data-form=nfc-save] button.btn:not([type=button])");
+  await page.waitForSelector("#scrim .err:has-text('taken')"); await page.click("#scrim [data-act=close-sheet]"); await sheetGone();
+  // This browser can't write tags: it says how, with the link to copy.
+  await page.click('.nfc-row[data-tag="give-test"] [data-act=nfc-write]'); await page.waitForSelector("#scrim .nfc-url-box");
+  await page.click("#scrim [data-act=close-sheet]"); await sheetGone();
+  await shot("nfc-tags");
+  // Tapping the tag: ourfaithfulchurch.com/t/give-test opens giving and counts the tap.
+  const tap = await ctx.newPage(); await tap.goto(base + "t/give-test");
+  await tap.waitForFunction(() => location.hash === "#give-riverside" && location.pathname === "/");
+  await tap.close();
+  // Nothing there: says so.
+  const none = await ctx.newPage(); await none.goto(base + "t/no-such-tag"); await none.waitForSelector(".site-missing");
+  if (!(await none.textContent("#app")).includes("This tag isn't set up")) throw new Error("an unknown tag should say so"); await none.close();
+  // Repointing: the same tag now opens events.
+  // The tap was saved in the other tab; pick it up here.
+  await page.evaluate(() => { __app.S.load(); __app.render(); }); await goTo("nfc");
+  await page.click('.nfc-row[data-tag="give-test"] [data-act=nfc-edit]'); await page.waitForSelector("#scrim form[data-form=nfc-save]");
+  await page.selectOption("#scrim select[name=target]", "events-riverside"); await page.click("#scrim form[data-form=nfc-save] button.btn:not([type=button])");
+  await page.waitForSelector('.nfc-row[data-tag="give-test"]:has-text("Events calendar")');
+  if (!(await page.textContent('.nfc-row[data-tag="give-test"] .nfc-taps')).includes("1")) throw new Error("the tap should be counted");
+  const tap2 = await ctx.newPage(); await tap2.goto(base + "t/give-test"); await tap2.waitForFunction(() => location.hash === "#events-riverside"); await tap2.close();
+  // Ordering: the supplier list, then the files for GoToTags.
+  await goTo("nfc-order"); await page.waitForSelector(".nfc-supplier");
+  await expectText("50 tags"); await expectText("$1.25 a tag");
+  await page.click('[data-act=nfc-order-start][data-id=gototags]'); await page.waitForSelector(".nfc-builder");
+  await page.fill('input[data-input=nfc-qty]', "100"); await page.waitForTimeout(600);
+  await expectText("100 tags"); await expectText("$95 before");
+  await page.fill("form[data-form=nfc-design] input[name=headline]", "Tap to give"); await page.waitForTimeout(100);
+  if (!(await page.textContent("#nfc-preview svg")).includes("Tap to give")) throw new Error("the preview should show the headline");
+  await page.selectOption("form[data-form=nfc-design] select[name=size]", "square-50"); await page.waitForSelector("#nfc-preview svg");
+  if (!(await page.isChecked("form[data-form=nfc-design] input[name=qr]")) || !(await page.$("#nfc-preview svg svg"))) throw new Error("a 50 mm sticker should get the QR code");
+  const [art] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=nfc-files][data-kind=art]")]);
+  const svg = readFileSync(await art.path(), "utf8");
+  if (!/width="54mm"/.test(svg) || !svg.includes("Tap to give") || !svg.includes("crispEdges")) throw new Error("the artwork should be 50 mm with bleed, the headline and a QR code");
+  const [csv] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=nfc-files][data-kind=csv]")]);
+  const rows = readFileSync(await csv.path(), "utf8");
+  if (!rows.includes('"100"') || !rows.includes("/t/give-test")) throw new Error(`the encoding file should list the tag link: ${rows}`);
+  await shot("nfc-order");
+  // Deleting takes a second tap.
+  await goTo("nfc"); await page.click('.nfc-row[data-tag="give-test"] [data-act=nfc-delete]');
+  await page.waitForSelector('.nfc-row[data-tag="give-test"] [data-act=nfc-delete]:has-text("Tap again")');
+  await page.click('.nfc-row[data-tag="give-test"] [data-act=nfc-delete]');
+  await page.waitForFunction(() => !document.querySelector('.nfc-row[data-tag="give-test"]'));
   await page.evaluate((was) => { const S = __app.S; S.state.memberships.find((x) => x.churchId === "riverside" && x.userId === S.me().id).roleId = was; S.save(); }, role);
 });
 
