@@ -35,6 +35,9 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
+        with:
+          # The default list asks for the retired "tools" package, which fails; ask for today's ones.
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build the test app (debug APK)
