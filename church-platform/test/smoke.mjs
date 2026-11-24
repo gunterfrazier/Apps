@@ -3376,6 +3376,46 @@ await step("website at the root sends app links on", async () => {
     if (!(await p.textContent("#faq")).includes("What does it cost?")) throw new Error("the website should say what it costs"); await cx.close(); }
 });
 
+await step("delete my account", async () => {
+  // Without a server (this preview), it says there's nothing to delete and how to ask by email.
+  await goTo("delete-account"); await expectText("there's no account on a server to delete"); await expectText("privacy@ourfaithfulchurch.com");
+  // Signed in to a live server (a stand-in that answers like delete_my_account()).
+  const cx = await browser.newContext({ viewport: { width: 390, height: 844 } }), p = await cx.newPage();
+  p.on("pageerror", (e) => errors.push(`delete account pageerror: ${e.message}`));
+  await p.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await p.goto(base + "?debug#welcome"); await p.fill("input[name=name]", "Sam Delete"); await p.fill("input[name=email]", "sam@example.com");
+  await p.click("form[data-form=welcome] button"); await p.waitForTimeout(500);
+  await p.evaluate(() => { const S = __app.S, me = S.me().id; S.state.prefs ||= {}; S.state.prefs.askPresence = false; S.state.current = "riverside";
+    if (!S.state.memberships.some((m) => m.churchId === "riverside" && m.userId === me)) S.state.memberships.push({ churchId: "riverside", userId: me, roleId: "member", locations: [], joined: new Date().toISOString() });
+    S.state.recurring ||= []; S.state.recurring.push({ id: "rec-del", churchId: "riverside", by: me, amount: 25, frequency: "monthly", active: true }); S.save();
+    // Anything else the app asks the server just never answers, so this device keeps its sample church.
+    const chain = new Proxy(function () {}, { get: (t, k) => (k === "then" ? () => {} : chain), apply: () => chain });
+    window.__rpc = { error: { message: "You're the primary account holder of Somewhere. Make someone else the primary account holder, or deactivate the church, before deleting your account." } };
+    Object.assign(__app.Backend, { on: true, ready: true, user: { id: me, email: "sam@example.com", user_metadata: { password_set: true } }, client: { rpc: async (name) => { window.__called = name; return window.__rpc; }, from: () => chain, channel: () => chain, removeChannel: () => {}, auth: { signOut: async () => ({ error: null }) } } });
+    __app.Backend.signOut = async () => ({}); __app.render(); });
+  await p.evaluate(() => { location.hash = "me"; }); await p.waitForSelector('a.row[href="#delete-account"]');
+  await p.evaluate(() => { location.hash = "delete-account"; }); await p.waitForSelector(".delete-account");
+  // A recurring gift running: it says to stop it first, and the button is off.
+  if (!(await p.textContent(".delete-blockers")).includes("recurring gift")) throw new Error("a running recurring gift should be named");
+  if (!(await p.isDisabled('form[data-form="delete-account"] button.danger'))) throw new Error("deleting should wait until the recurring gift is stopped");
+  await p.screenshot({ path: join(shots, "delete-account.png"), fullPage: true });
+  await p.evaluate(() => { __app.S.state.recurring.find((r) => r.id === "rec-del").active = false; __app.S.save(); __app.render(); });
+  await p.waitForFunction(() => !document.querySelector(".delete-blockers"));
+  // Not typed: asks for DELETE. The server says no: shows why.
+  await p.click('form[data-form="delete-account"] button.danger'); await p.waitForSelector("form[data-form=delete-account] .err:has-text('Type DELETE')");
+  await p.fill("form[data-form=delete-account] input[name=confirm]", "delete"); await p.click('form[data-form="delete-account"] button.danger');
+  await p.waitForSelector("form[data-form=delete-account] .err:has-text('primary account holder of Somewhere')");
+  if ((await p.evaluate(() => window.__called)) !== "delete_my_account") throw new Error("it should ask the server to delete the account");
+  // The server deletes it: the device forgets the account and the website confirms.
+  await p.evaluate(() => { window.__rpc = { data: { kept: 1, removed: 4 }, error: null }; });
+  await p.fill("form[data-form=delete-account] input[name=confirm]", "DELETE");
+  await Promise.all([p.waitForURL(/\/delete-account\/\?done$/), p.click('form[data-form="delete-account"] button.danger')]);
+  await p.waitForSelector("#done:not([hidden])");
+  const left = await p.evaluate(() => Object.keys(localStorage).filter((k) => /^our-faithful-v1/.test(k)));
+  if (left.length) throw new Error(`this device should forget the deleted account: ${left}`);
+  await cx.close();
+});
+
 await browser.close(); server.close();
 if (errors.length) { console.error(`FAILED (${errors.length})\n` + errors.join("\n")); process.exit(1); }
 console.log("All screens rendered without errors. Screenshots in .shots/");

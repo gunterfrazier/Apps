@@ -178,3 +178,8 @@ p { margin: 0; }
 .legal b { color: var(--ink); }
 .legal-toc { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 28px; padding: 16px 0; border-block: 1px solid var(--line); }
 .legal-toc a { font-size: .95rem; text-decoration: none; }
+.legal ol { margin: 12px 0 0; padding-left: 1.3rem; }
+.legal ol li { margin-top: 8px; color: var(--ink-2); }
+.legal .btn { margin-top: 4px; }
+.legal a.btn, .legal a.btn:hover { color: #fff; }
+.done-note { background: #e8f5ee; color: #14532d; border-radius: 12px; padding: 14px 18px; margin: 0 0 24px; font-weight: 600; }
