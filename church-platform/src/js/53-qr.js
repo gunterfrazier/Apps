@@ -1,7 +1,7 @@
 // ---------- QR codes: make them (for people with permission) and scan them (everyone) ----------
 // Codes point at a screen in the app, like #event-123 or #register-gathering-456, so scanning one opens it directly.
 
-const appBase = () => IN_PREVIEW ? PLATFORM.appUrl : location.origin + location.pathname;
+const appBase = () => IN_PREVIEW ? PLATFORM.appUrl : APP_HOME;
 const appLink = (target) => `${appBase()}#${target}`;
 
 function qrTargetGroups() {
@@ -48,7 +48,7 @@ function qrCard(url, label) {
       <button class="btn ghost" data-act="copy" data-text="${url}" data-done="Link copied">${icon("copy")}Copy link</button>
       ${!IN_PREVIEW ? html`<button class="btn ghost" data-act="qr-print">Print</button>` : ""}</div></div>`;
 }
-Actions["qr-for"] = (el) => openSheet("QR code", qrCard(appLink(el.dataset.target), el.dataset.label || ""));
+Actions["qr-for"] = (el) => openSheet("QR code", qrCard(el.dataset.url || appLink(el.dataset.target), el.dataset.label || ""));
 const qrFile = (label, ext) => `${slugify(label || "qr-code") || "qr-code"}.${ext}`;
 Actions["qr-png"] = (el) => {
   const qr = qrCanvas(el.dataset.url, 12), label = el.dataset.label || "";

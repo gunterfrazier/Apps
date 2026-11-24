@@ -667,3 +667,10 @@ select { max-width: 100%; text-overflow: ellipsis; }
 .on-tv .pair-form input { font-size: 2rem; letter-spacing: .2em; text-align: center; min-height: 64px; }
 .on-tv .pair-form .btn { min-height: 56px; font-size: 1.15rem; }
 .on-tv body, .on-tv { cursor: none; }
+
+/* ---------- Church web addresses ---------- */
+.web-address-url { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.05rem; color: var(--brand-ink, var(--brand)); text-decoration: none; overflow-wrap: anywhere; }
+.web-address-url .i { flex: none; width: 20px; height: 20px; }
+.site-offer { margin-bottom: 12px; border-left: 4px solid var(--brand); }
+.site-missing { max-width: 520px; margin: 16px auto 0; }
+[data-handle-preview] { font-weight: 600; }

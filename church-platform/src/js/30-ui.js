@@ -22,6 +22,8 @@ function tabsFor() {
 function go(hash) { if (location.hash.slice(1) === hash) render(); else location.hash = hash; }
 function splitRoute() {
   const h = location.hash.slice(1);
+  // A church's web address (ourfaithfulchurch.com/riverside) with nothing after it: that church's landing page.
+  if (!h && CHURCH_SITE) return { route: `site-${CHURCH_SITE.handle}`, head: "site", tail: CHURCH_SITE.handle };
   // A screen whose own name has a dash (#schedule-matrix) is that screen, not "schedule" with a detail.
   if (Screens[h]) return { route: h, head: h, tail: "" };
   const i = h.indexOf("-");
@@ -49,7 +51,7 @@ function applyBrand() {
   document.title = c ? `${c.name} | ${PLATFORM.name}` : PLATFORM.name;
 }
 
-const OPEN_ROUTES = ["welcome", "churches", "start", "church", "page", "display", "pair", "bible", "reactivate", "help", "familylinks"];
+const OPEN_ROUTES = ["welcome", "churches", "start", "church", "page", "site", "display", "pair", "bible", "reactivate", "help", "familylinks"];
 // Screens that take a church ID after the dash (#give-riverside), so a QR code opens the right church.
 const CHURCH_SCOPED = ["home", "give", "checkin", "parents", "serve", "live", "events", "classes", "groups", "connect"];
 /** Which church a deep link belongs to, so links and QR codes switch the app to it. */
@@ -86,7 +88,10 @@ function render() {
   // Back from an email sign-in link: Supabase finishes it as it starts.
   if (/^#(access_token|error)=/.test(location.hash) && !Backend.ready) { SecurityRadio.sync(head); app.innerHTML = flat(html`<div class="loading" role="status"><span class="ai-dot"></span>Signing you in...</div>`); return; }
   // A campus map opens for anyone with its link (a visitor scanning a sign); Screens.map loads a public location itself.
-  const signedOutOk = head === "page" || head === "pair" || head === "map" || (head === "visit" && !!tail) || (head === "ticket" && !!tail) || head === "thanks";
+  // On a church's own subdomain only its public pages open; everything else (joining, signing in) is on the app's address,
+  // where sign-ins and paired devices live.
+  if (CHURCH_SITE?.subdomain && !["site", "page", "visit", "map"].includes(head)) { location.replace(`${APP_HOME}#${route}`); return; }
+  const signedOutOk = head === "page" || head === "site" || head === "pair" || head === "map" || (head === "visit" && !!tail) || (head === "ticket" && !!tail) || head === "thanks";
   // A church device that lost its session signs itself back in. Until then it says so, rather than asking for a code.
   if (Backend.on && !Backend.user && head !== "pair" && DeviceSignin.get()) {
     const name = DeviceSignin.get().name || "This screen";

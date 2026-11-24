@@ -10,4 +10,8 @@ window.OUR_FAITHFUL_CONFIG = {
   // to it. movedFrom lists hosts the app used to live at; they forward once the new address is serving the app.
   // home: "https://YOUR-DOMAIN/",
   // movedFrom: ["OLD-HOST.example"],
+  // Church web addresses: YOUR-DOMAIN/<church ID> always works. Turn on <church ID>.YOUR-DOMAIN once the church-sites
+  // Worker is deployed (SETUP.md, "Church web addresses"), and add a short domain if you have one.
+  // churchSubdomains: true,
+  // shortDomain: "SHORT.example",
 };

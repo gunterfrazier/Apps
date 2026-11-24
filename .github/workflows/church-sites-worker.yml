@@ -1,0 +1,32 @@
+# Deploys the church-sites Worker (church-platform/church-sites), which serves riverside.ourfaithfulchurch.com.
+# Needs two repository secrets: CLOUDFLARE_API_TOKEN (a token with "Edit Cloudflare Workers" on the account and zone)
+# and CLOUDFLARE_ACCOUNT_ID. Without them the run says so and stops. See SETUP.md, "Church web addresses".
+name: Church subdomains (Cloudflare Worker)
+
+on:
+  push:
+    branches: [main]
+    paths: ["church-platform/church-sites/**", ".github/workflows/church-sites-worker.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for the Cloudflare secrets
+        id: keys
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$TOKEN" ] || [ -z "$ACCOUNT" ]; then echo "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID aren't set yet: skipping."; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: cloudflare/wrangler-action@v3
+        if: steps.keys.outputs.ok == 'true'
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: church-platform/church-sites

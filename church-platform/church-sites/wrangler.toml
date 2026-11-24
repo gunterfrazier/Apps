@@ -1,0 +1,16 @@
+# Church subdomains for Our Faithful Church App. Deployed by .github/workflows/church-sites-worker.yml.
+name = "our-faithful-church-sites"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = false
+
+# Every church subdomain. The www name, mail and the platform's own names pass straight through (see KEEP in worker.js).
+routes = [
+  { pattern = "*.ourfaithfulchurch.com/*", zone_name = "ourfaithfulchurch.com" },
+]
+
+[vars]
+SITE_DOMAIN = "ourfaithfulchurch.com"
+# A shorter domain for church addresses, like "ofc.church". Add it to Cloudflare, add a route for it above
+# ({ pattern = "ofc.church/*", zone_name = "ofc.church" }), set it here, and set shortDomain in config.js.
+SHORT_DOMAIN = ""
