@@ -112,19 +112,21 @@ function signFrame(pl, slide, { live = false } = {}) {
 const signPlay = { id: "", i: 0, timer: 0, slides: [] };
 /** #signage-ID: full screen, slide after slide. Used by signage devices, and by staff to preview a playlist. */
 Screens.signage = (id) => {
-  const pl = S.get("signage", id);
+  // A signage screen plays what its schedule (or the remote) says now; staff previewing see the playlist they opened.
+  const dev = thisDevice(), route = id;
+  if (dev?.type === "signage") { id = devicePlaylistNow(dev) ?? id; cacheScreenMedia(dev); }
+  const pl = id && S.get("signage", id), again = (ms) => () => { clearTimeout(signPlay.timer); signPlay.timer = setTimeout(() => { if (location.hash === `#signage-${route}`) render(); }, ms); };
+  if (!pl && dev) return { present: true, page: html`${idleHtml("display", "")}${offlineBadge()}${deviceExitBtn()}`, after: again(15000) };
   if (!pl) return { title: "Digital signage", back: "signs", body: html`<div class="rows" style="margin-top:16px">${empty("This playlist was removed.")}</div>` };
-  if (signPlay.id !== id) { Object.assign(signPlay, { id, i: 0 }); loadVerses(pl); }
+  if (signPlay.id !== id) { Object.assign(signPlay, { id }); loadVerses(pl); }
   signPlay.slides = signageSlides(pl);
-  const n = signPlay.slides.length, cur = n ? signPlay.slides[signPlay.i % n] : null;
+  // Where the loop is comes from the clock (and the remote), so every screen playing this playlist is in step.
+  const pos = playPosition(signPlay.slides, Date.now(), dev?.control), cur = signPlay.slides[pos.i] || null;
   return {
     present: true,
-    page: html`<div class="sign-player" data-orient="${pl.orientation || "landscape"}">${signFrame(pl, cur, { live: true })}
-      ${thisDevice() ? deviceExitBtn() : html`<a class="sign-exit" href="#signedit-${pl.id}" aria-label="Back to the editor">${icon("back")}</a>`}</div>`,
-    after() {
-      clearTimeout(signPlay.timer);
-      signPlay.timer = setTimeout(() => { if (location.hash !== `#signage-${id}`) return; signPlay.i = (signPlay.i + 1) % Math.max(1, signageSlides(pl).length); render(); }, (cur?.seconds || 10) * 1000);
-    },
+    page: html`<div class="sign-player" data-orient="${pl.orientation || "landscape"}">${signFrame(pl, cur, { live: true })}${dev ? offlineBadge() : ""}
+      ${dev ? deviceExitBtn() : html`<a class="sign-exit" href="#signedit-${pl.id}" aria-label="Back to the editor">${icon("back")}</a>`}</div>`,
+    after: again(dev?.control?.pausedAt ? 15000 : Math.max(500, pos.left * 1000 + 60)),
   };
 };
 

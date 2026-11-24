@@ -1725,7 +1725,7 @@ await step("booth and signage devices", async () => {
   const code2 = await pairNew("signage", () => page.selectOption("#scrim select[name=playlistId]", "sign-lobby")); await page.click("#scrim [data-act=close-sheet]");
   const s = await tab(1280, 720); await s.goto(base + `#pair-${code2}`); await s.click("form[data-form=pair] button");
   await s.waitForSelector(".sign-player .sg-stage"); if ((await s.evaluate(() => location.hash)) !== "#signage-sign-lobby") throw new Error("signage device didn't start its playlist");
-  await page.click(".row:has-text('Signage screen')"); await page.click("#scrim [data-act=device-remove]"); await page.click("#scrim [data-act=device-remove-yes]");
+  await page.click("[data-act=device-open]:has-text('Signage screen')"); await page.click("#scrim [data-act=device-remove]"); await page.click("#scrim [data-act=device-remove-yes]");
   await s.waitForFunction(() => !document.body.classList.contains("device-mode")); await s.close();
   await goTo("devices"); await shot("49-devices");
 });
@@ -2866,6 +2866,43 @@ await step("approvals: requests notify everyone who can approve; volunteers can 
   await asRole("primary"); await goTo("admin-approvals"); await page.check('input[name=pre][value=none]'); await page.click("form[data-form=approvals-save] button.btn"); await page.waitForTimeout(150);
   await page.evaluate((b) => { const S = __app.S, c = S.church(); c.ownerId = b.owner; S.membership(c.id).roleId = b.role; S.save(); __app.render(); }, before);
 });
+await step("screens: schedules, the remote, screen health and playing without internet", async () => {
+  // A schedule: every day, all day, the hallway playlist on the lobby screen.
+  await goTo("devices"); await page.waitForSelector("text=Screen health");
+  await page.click('[data-act=device-open][data-id="dev-lobby"]'); await page.click("#scrim [data-act=dev-sched-add]");
+  await page.evaluate(() => { const f = document.querySelector("#scrim form"); for (let k = 0; k < 7; k++) f.querySelector(`[name=sch0_d${k}]`).checked = true; f.querySelector("[name=sch0_from]").value = "00:00"; f.querySelector("[name=sch0_to]").value = "23:59"; f.querySelector("[name=sch0_pl]").value = "sign-hall"; });
+  await page.click("#scrim form .btns .btn:not(.danger)"); await sheetGone();
+  const health = await page.textContent("section:has(h2:has-text('Screen health'))");
+  if (!/Lobby screen\s*Playing Upstairs hallway, on its schedule/.test(health.replace(/\s+/g, " "))) throw new Error(`the lobby screen should play the hallway playlist on its schedule: ${health.replace(/\s+/g, " ").slice(0, 200)}`);
+  // The remote: play the lobby playlist for an hour, skip, pause, then back to the schedule.
+  await goTo("screenremote-dev-lobby"); await page.waitForSelector(".remote-btns");
+  await page.selectOption("form[data-form=remote-play] select[name=playlistId]", "sign-lobby"); await page.click("form[data-form=remote-play] .btn");
+  await page.waitForFunction(() => __app.S.get("devices", "dev-lobby").control?.playlistId === "sign-lobby");
+  const c1 = await page.textContent(".remote-count"); await page.click("[data-act=remote][data-do=next]"); await page.waitForTimeout(150);
+  if (await page.textContent(".remote-count") === c1) throw new Error("Next should move the screen on");
+  await page.click("[data-act=remote][data-do=pause]");
+  if (!(await page.evaluate(() => __app.S.get("devices", "dev-lobby").control?.pausedAt))) throw new Error("Pause should pause the screen");
+  await page.click("text=Back to the schedule");
+  if (await page.evaluate(() => __app.S.get("devices", "dev-lobby").control)) throw new Error("Back to the schedule should clear the remote's changes");
+  await page.evaluate(() => { __app.S.get("devices", "dev-lobby").settings.schedule = []; __app.S.save(); });
+  // Playing without internet: the service worker saves a screen's pictures and serves them offline.
+  const ok = await page.evaluate(async () => {
+    if (!navigator.serviceWorker) return "no service worker";
+    const reg = await navigator.serviceWorker.ready; const sw = navigator.serviceWorker.controller || reg.active;
+    const urls = ["icons/icon-192.png", "family-lib/backgrounds/zacchaeus/01.jpg"];
+    const res = await new Promise((done) => { const ch = new MessageChannel(); ch.port1.onmessage = (e) => done(e.data); sw.postMessage({ type: "ofc-cache", urls }, [ch.port2]); setTimeout(() => done(null), 8000); });
+    const keys = (await (await caches.open("our-faithful-screen-media")).keys()).map((r) => r.url);
+    return JSON.stringify({ res, keys: keys.length });
+  });
+  if (!/"saved":2/.test(ok)) throw new Error(`a screen's pictures should be saved for offline: ${ok}`);
+  if (await page.evaluate(() => !!navigator.serviceWorker.controller)) {
+    await page.context().setOffline(true);
+    const off = await page.evaluate(async () => { try { const r = await fetch("family-lib/backgrounds/zacchaeus/01.jpg"); return r.ok ? (await r.blob()).size : r.status; } catch (e) { return String(e); } });
+    await page.context().setOffline(false);
+    if (!(off > 1000)) throw new Error(`a saved picture should load without internet: ${off}`);
+  }
+});
+
 await step("a video, website or file on the display", async () => {
   if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
   const key = await page.evaluate(() => { const S = __app.S; S.setCurrent("riverside"); S.state.churches.riverside.ownerId = S.me().id; S.save(); const p = S.list("services").sort((a, b) => b.date.localeCompare(a.date))[0]; return `service-${p.id}`; });
