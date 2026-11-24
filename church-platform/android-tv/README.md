@@ -1,7 +1,7 @@
 # Our Faithful Screens (Google TV / Android TV)
 
 The church's TV screens as an app: lobby signage, classroom and room displays, presentation and stage screens.
-It's one full-screen WebView showing the Our Faithful web app (`https://ourfaithfulchurch.com/?tv=1`), which already
+It's one full-screen WebView showing the Our Faithful web app (`https://ourfaithfulchurch.com/app/?tv=1`), which already
 pairs a screen and plays its job. The app adds what a TV needs around it:
 
 - Stays on and fills the screen; no system bars.

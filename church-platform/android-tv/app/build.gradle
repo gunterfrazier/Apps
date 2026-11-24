@@ -3,7 +3,7 @@ plugins {
 }
 
 // The web app the TV opens. Change it here (or with -PappUrl=...) for a test server.
-def appUrl = project.findProperty("appUrl") ?: "https://ourfaithfulchurch.com/?tv=1"
+def appUrl = project.findProperty("appUrl") ?: "https://ourfaithfulchurch.com/app/?tv=1"
 
 android {
     namespace = "com.ourfaithfulchurch.screens"

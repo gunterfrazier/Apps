@@ -14,7 +14,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "dist");
 const shots = join(here, "..", ".shots");
 mkdirSync(shots, { recursive: true });
-const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".webmanifest": "application/manifest+json" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".webmanifest": "application/manifest+json", ".css": "text/css", ".svg": "image/svg+xml", ".webp": "image/webp", ".jpg": "image/jpeg" };
 const recordings = new Map();
 function silentWav(seconds) {
   const audio = Buffer.alloc(44 + 8000 * 2 * seconds);
@@ -38,14 +38,18 @@ const server = createServer((req, res) => {
     });
     return res.end(body.subarray(start, end + 1));
   }
-  // A church's web address (/riverside-marietta) is the app's page, as Cloudflare Pages serves it.
-  let p = join(root, path.replace(/\/$/, "/index.html"));
-  if (/^\/(t\/)?[A-Za-z0-9-]+\/?$/.test(path) && !existsSync(p)) p = join(root, "index.html");
+  // As Cloudflare serves it: a church subdomain gets the app (the church-sites Worker); an address with no file of its
+  // own (a church's /riverside-marietta, a tag's /t/give) gets the website, which sends it on to the app.
+  const sub = /^[a-z0-9-]+\.localhost$/.test((req.headers.host || "").split(":")[0]);
+  let p = join(root, (sub ? `/app${path}` : path).replace(/\/$/, "/index.html"));
+  if (!sub && /^\/(t\/)?[A-Za-z0-9-]+\/?$/.test(path) && !existsSync(p)) p = join(root, "index.html");
   // Leave out config.js so the test runs in browser-only mode with the sample churches.
   if (!p.startsWith(root) || !existsSync(p) || p.endsWith("config.js")) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { "content-type": types[extname(p)] || "application/octet-stream" }); res.end(readFileSync(p));
 }).listen(0);
-const base = `http://localhost:${server.address().port}/`;
+// The website is at the root; the app is at /app/.
+const siteBase = `http://localhost:${server.address().port}/`;
+const base = `${siteBase}app/`;
 
 const browser = await playwright.chromium.launch({ executablePath: process.env.CHROME || (existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : undefined) });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, acceptDownloads: true });
@@ -2891,7 +2895,7 @@ await step("screens: schedules, the remote, screen health and playing without in
   const ok = await page.evaluate(async () => {
     if (!navigator.serviceWorker) return "no service worker";
     const reg = await navigator.serviceWorker.ready; const sw = navigator.serviceWorker.controller || reg.active;
-    const urls = ["icons/icon-192.png", "family-lib/backgrounds/zacchaeus/01.jpg"];
+    const urls = ["icons/icon-192.png", "family-lib/backgrounds/zacchaeus/01.jpg"].map((u) => new URL(u, location.href).href);
     const res = await new Promise((done) => { const ch = new MessageChannel(); ch.port1.onmessage = (e) => done(e.data); sw.postMessage({ type: "ofc-cache", urls }, [ch.port2]); setTimeout(() => done(null), 8000); });
     const keys = (await (await caches.open("our-faithful-screen-media")).keys()).map((r) => r.url);
     return JSON.stringify({ res, keys: keys.length });
@@ -3051,7 +3055,7 @@ await step("dashboard and detailed reports", async () => {
 });
 await step("media library and Find media", async () => {
   // Openverse stands in for the outside photo sites, which the test can't reach.
-  const jpg = readFileSync(join(root, "demo", "bible-autumn.jpg")), cors = { "access-control-allow-origin": "*" };
+  const jpg = readFileSync(join(root, "app", "demo", "bible-autumn.jpg")), cors = { "access-control-allow-origin": "*" };
   await page.route("https://api.openverse.org/**", (r) => r.fulfill({ headers: cors, contentType: "application/json", body: JSON.stringify({ results: [{ id: "t1", url: "https://cdn.example.org/t1.jpg", thumbnail: "https://cdn.example.org/t1-t.jpg", title: "Test sunrise", creator: "Ana", license: "cc0", provider: "flickr", foreign_landing_url: "https://flickr.example/t1" }] }) }));
   await page.route("https://cdn.example.org/**", (r) => r.fulfill({ headers: cors, contentType: "image/jpeg", body: jpg }));
   await goTo("ministryres"); await expectText("Ministry-to-Children"); await expectText("Lessons.church"); await expectText("Church Online Platform");
@@ -3211,15 +3215,15 @@ await step("church web addresses", async () => {
   };
   // The path, and the path with a slash (config.js and the icons still load from the root).
   for (const path of ["riverside-marietta", "Riverside-Marietta/"]) {
-    const { p, cx } = await visit(base + path);
+    const { p, cx } = await visit(siteBase + path);
     const t = await p.textContent("#app");
     if (!t.includes("Riverside Community Church") || !(await p.$(".public-page"))) throw new Error(`/${path} should open Riverside's landing page`);
-    if (path.endsWith("/") && (await p.evaluate(() => location.pathname)) !== "/Riverside-Marietta") throw new Error("the slash on the end should be dropped");
+    if ((await p.evaluate(() => location.pathname + location.hash)) !== "/app/#site-riverside-marietta") throw new Error(`/${path} should open the app at the church's page`);
     if (path === "riverside-marietta") await p.screenshot({ path: join(shots, "web-address.png") });
     await cx.close();
   }
   // Nothing there: a friendly page, not the app's sign-up.
-  { const { p, cx } = await visit(base + "no-such-church");
+  { const { p, cx } = await visit(siteBase + "no-such-church");
     if (!(await p.textContent("#app")).includes("There's no church at this address")) throw new Error("an unknown address should say so");
     await cx.close(); }
   // The app's own pages aren't church addresses.
@@ -3230,9 +3234,9 @@ await step("church web addresses", async () => {
     const { p, cx } = await visit(`http://riverside-marietta.localhost:${port}/`, { config: { siteDomain: "localhost" } });
     if (!(await p.textContent("#app")).includes("Riverside Community Church")) throw new Error("the church subdomain should open its landing page");
     const join = await p.getAttribute(".public-page .home-bar a.btn", "href");
-    if (!join?.startsWith(`http://localhost:${port}/#church-`)) throw new Error(`joining from a subdomain should go to the app's address, got ${join}`);
+    if (!join?.startsWith(`http://localhost:${port}/app/#church-`)) throw new Error(`joining from a subdomain should go to the app's address, got ${join}`);
     // Anything else goes to the app's address.
-    await Promise.all([p.waitForURL(`http://localhost:${port}/#give`), p.evaluate(() => { location.hash = "give"; })]);
+    await Promise.all([p.waitForURL(`http://localhost:${port}/app/#give`), p.evaluate(() => { location.hash = "give"; })]);
     await cx.close(); }
   // Account details: the address shows as it's typed, a reserved name is refused, and a new address keeps the old one working.
   // An admin at Riverside for this part (earlier steps may have left the tester in a limited role); put back after.
@@ -3256,8 +3260,8 @@ await step("church web addresses", async () => {
   const saved = await page.evaluate(() => { const c = __app.S.state.churches.riverside; return { handle: c.handle, old: c.oldHandles }; });
   if (saved.handle !== "riverside-test" || !saved.old?.includes(was)) throw new Error(`expected the new address with the old one kept, got ${JSON.stringify(saved)}`);
   // The old address, in this same browser, opens the page and shows the new address.
-  const old = await ctx.newPage(); await old.goto(base + was); await old.waitForSelector(".public-page");
-  if ((await old.evaluate(() => location.pathname)) !== "/riverside-test") throw new Error("the old address should show the new one");
+  const old = await ctx.newPage(); await old.goto(siteBase + was); await old.waitForSelector(".public-page");
+  if ((await old.evaluate(() => location.hash)) !== "#site-riverside-test") throw new Error("the old address should show the new one");
   await old.close();
   await goTo("admin-page"); await page.waitForSelector(".web-address .web-address-url"); await shot("web-address-admin");
   // Put it back for anything after.
@@ -3295,11 +3299,11 @@ await step("nfc tags", async () => {
   await page.click("#scrim [data-act=close-sheet]"); await sheetGone();
   await shot("nfc-tags");
   // Tapping the tag: ourfaithfulchurch.com/t/give-test opens giving and counts the tap.
-  const tap = await ctx.newPage(); await tap.goto(base + "t/give-test");
-  await tap.waitForFunction(() => location.hash === "#give-riverside" && location.pathname === "/");
+  const tap = await ctx.newPage(); await tap.goto(siteBase + "t/give-test");
+  await tap.waitForFunction(() => location.hash === "#give-riverside" && location.pathname === "/app/");
   await tap.close();
   // Nothing there: says so.
-  const none = await ctx.newPage(); await none.goto(base + "t/no-such-tag"); await none.waitForSelector(".site-missing");
+  const none = await ctx.newPage(); await none.goto(siteBase + "t/no-such-tag"); await none.waitForSelector(".site-missing");
   if (!(await none.textContent("#app")).includes("This tag isn't set up")) throw new Error("an unknown tag should say so"); await none.close();
   // Repointing: the same tag now opens events.
   // The tap was saved in the other tab; pick it up here.
@@ -3308,7 +3312,7 @@ await step("nfc tags", async () => {
   await page.selectOption("#scrim select[name=target]", "events-riverside"); await page.click("#scrim form[data-form=nfc-save] button.btn:not([type=button])");
   await page.waitForSelector('.nfc-row[data-tag="give-test"]:has-text("Events calendar")');
   if (!(await page.textContent('.nfc-row[data-tag="give-test"] .nfc-taps')).includes("1")) throw new Error("the tap should be counted");
-  const tap2 = await ctx.newPage(); await tap2.goto(base + "t/give-test"); await tap2.waitForFunction(() => location.hash === "#events-riverside"); await tap2.close();
+  const tap2 = await ctx.newPage(); await tap2.goto(siteBase + "t/give-test"); await tap2.waitForFunction(() => location.hash === "#events-riverside"); await tap2.close();
   // Ordering: the supplier list, then the files for GoToTags.
   await goTo("nfc-order"); await page.waitForSelector(".nfc-supplier");
   await expectText("50 tags"); await expectText("$1.25 a tag");
@@ -3324,7 +3328,7 @@ await step("nfc tags", async () => {
   if (!/width="54mm"/.test(svg) || !svg.includes("Tap to give") || !svg.includes("crispEdges")) throw new Error("the artwork should be 50 mm with bleed, the headline and a QR code");
   const [csv] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=nfc-files][data-kind=csv]")]);
   const rows = readFileSync(await csv.path(), "utf8");
-  if (!rows.includes('"100"') || !rows.includes("/t/give-test")) throw new Error(`the encoding file should list the tag link: ${rows}`);
+  if (!rows.includes('"100"') || !rows.includes(`${siteBase}t/give-test`)) throw new Error(`the encoding file should list the tag link at the site's root: ${rows}`);
   await shot("nfc-order");
   // Deleting takes a second tap.
   await goTo("nfc"); await page.click('.nfc-row[data-tag="give-test"] [data-act=nfc-delete]');
@@ -3332,6 +3336,36 @@ await step("nfc tags", async () => {
   await page.click('.nfc-row[data-tag="give-test"] [data-act=nfc-delete]');
   await page.waitForFunction(() => !document.querySelector('.nfc-row[data-tag="give-test"]'));
   await page.evaluate((was) => { const S = __app.S; S.state.memberships.find((x) => x.churchId === "riverside" && x.userId === S.me().id).roleId = was; S.save(); }, role);
+});
+
+await step("website at the root sends app links on", async () => {
+  const open = async (url, { storage } = {}) => {
+    const cx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    if (storage) await cx.addInitScript((s) => { if (location.pathname === "/") for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v); }, storage);
+    const p = await cx.newPage(); p.on("pageerror", (e) => errors.push(`website pageerror: ${e.message}`));
+    await p.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+    await p.goto(url); await p.waitForTimeout(500); return { p, cx };
+  };
+  // The website itself, fitting a phone.
+  { const { p, cx } = await open(siteBase);
+    if (!(await p.textContent("h1")).includes("Everything your church does")) throw new Error("the root should be the website");
+    const wide = await p.evaluate(() => document.documentElement.scrollWidth > innerWidth ? [document.documentElement.scrollWidth, ...[...document.querySelectorAll("body *")].filter((e) => e.getBoundingClientRect().right > innerWidth + 1 && !e.closest(".days")).slice(0, 4).map((e) => `${e.tagName}.${e.className}`)].join(" ") : "");
+    if (wide) throw new Error(`the website shouldn't scroll sideways on a phone: ${wide}`);
+    if ((await p.getAttribute(".hero-cta a.btn", "href")) !== "app/#start") throw new Error("Register your church should open registration in the app");
+    await p.screenshot({ path: join(shots, "website.png") }); await cx.close(); }
+  // Ad tags stay on the website; ?home always does.
+  for (const q of ["?utm_source=google&gclid=abc", "?home"]) { const { p, cx } = await open(siteBase + q);
+    if (new URL(p.url()).pathname !== "/") throw new Error(`${q} should stay on the website`); await cx.close(); }
+  // Old links into the app: a #screen, the TV app's ?tv=1, a printed QR code.
+  for (const [from, to] of [["#event-riverside-e1", "/app/#event-riverside-e1"], ["?tv=1", "/app/?tv=1#pair"], ["?demo#home", "/app/#home"]]) {
+    const { p, cx } = await open(siteBase + from); const u = new URL(p.url());
+    if (u.pathname + u.search + u.hash !== to) throw new Error(`${from} should go to ${to}, went to ${u.pathname + u.search + u.hash}`); await cx.close(); }
+  // Someone signed in goes straight to the app, unless they asked for the website.
+  { const { p, cx } = await open(siteBase, { storage: { "sb-abc-auth-token": "{}" } });
+    if (new URL(p.url()).pathname !== "/app/") throw new Error("someone signed in should go to the app"); await cx.close(); }
+  // The app's footer links back to the website.
+  await goTo("home"); const back = await page.getAttribute(".page-foot .pf-sign a", "href");
+  if (back !== `${siteBase}?home`) throw new Error(`the app's sign-off should link to the website, got ${back}`);
 });
 
 await browser.close(); server.close();

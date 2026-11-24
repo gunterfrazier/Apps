@@ -21,6 +21,6 @@ Actions["quick-theme"] = (el) => {
 function pageFooter() {
   return html`<footer class="page-foot">
     ${themeSwitch()}
-    <p class="pf-sign">${raw(OFC_MARK)}<span><b>Our Faithful</b> Church App</span></p>
+    <p class="pf-sign">${IN_PREVIEW ? html`${raw(OFC_MARK)}<span><b>Our Faithful</b> Church App</span>` : html`<a href="${SITE_ROOT}?home" aria-label="About Our Faithful Church App">${raw(OFC_MARK)}<span><b>Our Faithful</b> Church App</span></a>`}</p>
   </footer>`;
 }

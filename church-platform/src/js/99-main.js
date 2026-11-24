@@ -39,7 +39,7 @@ if (!FORWARDING) {
 
   // Offline support when the app runs on its own website. Inside the preview frame this is refused, which is fine.
   try {
-    if ("serviceWorker" in navigator && window.isSecureContext && !IN_PREVIEW) navigator.serviceWorker.register("sw.js").catch(() => {});
+    if ("serviceWorker" in navigator && window.isSecureContext && !IN_PREVIEW) navigator.serviceWorker.register(/\/app\/(index\.html)?$/.test(location.pathname) ? "../sw.js" : "sw.js").catch(() => {});
   } catch { /* not available here */ }
 }
 

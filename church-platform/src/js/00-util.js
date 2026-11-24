@@ -78,11 +78,16 @@ const CHURCH_SITE = (() => {
   const m = location.pathname.match(/^\/([A-Za-z0-9-]+)$/), h = m?.[1].toLowerCase();
   return h && SITE_HANDLE_RE.test(h) && !RESERVED_HANDLES.has(h) ? { handle: h, subdomain: false } : null;
 })();
-/** The app's own address, for links that leave a church subdomain (joining, signing in) or a church path. */
+/** The website's root (ourfaithfulchurch.com/): the app is at /app/ under it. Tag links and church addresses start here. */
+const SITE_ROOT = (() => {
+  if (CHURCH_SITE?.subdomain) return `${location.protocol}//${SITE_DOMAIN}${location.port ? `:${location.port}` : ""}/`;
+  return location.origin + location.pathname.replace(/[^/]*$/, "").replace(/app\/$/, "");
+})();
+/** The app's own address (ourfaithfulchurch.com/app/), for links that leave a church subdomain (joining, signing in). */
 const APP_HOME = (() => {
   if (!CHURCH_SITE) return location.origin + location.pathname;
   if (!CHURCH_SITE.subdomain) return `${location.origin}/`;
-  return `${location.protocol}//${SITE_DOMAIN}${location.port ? `:${location.port}` : ""}/`;
+  return `${location.protocol}//${SITE_DOMAIN}${location.port ? `:${location.port}` : ""}/app/`;
 })();
 
 // ---------- Demo and training sandboxes ----------

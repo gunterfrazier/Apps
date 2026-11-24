@@ -18,7 +18,7 @@ Nothing here costs money until a church starts taking payments or you pass the f
 
 ## 1. Put the app online
 
-The app is a folder of plain files (`church-platform/dist/`), so any static host works. These steps use GitHub Pages because the code is already on GitHub.
+The app is a folder of plain files (`church-platform/dist/`: the website at its root and the app in `dist/app/`), so any static host works. These steps use GitHub Pages because the code is already on GitHub.
 
 1. Merge the `claude/church-platform` branch into `main` when you're ready (a pull request on GitHub is easiest).
 2. In the repository on GitHub, open **Settings, Pages**, and under **Build and deployment, Source** choose **GitHub Actions** (not "Deploy from a branch": that publishes the source files, not the built app).
@@ -71,7 +71,7 @@ To check it: in the app, enter your email. The email that arrives should have th
 
 This is already done: `public/config.js` names your project, and the build puts it next to the app. Run **Publish Our Faithful Church App** again after step 2 so the published site picks it up.
 
-To use a different project without changing the code, add repository variables on GitHub under **Settings, Secrets and variables, Actions, Variables**: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `APP_URL` (your app address, ending in `/`) and later `VAPID_PUBLIC_KEY`. When `SUPABASE_URL` is set, the workflow writes those into `config.js` instead. (Hosting somewhere else? Upload `config.js` with the rest of the `dist` folder.)
+To use a different project without changing the code, add repository variables on GitHub under **Settings, Secrets and variables, Actions, Variables**: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `APP_URL` (your app address, ending in `/app/`) and later `VAPID_PUBLIC_KEY`. When `SUPABASE_URL` is set, the workflow writes those into `config.js` instead. (Hosting somewhere else? Upload `config.js` with the rest of the `dist` folder.)
 
 Open your app address. You should now see **I have an account** and **I'm new here** instead of the preview's welcome screen.
 
@@ -310,6 +310,22 @@ and counts their taps. Until it's run, tag links save on the device that made th
   from a web app: use an NFC writing app, or order tags that arrive already written.
 - **Approved suppliers** are listed in `NFC_SUPPLIERS` at the top of `src/js/89b-nfc.js`, with each one's minimum,
   starting price, delivery time, sizes and what files it needs. Check a supplier's site, then add it there.
+
+## The website and the app's address
+
+`ourfaithfulchurch.com/` is the Our Faithful website (`church-platform/site/`); the app is at
+`ourfaithfulchurch.com/app/`. Everything that pointed at the root keeps working: the website sends a link with a
+`#screen` or an app setting in it, a church's address (`/riverside`), a tag link (`/t/give`), anyone signed in, a paired
+church screen and the installed app straight on to `/app/`. Ad and campaign tags (`utm_`, `gclid`) stay on the website,
+and `/?home` always shows it. One service worker at the root looks after both, so push notifications and the screens'
+saved media carry on.
+
+To finish the move on the server side (links work without it, through the website, but with one extra hop):
+
+1. In Supabase, **Edge Functions, Secrets**: set `APP_URL` to `https://ourfaithfulchurch.com/app/`. Push notifications,
+   emails and payment receipts then link straight into the app.
+2. In Supabase, **Authentication, URL Configuration**: add `https://ourfaithfulchurch.com/app/` to **Redirect URLs** (or
+   keep `https://ourfaithfulchurch.com/**`, which covers it). Sign-in emails then come back to the app directly.
 
 ## Church web addresses
 

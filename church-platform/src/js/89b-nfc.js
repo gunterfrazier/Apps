@@ -58,7 +58,8 @@ const nfcPrice = (s, qty, size) => {
 const TAG_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";   // nothing that's easy to misread (no l, 1, o, 0, i)
 const newTagCode = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => TAG_CHARS[b % TAG_CHARS.length]).join("");
 const TAG_CODE_RE = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
-const tagUrl = (t) => `${(IN_PREVIEW ? `https://${SITE_DOMAIN}/` : APP_HOME).replace(/\/$/, "")}/t/${t.code}`;
+// At the website's root, not the app's /app/: ourfaithfulchurch.com/t/<code>. The website sends it on to the app.
+const tagUrl = (t) => `${(IN_PREVIEW ? `https://${SITE_DOMAIN}/` : SITE_ROOT).replace(/\/$/, "")}/t/${t.code}`;
 /** Where a tag link goes: a screen in the app (like give-riverside) or a web address. */
 const tagTargetUrl = (t) => (isUrl(t.target) ? t.target : appLink(t.target));
 const tagTargetLabel = (t) => {

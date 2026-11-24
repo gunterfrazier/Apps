@@ -109,7 +109,8 @@ function cacheScreenMedia(d) {
   Object.assign(screenMedia, { key, at: Date.now() });
   const ch = new MessageChannel();
   ch.port1.onmessage = (e) => { screenMedia.saved = e.data.saved; screenMedia.total = e.data.total; };
-  navigator.serviceWorker.controller.postMessage({ type: "ofc-cache", urls }, [ch.port2]);
+  // Full addresses: the service worker sits at the site's root, not in /app/ where relative files live.
+  navigator.serviceWorker.controller.postMessage({ type: "ofc-cache", urls: urls.map((u) => new URL(u, location.href).href) }, [ch.port2]);
 }
 /** What a screen reports about itself with its regular check-in. */
 const screenReport = () => ({ online: navigator.onLine, saved: screenMedia.saved, total: screenMedia.total, at: new Date().toISOString() });

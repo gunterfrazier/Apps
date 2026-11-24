@@ -4,9 +4,9 @@ window.OUR_FAITHFUL_CONFIG = {
   supabaseUrl: "https://iigterjskwnqmnoysbha.supabase.co",
   supabasePublishableKey: "sb_publishable_aga6WeZ8m1mj-vqH2H-J_w_-kSnAMFP",
   vapidPublicKey: "",   // added in SETUP.md step 7
-  // The app's one address. The www name forwards here, and so does the address it moved from, once this one is serving
-  // the app (SETUP.md, "Your own domain on Cloudflare").
-  home: "https://ourfaithfulchurch.com/",
+  // The app's one address: ourfaithfulchurch.com/app/ (the website is at the root). The www name forwards here, and so
+  // does the address it moved from, once this one is serving the app (SETUP.md, "Your own domain on Cloudflare").
+  home: "https://ourfaithfulchurch.com/app/",
   movedFrom: ["gunterfrazier.github.io"],
   // Email sent from the app comes from the sender's name at this domain, verified in Resend (SETUP.md).
   emailDomain: "mail.ourfaithfulchurch.com",
