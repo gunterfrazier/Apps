@@ -299,6 +299,14 @@ Good to know:
 - **If a build fails** on the Node version, add the environment variable `NODE_VERSION` = `22` under **Settings, Variables and Secrets**.
 - **Sign-in email from your own domain.** Step 3.3 can now use a sender at `ourfaithfulchurch.com` (Resend, Postmark, Brevo or SendGrid) instead of the Gmail account. Add the DNS records they give you in Cloudflare.
 
+## Deleting accounts (version 25)
+
+For an existing project, run `supabase/upgrade-25.sql` after version 24. It adds **Me, Delete my account**, which
+Google Play requires. Deleting removes the person's account and what's personal; giving records, ticket payments,
+kids' past check-ins, safety reports and what they made for the church stay with the church, without the account.
+Someone who is a church's primary account holder, or has recurring gifts running, is asked to sort those out first.
+The website's `/delete-account/` page is the address to give Google Play for deletion requests.
+
 ## NFC tags (version 24)
 
 For an existing project, run `supabase/upgrade-24.sql` after version 23. It adds tag links (Ministry tools, **NFC tags**)
