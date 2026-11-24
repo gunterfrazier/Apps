@@ -3366,6 +3366,14 @@ await step("website at the root sends app links on", async () => {
   // The app's footer links back to the website.
   await goTo("home"); const back = await page.getAttribute(".page-foot .pf-sign a", "href");
   if (back !== `${siteBase}?home`) throw new Error(`the app's sign-off should link to the website, got ${back}`);
+  if ((await page.getAttribute(".page-foot .pf-links a", "href")) !== `${siteBase}privacy/`) throw new Error("the app should link to the privacy policy");
+  // The privacy policy, and the website saying what it costs.
+  { const { p, cx } = await open(siteBase + "privacy/");
+    if (!(await p.textContent("h1")).includes("Privacy policy") || !(await p.textContent("main")).includes("privacy@ourfaithfulchurch.com")) throw new Error("the privacy policy should be at /privacy/");
+    if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error("the privacy policy shouldn't scroll sideways on a phone");
+    await cx.close(); }
+  { const { p, cx } = await open(siteBase + "?home");
+    if (!(await p.textContent("#faq")).includes("What does it cost?")) throw new Error("the website should say what it costs"); await cx.close(); }
 });
 
 await browser.close(); server.close();

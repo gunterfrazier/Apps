@@ -22,5 +22,6 @@ function pageFooter() {
   return html`<footer class="page-foot">
     ${themeSwitch()}
     <p class="pf-sign">${IN_PREVIEW ? html`${raw(OFC_MARK)}<span><b>Our Faithful</b> Church App</span>` : html`<a href="${SITE_ROOT}?home" aria-label="About Our Faithful Church App">${raw(OFC_MARK)}<span><b>Our Faithful</b> Church App</span></a>`}</p>
+    <p class="pf-links"><a href="${IN_PREVIEW ? `https://${SITE_DOMAIN}/` : SITE_ROOT}privacy/">Privacy policy</a></p>
   </footer>`;
 }
