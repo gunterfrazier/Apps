@@ -4,6 +4,12 @@ if (!FORWARDING) {
   S.load();
   sandboxStart();
   applyDisplay();
+  // The Google TV app (android-tv/) opens ?tv=1 and adds OurFaithfulScreens to its user agent. A TV that isn't set up
+  // yet goes straight to pairing; a paired one is sent to its job by the device guard. Bigger focus rings for the remote.
+  if (ON_TV) {
+    document.documentElement.classList.add("on-tv");
+    if (!location.hash.slice(1) && !thisDevice() && !DeviceSignin.get()) history.replaceState(null, "", "#pair");
+  }
   window.addEventListener("hashchange", () => {
     if (!$('#foreground-alert [data-radio]:not([hidden])')) ForegroundAlerts.hide();
     closeSheet(true); render();
@@ -27,6 +33,7 @@ if (!FORWARDING) {
   });
   document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("presenting")) render(); });
   render();
+  if (ON_TV) setTimeout(() => { if (!document.activeElement || document.activeElement === document.body) $(".pair-input")?.focus(); }, 400);
   Backend.start();
   setTimeout(runReminders, 1500);
 

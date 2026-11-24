@@ -1,0 +1,4 @@
+// Our Faithful Screens: the Google TV / Android TV app. See README.md.
+plugins {
+    id "com.android.application" version "9.2.1" apply false
+}

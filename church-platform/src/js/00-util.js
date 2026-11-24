@@ -23,6 +23,8 @@ const BASE_STORAGE_KEY = PLATFORM.storageKey;
 if (PLATFORM.supabaseUrl && !/claude/i.test(location.hostname)) PLATFORM.storageKey += "-live";
 /** True inside the Claude preview frame, where other sites can't be framed and cameras, popups and service workers are off. */
 const IN_PREVIEW = /claude/i.test(location.hostname);
+// Running in the Our Faithful Screens TV app (or opened with ?tv=1 to try it in a browser).
+const ON_TV = /[?&]tv=1\b/.test(location.search) || /OurFaithfulScreens\//.test(navigator.userAgent);
 
 // ---------- One address ----------
 // Sign-ins, the home-screen install and paired screens all belong to the address they were made at. So when the app

@@ -177,7 +177,7 @@ Screens.pair = (code = "") => ({
       <p class="muted">For a check-in kiosk, lobby screen, classroom or presentation screen, stage screen, or the booth computer. Ask a church admin to add the device under <b>Admin, Screens and devices</b> for a code.</p>
       ${practiceOnly() ? html`<p class="room-msg warn" role="note">${icon("info")}<span>${SANDBOX && liveSite() ? `This browser is in ${practicePlace()}. A code from your church's real account works here too: pairing takes this browser out of ${practicePlace()}.`
         : `You're in ${practicePlace()}, so only practice codes made in this browser work here.`}</span></p>` : ""}
-      <p class="faint">You only pair a device once. It stays signed in, even after a restart or a power cut. On an iPad, add ${PLATFORM.name} to the Home Screen first (Share, then Add to Home Screen) and pair it from there so it's never signed out.</p>
+      <p class="faint">You only pair a device once. It stays signed in, even after a restart or a power cut. ${ON_TV ? "Use the remote's number buttons, or the on-screen keyboard, to type the code." : `On an iPad, add ${PLATFORM.name} to the Home Screen first (Share, then Add to Home Screen) and pair it from there so it's never signed out.`}</p>
       <label class="field"><span>Pairing code</span><input type="text" name="code" value="${code.toUpperCase()}" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" class="pair-input" required></label>
       <button class="btn block">Pair this device</button>
       <a class="linkish" href="#${Backend.on ? "signin" : S.me().name ? "home" : "welcome"}">Back</a></form></div></div>`,
