@@ -1,13 +1,16 @@
 // Keeps the app shell available offline. Bump VERSION whenever you deploy a new build.
-const VERSION = "our-faithful-v25";
+const VERSION = "our-faithful-v26";
 // Pictures and videos a screen saved so it keeps playing without internet (see 71b-screens.js). Kept across updates.
 const MEDIA = "our-faithful-screen-media";
 const mediaSaved = new Set();
 caches.open(MEDIA).then((c) => c.keys()).then((keys) => keys.forEach((r) => mediaSaved.add(r.url))).catch(() => {});
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png", "./icons/favicon.svg"];
+// This worker sits at the site's root and looks after both the website (/) and the app (/app/). On a church subdomain
+// (riverside.ourfaithfulchurch.com) the app is at the root instead, so files that aren't there are simply skipped.
+const APP = "./app/";
+const SHELL = ["./", APP, `${APP}index.html`, `${APP}manifest.webmanifest`, "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png", "./icons/favicon.svg"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then((c) => Promise.allSettled(SHELL.map((u) => c.add(u)))).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION && k !== MEDIA).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
@@ -28,19 +31,22 @@ self.addEventListener("fetch", (e) => {
   }
   if (url.origin !== location.origin) return;
   // App files: network first so updates arrive, cache when offline.
-  e.respondWith(fetch(req).then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); return res; }).catch(() => caches.match(req).then((r) => r || caches.match("./index.html"))));
+  // Offline, a page that isn't saved opens the app (or the website) as last saved.
+  const fallback = () => req.mode !== "navigate" ? undefined : url.pathname.includes("/app/") ? caches.match(`${APP}index.html`).then((r) => r || caches.match(APP)) : caches.match("./index.html").then((r) => r || caches.match("./"));
+  e.respondWith(fetch(req).then((res) => { if (res.ok || res.type === "opaqueredirect") { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); } return res; })
+    .catch(() => caches.match(req).then((r) => r || fallback()).then((r) => r || Response.error())));
 });
 
 // Push notifications sent by the server (see supabase/functions/push). Each carries { title, body, url, tag }.
 self.addEventListener("push", (e) => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(d.title || "Our Faithful Church App", { body: d.body || "", tag: d.tag, icon: "icons/icon-192.png", badge: "icons/badge-96.png", data: { url: d.url || "./#alerts" } }));
+  e.waitUntil(self.registration.showNotification(d.title || "Our Faithful Church App", { body: d.body || "", tag: d.tag, icon: "./icons/icon-192.png", badge: "./icons/badge-96.png", data: { url: d.url || `${APP}#alerts` } }));
 });
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const url = new URL((e.notification.data && e.notification.data.url) || "./#alerts", self.registration.scope).href;
+  const url = new URL((e.notification.data && e.notification.data.url) || `${APP}#alerts`, self.registration.scope).href;
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-    const open = list.find((c) => c.url.startsWith(self.registration.scope));
+    const open = list.find((c) => c.url.startsWith(new URL(APP, self.registration.scope).href)) || list.find((c) => c.url.startsWith(self.registration.scope));
     if (open) { open.navigate(url); return open.focus(); }
     return self.clients.openWindow(url);
   }));

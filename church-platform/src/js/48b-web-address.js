@@ -57,7 +57,7 @@ Screens.site = (handle = "") => {
   if (c) {
     document.title = c.name;
     // An old address: show the page at the church's address now, so it's what people copy and share.
-    if (c.handle !== handle && CHURCH_SITE && !CHURCH_SITE.subdomain && location.pathname.slice(1).toLowerCase() === handle) history.replaceState(null, "", `/${c.handle}${location.search}`);
+    if (c.handle !== handle && location.hash.toLowerCase() === `#site-${handle}`) history.replaceState(null, "", `#site-${c.handle}`);
     return Screens.page(c.id);
   }
   const waiting = Backend.on && (siteLookup.handle !== handle || siteLookup.state === "loading" || (Backend.user && !Backend.ready));
