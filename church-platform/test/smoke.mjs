@@ -3415,6 +3415,49 @@ await step("graphics", async () => {
   await page.waitForFunction(() => [...document.querySelectorAll("canvas[data-gfx-layout]")].every((c) => c.width > 10));
   await page.click('.gfx-layout:has(input[value=band])'); await page.waitForFunction(() => __app.S.state.graphics.at(-1).layout === "band");
   await page.click('.gfx-chip:has(input[value=flyer])'); await page.waitForFunction(() => __app.S.state.graphics.at(-1).format === "flyer");
+  // Arranging: drag the words on the preview, resize them, lock them, and a locked piece won't move.
+  await page.click('.gfx-layout:has(input[value=center])'); await page.waitForFunction(() => __app.S.state.graphics.at(-1).layout === "center");
+  await page.waitForFunction(() => document.querySelector("#gfx-canvas")?.width > 100);
+  const drag = async (fx, fy, dx, dy) => {
+    const r = await page.locator("#gfx-canvas").boundingBox(); const x = r.x + r.width * fx, y = r.y + r.height * fy;
+    await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx / 2, y + dy / 2, { steps: 3 }); await page.mouse.move(x + dx, y + dy, { steps: 3 }); await page.mouse.up();
+  };
+  const textBox = await page.evaluate(() => { const g = __app.S.state.graphics.at(-1), b = __app.gfxBoxes().find((x) => x.key === "text"); return { fx: (b.x + b.w / 2) / 1275, fy: (b.y + b.h / 2) / 1650 }; });
+  await drag(textBox.fx, textBox.fy, 0, 40);
+  await page.waitForFunction(() => __app.S.state.graphics.at(-1).place?.text?.y > 0);
+  const moved = await page.evaluate(() => __app.S.state.graphics.at(-1).place.text);
+  await page.waitForSelector('.gfx-pieces .row.sel [data-act=gfx-pick][data-key=text]');
+  await page.fill('.gfx-sel-tools input[name=selSize]', "140"); await page.waitForFunction(() => __app.S.state.graphics.at(-1).place.text.s === 1.4);
+  await page.click('[data-act=gfx-lock][data-key=text]'); await page.waitForFunction(() => __app.S.state.graphics.at(-1).place.text.locked);
+  await drag(moved.x, moved.y, 0, 60);
+  if ((await page.evaluate(() => __app.S.state.graphics.at(-1).place.text.y)) !== moved.y) throw new Error("a locked piece moved");
+  await page.click('[data-act=gfx-lock][data-key=text]'); await page.click('[data-act=gfx-place-auto][data-key=text]');
+  await page.waitForFunction(() => !__app.S.state.graphics.at(-1).place?.text);
+  // Colors: the words' color, then a background from the photo's own colors.
+  await page.click('[data-gfx-colors=ink] [data-act=gfx-color][data-color="#ffffff"]'); await page.waitForFunction(() => __app.S.state.graphics.at(-1).colors?.ink === "#ffffff");
+  await page.evaluate(() => { const f = document.querySelector(".gfx-controls"), i = f.elements.photo; i.value = "demo/campus-cross.jpg"; i.dispatchEvent(new Event("input", { bubbles: true })); });
+  await page.waitForSelector('[data-gfx-colors=bg] .gfx-from[data-from=photo] [data-act=gfx-color]');
+  const pc = await page.getAttribute('[data-gfx-colors=bg] .gfx-from[data-from=photo] [data-act=gfx-color]', "data-color");
+  await page.click(`[data-gfx-colors=bg] .gfx-from[data-from=photo] [data-act=gfx-color][data-color="${pc}"]`);
+  await page.waitForFunction((c) => __app.S.state.graphics.at(-1).colors?.bg === c, pc);
+  if (await page.isVisible(".gfx-controls .img-colors")) throw new Error("the photo's colors shouldn't be offered as church colors here");
+  // An added graphic: its own color, then dragged.
+  await page.click('[data-act=gfx-graphic-add][data-builtin=dove]');
+  await page.waitForFunction(() => __app.S.state.graphics.at(-1).graphics?.length === 1);
+  const gid = await page.evaluate(() => __app.S.state.graphics.at(-1).graphics[0].id);
+  await page.click(`[data-gfx-colors="g:${gid}"] [data-act=gfx-color][data-color="#111111"]`);
+  await page.waitForFunction(() => __app.S.state.graphics.at(-1).graphics[0].color === "#111111");
+  await drag(0.5, 0.35, 60, 0); await page.waitForFunction(() => __app.S.state.graphics.at(-1).graphics[0].x > 0.55);
+  await page.click('[data-act=gfx-lock-all]'); await page.waitForFunction(() => __app.S.state.graphics.at(-1).locked);
+  await page.click('[data-act=gfx-lock-all]');
+  // Logo: remove its background into a see-through copy for this graphic.
+  await page.evaluate(() => { const S = __app.S; S.updateChurch({ logo: "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#ffffff"/><circle cx="100" cy="50" r="35" fill="#1d4ed8"/></svg>') }); });
+  await page.evaluate(() => __app.render());
+  await page.check('.gfx-controls input[name=logo]'); await page.waitForSelector("[data-act=gfx-logo-clean]");
+  await page.click("[data-act=gfx-logo-clean]"); await page.waitForSelector('#scrim form[data-form="banner-logo-copy"] img[data-logo-result]:not([hidden])');
+  await page.click('#scrim form[data-form="banner-logo-copy"] button[type=submit]');
+  await page.waitForFunction(() => { const g = __app.S.state.graphics.at(-1); return g.logoId === "own" && /^data:image\//.test(g.logoSrc); });
+  await page.waitForSelector('[data-gfx-colors=bg] .gfx-from[data-from=logo] [data-act=gfx-color]');
   await shot("graphics-editor");
   // A flyer PDF is one letter page holding a 300 dpi picture.
   const pdf = await page.evaluate(async () => { const b = await __app.gfxPdf(__app.S.state.graphics.at(-1)); const t = new TextDecoder("latin1").decode(await b.arrayBuffer()); return { head: t.slice(0, 8), box: /MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/.exec(t)?.slice(1), w: /\/Width (\d+)/.exec(t)?.[1], end: t.trimEnd().endsWith("%%EOF") }; });

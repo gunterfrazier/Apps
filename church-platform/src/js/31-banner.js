@@ -552,24 +552,23 @@ function makeLogoTransparent(edit, tolerance, includeHoles) {
 const logoColorHex = (rgb) => "#" + rgb.map((value) => value.toString(16).padStart(2, "0")).join("");
 const logoColorRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 let bannerLogoEdit;
-Actions["banner-logo-clean"] = async (button) => {
-  const draft = bannerDraft;
-  if (!activeBannerDraft(draft)) return;
-  keepDraft();
-  const asset = bannerLogoAsset(draft), src = bannerLogoSrc(S.church(), draft);
+/**
+ * The "Remove logo background" sheet, for any logo: the banner's, or a graphic's. active() says whether the thing
+ * being edited is still open; onSave(name, src) keeps the transparent copy.
+ */
+async function openLogoCleaner({ src, name, active, onSave, button }) {
   if (!src) return;
-  button.disabled = true;
+  if (button) button.disabled = true;
   try {
     const edit = await bannerLogoPixels(src);
-    if (!activeBannerDraft(draft) || !button.isConnected || bannerLogoSrc(S.church(), draft) !== src) return;
+    if (!active() || (button && !button.isConnected)) return;
     const found = logoBackgroundColors(edit.original), background = found.colors[0] || null;
     if (found.transparent) toast("This logo's background is already see-through. You can still pick colors to clear.");
     let visiblePixels = 0;
     for (let i = 3; i < edit.original.data.length; i += 4) {
       if (edit.original.data[i]) visiblePixels++;
     }
-    bannerLogoEdit = { ...edit, draft, backgrounds: found.colors, visiblePixels, src, result: "" };
-    const name = asset?.name || "Account logo";
+    bannerLogoEdit = { ...edit, active, onSave, backgrounds: found.colors, visiblePixels, src, result: "" };
     openSheet("Remove logo background", html`<form data-form="banner-logo-copy">
       <div class="banner-logo-comparison">
         <figure>
@@ -591,18 +590,27 @@ Actions["banner-logo-clean"] = async (button) => {
         <small>All white works well on photos and dark slides.</small></fieldset>
       <label class="range"><span>Color tolerance</span><input type="range" name="tolerance" min="0" max="120" value="24" data-input="banner-logo-preview"><output>24</output></label>
       <p class="faint" data-logo-copy-status role="status"></p>
-      <label class="field"><span>Copy name</span><input type="text" name="name" value="${name.slice(0, 80)} (transparent)" maxlength="100" required></label>
+      <label class="field"><span>Copy name</span><input type="text" name="name" value="${String(name || "Logo").slice(0, 80)} (transparent)" maxlength="100" required></label>
       <button type="submit" class="btn">Save transparent copy</button>
     </form>`);
     refreshLogoColors($('#scrim [data-form="banner-logo-copy"]'));
   } catch {
-    if (activeBannerDraft(draft)) toast("This logo could not be edited. Try uploading the original image to the banner.");
-  } finally { button.disabled = false; }
+    if (active()) toast("This logo could not be edited. Try uploading the original image again.");
+  } finally { if (button) button.disabled = false; }
+}
+Actions["banner-logo-clean"] = (button) => {
+  const draft = bannerDraft;
+  if (!activeBannerDraft(draft)) return;
+  keepDraft();
+  const asset = bannerLogoAsset(draft), src = bannerLogoSrc(S.church(), draft);
+  openLogoCleaner({ src, button, name: asset?.name || "Account logo",
+    active: () => activeBannerDraft(draft) && bannerLogoSrc(S.church(), draft) === src,
+    onSave: (name, result) => addBannerLogos(draft, [{ id: uid(), name, src: result }]) });
 };
 
 function refreshLogoPreview(form) {
   const edit = bannerLogoEdit;
-  if (!edit || !activeBannerDraft(edit.draft)) return;
+  if (!edit || !edit.active()) return;
   const { tolerance, includeHoles, tint } = form.elements;
   tolerance.nextElementSibling.value = tolerance.value;
   edit.tint = tint.value;
@@ -627,7 +635,7 @@ function refreshLogoColors(form) {
 }
 function addLogoBackgroundColor(form, rgb) {
   const edit = bannerLogoEdit;
-  if (!edit || !activeBannerDraft(edit.draft)) return;
+  if (!edit || !edit.active()) return;
   form.elements.backgroundColor.value = logoColorHex(rgb);
   if (!edit.backgrounds.some((color) => logoColorDistance(color, 0, rgb) === 0)) edit.backgrounds.push(rgb);
   refreshLogoColors(form);
@@ -635,14 +643,14 @@ function addLogoBackgroundColor(form, rgb) {
 Actions["banner-logo-add-color"] = (button) => addLogoBackgroundColor(button.form, logoColorRgb(button.form.elements.backgroundColor.value));
 Actions["banner-logo-remove-color"] = (button) => {
   const edit = bannerLogoEdit, form = button.form;
-  if (!edit || !activeBannerDraft(edit.draft)) return;
+  if (!edit || !edit.active()) return;
   edit.backgrounds.splice(+button.dataset.i, 1);
   refreshLogoColors(form);
   $("[data-act=banner-logo-add-color]", form).focus();
 };
 Actions["banner-logo-sample"] = (button, event) => {
   const edit = bannerLogoEdit;
-  if (!edit || !activeBannerDraft(edit.draft)) return;
+  if (!edit || !edit.active()) return;
   if (!event.detail) { button.form.elements.backgroundColor.focus(); return; }
   const bounds = $("img", button).getBoundingClientRect();
   const { data, width, height } = edit.original;
@@ -655,10 +663,10 @@ Actions["banner-logo-sample"] = (button, event) => {
 Inputs["banner-logo-preview"] = (input) => refreshLogoPreview(input.form);
 Forms["banner-logo-copy"] = (data, form) => {
   const edit = bannerLogoEdit;
-  if (!edit?.result || !activeBannerDraft(edit.draft) || bannerLogoSrc(S.church(), edit.draft) !== edit.src) return;
+  if (!edit?.result || !edit.active()) return;
   const name = data.name.trim();
   if (!name) return formError(form, "Name the transparent copy.");
   bannerLogoEdit = null;
   closeSheet(true);
-  addBannerLogos(edit.draft, [{ id: uid(), name, src: edit.result }]);
+  edit.onSave(name, edit.result);
 };
