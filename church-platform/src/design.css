@@ -725,6 +725,10 @@ select { max-width: 100%; text-overflow: ellipsis; }
 .delete-blockers { border-left: 4px solid var(--warn, #d97706); }
 .delete-blockers p { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 12px; }
 .delete-blockers p .i { flex: none; margin-top: 3px; color: var(--warn, #d97706); }
+.nfc-checks { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--warn, #d97706) 10%, transparent); font-size: .9rem; }
+.nfc-checks ul { margin: 6px 0 0; padding-left: 1.1rem; }
+.nfc-checks li { margin: 3px 0; }
+.nfc-pick { display: grid; gap: 6px; margin-bottom: 12px; }
 
 /* ---------- Graphics ---------- */
 .gfx-starters { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
