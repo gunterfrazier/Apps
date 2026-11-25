@@ -13,6 +13,7 @@ const SEED_VERSION = 23;
  * check its screen makes), so people only see what their role and privileges let them use.
  */
 const WHATS_NEW = [
+  ["graphics", "image", "Graphics", "Social posts, slides and flyers, filled in with your church's details", "graphics", () => canGfx()],
   ["storylesson", "book", "Lessons from Bible stories", "Plan a kids lesson from the Family Library in a few taps", "docs-lesson", () => S.on("storylessons") && S.can("build.lessons")],
   ["appearance", "image", "Your app, your look", "Colors, fonts, Home sections and tabs", "admin-appearance", () => S.can("manage.church")],
   ["medialib", "layers", "Media library", "Free photos, videos and motion backgrounds for slides and screens", "medialib", () => canBuild()],

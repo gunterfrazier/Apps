@@ -274,7 +274,7 @@ const FEATURE_ROUTES = {
   tickets: ["tickets", "ticket", "mytickets", "paykiosk", "paid"], board: ["board", "admin-boards"],
   forms: ["forms", "form", "formedit", "responses"], finance: ["treasurer"],
   volunteers: ["serving", "teams", "team", "crew", "schedule-blockouts", "schedule-calendar", "schedule-matrix"],
-  rooms: ["rooms", "roompresent", "admin-rooms"], signage: ["signs", "signedit"], media: ["medialib"],
+  rooms: ["rooms", "roompresent", "admin-rooms"], signage: ["signs", "signedit"], media: ["medialib", "graphics", "graphic"],
   visitors: ["visit", "map", "wayfind", "welcomeback", "admin-visitpage", "admin-map", "admin-welcome"],
   safety: ["security", "safety-status", "admin-security"],
   sermons: ["sermon", "listen"], plans: ["plans", "plan"], events: ["events", "event"], groups: ["groups"], classes: ["classes"],

@@ -3376,6 +3376,73 @@ await step("website at the root sends app links on", async () => {
     if (!(await p.textContent("#faq")).includes("What does it cost?")) throw new Error("the website should say what it costs"); await cx.close(); }
 });
 
+await step("graphics", async () => {
+  const role = await page.evaluate(() => {
+    const S = __app.S, me = S.me().id; S.state.current = "riverside";
+    let m = S.state.memberships.find((x) => x.churchId === "riverside" && x.userId === me);
+    if (!m) { m = { churchId: "riverside", userId: me, roleId: "member", locations: [], joined: new Date().toISOString() }; S.state.memberships.push(m); }
+    const was = m.roleId; m.roleId = "admin"; S.save(); return was;
+  });
+  await page.evaluate(() => __app.render());
+  await goTo("ministry"); await page.waitForSelector('a.row[href="#graphics"]');
+  await goTo("graphics"); await expectText("Social posts, slides, lobby screens and flyers");
+  // A Sunday invite fills in the service times and the address from the church's locations.
+  await page.click('[data-act=gfx-new][data-start=sunday]'); await page.waitForSelector("#gfx-canvas");
+  const g = await page.evaluate(() => __app.S.state.graphics.at(-1));
+  if (!/Sundays 9 AM and 11 AM/.test(g.details)) throw new Error(`service times should fill in, got ${JSON.stringify(g.details)}`);
+  if (!g.details.includes("Riverbend")) throw new Error(`the address should fill in, got ${JSON.stringify(g.details)}`);
+  // The preview is drawn (not a blank canvas), and typing changes the saved design.
+  await page.waitForFunction(() => { const c = document.querySelector("#gfx-canvas"); if (!c || c.width < 100) return false; const d = c.getContext("2d").getImageData(c.width / 2, c.height / 2, 1, 1).data; return d[3] > 0; });
+  await page.fill(".gfx-controls textarea[name=headline]", "Come home for Christmas");
+  await page.waitForFunction(() => __app.S.state.graphics.at(-1).headline === "Come home for Christmas");
+  // Every layout has a thumbnail; switching layout and size redraws.
+  await page.waitForFunction(() => [...document.querySelectorAll("canvas[data-gfx-layout]")].every((c) => c.width > 10));
+  await page.click('.gfx-layout:has(input[value=band])'); await page.waitForFunction(() => __app.S.state.graphics.at(-1).layout === "band");
+  await page.click('.gfx-chip:has(input[value=flyer])'); await page.waitForFunction(() => __app.S.state.graphics.at(-1).format === "flyer");
+  await shot("graphics-editor");
+  // A flyer PDF is one letter page holding a 300 dpi picture.
+  const pdf = await page.evaluate(async () => { const b = await __app.gfxPdf(__app.S.state.graphics.at(-1)); const t = new TextDecoder("latin1").decode(await b.arrayBuffer()); return { head: t.slice(0, 8), box: /MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/.exec(t)?.slice(1), w: /\/Width (\d+)/.exec(t)?.[1], end: t.trimEnd().endsWith("%%EOF") }; });
+  if (pdf.head !== "%PDF-1.4" || pdf.box?.join() !== "612.000,792.000" || pdf.w !== "2550" || !pdf.end) throw new Error(`flyer PDF: ${JSON.stringify(pdf)}`);
+  // PNG download at full size.
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click('[data-act=gfx-export][data-kind=png]')]);
+  if (!/\.png$/.test(dl.suggestedFilename())) throw new Error(`download name ${dl.suggestedFilename()}`);
+  // Save to the library, then add to a lobby screen playlist.
+  await page.click("[data-act=gfx-library]");
+  await page.waitForFunction(() => __app.S.state.mediaLibrary.some((m) => m.title === "Sunday invite" && /^data:image\/jpeg/.test(m.url)));
+  const before = await page.evaluate(() => __app.S.list("signage")[0].slides.length);
+  await page.click("[data-act=gfx-signage]"); await page.click("#scrim [data-act=gfx-signage-add]");
+  await page.waitForFunction((n) => __app.S.list("signage")[0].slides.length === n + 1 && __app.S.list("signage")[0].slides.at(-1).type === "image", before);
+  // From an event page: Make a graphic starts with the event's title, date and a sign-up QR code.
+  const ev = await page.evaluate(() => __app.S.list("events").find((e) => e.signup && new Date(e.start) > new Date()));
+  await goTo(`event-${ev.id}`); await page.click("[data-act=gfx-from]"); await page.waitForSelector("#gfx-canvas");
+  const eg = await page.evaluate(() => __app.S.state.graphics.at(-1));
+  if (eg.headline !== ev.title || eg.qr !== `register-event-${ev.id}` || eg.source?.id !== ev.id) throw new Error(`event graphic: ${JSON.stringify({ h: eg.headline, qr: eg.qr })}`);
+  // A verse fills in from the Bible.
+  await goTo("graphics"); await page.click('[data-act=gfx-new][data-start=verse]'); await page.waitForSelector("#gfx-canvas");
+  await page.fill(".gfx-controls input[name=ref]", "John 11:35"); await page.click("[data-act=gfx-verse]");
+  await page.waitForFunction(() => /Jesus wept/.test(__app.S.state.graphics.at(-1).body));
+  // The list shows the saved ones with drawn thumbnails; Free templates lists the outside sites.
+  await goTo("graphics"); await page.waitForFunction(() => document.querySelectorAll("canvas[data-gfx-thumb]").length >= 3 && [...document.querySelectorAll("canvas[data-gfx-thumb]")].every((c) => c.width > 10));
+  await shot("graphics-list");
+  await goTo("graphics-templates"); await page.waitForSelector('a.row[href*="jammedia.design"]'); await page.waitForSelector('a.row[href*="canva.com"]');
+  // Every starter, in a few sizes, drawn side by side for a look (graphics-samples.png).
+  const samples = await page.evaluate(async () => {
+    const A = __app, ev = A.S.list("events").find((e) => e.image) || A.S.list("events")[0], out = [];
+    for (const [k, f, photo] of [["sunday", "post"], ["event", "slide"], ["series", "slide"], ["give", "story"], ["prayer", "portrait"], ["welcome", "slide", "demo/campus-cross.jpg"], ["verse", "post"], ["blank", "flyer"]]) {
+      const d = { ...A.gfxStart(k, k === "event" ? ev.id : ""), format: f }; if (photo) d.photo = photo;
+      out.push((await A.gfxCanvas(d, { width: f === "slide" ? 560 : 300 })).toDataURL("image/png"));
+    }
+    return out;
+  });
+  const sp = await ctx.newPage(); await sp.setViewportSize({ width: 1400, height: 600 });
+  await sp.setContent(`<body style="margin:0;background:#777;display:flex;flex-wrap:wrap;gap:10px;padding:10px">${samples.map((u) => `<img src="${u}" style="height:315px">`).join("")}</body>`);
+  await sp.screenshot({ path: join(shots, "graphics-samples.png"), fullPage: true }); await sp.close();
+  // Delete asks first.
+  await goTo(`graphic-${eg.id}`); await page.click("[data-act=gfx-delete]"); await page.click("#scrim [data-act=gfx-delete-yes]");
+  await page.waitForFunction((id) => !__app.S.state.graphics.some((x) => x.id === id) && location.hash === "#graphics", eg.id);
+  await page.evaluate((was) => { const S = __app.S, m = S.state.memberships.find((x) => x.churchId === "riverside" && x.userId === S.me().id); m.roleId = was; S.save(); }, role);
+});
+
 await step("delete my account", async () => {
   // Without a server (this preview), it says there's nothing to delete and how to ask by email.
   await goTo("delete-account"); await expectText("there's no account on a server to delete"); await expectText("privacy@ourfaithfulchurch.com");
