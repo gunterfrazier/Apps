@@ -18,17 +18,23 @@ if (typeof QUIET_KINDS !== "undefined" && !QUIET_KINDS.includes("tagLinks")) QUI
 }
 
 // ---------- Approved suppliers ----------
-// The platform's list of tag suppliers churches can order from. Add a supplier here once it's been checked: what it sells,
-// its minimum order, its starting price, how long it takes, and what it needs from the church. ordering is how the order
-// is placed: "files" (the app prepares the files, the church orders on the supplier's site), "write" (blank tags the
-// church writes itself with this app) or "api" (ordered inside the app; set api to the supplier's order endpoint).
-// checked is when the details were last confirmed on the supplier's site.
+// The platform's list of tag suppliers churches can order from. Add a supplier here once it's been checked against its
+// own site: what it sells, its minimum, its prices (tiers: [quantity, price per tag], in its currency), how long it takes,
+// and what it needs from the church. checked is when that was last done; checks are things to confirm with the supplier
+// before ordering, shown to the church.
+//   ordering: "files"  the app prepares the artwork and the list of links, and the church orders on the supplier's site
+//             "link"   ready-made tags: the church pastes its tag link at the supplier's checkout
+//             "write"  blank tags the church writes itself with this app
+//             "api"    ordered inside the app (set api to the supplier's order endpoint; placed by the server)
+//   minScope: "design" when the minimum is per design, "order" when it's for the whole order.
+//   artFormats: the artwork downloads the supplier takes, the one it prefers first.
+// Every supplier's tags hold the church's tag links (ourfaithfulchurch.com/t/...), which the church can repoint any time,
+// so a supplier's own "change the link later" dashboard is never needed, and locked tags are best.
 const NFC_SUPPLIERS = [
   {
     id: "gototags", name: "GoToTags", product: "Printed NFC sticker (NTAG213)", url: "https://store.gototags.com/printed-nfc-sticker-ntag213",
-    minQty: 50, startPrice: 1.25, lead: "About 1 week to print, plus shipping", ordering: "files", checked: "2026-11-24",
+    currency: "USD", minQty: 50, minScope: "design", lead: "About 1 week to print, plus shipping", ordering: "files", checked: "2026-11-24",
     about: "Full-color stickers on matte white synthetic paper with a permanent adhesive. They can arrive already written with your links (add their encoding service in the same quantity as the stickers).",
-    // Price per tag by quantity, for the base sizes.
     tiers: [[50, 1.25], [100, 0.95], [250, 0.79], [500, 0.73], [1000, 0.58], [5000, 0.40], [10000, 0.35], [50000, 0.24]],
     sizes: [
       { id: "round-25", label: "Round, 25 mm (1 in)", shape: "round", mm: 25, add: 0 },
@@ -37,17 +43,64 @@ const NFC_SUPPLIERS = [
       { id: "square-50", label: "Square, 50 mm (2 in)", shape: "square", mm: 50, add: 0.10 },
       { id: "round-76", label: "Round, 76 mm (3 in)", shape: "round", mm: 76.2, add: 0.20 },
     ],
-    needs: ["artwork", "encoding"],
-    steps: ["Open the sticker on GoToTags and choose the size and quantity.", "Upload the artwork (SVG) for each design and the encoding file (CSV).",
+    needs: ["artwork", "encoding"], artFormats: ["svg", "pdf", "png"], checks: [],
+    steps: ["Open the sticker on GoToTags and choose the size and quantity.", "Upload the artwork for each design and the encoding file (CSV).",
       "Add their encoding service in the same quantity, so the stickers arrive with your links on them.", "Check out. They review the files before printing."],
   },
   {
+    id: "seritag", name: "Seritag", product: "Custom-printed church NFC tag (NTAG213)", url: "https://seritag.com/nfc-tags/church-tag",
+    currency: "GBP", minQty: 50, minScope: "design", lead: "About 4 weeks to make (a proof in about a day), plus shipping from the UK", ordering: "files", checked: "2026-11-24",
+    about: "Semi-rigid tags, about 0.9 mm thick, in 60, 80 or 100 mm, round or square, with optional adhesive or screw holes. Seritag prints your artwork and writes your link on each tag, locked so nobody can change it.",
+    tiers: [[50, 4.57], [100, 2.61], [200, 1.63], [350, 1.21], [500, 1.04], [1000, 0.85], [2000, 0.75], [3500, 0.71], [5000, 0.69], [10000, 0.67]],
+    sizes: [
+      { id: "round-60", label: "Round, 60 mm", shape: "round", mm: 60, add: 0 },
+      { id: "square-60", label: "Square, 60 mm", shape: "square", mm: 60, add: 0 },
+      { id: "round-80", label: "Round, 80 mm", shape: "round", mm: 80, add: 0 },
+      { id: "square-80", label: "Square, 80 mm", shape: "square", mm: 80, add: 0 },
+      { id: "round-100", label: "Round, 100 mm", shape: "round", mm: 100, add: 0 },
+      { id: "square-100", label: "Square, 100 mm", shape: "square", mm: 100, add: 0 },
+    ],
+    needs: ["artwork", "encoding"], artFormats: ["pdf", "png"],
+    checks: ["Shipping to the US isn't listed on their page. Ask Seritag for the cost and delivery time before ordering.",
+      "Prices are in British pounds, before VAT, and may differ for some sizes. Seritag's site has the final price."],
+    steps: ["Open the church tag on Seritag and choose the size, shape, finish and mounting.", "Choose your own artwork and upload the artwork PDF for this design.",
+      "For encoding, choose Seritag encoding and Locked, and give the tag link on the order sheet. When tags have different links, choose Variable and attach the encoding file.",
+      "Skip TapStart: your tag links already let you change where tags go.", "Approve the proof, usually within a day."],
+  },
+  {
+    id: "tapgiving", name: "Tap.Giving", product: "Custom-printed 100 mm NFC disc", url: "https://tap.giving/",
+    currency: "USD", minQty: 100, minScope: "order", lead: "2 to 3 weeks after you approve the artwork, with free shipping", ordering: "files", checked: "2026-11-24",
+    about: "Discs printed with your logo and written with your link, locked by default, with adhesive or screw mounting. No monthly or transaction fees.",
+    tiers: [[100, 5.00], [200, 4.00], [400, 3.50], [800, 3.00]],
+    sizes: [{ id: "round-100", label: "Round, 100 mm (4 in)", shape: "round", mm: 100, add: 0 }],
+    needs: ["artwork", "encoding"], artFormats: ["pdf", "png"],
+    checks: ["Their site lists both NTAG213 and NTAG215 chips. Either works with every phone, but ask which you'll get.",
+      "Ask whether one order can include more than one design (more than one tag link)."],
+    steps: ["Start an order on Tap.Giving.", "Send them the artwork PDF and the link for each design (the order sheet lists them).",
+      "Ask for the discs locked, with your tag links. You don't need their redirect dashboard: your tag links already let you change where tags go.", "Approve the proof."],
+  },
+  {
+    id: "taptag-chairs", name: "Tap Tag", product: "Tap church signs for chairs (multipack)", url: "https://taptag.shop/products/tap-signs-for-chairs-multipack",
+    currency: "USD", minQty: 1, minScope: "order", priceUnit: "pack", packPrice: 99, lead: "Ships in about 3 days; free US shipping over $30", ordering: "link", checked: "2026-11-24",
+    about: "Ready-made 3.1 in (79 mm) round plastic signs with an adhesive back. Tap Tag writes your link for free when you paste it at checkout. Their dashboard is optional and not needed.",
+    sizes: [], needs: [], artFormats: [],
+    checks: ["Their page doesn't say how many signs are in a pack. Check before ordering.", "Signs with your own design are a separate product and take about 2 to 2.5 weeks."],
+    steps: ["Copy the tag link.", "Open the signs on Tap Tag, choose how many packs, and paste the tag link at checkout.", "For signs that open different things, place a separate order for each tag link."],
+  },
+  {
     id: "blank", name: "Blank NFC stickers", product: "Any NTAG213 or NTAG215 sticker, card or disc", url: "",
-    minQty: 1, startPrice: null, lead: "Whatever the store says", ordering: "write", checked: "",
+    currency: "USD", minQty: 1, minScope: "order", lead: "Whatever the store says", ordering: "write", checked: "",
     about: "Plain tags from any store. Write them yourself with this app on an Android phone, then label them or put them behind a sign.",
-    sizes: [], needs: [], steps: ["Buy NTAG213 or NTAG215 tags (both work with every phone).", "Here, tap Write to tag next to a tag link and hold a tag to the back of the phone."],
+    sizes: [], needs: [], artFormats: [], checks: [],
+    steps: ["Buy NTAG213 or NTAG215 tags (both work with every phone).", "Here, tap Write to tag next to a tag link and hold a tag to the back of the phone."],
   },
 ];
+/** A price in the supplier's currency: always with cents for a tag's price. */
+const nfcMoney = (s, n, cents = true) => Number(n || 0).toLocaleString(undefined, { style: "currency", currency: s.currency || "USD", minimumFractionDigits: cents || Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 });
+/** "£4.57 a tag at 50, down to £0.67", "$99 a pack", or nothing known. */
+const nfcPriceLine = (s) => s.tiers ? `${nfcMoney(s, s.tiers[0][1])} a tag at ${s.tiers[0][0]}, down to ${nfcMoney(s, s.tiers.at(-1)[1])}`
+  : s.packPrice ? `${nfcMoney(s, s.packPrice, false)} a ${s.priceUnit || "pack"}` : "Varies by store";
+const nfcMinLine = (s) => s.minQty <= 1 ? "Any amount" : `${s.minQty} ${s.minScope === "design" ? "of each design" : "tags an order"}`;
 const nfcPrice = (s, qty, size) => {
   if (!s.tiers) return null;
   const tier = [...s.tiers].reverse().find(([q]) => qty >= q) || s.tiers[0];
@@ -275,16 +328,17 @@ Actions["nfc-check"] = () => {
 let nfcOrder = null;
 function freshOrder(supplierId) {
   const s = NFC_SUPPLIERS.find((x) => x.id === supplierId) || NFC_SUPPLIERS[0], c = S.church();
-  return { supplier: s.id, size: s.sizes[0]?.id || "", headline: "Tap to open", sub: c.name, qr: true, logo: !!c.logo, bg: c.color || "#1f3d7a", items: {} };
+  return { supplier: s.id, size: s.sizes[0]?.id || "", headline: "Tap to open", sub: c.name, qr: true, logo: !!c.logo, bg: c.color || "#1f3d7a", items: {}, link: "" };
 }
 function nfcOrderTab() {
-  if (!nfcOrder) return html`<section class="sec"><p class="muted" style="margin-top:0">Tag suppliers ${PLATFORM.name} has checked. Pick one and the app prepares what it needs: the artwork with your logo and colors, and the file of links for the tags.</p>
+  if (!nfcOrder) return html`<section class="sec"><p class="muted" style="margin-top:0">Tag suppliers ${PLATFORM.name} has checked. Pick one and the app prepares what it needs: the artwork with your logo and colors, the list of links for the tags, or the link to paste at checkout.</p>
     ${NFC_SUPPLIERS.map((s) => html`<div class="panel nfc-supplier">
-      <div class="nfc-supplier-head"><div><b>${s.name}</b><div class="muted">${s.product}</div></div>${s.ordering === "api" ? html`<span class="badge">Order in the app</span>` : ""}</div>
-      <dl class="nfc-facts"><div><dt>Minimum</dt><dd>${s.minQty === 1 ? "Any amount" : `${s.minQty} tags`}</dd></div>
-        <div><dt>Starting at</dt><dd>${s.startPrice ? `${money(s.startPrice)} a tag` : "Varies by store"}</dd></div>
+      <div class="nfc-supplier-head"><div><b>${s.name}</b><div class="muted">${s.product}</div></div>${s.ordering === "api" ? html`<span class="badge">Order in the app</span>` : s.ordering === "link" ? html`<span class="badge">Ready-made</span>` : ""}</div>
+      <dl class="nfc-facts"><div><dt>Minimum</dt><dd>${nfcMinLine(s)}</dd></div>
+        <div><dt>Price</dt><dd>${nfcPriceLine(s)}</dd></div>
         <div><dt>Delivery</dt><dd>${s.lead}</dd></div></dl>
       <p class="faint" style="margin:8px 0 0">${s.about}</p>
+      ${s.checks?.length ? html`<div class="nfc-checks"><b>Check with ${s.name} first</b><ul>${s.checks.map((x) => html`<li>${x}</li>`)}</ul></div>` : ""}
       <div class="btns">${s.ordering === "write" ? html`<a class="btn ghost sm" href="#nfc">${icon("nfc")}Write your own tags</a>`
         : html`<button class="btn sm" data-act="nfc-order-start" data-id="${s.id}">Prepare an order</button>`}
         ${s.url ? html`<a class="btn ghost sm" href="${s.url}" target="_blank" rel="noopener">${icon("globe")}See it on ${s.name}</a>` : ""}</div>
@@ -295,20 +349,42 @@ function nfcOrderTab() {
 Actions["nfc-order-start"] = (el) => { nfcOrder = freshOrder(el.dataset.id); render(); };
 Actions["nfc-order-back"] = () => { nfcOrder = null; render(); };
 
+/** Ready-made tags: pick a tag link to paste at the supplier's checkout. */
+function nfcLinkOrder(s, tags) {
+  const t = tags.find((x) => x.id === nfcOrder.link) || tags[0];
+  return html`<section class="sec nfc-builder">
+    <button class="linkish" data-act="nfc-order-back">${icon("back")}All suppliers</button>
+    <h2 class="sec-head" style="margin-top:8px">${s.name}: ${s.product}</h2>
+    ${!tags.length ? html`<div class="panel"><p style="margin:0">Make a tag link first: it's what goes on the signs. <a href="#nfc">Tag links</a></p></div>` : html`
+    <div class="panel"><h3 style="margin-top:0">Which tag link goes on these signs</h3>
+      <div class="nfc-pick">${tags.map((x) => html`<label class="check"><input type="radio" name="nfc-link" value="${x.id}" data-change="nfc-link" ${attr(x.id === t.id, "checked")}><span><b>${x.label}</b> <small class="faint">opens ${tagTargetLabel(x)}</small></span></label>`)}</div>
+      <div class="panel nfc-url-box"><b>${tagUrl(t)}</b></div>
+      <div class="btns"><button class="btn" data-act="copy" data-text="${tagUrl(t)}" data-done="Tag link copied">${icon("copy")}Copy tag link</button>
+        <a class="btn ghost" href="${s.url}" target="_blank" rel="noopener">${icon("globe")}Open ${s.name}</a></div>
+      <h3>On ${s.name}</h3><ol class="nfc-steps">${s.steps.map((x) => html`<li>${x}</li>`)}</ol>
+      ${s.checks?.length ? html`<div class="nfc-checks"><b>Check with ${s.name} first</b><ul>${s.checks.map((x) => html`<li>${x}</li>`)}</ul></div>` : ""}
+    </div>`}
+  </section>`;
+}
+Inputs["nfc-link"] = (el) => { nfcOrder.link = el.value; render(); };
+
 function nfcOrderBuilder() {
   const s = NFC_SUPPLIERS.find((x) => x.id === nfcOrder.supplier), size = s.sizes.find((z) => z.id === nfcOrder.size) || s.sizes[0];
   const tags = S.list("tagLinks").filter((t) => !t.paused);
+  if (s.ordering === "link") return nfcLinkOrder(s, tags);
   const lines = tags.filter((t) => +nfcOrder.items[t.id] > 0).map((t) => ({ t, qty: +nfcOrder.items[t.id] }));
   const total = lines.reduce((n, l) => n + l.qty, 0);
-  const short = lines.filter((l) => l.qty < s.minQty);
-  const est = lines.reduce((n, l) => n + l.qty * (nfcPrice(s, l.qty, size) || 0), 0);
+  // The minimum is for each design, or for the whole order; the price tier goes by the same count.
+  const short = s.minScope === "order" ? (total && total < s.minQty ? lines : []) : lines.filter((l) => l.qty < s.minQty);
+  const est = lines.reduce((n, l) => n + l.qty * (nfcPrice(s, s.minScope === "order" ? total : l.qty, size) || 0), 0);
+  const [art, ...moreArt] = s.artFormats || ["svg"];
   const preview = tags.find((t) => +nfcOrder.items[t.id] > 0) || tags[0];
   return html`<section class="sec nfc-builder">
     <button class="linkish" data-act="nfc-order-back">${icon("back")}All suppliers</button>
     <h2 class="sec-head" style="margin-top:8px">${s.name}: ${s.product}</h2>
     ${!tags.length ? html`<div class="panel"><p style="margin:0">Make a tag link first: each design on the order opens one of them. <a href="#nfc">Tag links</a></p></div>` : html`
     <div class="panel"><h3 style="margin-top:0">1. Which tags, and how many</h3>
-      <p class="faint" style="margin-top:0">Each tag link is its own design. ${s.name}'s minimum is ${s.minQty} of each.</p>
+      <p class="faint" style="margin-top:0">Each tag link is its own design. ${s.name}'s minimum is ${s.minScope === "order" ? `${s.minQty} for the whole order` : `${s.minQty} of each`}.</p>
       ${tags.map((t) => html`<label class="nfc-qty"><span><b>${t.label}</b><small class="faint">${tagUrl(t).replace(/^https?:\/\//, "")}</small></span>
         <input type="number" min="0" step="10" inputmode="numeric" value="${nfcOrder.items[t.id] || ""}" placeholder="0" data-input="nfc-qty" data-id="${t.id}" aria-label="How many ${t.label} tags"></label>`)}
     </div>
@@ -324,13 +400,15 @@ function nfcOrderBuilder() {
       ${preview ? html`<div class="nfc-preview" id="nfc-preview">${raw(tagArtSvg(preview, nfcOrder, size, { screen: true }))}</div>` : ""}
     </div>
     <div class="panel"><h3 style="margin-top:0">3. Files for ${s.name}</h3>
-      ${total ? html`<p style="margin-top:0"><b>${total} tags</b> in ${lines.length} ${lines.length === 1 ? "design" : "designs"}${est ? html`, about <b>${money(est)}</b> before encoding, shipping and tax` : ""}.</p>` : html`<p class="muted" style="margin-top:0">Enter how many of each tag you want above.</p>`}
-      ${short.length ? html`<p class="warn-text">${short.map((l) => l.t.label).join(", ")} ${short.length === 1 ? "is" : "are"} under the minimum of ${s.minQty}.</p>` : ""}
+      ${total ? html`<p style="margin-top:0"><b>${total} tags</b> in ${lines.length} ${lines.length === 1 ? "design" : "designs"}${est ? html`, about <b>${nfcMoney(s, est)}</b> before encoding, shipping and tax` : ""}.</p>` : html`<p class="muted" style="margin-top:0">Enter how many of each tag you want above.</p>`}
+      ${short.length ? html`<p class="warn-text">${s.minScope === "order" ? `That's under ${s.name}'s minimum of ${s.minQty} for an order.` : `${short.map((l) => l.t.label).join(", ")} ${short.length === 1 ? "is" : "are"} under the minimum of ${s.minQty}.`}</p>` : ""}
       <div class="btns">
-        <button class="btn" data-act="nfc-files" data-kind="art" ${attr(!total, "disabled")}>${icon("download")}Artwork (SVG)</button>
+        <button class="btn" data-act="nfc-files" data-kind="${art}" ${attr(!total, "disabled")}>${icon("download")}Artwork (${art.toUpperCase()})</button>
+        ${moreArt.map((f) => html`<button class="btn ghost" data-act="nfc-files" data-kind="${f}" ${attr(!total, "disabled")}>${icon("download")}${f.toUpperCase()}</button>`)}
         ${s.needs.includes("encoding") ? html`<button class="btn ghost" data-act="nfc-files" data-kind="csv" ${attr(!total, "disabled")}>${icon("download")}Encoding file (CSV)</button>` : ""}
         <button class="btn ghost" data-act="nfc-files" data-kind="sheet" ${attr(!total, "disabled")}>${icon("download")}Order sheet</button></div>
       <h3>Then, on ${s.name}</h3><ol class="nfc-steps">${s.steps.map((x) => html`<li>${x}</li>`)}</ol>
+      ${s.checks?.length ? html`<div class="nfc-checks"><b>Check with ${s.name} first</b><ul>${s.checks.map((x) => html`<li>${x}</li>`)}</ul></div>` : ""}
       ${s.ordering === "api" ? html`<button class="btn" data-act="nfc-api-order" ${attr(!total || short.length, "disabled")}>Place the order</button>` : html`<a class="btn ghost" href="${s.url}" target="_blank" rel="noopener">${icon("globe")}Open ${s.name}</a>`}
     </div>`}
   </section>`;
@@ -352,54 +430,152 @@ function keepFocus(fn) {
   fn(); if (!key) return; const b = $(key); if (b) { b.focus(); try { if (pos != null) b.setSelectionRange(pos, pos); } catch {} }
 }
 
-/** Sticker artwork, at its real size in millimetres, with 2 mm of bleed (the color runs past the cut line). */
-function tagArtSvg(t, o, size, { screen = false } = {}) {
+/** Where everything on a sticker goes, in millimetres from the top left, with 2 mm of bleed (the color runs past the
+ *  cut line) unless it's for the screen. tagArtSvg, tagArtPdf and tagArtPng all draw from this. */
+function tagArtLayout(t, o, size, { screen = false } = {}) {
   const c = S.church(), mm = size.mm, bleed = screen ? 0 : 2, round = size.shape === "round", W = mm + bleed * 2;
   const fg = onColor(o.bg), cx = W / 2;
   const head = (o.headline || t.label || "Tap here").slice(0, 22), sub = (o.sub || "").slice(0, 34);
-  const qr = o.qr && mm >= 38 && isUrl(tagUrl(t)) ? qrSvg(tagUrl(t), { size: 100 }) : "";
+  const qrOn = o.qr && mm >= 38 && isUrl(tagUrl(t));
   // Measure the pieces (tap mark or logo, headline, smaller line, QR code), then scale and center them inside the shape.
   let fs = Math.min(mm * 0.12, (mm * 0.84) / Math.max(6, head.length) * 1.75), subFs = Math.min(mm * 0.065, (mm * 0.8) / Math.max(8, sub.length) * 1.8);
-  let markS = mm * (qr ? 0.14 : 0.22), qrS = mm * 0.38, gap = mm * 0.035;
+  let markS = mm * (qrOn ? 0.14 : 0.22), qrS = mm * 0.38, gap = mm * 0.035;
   const useLogo = o.logo && c.logo, qrPad = () => qrS * 0.06;
-  const height = () => markS + gap + fs + (sub ? gap * 0.6 + subFs : 0) + (qr ? gap * 1.4 + qrS + qrPad() * 2 : 0);
-  const avail = mm * (round ? (qr ? 0.7 : 0.72) : 0.84), k = Math.min(1, avail / height());
+  const height = () => markS + gap + fs + (sub ? gap * 0.6 + subFs : 0) + (qrOn ? gap * 1.4 + qrS + qrPad() * 2 : 0);
+  const avail = mm * (round ? (qrOn ? 0.7 : 0.72) : 0.84), k = Math.min(1, avail / height());
   fs *= k; subFs *= k; markS *= k; qrS *= k; gap *= k;
   let y = bleed + (mm - height()) / 2;
-  const parts = [];
-  if (useLogo) parts.push(`<image href="${esc(c.logo)}" x="${cx - markS / 2}" y="${y}" width="${markS}" height="${markS}" preserveAspectRatio="xMidYMid meet"/>`);
-  else {
-    // The tap mark: a dot and three arcs, like the NFC symbol.
-    const r = markS / 6.2, sw = Math.max(0.5, markS * 0.07), x0 = cx - markS * 0.32, my = y + markS / 2;
-    parts.push(`<g fill="none" stroke="${fg}" stroke-width="${sw}" stroke-linecap="round"><circle cx="${x0}" cy="${my}" r="${sw * 0.9}" fill="${fg}" stroke="none"/>${[1, 2, 3].map((i) => `<path d="M${x0 + i * r * 1.05} ${my - r * i} a${r * i} ${r * i} 0 0 1 0 ${r * i * 2}"/>`).join("")}</g>`);
-  }
+  const L = { W, mm, bleed, round, screen, bg: o.bg, fg, cx, head, logo: null, mark: null, texts: [], qr: null };
+  if (useLogo) L.logo = { x: cx - markS / 2, y, s: markS, src: c.logo };
+  else L.mark = { x0: cx - markS * 0.32, my: y + markS / 2, r: markS / 6.2, sw: Math.max(0.5, markS * 0.07) };   // a dot and three arcs, like the NFC symbol
   y += markS + gap + fs * 0.82;
-  parts.push(`<text x="${cx}" y="${y}" font-size="${fs}" font-weight="700" fill="${fg}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif">${esc(head)}</text>`);
+  L.texts.push({ x: cx, y, size: fs, bold: true, text: head });
   y += fs * 0.18;
-  if (sub) { y += gap * 0.6 + subFs * 0.82; parts.push(`<text x="${cx}" y="${y}" font-size="${subFs}" fill="${fg}" fill-opacity=".9" text-anchor="middle" font-family="Helvetica, Arial, sans-serif">${esc(sub)}</text>`); y += subFs * 0.18; }
-  if (qr) { y += gap * 1.4; const pad = qrPad(); parts.push(`<rect x="${cx - qrS / 2 - pad}" y="${y}" width="${qrS + pad * 2}" height="${qrS + pad * 2}" rx="${pad}" fill="#fff"/><svg x="${cx - qrS / 2}" y="${y + pad}" width="${qrS}" height="${qrS}" ${qr.replace(/^<svg[^>]*?(viewBox="[^"]+")[^>]*>/, '$1 shape-rendering="crispEdges">').replace(/<\/svg>\s*$/, "")}</svg>`); }
-  const shape = round ? `<circle cx="${cx}" cy="${cx}" r="${W / 2}" fill="${o.bg}"/>` : `<rect width="${W}" height="${W}" rx="${screen ? mm * 0.08 : 0}" fill="${o.bg}"/>`;
-  const cut = !screen ? (round ? `<circle cx="${cx}" cy="${cx}" r="${mm / 2}" fill="none" stroke="#ff00ff" stroke-width=".1" stroke-dasharray=".8 .8"/>` : `<rect x="${bleed}" y="${bleed}" width="${mm}" height="${mm}" fill="none" stroke="#ff00ff" stroke-width=".1" stroke-dasharray=".8 .8"/>`) : "";
-  return `<svg xmlns="http://www.w3.org/2000/svg" ${screen ? "" : `width="${W}mm" height="${W}mm" `}viewBox="0 0 ${W} ${W}" role="img" aria-label="${esc(head)} sticker">${shape}${parts.join("")}${cut}</svg>`;
+  if (sub) { y += gap * 0.6 + subFs * 0.82; L.texts.push({ x: cx, y, size: subFs, bold: false, text: sub, opacity: 0.9 }); y += subFs * 0.18; }
+  if (qrOn) { y += gap * 1.4; const pad = qrPad(); L.qr = { x: cx - qrS / 2, y: y + pad, s: qrS, pad, url: tagUrl(t) }; }
+  return L;
 }
 
-Actions["nfc-files"] = (el) => {
+/** Sticker artwork as SVG: the preview on screen, and a download for suppliers that take it. */
+function tagArtSvg(t, o, size, opts = {}) {
+  const L = tagArtLayout(t, o, size, opts), { W, mm, bleed, cx, fg, screen } = L, parts = [];
+  if (L.logo) parts.push(`<image href="${esc(L.logo.src)}" x="${L.logo.x}" y="${L.logo.y}" width="${L.logo.s}" height="${L.logo.s}" preserveAspectRatio="xMidYMid meet"/>`);
+  if (L.mark) {
+    const { x0, my, r, sw } = L.mark;
+    parts.push(`<g fill="none" stroke="${fg}" stroke-width="${sw}" stroke-linecap="round"><circle cx="${x0}" cy="${my}" r="${sw * 0.9}" fill="${fg}" stroke="none"/>${[1, 2, 3].map((i) => `<path d="M${x0 + i * r * 1.05} ${my - r * i} a${r * i} ${r * i} 0 0 1 0 ${r * i * 2}"/>`).join("")}</g>`);
+  }
+  for (const x of L.texts) parts.push(`<text x="${x.x}" y="${x.y}" font-size="${x.size}"${x.bold ? ' font-weight="700"' : ""} fill="${fg}"${x.opacity ? ` fill-opacity="${x.opacity}"` : ""} text-anchor="middle" font-family="Helvetica, Arial, sans-serif">${esc(x.text)}</text>`);
+  if (L.qr) {
+    const { x, y, s: qs, pad, url } = L.qr, qr = qrSvg(url, { size: 100 });
+    parts.push(`<rect x="${x - pad}" y="${y - pad}" width="${qs + pad * 2}" height="${qs + pad * 2}" rx="${pad}" fill="#fff"/><svg x="${x}" y="${y}" width="${qs}" height="${qs}" ${qr.replace(/^<svg[^>]*?(viewBox="[^"]+")[^>]*>/, '$1 shape-rendering="crispEdges">').replace(/<\/svg>\s*$/, "")}</svg>`);
+  }
+  const shape = L.round ? `<circle cx="${cx}" cy="${cx}" r="${W / 2}" fill="${L.bg}"/>` : `<rect width="${W}" height="${W}" rx="${screen ? mm * 0.08 : 0}" fill="${L.bg}"/>`;
+  const cut = !screen ? (L.round ? `<circle cx="${cx}" cy="${cx}" r="${mm / 2}" fill="none" stroke="#ff00ff" stroke-width=".1" stroke-dasharray=".8 .8"/>` : `<rect x="${bleed}" y="${bleed}" width="${mm}" height="${mm}" fill="none" stroke="#ff00ff" stroke-width=".1" stroke-dasharray=".8 .8"/>`) : "";
+  return `<svg xmlns="http://www.w3.org/2000/svg" ${screen ? "" : `width="${W}mm" height="${W}mm" `}viewBox="0 0 ${W} ${W}" role="img" aria-label="${esc(L.head)} sticker">${shape}${parts.join("")}${cut}</svg>`;
+}
+
+/** Sticker artwork as a print-ready PDF: vector shapes, Helvetica text and the QR code as squares, at real size with the
+ *  bleed and a trim box. The logo, if there is one, is placed as a high-resolution picture. */
+async function tagArtPdf(t, o, size) {
+  const L = tagArtLayout(t, o, size), W = L.W, MM = 72 / 25.4;
+  const n = (v) => +v.toFixed(3), P = (v) => n(v * MM), Y = (y) => n((W - y) * MM);
+  const rgb = (hex) => { let h = String(hex || "#000").replace("#", ""); if (h.length === 3) h = h.replace(/./g, "$&$&"); const v = parseInt(h, 16) || 0; return [(v >> 16) & 255, (v >> 8) & 255, v & 255].map((x) => n(x / 255)).join(" "); };
+  const K = 0.5523;
+  const circle = (cx, cy, r) => { const X = P(cx), Yc = Y(cy), R = P(r), k = n(R * K);
+    return `${n(X + R)} ${Yc} m ${n(X + R)} ${n(Yc + k)} ${n(X + k)} ${n(Yc + R)} ${X} ${n(Yc + R)} c ${n(X - k)} ${n(Yc + R)} ${n(X - R)} ${n(Yc + k)} ${n(X - R)} ${Yc} c ${n(X - R)} ${n(Yc - k)} ${n(X - k)} ${n(Yc - R)} ${X} ${n(Yc - R)} c ${n(X + k)} ${n(Yc - R)} ${n(X + R)} ${n(Yc - k)} ${n(X + R)} ${Yc} c h`; };
+  const enc = (str) => [...String(str)].map((ch) => { const cc = ch.charCodeAt(0); return cc < 128 || (cc >= 160 && cc < 256) ? ch : ch === "’" ? "'" : "?"; }).join("").replace(/[\\()]/g, (m) => `\\${m}`);
+  const ops = [];
+  ops.push(`${rgb(L.bg)} rg`, L.round ? `${circle(L.cx, L.cx, W / 2)} f` : `0 0 ${P(W)} ${P(W)} re f`);
+  let image = null;
+  if (L.logo) {
+    // The logo on the sticker's color, as a JPEG the PDF can carry.
+    image = await new Promise((done) => {
+      const img = new Image();
+      img.onload = () => { const px = 800, cv = document.createElement("canvas"); cv.width = cv.height = px; const g = cv.getContext("2d");
+        g.fillStyle = L.bg; g.fillRect(0, 0, px, px); const sc = Math.min(px / img.width, px / img.height); g.drawImage(img, (px - img.width * sc) / 2, (px - img.height * sc) / 2, img.width * sc, img.height * sc);
+        done({ px, data: atob(cv.toDataURL("image/jpeg", 0.92).split(",")[1]) }); };
+      img.onerror = () => done(null); img.src = L.logo.src;
+    });
+    if (image) ops.push(`q ${P(L.logo.s)} 0 0 ${P(L.logo.s)} ${P(L.logo.x)} ${Y(L.logo.y + L.logo.s)} cm /Im1 Do Q`);
+  }
+  if (L.mark) {
+    const { x0, my, r, sw } = L.mark;
+    ops.push(`${rgb(L.fg)} rg ${rgb(L.fg)} RG`, `${circle(x0, my, sw * 0.9)} f`, `${P(sw)} w 1 J`);
+    for (const i of [1, 2, 3]) {
+      const X = P(x0 + i * r * 1.05), Yc = Y(my), R = P(r * i), k = n(R * K);
+      ops.push(`${X} ${n(Yc + R)} m ${n(X + k)} ${n(Yc + R)} ${n(X + R)} ${n(Yc + k)} ${n(X + R)} ${Yc} c ${n(X + R)} ${n(Yc - k)} ${n(X + k)} ${n(Yc - R)} ${X} ${n(Yc - R)} c S`);
+    }
+  }
+  for (const x of L.texts) {
+    const sizePt = P(x.size), w = textWidth(x.text, sizePt) * (x.bold ? 1.06 : 1);
+    ops.push(`BT /${x.bold ? "F2" : "F1"} ${sizePt} Tf ${rgb(L.fg)} rg ${n(P(x.x) - w / 2)} ${Y(x.y)} Td (${enc(x.text)}) Tj ET`);
+  }
+  if (L.qr) {
+    const { x, y, s: qs, pad, url } = L.qr, q = qrcode(0, "M"); q.addData(unescape(encodeURIComponent(url))); q.make();
+    const count = q.getModuleCount(), quiet = 4, cell = qs / (count + quiet * 2);
+    ops.push(`1 1 1 rg ${P(x - pad)} ${Y(y - pad + qs + pad * 2)} ${P(qs + pad * 2)} ${P(qs + pad * 2)} re f`, "0 0 0 rg");
+    const sq = [];
+    for (let r = 0; r < count; r++) for (let cc = 0; cc < count; cc++) if (q.isDark(r, cc)) sq.push(`${P(x + (cc + quiet) * cell)} ${Y(y + (r + quiet + 1) * cell)} ${n(P(cell) + 0.02)} ${n(P(cell) + 0.02)} re`);
+    ops.push(sq.join("\n"), "f");
+  }
+  // The cut line, for the printer (suppliers remove it).
+  ops.push(`1 0 1 RG ${P(0.1)} w [${P(0.8)} ${P(0.8)}] 0 d`, L.round ? `${circle(L.cx, L.cx, L.mm / 2)} S` : `${P(L.bleed)} ${P(L.bleed)} ${P(L.mm)} ${P(L.mm)} re S`);
+
+  const stream = ops.join("\n"), objs = [];
+  const add = (body) => { objs.push(body); return objs.length; };
+  const catalog = add(""), pages = add("");
+  const f1 = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+  const f2 = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+  const im = image ? add(`<< /Type /XObject /Subtype /Image /Width ${image.px} /Height ${image.px} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.data.length} >>\nstream\n${image.data}\nendstream`) : 0;
+  const content = add(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+  const page = add(`<< /Type /Page /Parent ${pages} 0 R /MediaBox [0 0 ${P(W)} ${P(W)}] /BleedBox [0 0 ${P(W)} ${P(W)}] /TrimBox [${P(L.bleed)} ${P(L.bleed)} ${P(L.bleed + L.mm)} ${P(L.bleed + L.mm)}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >>${im ? ` /XObject << /Im1 ${im} 0 R >>` : ""} >> /Contents ${content} 0 R >>`);
+  objs[catalog - 1] = `<< /Type /Catalog /Pages ${pages} 0 R >>`;
+  objs[pages - 1] = `<< /Type /Pages /Kids [${page} 0 R] /Count 1 >>`;
+  let out = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n"; const offsets = [];
+  objs.forEach((body, i) => { offsets.push(out.length); out += `${i + 1} 0 obj\n${body}\nendobj\n`; });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offsets.map((v) => `${String(v).padStart(10, "0")} 00000 n \n`).join("")}`;
+  out += `trailer\n<< /Size ${objs.length + 1} /Root ${catalog} 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return new Blob([Uint8Array.from(out, (ch) => ch.charCodeAt(0) & 255)], { type: "application/pdf" });
+}
+
+/** Sticker artwork as a 300 dpi PNG, with the bleed. */
+function tagArtPng(t, o, size) {
+  const svg = tagArtSvg(t, o, size), L = tagArtLayout(t, o, size), px = Math.round((L.W / 25.4) * 300);
+  return new Promise((done, fail) => {
+    const img = new Image(), url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    img.onload = () => { const cv = document.createElement("canvas"); cv.width = cv.height = px; cv.getContext("2d").drawImage(img, 0, 0, px, px); URL.revokeObjectURL(url); cv.toBlob((b) => (b ? done(b) : fail(new Error("png"))), "image/png"); };
+    img.onerror = () => { URL.revokeObjectURL(url); fail(new Error("svg")); };
+    img.src = url;
+  });
+}
+
+Actions["nfc-files"] = async (el) => {
   const s = NFC_SUPPLIERS.find((x) => x.id === nfcOrder.supplier), size = s.sizes.find((z) => z.id === nfcOrder.size) || s.sizes[0];
   const lines = S.list("tagLinks").filter((t) => +nfcOrder.items[t.id] > 0).map((t) => ({ t, qty: +nfcOrder.items[t.id] }));
-  const c = S.church(), base = slugify(c.name);
-  if (el.dataset.kind === "art") {
+  const c = S.church(), base = slugify(c.name), kind = el.dataset.kind, art = (s.artFormats || ["svg"])[0];
+  const artName = (t, ext) => `${base}-${slugify(t.label) || t.code}-${size.id}.${ext}`;
+  if (["svg", "pdf", "png"].includes(kind)) {
     // One file per design; the magenta dashed line is where the sticker is cut (suppliers remove it).
-    lines.forEach(({ t }, i) => setTimeout(() => saveFile(`${base}-${slugify(t.label) || t.code}-${size.id}.svg`, tagArtSvg(t, nfcOrder, size)), i * 350));
     toast(lines.length > 1 ? `${lines.length} artwork files downloading` : "Artwork downloading");
-  } else if (el.dataset.kind === "csv") {
+    for (const [i, { t }] of lines.entries()) {
+      if (i) await new Promise((d) => setTimeout(d, 350));
+      try {
+        const data = kind === "pdf" ? await tagArtPdf(t, nfcOrder, size) : kind === "png" ? await tagArtPng(t, nfcOrder, size) : tagArtSvg(t, nfcOrder, size);
+        await saveFile(artName(t, kind), data);
+      } catch { toast("Couldn't make that file. Try another format."); }
+    }
+  } else if (kind === "csv") {
     const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
-    const rows = [["Design", "Quantity", "URL", "Artwork file"], ...lines.map(({ t, qty }) => [t.label, qty, tagUrl(t), `${base}-${slugify(t.label) || t.code}-${size.id}.svg`])];
+    const rows = [["Design", "Quantity", "URL", "Artwork file"], ...lines.map(({ t, qty }) => [t.label, qty, tagUrl(t), artName(t, art)])];
     saveFile(`${base}-nfc-encoding.csv`, rows.map((r) => r.map(q).join(",")).join("\r\n") + "\r\n");
   } else {
     const total = lines.reduce((n, l) => n + l.qty, 0);
+    const each = (qty) => nfcPrice(s, s.minScope === "order" ? total : qty, size);
     const text = [`NFC tag order for ${c.name}`, `Supplier: ${s.name} (${s.product})`, s.url, `Size: ${size.label}`, "",
-      ...lines.map(({ t, qty }) => `${qty} x ${t.label}\n   Link on the tag: ${tagUrl(t)}\n   Opens: ${tagTargetLabel(t)}${nfcPrice(s, qty, size) ? `\n   About ${money(nfcPrice(s, qty, size))} a tag at this quantity` : ""}`),
-      "", `Total: ${total} tags`, "", "Steps:", ...s.steps.map((x, i) => `${i + 1}. ${x}`), "",
+      ...lines.map(({ t, qty }) => `${qty} x ${t.label}\n   Link on the tag: ${tagUrl(t)}\n   Artwork: ${artName(t, art)}\n   Opens: ${tagTargetLabel(t)}${each(qty) ? `\n   About ${nfcMoney(s, each(qty))} a tag at this quantity` : ""}`),
+      "", `Total: ${total} tags`, "", "Steps:", ...s.steps.map((x, i) => `${i + 1}. ${x}`),
+      ...(s.checks?.length ? ["", `Check with ${s.name} first:`, ...s.checks.map((x) => `- ${x}`)] : []), "",
       `Each tag holds a tag link you can repoint any time in ${PLATFORM.name} (Ministry tools, NFC tags).`].join("\n");
     saveFile(`${base}-nfc-order.txt`, text);
   }
