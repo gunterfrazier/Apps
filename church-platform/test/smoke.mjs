@@ -3458,6 +3458,15 @@ await step("graphics", async () => {
   await page.click('#scrim form[data-form="banner-logo-copy"] button[type=submit]');
   await page.waitForFunction(() => { const g = __app.S.state.graphics.at(-1); return g.logoId === "own" && /^data:image\//.test(g.logoSrc); });
   await page.waitForSelector('[data-gfx-colors=bg] .gfx-from[data-from=logo] [data-act=gfx-color]');
+  // The see-through copy shows see-through in every layout: no white plate behind it on the color band.
+  for (const lay of ["band", "center", "left", "frame", "split", "verse"]) {
+    await page.click(`.gfx-layout:has(input[value=${lay}])`); await page.waitForFunction((l) => __app.S.state.graphics.at(-1).layout === l, lay);
+    const px = await page.waitForFunction(() => {
+      const b = __app.gfxBoxes().find((x) => x.key === "logo"), cv = document.querySelector("#gfx-canvas"); if (!b || !cv?.width) return null;
+      const k = cv.width / 1275, d = cv.getContext("2d").getImageData(Math.round((b.x + 3) * k), Math.round((b.y + 3) * k), 1, 1).data; return [...d.slice(0, 3)];
+    }).then((h) => h.jsonValue());
+    if (px.every((v) => v > 228)) throw new Error(`${lay}: the logo's corner is white (${px}), so its background still shows`);
+  }
   await shot("graphics-editor");
   // A flyer PDF is one letter page holding a 300 dpi picture.
   const pdf = await page.evaluate(async () => { const b = await __app.gfxPdf(__app.S.state.graphics.at(-1)); const t = new TextDecoder("latin1").decode(await b.arrayBuffer()); return { head: t.slice(0, 8), box: /MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/.exec(t)?.slice(1), w: /\/Width (\d+)/.exec(t)?.[1], end: t.trimEnd().endsWith("%%EOF") }; });
