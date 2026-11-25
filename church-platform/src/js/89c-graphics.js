@@ -178,7 +178,24 @@ async function gfxAssets(d) {
     d.ornament && d.ornament !== "none" && GRAPHICS[d.ornament] ? gfxSvgImage(GRAPHICS[d.ornament].svg(col.orn)) : null,
     ...(d.graphics || []).map((g) => g.kind === "image" ? gfxImage(g.src) : GRAPHICS[g.builtin] ? gfxSvgImage(GRAPHICS[g.builtin].svg(okHex(g.color, col.accent))) : null),
   ]);
-  return { photo, logo, qr, orn, col, f, added: Object.fromEntries((d.graphics || []).map((g, i) => [g.id, added[i]])) };
+  return { photo, logo, logoClear: gfxSeeThrough(logo), qr, orn, col, f, added: Object.fromEntries((d.graphics || []).map((g, i) => [g.id, added[i]])) };
+}
+
+/** Whether a picture's edges are see-through (a logo with its background removed). Unreadable pictures count as solid. */
+const gfxClearCache = new WeakMap();
+function gfxSeeThrough(img) {
+  if (!img) return false;
+  if (gfxClearCache.has(img)) return gfxClearCache.get(img);
+  let clear = false;
+  try {
+    const n = 48, cv = document.createElement("canvas"); cv.width = n; cv.height = n;
+    const ctx = cv.getContext("2d", { willReadFrequently: true }); ctx.drawImage(img, 0, 0, n, n);
+    const d = ctx.getImageData(0, 0, n, n).data; let edge = 0, see = 0;
+    for (let i = 0; i < n; i++) for (const [x, y] of [[i, 0], [i, n - 1], [0, i], [n - 1, i]]) { edge++; if (d[(y * n + x) * 4 + 3] < 40) see++; }
+    clear = see / edge > 0.5;
+  } catch { /* a picture from a site that doesn't allow reading it */ }
+  gfxClearCache.set(img, clear);
+  return clear;
 }
 
 /** Words broken into lines no wider than maxW, at this font size. Very long words break where they must. */
@@ -377,7 +394,8 @@ function gfxDraw(ctx, d, a, opts = {}) {
       if (a.photo) gfxCover(ctx, a.photo, 0, 0, W, y0 + 2); else { ctx.fillStyle = glow; ctx.fillRect(0, 0, W, y0); drawOrn(W / 2 - m * 0.18, y0 / 2 - m * 0.18, m * 0.36, 0.8); }
       ctx.fillStyle = col.bg; ctx.fillRect(0, y0, W, bandH);
       ctx.fillStyle = col.accent; ctx.fillRect(0, y0, W, m * 0.012);
-      logo(pad + m * 0.02, pad + m * 0.015, m * 0.2, m * 0.085, "left", true);
+      // A logo with a solid background gets a white plate so it sits neatly on the photo; a see-through one goes on as is.
+      logo(pad + m * 0.02, pad + m * 0.015, m * 0.2, m * 0.085, "left", !a.logoClear);
       const tw = W - pad * 2 - (a.qr ? qrS + m * 0.05 : 0), th = bandH - pad * 1.6 - (d.footer ? m * 0.06 : 0);
       words([kicker(m * 0.03), head(m * (wide ? 0.125 : 0.1), { color: col.ink }), body(m * 0.036, { color: col.ink, maxLines: 3 }), details(m * 0.03, { color: col.ink })], { x: pad, y: y0 + pad * 0.8, w: tw, h: th }, { align: "left", valign: "middle" });
       qrBlock(W - pad - qrS, y0 + (bandH - qrS) / 2 - (d.footer ? m * 0.02 : 0));
