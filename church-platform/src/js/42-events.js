@@ -59,7 +59,8 @@ Screens.event = (id) => {
       <div class="btns">${ext(gcalLink(e.title, e.start, e.end, e.description, fullAddress(e)), "Add to Google Calendar", "btn ghost sm", "calendar")}
         <button class="btn ghost sm" data-act="copy" data-done="Event details copied" data-text="${`${e.title}\n${fmtDay(e.start)}, ${fmtTime(e.start)}\n${placeText(e)}\n\n${e.description}\n${appLink(`event-${e.id}`)}`}">${icon("copy")}Copy details</button>
         ${e.tickets?.length && canTakePay(e) ? html`<a class="btn ghost sm" href="#tickets-${e.id}">${icon("list")}Tickets and payments</a>` : ""}
-        ${S.can("qr.create") ? html`<button class="btn ghost sm" data-act="qr-for" data-target="${e.signup ? `register-event-${e.id}` : `event-${e.id}`}" data-label="${e.title}">${icon("qr")}QR code</button>` : ""}</div>`,
+        ${S.can("qr.create") ? html`<button class="btn ghost sm" data-act="qr-for" data-target="${e.signup ? `register-event-${e.id}` : `event-${e.id}`}" data-label="${e.title}">${icon("qr")}QR code</button>` : ""}
+        ${canGfx() && !featureOffFor("graphics") ? html`<button class="btn ghost sm" data-act="gfx-from" data-kind="event" data-id="${e.id}">${icon("image")}Make a graphic</button>` : ""}</div>`,
     after() { if (pendingRegister === e.id) { pendingRegister = null; if (e.signup && !reg) Actions["event-register"]({ dataset: { id: e.id } }); } },
   };
 };

@@ -162,6 +162,7 @@ Screens.ministry = () => {
     S.can("checkin.station") && row("#kiosk", "screen", "Check-in kiosk", "A self check-in station that prints name tags"),
     S.can("manage.devices") && row("#signs", "image", "Digital signage", "Playlists for lobby and hallway screens"),
     S.can("qr.create") && row("#qr", "qr", "QR codes", "Link to events, classes, registration and check-in"),
+    canGfx() && !featureOffFor("graphics") && row("#graphics", "image", "Graphics", "Social posts, slides, lobby screens and flyers, filled in for you"),
     S.can("qr.create") && row("#nfc", "nfc", "NFC tags", "Tap-to-open tags: write them, count taps, order printed ones"),
   ].filter(Boolean);
   return {

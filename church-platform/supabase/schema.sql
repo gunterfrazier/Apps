@@ -1633,6 +1633,26 @@ create policy "change media library" on records for update to authenticated
 drop policy if exists "remove from media library" on records;
 create policy "remove from media library" on records for delete to authenticated using (kind = 'mediaLibrary' and can_build_media(church_id));
 
+create or replace function can_build_graphics(c text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select can_build_media(c) or can(c, 'manage.integrations') or can(c, 'qr.create')
+$$;
+revoke execute on function can_build_graphics(text) from public, anon;
+grant execute on function can_build_graphics(text) to authenticated;
+
+-- Saved designs from Graphics. Everyone who builds with the media library can make, change and remove them.
+drop policy if exists "read graphics" on records;
+create policy "read graphics" on records for select to authenticated using (
+  kind = 'graphics' and (is_primary(church_id) or church_live(church_id)) and can_build_graphics(church_id));
+drop policy if exists "add graphics" on records;
+create policy "add graphics" on records for insert to authenticated with check (
+  kind = 'graphics' and (is_primary(church_id) or church_live(church_id)) and can_build_graphics(church_id) and data->>'by' = auth.uid()::text);
+drop policy if exists "change graphics" on records;
+create policy "change graphics" on records for update to authenticated
+  using (kind = 'graphics' and can_build_graphics(church_id)) with check (kind = 'graphics' and can_build_graphics(church_id));
+drop policy if exists "remove graphics" on records;
+create policy "remove graphics" on records for delete to authenticated using (kind = 'graphics' and can_build_graphics(church_id));
+
 -- Library uploads (videos) go under the church's folder, like other media.
 drop policy if exists "builders upload library media" on storage.objects;
 create policy "builders upload library media" on storage.objects for insert to authenticated with check (
@@ -1825,7 +1845,7 @@ begin
   -- The church's records: kept, no longer tied to this account.
   update records set owner = null
     where owner = me::text and kind in ('gifts', 'recurring', 'pledges', 'ticketPayments', 'expenses', 'docs', 'outlines',
-      'followups', 'activity', 'securityIncidents', 'checkins', 'mediaLibrary');
+      'followups', 'activity', 'securityIncidents', 'checkins', 'mediaLibrary', 'graphics');
   get diagnostics kept = row_count;
   -- Everything else that was theirs: prayer requests, messages, registrations, serving, notifications and the rest.
   delete from records where owner = me::text;
