@@ -3315,17 +3315,33 @@ await step("nfc tags", async () => {
   const tap2 = await ctx.newPage(); await tap2.goto(siteBase + "t/give-test"); await tap2.waitForFunction(() => location.hash === "#events-riverside"); await tap2.close();
   // Ordering: the supplier list, then the files for GoToTags.
   await goTo("nfc-order"); await page.waitForSelector(".nfc-supplier");
-  await expectText("50 tags"); await expectText("$1.25 a tag");
+  await expectText("50 of each design"); await expectText("$1.25 a tag at 50");
+  // Seritag in pounds, with what to check first; Tap.Giving's minimum is for the whole order.
+  await expectText("£4.57 a tag at 50"); await expectText("Shipping to the US isn't listed");
+  await expectText("100 tags an order"); await expectText("Ready-made");
+  await page.screenshot({ path: join(shots, "nfc-suppliers.png"), fullPage: true });
+  // Tap Tag's ready-made signs: pick a tag link to paste at checkout.
+  await page.click('[data-act=nfc-order-start][data-id="taptag-chairs"]'); await page.waitForSelector(".nfc-pick");
+  if (!(await page.textContent(".nfc-builder .nfc-url-box")).includes("/t/give-test")) throw new Error("the ready-made signs should show the tag link to paste");
+  await page.click("[data-act=nfc-order-back]"); await page.waitForSelector(".nfc-supplier");
   await page.click('[data-act=nfc-order-start][data-id=gototags]'); await page.waitForSelector(".nfc-builder");
   await page.fill('input[data-input=nfc-qty]', "100"); await page.waitForTimeout(600);
-  await expectText("100 tags"); await expectText("$95 before");
+  await expectText("100 tags"); await expectText("$95.00 before");
   await page.fill("form[data-form=nfc-design] input[name=headline]", "Tap to give"); await page.waitForTimeout(100);
   if (!(await page.textContent("#nfc-preview svg")).includes("Tap to give")) throw new Error("the preview should show the headline");
   await page.selectOption("form[data-form=nfc-design] select[name=size]", "square-50"); await page.waitForSelector("#nfc-preview svg");
   if (!(await page.isChecked("form[data-form=nfc-design] input[name=qr]")) || !(await page.$("#nfc-preview svg svg"))) throw new Error("a 50 mm sticker should get the QR code");
-  const [art] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=nfc-files][data-kind=art]")]);
+  const [art] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=nfc-files][data-kind=svg]")]);
   const svg = readFileSync(await art.path(), "utf8");
   if (!/width="54mm"/.test(svg) || !svg.includes("Tap to give") || !svg.includes("crispEdges")) throw new Error("the artwork should be 50 mm with bleed, the headline and a QR code");
+  // The same artwork as a print-ready PDF (real size, with the trim box) and a 300 dpi PNG.
+  const [pdf] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=nfc-files][data-kind=pdf]")]);
+  const pdfText = readFileSync(await pdf.path(), "latin1");
+  if (!pdfText.startsWith("%PDF-1.4") || !/\/MediaBox \[0 0 153\.071 153\.071\]/.test(pdfText) || !/\/TrimBox/.test(pdfText) || !pdfText.includes("(Tap to give) Tj")) throw new Error("the PDF should be the 54 mm sticker with its trim box and headline");
+  if ((pdfText.match(/ re\n/g) || []).length < 100) throw new Error("the PDF should draw the QR code as squares");
+  const [png] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=nfc-files][data-kind=png]")]);
+  const pngBytes = readFileSync(await png.path());
+  if (pngBytes.readUInt32BE(0) !== 0x89504e47 || pngBytes.readUInt32BE(16) !== 638) throw new Error(`the PNG should be 54 mm at 300 dpi (638 px), got ${pngBytes.readUInt32BE(16)}`);
   const [csv] = await Promise.all([page.waitForEvent("download"), page.click("[data-act=nfc-files][data-kind=csv]")]);
   const rows = readFileSync(await csv.path(), "utf8");
   if (!rows.includes('"100"') || !rows.includes(`${siteBase}t/give-test`)) throw new Error(`the encoding file should list the tag link at the site's root: ${rows}`);
