@@ -55,13 +55,28 @@ const mixHex = (a, b, t) => {
   return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join("");
 };
 const okHex = (h, d) => (/^#[0-9a-f]{6}$/i.test(h || "") ? h : d);
-/** The three colors a design draws with. */
+/** The colors a design draws with: the theme's, with any the person picked (background, words, accent, decoration). */
 function gfxColors(d) {
   const c = S.church();
   const t = GFX_THEMES[d.theme] || GFX_THEMES.brand;
-  if (t.bg) return { bg: t.bg, ink: t.ink, accent: t.accent };
-  const bg = okHex(d.theme === "custom" ? d.color : c.color, "#3b5bdb"), ink = onColor(bg);
-  return { bg, ink, accent: mixHex(bg, ink, ink === "#ffffff" ? 0.72 : 0.55) };
+  let base;
+  if (t.bg) base = { bg: t.bg, ink: t.ink, accent: t.accent };
+  else {
+    const bg = okHex(d.theme === "custom" ? d.color : c.color, "#3b5bdb"), ink = onColor(bg);
+    base = { bg, ink, accent: mixHex(bg, ink, ink === "#ffffff" ? 0.72 : 0.55) };
+  }
+  const o = d.colors || {};
+  const bg = okHex(o.bg, base.bg);
+  // A new background picks readable words, unless the words have their own color too.
+  const ink = okHex(o.ink, o.bg ? onColor(bg) : base.ink);
+  const accent = okHex(o.accent, o.bg && !o.ink ? mixHex(bg, ink, ink === "#ffffff" ? 0.72 : 0.55) : base.accent);
+  return { bg, ink, accent, orn: okHex(o.orn, accent) };
+}
+/** The logo a design uses: its own transparent copy, one of the banner's saved logos, or the account logo. */
+function gfxLogoSrc(d, c = S.church()) {
+  if (d.logoId === "own" && d.logoSrc) return d.logoSrc;
+  if (String(d.logoId || "").startsWith("b:")) { const l = (bannerOf(c).logos || []).find((x) => `b:${x.id}` === d.logoId); if (l) return l.src; }
+  return c.logo || "";
 }
 
 // ----- Starting points, filled from the app -----
@@ -157,12 +172,13 @@ async function gfxAssets(d) {
   const c = S.church(), col = gfxColors(d), f = GFX_FONTS[d.font] || GFX_FONTS.jakarta;
   const fonts = [`${f.head[1]} 64px "${f.head[0]}"`, `${f.body[1]} 32px "${f.body[0]}"`, `700 32px "${f.body[0]}"`];
   await Promise.all(fonts.map((x) => document.fonts?.load?.(x).catch(() => null)));
-  const [photo, logo, qr, orn] = await Promise.all([
-    gfxImage(d.photo), d.logo ? gfxImage(c.logo) : null,
+  const [photo, logo, qr, orn, ...added] = await Promise.all([
+    gfxImage(d.photo), d.logo ? gfxImage(gfxLogoSrc(d, c)) : null,
     gfxQrUrl(d) ? gfxSvgImage(qrSvg(gfxQrUrl(d), { size: 400, dark: "#111111", light: "#ffffff" })) : null,
-    d.ornament && d.ornament !== "none" && GRAPHICS[d.ornament] ? gfxSvgImage(GRAPHICS[d.ornament].svg(col.accent)) : null,
+    d.ornament && d.ornament !== "none" && GRAPHICS[d.ornament] ? gfxSvgImage(GRAPHICS[d.ornament].svg(col.orn)) : null,
+    ...(d.graphics || []).map((g) => g.kind === "image" ? gfxImage(g.src) : GRAPHICS[g.builtin] ? gfxSvgImage(GRAPHICS[g.builtin].svg(okHex(g.color, col.accent))) : null),
   ]);
-  return { photo, logo, qr, orn, col, f };
+  return { photo, logo, qr, orn, col, f, added: Object.fromEntries((d.graphics || []).map((g, i) => [g.id, added[i]])) };
 }
 
 /** Words broken into lines no wider than maxW, at this font size. Very long words break where they must. */
@@ -189,11 +205,11 @@ const fontStr = ([family, weight], size) => `${weight} ${Math.round(size * 10) /
 /**
  * Lays out a stack of text blocks in a box: everything starts at its largest size and shrinks together until it fits.
  * Each block: { text, font: [family, weight], size, min, color, lh, gap (space after, as a share of size), track, upper, maxLines }.
- * Returns the height used, after drawing (unless dry).
+ * Returns the height used and the rectangle the words cover, after drawing them (unless dry).
  */
 function gfxStack(ctx, blocks, box, { align = "center", valign = "middle", dry = false } = {}) {
   const items = blocks.filter((b) => String(b.text || "").trim());
-  if (!items.length) return 0;
+  if (!items.length) return { h: 0, rect: { x: box.x, y: box.y, w: 0, h: 0 } };
   const lay = (k) => items.map((b) => {
     const size = Math.max(b.min || 10, b.size * k);
     ctx.font = fontStr(b.font, size);
@@ -206,8 +222,12 @@ function gfxStack(ctx, blocks, box, { align = "center", valign = "middle", dry =
   let k = 1, L = lay(k);
   for (let i = 0; i < 40 && (total(L) > box.h || L.some((x) => x.lines.some((l) => { ctx.font = fontStr(x.b.font, x.size); return ctx.measureText(l).width > box.w + 1; }))); i++) { k *= 0.93; L = lay(k); }
   const used = total(L);
-  if (dry) return used;
-  let y = box.y + (valign === "top" ? 0 : valign === "bottom" ? box.h - used : (box.h - used) / 2);
+  const y0 = box.y + (valign === "top" ? 0 : valign === "bottom" ? box.h - used : (box.h - used) / 2);
+  const widest = Math.max(...L.map((x) => { ctx.font = fontStr(x.b.font, x.size); if (ctx.letterSpacing !== undefined) ctx.letterSpacing = `${(x.b.track || 0) * x.size}px`; return Math.max(...x.lines.map((l) => ctx.measureText(l).width)); }));
+  const rect = { x: align === "center" ? box.x + (box.w - widest) / 2 : align === "right" ? box.x + box.w - widest : box.x, y: y0, w: widest, h: used };
+  if (ctx.letterSpacing !== undefined) ctx.letterSpacing = "0px";
+  if (dry) return { h: used, rect };
+  let y = y0;
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = align;
   const x = align === "center" ? box.x + box.w / 2 : align === "right" ? box.x + box.w : box.x;
@@ -220,7 +240,7 @@ function gfxStack(ctx, blocks, box, { align = "center", valign = "middle", dry =
     y += it.h + (i < L.length - 1 ? it.size * (it.b.gap ?? 0.5) : 0);
   });
   if (ctx.letterSpacing !== undefined) ctx.letterSpacing = "0px";
-  return used;
+  return { h: used, rect };
 }
 
 /** Draws a picture to cover a box, cropped from the middle. */
@@ -242,12 +262,32 @@ function gfxQr(ctx, img, x, y, s, label, color, font) {
   if (label) { ctx.font = fontStr(font, s * 0.11); ctx.fillStyle = color; ctx.textAlign = "center"; ctx.fillText(label, x + s / 2, y + s + s * 0.16); }
 }
 
-/** Draws a design at its full size onto ctx (already scaled by the caller for previews and print). */
-function gfxDraw(ctx, d, a) {
+/**
+ * Draws a design at its full size onto ctx (already scaled by the caller for previews and print).
+ * Each piece (the words, logo, decoration, QR code, bottom line and added graphics) goes through place(): drawn where the
+ * layout puts it, or where the person dragged it, at their size and turn. Its box goes in a.boxes, for tapping.
+ * opts.sel outlines the selected piece (previews only).
+ */
+function gfxDraw(ctx, d, a, opts = {}) {
   const fm = GFX_FORMATS[d.format] || GFX_FORMATS.post, W = fm.w, H = fm.h, { col, f } = a;
   const m = Math.min(W, H), pad = m * 0.08, wide = W / H > 1.2, tall = H / W > 1.5;
-  const photoOn = !!a.photo, ink = photoOn && ["center", "left", "verse", "frame"].includes(d.layout) ? "#ffffff" : col.ink;
+  const photoOn = !!a.photo, ink = d.colors?.ink ? col.ink : photoOn && ["center", "left", "verse", "frame"].includes(d.layout) ? "#ffffff" : col.ink;
   const soft = (hex, o) => { const v = hex.replace("#", ""); return `rgba(${parseInt(v.slice(0, 2), 16)},${parseInt(v.slice(2, 4), 16)},${parseInt(v.slice(4, 6), 16)},${o})`; };
+  const boxes = a.boxes = [];
+  const place = (key, rect, fn) => {
+    if (!rect || !(rect.w > 0) || !(rect.h > 0)) return;
+    const pl = d.place?.[key], cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
+    ctx.save();
+    let box = { ...rect, r: 0 };
+    if (pl) {
+      const sc = pl.s ?? 1, nx = (pl.x ?? cx / W) * W, ny = (pl.y ?? cy / H) * H;
+      ctx.translate(nx, ny); if (pl.r) ctx.rotate(pl.r * Math.PI / 180); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+      box = { x: nx - rect.w * sc / 2, y: ny - rect.h * sc / 2, w: rect.w * sc, h: rect.h * sc, r: pl.r || 0 };
+    }
+    fn();
+    ctx.restore();
+    boxes.push({ key, ...box, home: { x: cx / W, y: cy / H } });
+  };
   ctx.save();
   ctx.clearRect(0, 0, W, H);
 
@@ -267,33 +307,53 @@ function gfxDraw(ctx, d, a) {
   // Tall sizes have room for bigger words.
   const tsz = tall ? 1.22 : H / W > 1.2 ? 1.08 : 1;
   const head = (size, extra = {}) => ({ text: d.headline, font: f.head, size: size * tsz, min: m * 0.035, color: ink, lh: d.font === "caveat" ? 0.95 : 1.04, gap: 0.42, ...extra });
-  const kicker = (size, extra = {}) => ({ text: d.kicker, font: [f.body[0], 700], size: size * tsz, min: m * 0.018, color: photoOn && ink === "#ffffff" ? "#ffffff" : col.accent, track: 0.04, gap: 0.9, ...extra });
+  const kicker = (size, extra = {}) => ({ text: d.kicker, font: [f.body[0], 700], size: size * tsz, min: m * 0.018, color: d.colors?.ink ? col.accent : photoOn && ink === "#ffffff" ? "#ffffff" : col.accent, track: 0.04, gap: 0.9, ...extra });
   const body = (size, extra = {}) => ({ text: d.body, font: f.body, size: size * tsz, min: m * 0.018, color: ink, lh: 1.32, gap: 1.1, maxLines: 6, ...extra });
   const details = (size, extra = {}) => ({ text: d.details, font: [f.body[0], 600], size: size * tsz, min: m * 0.017, color: ink, lh: 1.35, gap: 0, ...extra });
-
+  /** The words: laid out once to find their box, then drawn through place(). */
+  const words = (stack, box, o, before) => {
+    const { rect } = gfxStack(ctx, stack, box, { ...o, dry: true });
+    place("text", rect, () => { before?.(rect); gfxStack(ctx, stack, box, o); });
+  };
+  const logo = (x, y, w, h, align = "center", plate = false) => {
+    if (!a.logo) return 0;
+    const r = Math.min(w / a.logo.width, h / a.logo.height), dw = a.logo.width * r, dh = a.logo.height * r;
+    const dx = align === "left" ? x : align === "right" ? x + w - dw : x + (w - dw) / 2, dy = y + (h - dh) / 2;
+    place("logo", { x: dx, y: dy, w: dw, h: dh }, () => {
+      if (plate) { ctx.fillStyle = "rgba(255,255,255,.92)"; ctx.beginPath(); const p = m * 0.018; ctx.roundRect ? ctx.roundRect(dx - p, dy - p, dw + p * 2, dh + p * 2, m * 0.02) : ctx.rect(dx - p, dy - p, dw + p * 2, dh + p * 2); ctx.fill(); }
+      ctx.drawImage(a.logo, dx, dy, dw, dh);
+    });
+    return dw;
+  };
+  const footer = (x, y, size, align = "left", color = ink, alpha = 0.85, maxW = W - pad * 2) => {
+    if (!d.footer) return;
+    ctx.font = fontStr([f.body[0], 600], size);
+    const w = Math.min(maxW, ctx.measureText(d.footer).width), rx = align === "center" ? x - w / 2 : x;
+    place("footer", { x: rx, y: y - size * 0.95, w, h: size * 1.25 }, () => {
+      ctx.font = fontStr([f.body[0], 600], size); ctx.fillStyle = color; ctx.globalAlpha = alpha; ctx.textAlign = "left"; ctx.fillText(d.footer, rx, y, maxW);
+    });
+  };
   // The footer line (web address) and logo share a strip along the bottom; the QR code sits above it on the right.
   const footH = d.footer || a.logo ? m * 0.09 : 0;
   const qrS = a.qr ? m * (wide ? 0.2 : 0.19) : 0;
   const drawFoot = (color = ink, area = { x: pad, w: W - pad * 2, y: H - pad - footH }) => {
     if (!footH) return;
     let lx = area.x;
-    if (a.logo) lx += gfxContain(ctx, a.logo, area.x, area.y, m * 0.22, footH, "left") + m * 0.025;
-    if (d.footer) { ctx.font = fontStr([f.body[0], 600], m * 0.03); ctx.fillStyle = color; ctx.textAlign = a.logo ? "left" : "left"; ctx.fillText(d.footer, lx, area.y + footH / 2 + m * 0.011, area.w - (lx - area.x)); }
+    if (a.logo) lx += logo(area.x, area.y, m * 0.22, footH, "left") + m * 0.025;
+    footer(lx, area.y + footH / 2 + m * 0.011, m * 0.03, "left", color, 1, area.w - (lx - area.x));
   };
-  const drawOrn = (x, y, s, o = 0.85) => { if (!a.orn) return; ctx.globalAlpha = o; ctx.drawImage(a.orn, x, y, s, s); ctx.globalAlpha = 1; };
-  const qrBlock = (x, y) => a.qr && gfxQr(ctx, a.qr, x, y, qrS, "", ink, f.body);
+  const drawOrn = (x, y, s, o = 0.85) => { if (!a.orn) return; place("orn", { x, y, w: s, h: s }, () => { ctx.globalAlpha = o; ctx.drawImage(a.orn, x, y, s, s); }); };
+  const qrBlock = (x, y) => { if (a.qr) place("qr", { x, y, w: qrS, h: qrS }, () => gfxQr(ctx, a.qr, x, y, qrS, "", ink, f.body)); };
 
   switch (d.layout) {
     case "left": {
       drawOrn(W - pad - m * 0.24, pad, m * 0.24, 0.7);
-      if (a.logo && !footH) gfxContain(ctx, a.logo, pad, pad, m * 0.24, m * 0.09, "left");
+      if (!footH) logo(pad, pad, m * 0.24, m * 0.09, "left");
       const bottom = H - pad - footH - (footH ? m * 0.04 : 0), qrBelow = a.qr && !wide;
       const box = { x: pad, y: pad + m * 0.2, w: (W - pad * 2) * (wide ? 0.64 : 1), h: bottom - pad - m * 0.2 - (qrBelow ? qrS + m * 0.05 : 0) };
-      const stack = [kicker(m * 0.034), head(m * 0.13), body(m * 0.038), details(m * 0.034)];
-      const used = gfxStack(ctx, stack, box, { align: "left", valign: "bottom", dry: true });
-      ctx.fillStyle = col.accent; ctx.fillRect(pad, box.y + box.h - used - m * 0.055, m * 0.09, m * 0.014);
-      gfxStack(ctx, stack, box, { align: "left", valign: "bottom" });
-      if (a.qr) qrBlock(W - pad - qrS, bottom - qrS);
+      words([kicker(m * 0.034), head(m * 0.13), body(m * 0.038), details(m * 0.034)], box, { align: "left", valign: "bottom" },
+        (r) => { ctx.fillStyle = col.accent; ctx.fillRect(r.x, r.y - m * 0.055, m * 0.09, m * 0.014); });
+      qrBlock(W - pad - qrS, bottom - qrS);
       drawFoot();
       break;
     }
@@ -306,8 +366,8 @@ function gfxDraw(ctx, d, a) {
       else { ctx.fillStyle = col.accent; ctx.fillRect(0, 0, pw, ph); drawOrn(pw / 2 - m * 0.16, ph / 2 - m * 0.16, m * 0.32, 0.9); }
       const bx = across ? pw + pad : pad, by = across ? pad : ph + pad * 0.8, bw = across ? W - pw - pad * 2 : W - pad * 2;
       const bh = (across ? H - pad * 2 : H - ph - pad * 1.8) - footH - (a.qr ? qrS + m * 0.04 : 0);
-      gfxStack(ctx, [kicker(m * 0.032, { color: col.accent }), head(m * 0.1, { color: col.ink }), body(m * 0.034, { color: col.ink }), details(m * 0.03, { color: col.ink })], { x: bx, y: by, w: bw, h: bh }, { align: "left", valign: across ? "middle" : "top" });
-      if (a.qr) qrBlock(bx, H - pad - footH - qrS - (footH ? m * 0.03 : 0));
+      words([kicker(m * 0.032, { color: col.accent }), head(m * 0.1, { color: col.ink }), body(m * 0.034, { color: col.ink }), details(m * 0.03, { color: col.ink })], { x: bx, y: by, w: bw, h: bh }, { align: "left", valign: across ? "middle" : "top" });
+      qrBlock(bx, H - pad - footH - qrS - (footH ? m * 0.03 : 0));
       drawFoot(col.ink, { x: bx, w: bw, y: H - pad - footH });
       break;
     }
@@ -317,11 +377,11 @@ function gfxDraw(ctx, d, a) {
       if (a.photo) gfxCover(ctx, a.photo, 0, 0, W, y0 + 2); else { ctx.fillStyle = glow; ctx.fillRect(0, 0, W, y0); drawOrn(W / 2 - m * 0.18, y0 / 2 - m * 0.18, m * 0.36, 0.8); }
       ctx.fillStyle = col.bg; ctx.fillRect(0, y0, W, bandH);
       ctx.fillStyle = col.accent; ctx.fillRect(0, y0, W, m * 0.012);
-      if (a.logo) { ctx.fillStyle = "rgba(255,255,255,.92)"; const lw = m * 0.2, lh = m * 0.085; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(pad, pad, lw + m * 0.04, lh + m * 0.03, m * 0.02) : ctx.rect(pad, pad, lw + m * 0.04, lh + m * 0.03); ctx.fill(); gfxContain(ctx, a.logo, pad + m * 0.02, pad + m * 0.015, lw, lh); }
+      logo(pad + m * 0.02, pad + m * 0.015, m * 0.2, m * 0.085, "left", true);
       const tw = W - pad * 2 - (a.qr ? qrS + m * 0.05 : 0), th = bandH - pad * 1.6 - (d.footer ? m * 0.06 : 0);
-      gfxStack(ctx, [kicker(m * 0.03), head(m * (wide ? 0.125 : 0.1), { color: col.ink }), body(m * 0.036, { color: col.ink, maxLines: 3 }), details(m * 0.03, { color: col.ink })], { x: pad, y: y0 + pad * 0.8, w: tw, h: th }, { align: "left", valign: "middle" });
-      if (a.qr) qrBlock(W - pad - qrS, y0 + (bandH - qrS) / 2 - (d.footer ? m * 0.02 : 0));
-      if (d.footer) { ctx.font = fontStr([f.body[0], 600], m * 0.026); ctx.fillStyle = col.ink; ctx.globalAlpha = 0.8; ctx.textAlign = "left"; ctx.fillText(d.footer, pad, H - pad * 0.6); ctx.globalAlpha = 1; }
+      words([kicker(m * 0.03), head(m * (wide ? 0.125 : 0.1), { color: col.ink }), body(m * 0.036, { color: col.ink, maxLines: 3 }), details(m * 0.03, { color: col.ink })], { x: pad, y: y0 + pad * 0.8, w: tw, h: th }, { align: "left", valign: "middle" });
+      qrBlock(W - pad - qrS, y0 + (bandH - qrS) / 2 - (d.footer ? m * 0.02 : 0));
+      footer(pad, H - pad * 0.6, m * 0.026, "left", col.ink, 0.8);
       break;
     }
     case "frame": {
@@ -330,35 +390,57 @@ function gfxDraw(ctx, d, a) {
       ctx.lineWidth = m * 0.002; ctx.strokeRect(inset + m * 0.014, inset + m * 0.014, W - (inset + m * 0.014) * 2, H - (inset + m * 0.014) * 2);
       const ip = pad * 1.35;
       let top = ip;
-      if (a.logo) { gfxContain(ctx, a.logo, W / 2 - m * 0.13, top, m * 0.26, m * 0.09); top += m * 0.13; } else if (a.orn) { drawOrn(W / 2 - m * 0.06, top, m * 0.12, 0.95); top += m * 0.16; }
+      if (a.logo) { logo(W / 2 - m * 0.13, top, m * 0.26, m * 0.09); top += m * 0.13; } else if (a.orn) { drawOrn(W / 2 - m * 0.06, top, m * 0.12, 0.95); top += m * 0.16; }
       const bottom = H - ip - (a.qr ? qrS + m * 0.06 : 0) - (d.footer ? m * 0.06 : 0);
-      const used = gfxStack(ctx, [kicker(m * 0.03), head(m * 0.105, { lh: 1.08 }), body(m * 0.036, { gap: 0.9 }), details(m * 0.032)], { x: ip, y: top, w: W - ip * 2, h: bottom - top }, { align: "center" });
-      if (a.qr) qrBlock(W / 2 - qrS / 2, H - ip - qrS - (d.footer ? m * 0.06 : 0));
-      if (d.footer) { ctx.font = fontStr([f.body[0], 600], m * 0.027); ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.fillText(d.footer, W / 2, H - ip + m * 0.01); }
-      void used;
+      words([kicker(m * 0.03), head(m * 0.105, { lh: 1.08 }), body(m * 0.036, { gap: 0.9 }), details(m * 0.032)], { x: ip, y: top, w: W - ip * 2, h: bottom - top }, { align: "center" });
+      qrBlock(W / 2 - qrS / 2, H - ip - qrS - (d.footer ? m * 0.06 : 0));
+      footer(W / 2, H - ip + m * 0.01, m * 0.027, "center", ink, 1);
       break;
     }
     case "verse": {
       ctx.font = fontStr(["Fraunces", 700], m * 0.42); ctx.fillStyle = soft(col.accent, photoOn ? 0.55 : 0.35); ctx.textAlign = "left";
       ctx.fillText("“", pad * 0.7, pad + m * 0.3);
-      const bottom = H - pad - footH - (a.qr ? 0 : 0);
+      const bottom = H - pad - footH;
       const tw = W - pad * 2 - (a.qr && wide ? qrS + m * 0.05 : 0);
-      gfxStack(ctx, [{ text: d.body, font: f.head, size: m * (String(d.body || "").length > 160 ? 0.06 : 0.085), min: m * 0.026, color: ink, lh: 1.22, gap: 0.9 },
-        { text: d.kicker, font: [f.body[0], 700], size: m * 0.036, min: m * 0.02, color: photoOn ? "#ffffff" : col.accent, track: 0.03, gap: 0.6 },
+      words([{ text: d.body, font: f.head, size: m * (String(d.body || "").length > 160 ? 0.06 : 0.085), min: m * 0.026, color: ink, lh: 1.22, gap: 0.9 },
+        { text: d.kicker, font: [f.body[0], 700], size: m * 0.036, min: m * 0.02, color: photoOn && !d.colors?.accent ? "#ffffff" : col.accent, track: 0.03, gap: 0.6 },
         { text: d.headline, font: f.body, size: m * 0.03, min: m * 0.018, color: ink, gap: 0 }], { x: pad, y: pad + m * 0.22, w: tw, h: bottom - pad - m * 0.26 - (a.qr && !wide ? qrS + m * 0.04 : 0) }, { align: "left", valign: "middle" });
-      if (a.qr) qrBlock(W - pad - qrS, bottom - qrS - m * 0.02);
+      qrBlock(W - pad - qrS, bottom - qrS - m * 0.02);
       drawFoot();
       break;
     }
     default: { // center
       let top = pad;
-      if (a.logo) { gfxContain(ctx, a.logo, W / 2 - m * 0.15, top, m * 0.3, m * 0.1); top += m * 0.14; }
+      if (a.logo) { logo(W / 2 - m * 0.15, top, m * 0.3, m * 0.1); top += m * 0.14; }
       drawOrn(wide ? W - pad - m * 0.2 : W - pad - m * 0.16, wide ? pad : pad * 0.8, wide ? m * 0.2 : m * 0.16, 0.6);
       const bottom = H - pad - (a.qr ? qrS + m * 0.05 : 0) - (d.footer ? m * 0.05 : 0);
-      gfxStack(ctx, [kicker(m * 0.034), head(m * 0.13), body(m * 0.04), details(m * 0.034)], { x: pad, y: top, w: W - pad * 2, h: bottom - top }, { align: "center" });
-      if (a.qr) qrBlock(W / 2 - qrS / 2, H - pad - qrS - (d.footer ? m * 0.05 : 0));
-      if (d.footer) { ctx.font = fontStr([f.body[0], 600], m * 0.028); ctx.fillStyle = ink; ctx.globalAlpha = 0.85; ctx.textAlign = "center"; ctx.fillText(d.footer, W / 2, H - pad + m * 0.008); ctx.globalAlpha = 1; }
+      words([kicker(m * 0.034), head(m * 0.13), body(m * 0.04), details(m * 0.034)], { x: pad, y: top, w: W - pad * 2, h: bottom - top }, { align: "center" });
+      qrBlock(W / 2 - qrS / 2, H - pad - qrS - (d.footer ? m * 0.05 : 0));
+      footer(W / 2, H - pad + m * 0.008, m * 0.028, "center", ink, 0.85);
     }
+  }
+
+  // Graphics the person added: shapes in their own color, or their own pictures. Always placed by hand.
+  (d.graphics || []).forEach((g) => {
+    const img = a.added?.[g.id]; if (!img) return;
+    const s = (g.size || 20) / 100 * m, ratio = img.height / img.width || 1, w = ratio > 1 ? s / ratio : s, h = ratio > 1 ? s : s * ratio;
+    const x = (g.x ?? 0.5) * W - w / 2, y = (g.y ?? 0.5) * H - h / 2;
+    ctx.save();
+    ctx.translate(x + w / 2, y + h / 2); if (g.r) ctx.rotate(g.r * Math.PI / 180);
+    ctx.globalAlpha = (g.opacity ?? 100) / 100; ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.restore();
+    boxes.push({ key: `g:${g.id}`, x, y, w, h, r: g.r || 0, home: { x: g.x ?? 0.5, y: g.y ?? 0.5 } });
+  });
+
+  // The selected piece gets a dashed outline in the preview (never in a download).
+  const sel = opts.sel && boxes.find((b) => b.key === opts.sel);
+  if (sel) {
+    ctx.save();
+    ctx.translate(sel.x + sel.w / 2, sel.y + sel.h / 2); if (sel.r) ctx.rotate(sel.r * Math.PI / 180);
+    const p = m * 0.012, lw = m * 0.004;
+    ctx.lineWidth = lw * 2.2; ctx.strokeStyle = "rgba(0,0,0,.55)"; ctx.strokeRect(-sel.w / 2 - p, -sel.h / 2 - p, sel.w + p * 2, sel.h + p * 2);
+    ctx.setLineDash([m * 0.018, m * 0.012]); ctx.lineWidth = lw; ctx.strokeStyle = "#ffffff"; ctx.strokeRect(-sel.w / 2 - p, -sel.h / 2 - p, sel.w + p * 2, sel.h + p * 2);
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -367,7 +449,9 @@ function gfxDraw(ctx, d, a) {
 async function gfxCanvas(d, { scale = 1, width = 0, safe = false } = {}) {
   const fm = GFX_FORMATS[d.format] || GFX_FORMATS.post, a = await gfxAssets(d);
   if (safe) { // drop pictures from sites that don't allow copying
-    for (const k of ["photo", "logo"]) if (a[k] && !/^(data|blob):/.test(a[k].src) && new URL(a[k].src, location.href).origin !== location.origin) a[k] = null;
+    const foreign = (img) => img && !/^(data|blob):/.test(img.src) && new URL(img.src, location.href).origin !== location.origin;
+    for (const k of ["photo", "logo"]) if (foreign(a[k])) a[k] = null;
+    for (const k in a.added) if (foreign(a.added[k])) a.added[k] = null;
   }
   const k = width ? width / fm.w : scale, cv = document.createElement("canvas");
   cv.width = Math.round(fm.w * k); cv.height = Math.round(fm.h * k);
@@ -506,21 +590,48 @@ Actions["gfx-from"] = (el) => {
 };
 
 // ----- The editor -----
+const GFX_PIECES = { text: "Words", logo: "Logo", orn: "Decoration", qr: "QR code", footer: "Bottom line" };
+const gfxPieceLabel = (g, key) => key.startsWith("g:") ? (() => { const x = (g.graphics || []).find((y) => `g:${y.id}` === key); return x?.kind === "image" ? "Your picture" : GRAPHICS[x?.builtin]?.label || "Graphic"; })() : GFX_PIECES[key] || key;
+/** The pieces a design shows right now, in drawing order. */
+function gfxPieceKeys(g) {
+  const c = S.church();
+  return [["text", !!(g.kicker || g.headline || g.body || g.details)], ["logo", !!(g.logo && gfxLogoSrc(g, c))], ["orn", g.ornament && g.ornament !== "none" && g.layout !== "verse" && (g.layout !== "split" || !g.photo) && (g.layout !== "band" || !g.photo) && !(g.layout === "frame" && g.logo && gfxLogoSrc(g, c))],
+    ["qr", !!(g.qr && g.qr !== "~")], ["footer", !!g.footer], ...(g.graphics || []).map((x) => [`g:${x.id}`, true])].filter(([, on]) => on).map(([k]) => k);
+}
+const gfxPiece = (g, key) => key.startsWith("g:") ? (g.graphics || []).find((x) => `g:${x.id}` === key) : g.place?.[key];
+const gfxLocked = (g, key) => !!(g.locked || gfxPiece(g, key)?.locked);
+/** A color row: automatic, the theme and church colors, white and dark, the photo's and logo's colors (filled in after), and a custom one. */
+function gfxSwatches(g, target, label, current, auto) {
+  const c = S.church(), fixed = [...new Set([okHex(c.color, ""), ...brandPalette(c), "#ffffff", "#111111"].filter(Boolean))];
+  const sw = (col) => html`<button type="button" class="cp-swatch ${current === col ? "on" : ""}" style="background:${col}" data-act="gfx-color" data-target="${target}" data-color="${col}" aria-label="${label}: ${col}" aria-pressed="${current === col}"></button>`;
+  return html`<div class="gfx-color-row" data-gfx-colors="${target}"><span class="gfx-color-k">${label}</span>
+    <div class="gfx-swatch-row">
+      ${auto ? html`<button type="button" class="gfx-auto ${!current ? "on" : ""}" data-act="gfx-color" data-target="${target}" data-color="" aria-pressed="${!current}">Auto</button>` : ""}
+      ${fixed.map(sw)}<span class="gfx-from" data-from="photo"></span><span class="gfx-from" data-from="logo"></span>
+      <label class="gfx-custom" title="Any color"><input type="color" name="c_${target}" value="${okHex(current, auto || "#3b5bdb")}" aria-label="${label}: any color"><span>${icon("plus")}</span></label>
+    </div></div>`;
+}
+
 Screens.graphic = (id) => {
   if (!canGfx()) return { redirect: "ministry" };
   const g = S.get("graphics", id);
   if (!g) return { redirect: "graphics" };
-  const fm = GFX_FORMATS[g.format] || GFX_FORMATS.post, c = S.church();
+  if (gfxSel.id !== id) Object.assign(gfxSel, { id, key: "" });
+  const fm = GFX_FORMATS[g.format] || GFX_FORMATS.post, c = S.church(), col = gfxColors(g);
   const opt = (v, cur, label) => html`<option value="${v}" ${attr(v === cur, "selected")}>${label}</option>`;
   const targets = typeof qrTargetGroups === "function" ? qrTargetGroups() : [];
   const qrCustom = g.qr && isUrl(g.qr);
   const playlists = S.list("signage");
   const src = g.source?.kind === "event" ? S.get("events", g.source.id) : null;
+  const pieces = gfxPieceKeys(g), sel = pieces.includes(gfxSel.key) ? gfxSel.key : "";
+  const sp = sel && gfxPiece(g, sel), selHeld = sel && gfxLocked(g, sel);
+  const bannerLogos = (bannerOf(c).logos || []);
+  const hasLogo = !!(c.logo || bannerLogos.length || g.logoSrc);
   return {
     title: g.title || "Graphic", back: "graphics",
     body: html`<div class="gfx-editor">
-      <div class="gfx-stage"><div class="gfx-pv-wrap"><div class="gfx-preview" style="aspect-ratio:${fm.w}/${fm.h}"><canvas id="gfx-canvas" role="img" aria-label="${g.headline || g.title}"></canvas></div></div>
-        <p class="faint gfx-size">${fm.label}, ${fm.scale ? `${fm.w * fm.scale} × ${fm.h * fm.scale}` : `${fm.w} × ${fm.h}`} pixels</p>
+      <div class="gfx-stage"><div class="gfx-pv-wrap"><div class="gfx-preview" style="aspect-ratio:${fm.w}/${fm.h}"><canvas id="gfx-canvas" class="${g.locked ? "" : "movable"}" role="img" aria-label="${g.headline || g.title}"></canvas></div></div>
+        <p class="faint gfx-size">${fm.label}, ${fm.scale ? `${fm.w * fm.scale} × ${fm.h * fm.scale}` : `${fm.w} × ${fm.h}`} pixels. ${g.locked ? "Everything is locked." : "Drag a piece to move it; pinch to resize."}</p>
         <div class="btns gfx-out">
           <button class="btn" data-act="gfx-export" data-kind="png">${icon("download")}PNG</button>
           <button class="btn ghost" data-act="gfx-export" data-kind="pdf">${icon("download")}PDF</button>
@@ -531,6 +642,22 @@ Screens.graphic = (id) => {
           ${g.source?.kind === "series" && g.format === "post" && S.can("manage.sermons") ? html`<button class="btn ghost" data-act="gfx-use" data-use="series">${icon("image")}Use as series artwork</button>` : ""}
         </div></div>
       <form class="gfx-controls" data-form="gfx" data-input="gfx" data-change="gfx" data-id="${g.id}" novalidate>
+        <section class="panel" id="gfx-arrange"><h3>Arrange</h3>
+          <p class="faint" style="margin-top:0">Tap a piece in the preview to pick it. Drag to move it, pinch or use Size to resize it, then lock it so it stays put.</p>
+          <div class="rows gfx-pieces">${pieces.map((k) => {
+            const p = gfxPiece(g, k), held = gfxLocked(g, k), moved = k.startsWith("g:") || !!p;
+            return html`<div class="row ${k === sel ? "sel" : ""}"><button type="button" class="gfx-piece-pick" data-act="gfx-pick" data-key="${k}" aria-pressed="${k === sel}"><span class="lead-ic">${icon(held ? "lock" : "expand")}</span>
+              <span class="body"><span class="t">${gfxPieceLabel(g, k)}</span><span class="s">${held ? "Locked in place" : moved ? "Placed by you" : "Where the layout puts it"}</span></span></button>
+              ${moved && !k.startsWith("g:") ? html`<button type="button" class="btn ghost sm" data-act="gfx-place-auto" data-key="${k}" ${attr(held, "disabled")}>Put back</button>` : ""}
+              <button type="button" class="btn ${p?.locked ? "" : "ghost "}sm" data-act="gfx-lock" data-key="${k}" aria-pressed="${!!p?.locked}" aria-label="${p?.locked ? "Unlock" : "Lock"} ${gfxPieceLabel(g, k)}" ${attr(g.locked, "disabled")}>${icon("lock")}${p?.locked ? "Locked" : "Lock"}</button></div>`;
+          })}</div>
+          ${sel ? html`<div class="gfx-sel-tools">
+            <label class="range"><span>${gfxPieceLabel(g, sel)}: size</span><input type="range" name="selSize" min="${sel.startsWith("g:") ? 3 : 40}" max="${sel.startsWith("g:") ? 120 : 250}" value="${sel.startsWith("g:") ? sp?.size || 20 : Math.round((sp?.s ?? 1) * 100)}" ${attr(selHeld, "disabled")}><output>${sel.startsWith("g:") ? `${sp?.size || 20}%` : `${Math.round((sp?.s ?? 1) * 100)}%`}</output></label>
+            ${sel === "orn" || sel === "logo" || sel.startsWith("g:") ? html`<label class="range"><span>Turn</span><input type="range" name="selTurn" min="-180" max="180" value="${sp?.r || 0}" ${attr(selHeld, "disabled")}><output>${sp?.r || 0}°</output></label>` : ""}
+          </div>` : ""}
+          <div class="btns"><button type="button" class="btn ${g.locked ? "" : "ghost "}sm" data-act="gfx-lock-all" aria-pressed="${!!g.locked}">${icon("lock")}${g.locked ? "Unlock everything" : "Lock everything"}</button>
+            ${Object.keys(g.place || {}).length ? html`<button type="button" class="btn ghost sm" data-act="gfx-place-auto" data-key="*" ${attr(g.locked, "disabled")}>Put everything back</button>` : ""}</div>
+        </section>
         <section class="panel"><h3>Size</h3>
           <div class="gfx-chips" role="radiogroup" aria-label="Size">${Object.entries(GFX_FORMATS).map(([k, f]) => html`<label class="gfx-chip"><input type="radio" name="format" value="${k}" ${attr(k === g.format, "checked")}><span><b>${f.label}</b><small>${f.hint}</small></span></label>`)}</div>
         </section>
@@ -545,18 +672,41 @@ Screens.graphic = (id) => {
           <label class="field"><span>When and where</span><textarea name="details" maxlength="200" rows="2" placeholder="Sunday, 10 AM\n123 Main St">${g.details}</textarea>
             <small><button type="button" class="linkish" data-act="gfx-fill" data-what="times">Service times</button> · <button type="button" class="linkish" data-act="gfx-fill" data-what="address">Address</button></small></label>
           <label class="field"><span>Bottom line</span><input type="text" name="footer" value="${g.footer}" maxlength="60" placeholder="${webAddress(c) || c.name}"></label>
-        </section>
-        <section class="panel"><h3>Look</h3>
-          <div class="gfx-themes" role="radiogroup" aria-label="Colors">${Object.entries(GFX_THEMES).map(([k, t]) => {
-            const col = gfxColors({ ...g, theme: k });
-            return html`<label class="gfx-theme" title="${t.label}"><input type="radio" name="theme" value="${k}" ${attr(k === g.theme, "checked")}><span style="background:${col.bg};color:${col.ink}"><i style="background:${col.accent}"></i>Aa</span><small>${t.label}</small></label>`;
-          })}</div>
-          ${g.theme === "custom" ? html`<label class="field"><span>Color</span><input type="color" name="color" value="${okHex(g.color, "#3b5bdb")}"></label>` : ""}
           <label class="field"><span>Lettering</span><select name="font">${Object.entries(GFX_FONTS).map(([k, f]) => opt(k, g.font, f.label))}</select></label>
+        </section>
+        <section class="panel"><h3>Photo</h3>
           ${imageField("photo", "Photo (optional)", g.photo, g.layout === "split" ? "Fills one side." : g.layout === "band" ? "Fills the space above the color band." : "Goes behind the words, darkened so they're easy to read.", 2000)}
           ${g.photo && !["split", "band"].includes(g.layout) ? html`<label class="field"><span>Darken the photo</span><input type="range" name="dim" min="10" max="85" step="5" value="${g.dim ?? 45}"></label>` : ""}
-          <label class="field"><span>Decoration</span><select name="ornament">${opt("none", g.ornament, "None")}${Object.entries(GRAPHICS).map(([k, x]) => opt(k, g.ornament, x.label))}</select></label>
-          ${c.logo ? html`<label class="check"><input type="checkbox" name="logo" ${attr(g.logo, "checked")}><span>Church logo</span></label>` : html`<p class="faint">Add your logo in Admin, Landing page, and it can go on every graphic.</p>`}
+        </section>
+        <section class="panel"><h3>Colors</h3>
+          <div class="gfx-themes" role="radiogroup" aria-label="Color set">${Object.entries(GFX_THEMES).filter(([k]) => k !== "custom" || g.theme === "custom").map(([k, t]) => {
+            const tc = gfxColors({ ...g, theme: k, colors: {} });
+            return html`<label class="gfx-theme" title="${t.label}"><input type="radio" name="theme" value="${k}" ${attr(k === g.theme, "checked")}><span style="background:${tc.bg};color:${tc.ink}"><i style="background:${tc.accent}"></i>Aa</span><small>${t.label}</small></label>`;
+          })}</div>
+          <p class="faint">Picking a color set starts its colors fresh. Then change any of them below, including with the colors in your photo and logo.</p>
+          ${gfxSwatches(g, "bg", "Background", g.colors?.bg || "", col.bg)}
+          ${gfxSwatches(g, "ink", "Words", g.colors?.ink || "", col.ink)}
+          ${gfxSwatches(g, "accent", "Accent: small line, bars and frame", g.colors?.accent || "", col.accent)}
+          ${g.ornament && g.ornament !== "none" ? gfxSwatches(g, "orn", "Decoration", g.colors?.orn || "", col.orn) : ""}
+        </section>
+        <section class="panel"><h3>Logo</h3>
+          ${hasLogo ? html`<label class="check" style="margin-top:0"><input type="checkbox" name="logo" ${attr(g.logo, "checked")}><span>Show the logo</span></label>
+            ${g.logo ? html`<label class="field"><span>Which logo</span><select name="logoId">${opt("", g.logoId || "", "Account logo")}${bannerLogos.map((l) => opt(`b:${l.id}`, g.logoId, l.name || "Saved logo"))}${g.logoSrc ? opt("own", g.logoId, "This graphic's transparent copy") : ""}</select></label>
+            <div class="gfx-logo-row"><span class="gfx-logo-swatch"><img src="${gfxLogoSrc(g, c)}" alt="The logo in use"></span>
+              <button type="button" class="btn ghost sm" data-act="gfx-logo-clean">${icon("image")}Remove background</button></div>
+            <small class="faint">Makes a see-through copy for this graphic, and can turn the logo all white or all dark.</small>` : ""}`
+          : html`<p class="faint" style="margin:0">Add your logo in Admin, Landing page, and it can go on every graphic.</p>`}
+        </section>
+        <section class="panel"><h3>Graphics</h3>
+          <label class="field" style="margin-top:0"><span>Layout decoration</span><select name="ornament">${opt("none", g.ornament, "None")}${Object.entries(GRAPHICS).map(([k, x]) => opt(k, g.ornament, x.label))}</select></label>
+          ${(g.graphics || []).map((x) => html`<div class="gfx-added ${sel === `g:${x.id}` ? "sel" : ""}">
+            <div class="gfx-added-head"><img src="${x.kind === "image" ? x.src : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(GRAPHICS[x.builtin]?.svg(okHex(x.color, col.accent)) || "")}`}" alt=""><b>${gfxPieceLabel(g, `g:${x.id}`)}</b>
+              <button type="button" class="btn ghost sm" data-act="gfx-pick" data-key="g:${x.id}">Pick</button><button type="button" class="btn ghost sm danger" data-act="gfx-graphic-remove" data-gid="${x.id}" aria-label="Remove this graphic">${icon("trash")}</button></div>
+            ${x.kind === "image" ? "" : gfxSwatches(g, `g:${x.id}`, "Color", okHex(x.color, ""), "")}
+            <label class="range"><span>See-through</span><input type="range" name="op_${x.id}" min="10" max="100" step="5" value="${x.opacity ?? 100}"><output>${x.opacity ?? 100}%</output></label>
+          </div>`)}
+          <div class="gfx-add"><span class="faint">Add a graphic</span><div class="gfx-add-row">${Object.entries(GRAPHICS).map(([k, x]) => html`<button type="button" class="gfx-add-btn" data-act="gfx-graphic-add" data-builtin="${k}" title="${x.label}" aria-label="Add ${x.label}"><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(x.svg(okHex(c.color, "#3b5bdb")))}" alt=""></button>`)}
+            <label class="gfx-add-btn" title="Your own picture">${icon("upload")}<input type="file" accept="image/*" class="sr" data-change="gfx-graphic-upload" aria-label="Add your own picture"></label></div></div>
         </section>
         <section class="panel"><h3>QR code</h3>
           <label class="field" style="margin-top:0"><span>Opens</span><select name="qr">${opt("", qrCustom ? "~" : g.qr, "No QR code")}
@@ -570,48 +720,211 @@ Screens.graphic = (id) => {
           <div class="btns"><button type="button" class="btn ghost sm" data-act="gfx-copy">${icon("copy")}Make a copy</button><button type="button" class="btn ghost sm danger" data-act="gfx-delete">${icon("trash")}Delete</button></div>
         </section>
       </form></div>`,
-    after: () => gfxPaint(g.id),
+    after: () => { gfxPaint(g.id); gfxFillSwatches(g); },
   };
 };
 
+const gfxSel = { id: "", key: "" };
+/** The live preview: the design's pictures loaded once, so dragging and pinching redraw straight away. */
+const gfxLive = { id: "", assets: null, scale: 1 };
 let gfxPaintSeq = 0;
-/** Draws the big preview and the layout thumbnails. */
+/** Loads the pictures and draws the big preview and the layout thumbnails. */
 async function gfxPaint(id) {
   const g = S.get("graphics", id), seq = ++gfxPaintSeq; if (!g) return;
   const cv = $("#gfx-canvas"); if (!cv) return;
   const fm = GFX_FORMATS[g.format] || GFX_FORMATS.post, w = Math.min(fm.w, 1400);
-  const big = await gfxCanvas(g, { width: w });
+  // Redraw at once with the pictures already loaded, so the preview doesn't blink while new ones load.
+  if (gfxLive.id === id && gfxLive.assets) { gfxLive.scale = w / fm.w; cv.width = Math.round(fm.w * gfxLive.scale); cv.height = Math.round(fm.h * gfxLive.scale); gfxLive.assets.col = gfxColors(g); gfxRedraw(); }
+  const assets = await gfxAssets(g);
   if (seq !== gfxPaintSeq || !cv.isConnected) return;
-  cv.width = big.width; cv.height = big.height; cv.getContext("2d").drawImage(big, 0, 0);
+  Object.assign(gfxLive, { id, assets, scale: w / fm.w });
+  cv.width = Math.round(fm.w * gfxLive.scale); cv.height = Math.round(fm.h * gfxLive.scale);
+  gfxRedraw();
   cv.setAttribute("aria-label", [g.kicker, g.headline, g.body, g.details].filter(Boolean).join(". "));
   for (const mini of document.querySelectorAll("canvas[data-gfx-layout]")) {
-    const sm = await gfxCanvas({ ...g, layout: mini.dataset.gfxLayout }, { width: 200 });
+    const sm = await gfxCanvas({ ...g, layout: mini.dataset.gfxLayout, place: {}, graphics: g.graphics }, { width: 200 });
     if (seq !== gfxPaintSeq || !mini.isConnected) return;
     mini.width = sm.width; mini.height = sm.height; mini.getContext("2d").drawImage(sm, 0, 0);
   }
 }
+/** Redraws the preview from the loaded pictures (no waiting), with the selected piece outlined. */
+function gfxRedraw() {
+  const g = S.get("graphics", gfxLive.id), cv = $("#gfx-canvas");
+  if (!g || !cv || !gfxLive.assets) return;
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(gfxLive.scale, 0, 0, gfxLive.scale, 0, 0);
+  gfxDraw(ctx, g, gfxLive.assets, { sel: gfxSel.key });
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+/** Adds the photo's and logo's colors to every color row. */
+async function gfxFillSwatches(g) {
+  const from = [["photo", g.photo, "Photo"], ["logo", g.logo ? gfxLogoSrc(g) : "", "Logo"]];
+  for (const [k, src, label] of from) {
+    const colors = src ? await imageColors(src).catch(() => []) : [];
+    document.querySelectorAll(`.gfx-from[data-from="${k}"]`).forEach((box) => {
+      const row = box.closest("[data-gfx-colors]"), target = row?.dataset.gfxColors;
+      const cur = target?.startsWith("g:") ? okHex((S.get("graphics", g.id)?.graphics || []).find((x) => `g:${x.id}` === target)?.color, "") : S.get("graphics", g.id)?.colors?.[target] || "";
+      box.innerHTML = colors.length ? flat(html`<span class="gfx-from-k">${label}</span>${colors.map((col) => html`<button type="button" class="cp-swatch ${cur === col ? "on" : ""}" style="background:${col}" data-act="gfx-color" data-target="${target}" data-color="${col}" aria-label="${label} color ${col}" aria-pressed="${cur === col}"></button>`)}`) : "";
+    });
+  }
+}
 
 let gfxSaveTimer = 0;
+const gfxSave = (g) => { g.updatedAt = new Date().toISOString(); clearTimeout(gfxSaveTimer); gfxSaveTimer = setTimeout(() => S.update("graphics", g.id, {}), 400); };
+/** Re-render without moving the page: the editor is long, and a redraw shouldn't scroll it. */
+const gfxRerender = () => { const y = scrollY; keepFocus(render); scrollTo(0, y); };
+
 /** Every change saves and redraws. Choices that change the controls themselves redraw the screen. */
 Inputs.gfx = (form, e) => {
   const el = e?.target || form, f = form.closest("form") || form, g = S.get("graphics", f?.dataset.id); if (!g || el.name === "ref") return;
-  const v = (n) => f.elements[n]?.value ?? g[n];
+  const n = el.name || "";
+  // Color pickers, size and turn of the selected piece, and how see-through an added graphic is.
+  if (n.startsWith("c_")) return gfxSetColor(g, n.slice(2), el.value, e.type === "change");
+  if (n === "selSize" || n === "selTurn") {
+    const key = gfxSel.key; if (!key || gfxLocked(g, key)) return;
+    const v = +el.value; if (el.nextElementSibling) el.nextElementSibling.textContent = n === "selTurn" ? `${v}°` : `${v}%`;
+    const p = gfxEnsurePlace(g, key);
+    if (n === "selTurn") p.r = v; else if (key.startsWith("g:")) p.size = v; else p.s = v / 100;
+    gfxSave(g); gfxRedraw(); return;
+  }
+  if (n.startsWith("op_")) { const x = (g.graphics || []).find((y) => y.id === n.slice(3)); if (x) { x.opacity = +el.value; if (el.nextElementSibling) el.nextElementSibling.textContent = `${el.value}%`; gfxSave(g); gfxRedraw(); } return; }
+  const v = (k) => f.elements[k]?.value ?? g[k];
   const patch = {
     format: f.querySelector("[name=format]:checked")?.value || g.format, layout: f.querySelector("[name=layout]:checked")?.value || g.layout,
-    theme: f.querySelector("[name=theme]:checked")?.value || g.theme, color: v("color"), font: v("font"), photo: v("photo"), dim: +(v("dim") ?? 45),
-    ornament: v("ornament"), logo: f.elements.logo ? f.elements.logo.checked : g.logo, kicker: v("kicker"), headline: v("headline"), body: v("body"),
-    details: v("details"), footer: v("footer"), title: v("title") || g.title,
+    theme: f.querySelector("[name=theme]:checked")?.value || g.theme, font: v("font"), photo: v("photo"), dim: +(v("dim") ?? 45),
+    ornament: v("ornament"), logo: f.elements.logo ? f.elements.logo.checked : g.logo, logoId: f.elements.logoId ? f.elements.logoId.value : g.logoId,
+    kicker: v("kicker"), headline: v("headline"), body: v("body"), details: v("details"), footer: v("footer"), title: v("title") || g.title,
   };
   const qrSel = v("qr");
   patch.qr = qrSel === "~" ? (isUrl(f.elements.qrUrl?.value) ? f.elements.qrUrl.value.trim() : "~") : qrSel;
-  const structural = ["format", "layout", "theme", "qr"].includes(el.name) || el.name === "photo" && !!patch.photo !== !!g.photo;
-  Object.assign(g, patch, { updatedAt: new Date().toISOString() });
-  clearTimeout(gfxSaveTimer); gfxSaveTimer = setTimeout(() => S.update("graphics", g.id, {}), 500);
-  if (structural) return keepFocus(render);
-  gfxPaint(g.id);
+  // A new color set starts its colors fresh.
+  if (n === "theme") patch.colors = {};
+  const structural = ["format", "layout", "theme", "qr", "logo", "logoId", "ornament"].includes(n) || n === "photo" && !!patch.photo !== !!g.photo;
+  const reload = structural || n === "photo" || n === "font";
+  Object.assign(g, patch); gfxSave(g);
+  if (structural) return gfxRerender();
+  if (n === "photo") gfxFillSwatches(g);
+  if (reload) return gfxPaint(g.id);
+  gfxRedraw();
 };
 Forms.gfx = () => {};
 Forms["gfx-pick"] = () => {};
+
+/** Sets one of the design's colors (or an added graphic's), from a swatch or the picker. */
+function gfxSetColor(g, target, color, rerender = true) {
+  if (target.startsWith("g:")) { const x = (g.graphics || []).find((y) => `g:${y.id}` === target); if (!x) return; x.color = color || ""; }
+  else { g.colors = { ...(g.colors || {}) }; if (color) g.colors[target] = color; else delete g.colors[target]; }
+  gfxSave(g);
+  if (rerender) gfxRerender(); else gfxPaint(g.id);
+}
+Actions["gfx-color"] = (el) => { const g = gfxCurrent(); if (g) gfxSetColor(g, el.dataset.target, el.dataset.color); };
+
+// ----- Arranging: pick, drag, pinch, lock -----
+/** The place record for a piece, starting from where the layout put it. */
+function gfxEnsurePlace(g, key) {
+  if (key.startsWith("g:")) return (g.graphics || []).find((x) => `g:${x.id}` === key);
+  g.place = { ...(g.place || {}) };
+  if (!g.place[key]) { const b = gfxLive.assets?.boxes?.find((x) => x.key === key); g.place[key] = { x: b?.home.x ?? 0.5, y: b?.home.y ?? 0.5, s: 1, r: 0 }; }
+  return g.place[key];
+}
+function gfxSelect(key) {
+  gfxSel.key = key;
+  gfxRerender();
+}
+Actions["gfx-pick"] = (el) => gfxSelect(gfxSel.key === el.dataset.key ? "" : el.dataset.key);
+Actions["gfx-lock"] = (el) => {
+  const g = gfxCurrent(); if (!g) return;
+  const p = gfxEnsurePlace(g, el.dataset.key); p.locked = !p.locked; gfxSave(g); gfxRerender();
+  toast(p.locked ? "Locked in place" : "Unlocked");
+};
+Actions["gfx-lock-all"] = () => { const g = gfxCurrent(); if (!g) return; g.locked = !g.locked; gfxSave(g); gfxRerender(); toast(g.locked ? "Everything is locked" : "Unlocked"); };
+Actions["gfx-place-auto"] = (el) => {
+  const g = gfxCurrent(); if (!g) return;
+  if (el.dataset.key === "*") g.place = Object.fromEntries(Object.entries(g.place || {}).filter(([, p]) => p.locked));
+  else { g.place = { ...(g.place || {}) }; delete g.place[el.dataset.key]; }
+  gfxSave(g); gfxRerender();
+};
+/** The piece under a point on the preview, topmost first. */
+function gfxHit(ev) {
+  const cv = $("#gfx-canvas"), g = S.get("graphics", gfxLive.id); if (!cv || !g || !gfxLive.assets?.boxes) return null;
+  const r = cv.getBoundingClientRect(), fm = GFX_FORMATS[g.format] || GFX_FORMATS.post;
+  // The canvas keeps its shape inside its box, so map through the drawn area.
+  const k = Math.min(r.width / fm.w, r.height / fm.h), ox = r.left + (r.width - fm.w * k) / 2, oy = r.top + (r.height - fm.h * k) / 2;
+  const x = (ev.clientX - ox) / k, y = (ev.clientY - oy) / k, slop = Math.min(fm.w, fm.h) * 0.015;
+  const box = [...gfxLive.assets.boxes].reverse().find((b) => x >= b.x - slop && x <= b.x + b.w + slop && y >= b.y - slop && y <= b.y + b.h + slop);
+  return { box, x, y, k, fm };
+}
+document.addEventListener("pointerdown", (e) => {
+  if (!e.target.closest?.("#gfx-canvas") || e.button > 0 || Pinch.active) return;
+  const hit = gfxHit(e), g = S.get("graphics", gfxLive.id); if (!hit || !g) return;
+  if (!hit.box) { if (gfxSel.key) gfxSelect(""); return; }
+  const key = hit.box.key;
+  if (gfxLocked(g, key)) { if (gfxSel.key !== key) gfxSelect(key); toast(g.locked ? "Everything is locked. Unlock it in Arrange." : "That's locked. Unlock it to move it."); return; }
+  e.preventDefault();
+  const x0 = e.clientX, y0 = e.clientY;
+  let moved = false, pinched = false, start = null;
+  if (gfxSel.key !== key) { gfxSel.key = key; gfxRedraw(); }
+  const move = (ev) => {
+    if (Pinch.active || pinched) { pinched = true; return; }
+    if (!moved && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 4) return;
+    if (!moved) { const p = gfxEnsurePlace(g, key); start = { x: p.x ?? 0.5, y: p.y ?? 0.5 }; moved = true; }
+    const p = gfxEnsurePlace(g, key);
+    p.x = clampN(start.x + (ev.clientX - x0) / hit.k / hit.fm.w, 0, 1); p.y = clampN(start.y + (ev.clientY - y0) / hit.k / hit.fm.h, 0, 1);
+    gfxRedraw();
+  };
+  const up = () => {
+    document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); document.removeEventListener("pointercancel", up);
+    if (moved) { const p = gfxEnsurePlace(g, key); p.x = Math.round(p.x * 1000) / 1000; p.y = Math.round(p.y * 1000) / 1000; gfxSave(g); }
+    if (!pinched && !Pinch.active) gfxRerender();
+  };
+  document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up);
+});
+// Two fingers on the preview resize the picked piece (and turn the logo, decoration and added graphics).
+onPinch(".gfx-preview", {
+  start(target) {
+    const g = S.get("graphics", gfxLive.id); if (!g) return null;
+    const key = gfxSel.key;
+    if (!key) { toast("Tap a piece first, then pinch it"); return null; }
+    if (gfxLocked(g, key)) { toast("That's locked. Unlock it to resize it."); return null; }
+    const p = gfxEnsurePlace(g, key);
+    return { g, key, p, size: key.startsWith("g:") ? p.size || 20 : p.s ?? 1, r: p.r || 0, turns: key === "orn" || key === "logo" || key.startsWith("g:") };
+  },
+  change(st, scale, turn) {
+    if (st.key.startsWith("g:")) st.p.size = Math.round(clampN(st.size * scale, 3, 120));
+    else st.p.s = Math.round(clampN(st.size * scale, 0.4, 2.5) * 100) / 100;
+    if (st.turns) { let r = Math.round(st.r + turn); if (Math.abs(r % 90) < 5 || Math.abs(r % 90) > 85) r = Math.round(r / 90) * 90; st.p.r = ((r + 540) % 360) - 180; }
+    gfxRedraw();
+  },
+  end(st) { if (st) { gfxSave(st.g); gfxRerender(); } },
+});
+
+// ----- Added graphics and the logo -----
+Actions["gfx-graphic-add"] = (el) => {
+  const g = gfxCurrent(); if (!g) return;
+  const x = { id: uid(), kind: "builtin", builtin: el.dataset.builtin, color: gfxColors(g).accent, x: 0.5, y: 0.35, size: 22, r: 0, opacity: 100 };
+  g.graphics = [...(g.graphics || []), x]; gfxSel.key = `g:${x.id}`; gfxSave(g); gfxRerender();
+  toast("Added. Drag it where you want it.");
+};
+Inputs["gfx-graphic-upload"] = async (el) => {
+  const g = gfxCurrent(), file = el.files?.[0]; if (!g || !file) return;
+  try {
+    const src = await readImage(file, 1000, 0.9, { preserveTransparency: true });
+    const x = { id: uid(), kind: "image", src, x: 0.5, y: 0.4, size: 30, r: 0, opacity: 100 };
+    g.graphics = [...(g.graphics || []), x]; gfxSel.key = `g:${x.id}`; gfxSave(g); gfxRerender();
+  } catch { toast("That picture couldn't be opened. Try a PNG or JPEG."); }
+};
+Actions["gfx-graphic-remove"] = (el) => {
+  const g = gfxCurrent(); if (!g) return;
+  g.graphics = (g.graphics || []).filter((x) => x.id !== el.dataset.gid); if (gfxSel.key === `g:${el.dataset.gid}`) gfxSel.key = "";
+  gfxSave(g); gfxRerender();
+};
+Actions["gfx-logo-clean"] = (button) => {
+  const g = gfxCurrent(); if (!g) return;
+  const src = gfxLogoSrc(g), id = g.id;
+  openLogoCleaner({ src, button, name: g.logoId === "own" ? "This graphic's logo" : "Logo",
+    active: () => !!S.get("graphics", id),
+    onSave: (name, result) => { const x = S.get("graphics", id); if (!x) return; Object.assign(x, { logoSrc: result, logoId: "own" }); gfxSave(x); gfxRerender(); toast("The see-through logo is on this graphic"); } });
+};
 
 Actions["gfx-fill"] = (el) => {
   const f = el.closest("form"), t = f.elements.details, c = S.church();

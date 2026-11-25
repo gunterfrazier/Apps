@@ -782,3 +782,35 @@ select { max-width: 100%; text-overflow: ellipsis; }
   .gfx-preview { width: auto; max-width: 100%; height: 30vh; max-height: 30vh; }
 }
 
+.gfx-preview canvas.movable { touch-action: none; cursor: grab; }
+.gfx-controls .img-colors { display: none; } /* photo colors show as color options below, not as church colors */
+.gfx-pieces .row { display: flex; align-items: center; gap: 8px; }
+.gfx-pieces .row.sel { background: var(--brand-soft); border-radius: var(--r-m); }
+.gfx-piece-pick { all: unset; display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; padding: 4px 0; }
+.gfx-piece-pick:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
+.gfx-sel-tools { display: grid; gap: 6px; margin: 10px 0; padding: 10px 12px; border-radius: var(--r-m); background: var(--sunken); }
+.gfx-color-row { display: grid; gap: 6px; margin-top: 12px; }
+.gfx-color-k { font-size: .86rem; font-weight: 600; color: var(--ink-2); }
+.gfx-swatch-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gfx-swatch-row .cp-swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; }
+.gfx-swatch-row .cp-swatch.on { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--brand); }
+.gfx-from { display: contents; }
+.gfx-from-k { font-size: .72rem; color: var(--ink-3); margin-left: 6px; }
+.gfx-auto { font: 600 .78rem/1 inherit; padding: 8px 10px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.gfx-auto.on { border-color: var(--brand); background: var(--brand-soft); }
+.gfx-custom { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1.5px dashed var(--ink-3); cursor: pointer; color: var(--ink-2); }
+.gfx-custom input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.gfx-custom .i { width: 16px; height: 16px; }
+.gfx-logo-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.gfx-logo-swatch { display: grid; place-items: center; width: 84px; height: 56px; border-radius: 10px; background: repeating-conic-gradient(rgba(127,127,127,.18) 0 25%, transparent 0 50%) 0 0 / 12px 12px; }
+.gfx-logo-swatch img { max-width: 76px; max-height: 48px; }
+.gfx-added { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-m); }
+.gfx-added.sel { border-color: var(--brand); }
+.gfx-added-head { display: flex; align-items: center; gap: 8px; }
+.gfx-added-head img { width: 34px; height: 34px; object-fit: contain; border-radius: 6px; background: var(--sunken); padding: 3px; }
+.gfx-added-head b { flex: 1; }
+.gfx-add { margin-top: 14px; display: grid; gap: 6px; }
+.gfx-add-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.gfx-add-btn { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--sunken); cursor: pointer; color: var(--ink-2); }
+.gfx-add-btn img { width: 28px; height: 28px; }
+.gfx-add-btn:hover { border-color: var(--brand-line); }
