@@ -1,0 +1,117 @@
+# Deploys Our Faithful Church App's Supabase Edge Functions from main, so what runs on the server is what's in the repo.
+#
+# On every push to main that changes church-platform/supabase/functions, it redeploys each function the change touches:
+# a function whose own folder changed, or one that uses a changed file in _shared (directly or through another shared
+# file). Only functions already on the project are redeployed this way; a new one is added by running this workflow by
+# hand with its name, so turning on a new server feature stays a choice.
+#
+# Run it by hand from the Actions tab to deploy named functions ("push kiosk"), or "all" to redeploy every function
+# that's already on the project.
+#
+# Setup, once (SETUP.md, "Deploying the server functions"):
+#   Secret   SUPABASE_ACCESS_TOKEN   a personal access token from supabase.com, Account, Access Tokens
+#   Variable SUPABASE_PROJECT_REF    optional: the project's ID; otherwise it's read from church-platform/public/config.js
+# Without the token the workflow says so and stops, without failing.
+# Database changes (supabase/upgrade-N.sql) are not run here: they still go through the SQL editor, as SETUP.md says.
+name: Deploy Supabase functions
+on:
+  workflow_dispatch:
+    inputs:
+      functions:
+        description: 'Functions to deploy, separated by spaces, or "all" for every function already on the project'
+        required: true
+        default: all
+  push:
+    branches: [main]
+    paths: ["church-platform/supabase/functions/**", "church-platform/supabase/config.toml"]
+permissions:
+  contents: read
+concurrency:
+  group: supabase-functions
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: church-platform
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.4.0   # pinned: the CLI's flags change between major versions
+      - name: Which project
+        id: project
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::warning::SUPABASE_ACCESS_TOKEN isn't set, so nothing was deployed. See SETUP.md, Deploying the server functions."
+            echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          ref="${{ vars.SUPABASE_PROJECT_REF }}"
+          [ -n "$ref" ] || ref=$(grep -oE 'https://[a-z0-9]+\.supabase\.co' public/config.js | head -1 | sed -E 's#https://([a-z0-9]+)\.supabase\.co#\1#')
+          if [ -z "$ref" ]; then echo "::error::No project ID: set the SUPABASE_PROJECT_REF variable or supabaseUrl in public/config.js."; exit 1; fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - name: Which functions
+        id: pick
+        if: steps.project.outputs.skip != '1'
+        env:
+          REF: ${{ steps.project.outputs.ref }}
+          WANT: ${{ github.event_name == 'workflow_dispatch' && inputs.functions || '' }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          # The functions already on the project (Management API: a JSON list with each function's slug).
+          curl -fsS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com/v1/projects/$REF/functions" > /tmp/deployed.json
+          if [ -n "$WANT" ]; then changed=""; else
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then BEFORE="$AFTER~1"; fi
+            git diff --name-only "$BEFORE" "$AFTER" -- supabase > /tmp/changed.txt
+            changed=$(cat /tmp/changed.txt)
+          fi
+          WANT="$WANT" CHANGED="$changed" node -e '
+            const fs = require("fs"), path = require("path"), dir = "supabase/functions";
+            const deployed = new Set(JSON.parse(fs.readFileSync("/tmp/deployed.json", "utf8")).map((f) => f.slug || f.name));
+            const fns = fs.readdirSync(dir).filter((d) => d !== "_shared" && fs.existsSync(path.join(dir, d, "index.ts")));
+            // Each function and the _shared files it uses, following shared files that import other shared files.
+            const shared = (file, seen = new Set()) => {
+              for (const m of fs.readFileSync(file, "utf8").matchAll(/from\s+["\x27](\.\.\/_shared\/|\.\/)([\w.-]+\.ts)["\x27]/g)) {
+                const f = path.join(dir, "_shared", m[2]);
+                if (fs.existsSync(f) && !seen.has(m[2])) { seen.add(m[2]); shared(f, seen); }
+              }
+              return seen;
+            };
+            const want = (process.env.WANT || "").trim().split(/\s+/).filter(Boolean);
+            let out;
+            if (want.length) {
+              out = want.includes("all") ? fns.filter((f) => deployed.has(f)) : want;
+              const unknown = out.filter((f) => !fns.includes(f));
+              if (unknown.length) { console.error(`No such function in the repo: ${unknown.join(", ")}`); process.exit(1); }
+            } else {
+              const changed = (process.env.CHANGED || "").split("\n").filter(Boolean);
+              const cfg = changed.includes("supabase/config.toml");
+              const sharedChanged = changed.filter((c) => c.startsWith(`${dir}/_shared/`)).map((c) => path.basename(c));
+              out = fns.filter((f) => deployed.has(f) && (cfg || changed.some((c) => c.startsWith(`${dir}/${f}/`))
+                || sharedChanged.some((s) => shared(path.join(dir, f, "index.ts")).has(s))));
+              const skipped = fns.filter((f) => !deployed.has(f) && changed.some((c) => c.startsWith(`${dir}/${f}/`)));
+              if (skipped.length) console.log(`::notice::Not on the project yet, so not deployed: ${skipped.join(", ")}. Run this workflow by hand to add them.`);
+            }
+            console.log(`Deploying: ${out.join(" ") || "nothing"}`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `list=${out.join(" ")}\n`);
+          '
+      - name: Deploy
+        if: steps.project.outputs.skip != '1' && steps.pick.outputs.list != ''
+        env:
+          REF: ${{ steps.project.outputs.ref }}
+          LIST: ${{ steps.pick.outputs.list }}
+        run: |
+          failed=""
+          for f in $LIST; do
+            echo "::group::$f"
+            supabase functions deploy "$f" --remote="$REF" --use-api --yes || failed="$failed $f"
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then echo "::error::These didn't deploy:$failed"; exit 1; fi
+          echo "Deployed: $LIST" >> "$GITHUB_STEP_SUMMARY"
