@@ -338,6 +338,17 @@ on a computer, the presenter opens in the **Booth** view:
   computer.
 - Slideshow, Scroll and Stage views are still there, and turning Booth mode off brings everything back as it was.
 
+## Looks per screen
+
+Each audience screen can have its own look:
+- **Full slides**: the slides as designed. This is the default.
+- **Words only, on black**: no photo or motion backgrounds.
+- **Lower third, on black**: only the words, at the bottom. Use it for a video switcher's luma key or a confidence feed.
+- **Lower third, on green**: the same, for a chroma key.
+
+Set it per paired display under **Devices** (the display's **Look**), or per display on the booth computer under
+**Set up screens**. Logos, title slides and media stay off the lower-third looks.
+
 ## Cues in Booth mode
 
 In the Booth view, each part of a service plan has a **Cue** button on its heading in the slide list. A part's cues

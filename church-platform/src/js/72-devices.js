@@ -68,7 +68,7 @@ function deviceSummary(d) {
   if (d.type === "signage") return S.get("signage", s.playlistId)?.name ? `Plays ${S.get("signage", s.playlistId).name}` : "No playlist chosen";
   if (d.type === "room") { const pl = S.get("signage", s.playlistId)?.name;
     return `${s.room || "No room chosen"}. When no one is presenting, ${s.idle === "mirror" ? "it shows what the main screens show" : pl ? `it plays ${pl}` : "it shows the church's logo"}`; }
-  if (["display", "stage", "overlay"].includes(d.type)) return `Follows the booth${s.idlePlaylistId && S.get("signage", s.idlePlaylistId) ? `, ${S.get("signage", s.idlePlaylistId).name} between services` : ""}`;
+  if (["display", "stage", "overlay"].includes(d.type)) return `${d.type === "display" && s.look && s.look !== "full" ? `${lookName(s.look)}. ` : ""}Follows the booth${s.idlePlaylistId && S.get("signage", s.idlePlaylistId) ? `, ${S.get("signage", s.idlePlaylistId).name} between services` : ""}`;
   if (d.type === "kiosk") return s.kioskMode === "wayfind" ? `Campus map: find your way${s.mapSpot ? ` from ${mapSpotName(s.mapSpot)}` : ""}` : `${LABEL_SIZES[s.labelSize || "4x2"][0].split(" (")[0]} tags${s.kioskMode === "both" ? ", and the campus map" : ""}${s.exitPin ? ", exit code set" : ""}`;
   return "";
 }
@@ -89,6 +89,7 @@ function deviceForm(d = { type: "signage", settings: {} }) {
       <label class="check"><input type="checkbox" name="hint" ${attr(s.hint !== false, "checked")}><span>Show the room's name and a QR code teachers can scan to start presenting</span></label></div>
     <div class="dev-opt" data-for="signage" ${attr(d.type !== "signage", "hidden")}><label class="field"><span>Playlist</span><select name="playlistId"><option value="">Choose a playlist</option>${lists.map((p) => html`<option value="${p.id}" ${attr(p.id === s.playlistId, "selected")}>${p.name}</option>`)}</select>${!lists.length ? html`<small><a href="#signs">Make a playlist first</a></small>` : ""}</label></div>
     <div class="dev-opt" data-for="display stage overlay" ${attr(!["display", "stage", "overlay"].includes(d.type), "hidden")}><label class="field"><span>Between services, show</span><select name="idlePlaylistId"><option value="">The church's logo</option>${lists.map((p) => html`<option value="${p.id}" ${attr(p.id === s.idlePlaylistId, "selected")}>${p.name} (signage)</option>`)}</select><small>Switches to the booth's slides as soon as it starts presenting${d.locationId ? "" : " at this location"}.</small></label></div>
+    <div class="dev-opt" data-for="display" ${attr(d.type !== "display", "hidden")}><label class="field"><span>Look</span><select name="look">${SCREEN_LOOKS.map(([v, l]) => html`<option value="${v}" ${attr(v === (s.look || "full"), "selected")}>${l}</option>`)}</select><small>Lower thirds show only the words, for a video switcher's key or a livestream screen.</small></label></div>
     <div class="dev-opt" data-for="kiosk" ${attr(d.type !== "kiosk", "hidden")}><label class="field"><span>Label size</span><select name="labelSize">${Object.entries(LABEL_SIZES).map(([k, [l]]) => html`<option value="${k}" ${attr(k === (s.labelSize || "4x2"), "selected")}>${l}</option>`)}</select></label></div>
     ${scheduleFields(d)}
     ${deviceMapFields(d)}
@@ -115,7 +116,7 @@ Forms["device-save"] = (d, f) => {
   if (d.exitPin && !/^\d{4,6}$/.test(d.exitPin)) return formError(f, "The exit code should be 4 to 6 digits.");
   if (d.type === "signage" && !d.playlistId) return formError(f, "Choose the playlist it plays.");
   if (d.type === "room" && !d.roomKey) return formError(f, "Choose the room it's in.");
-  let settings = { playlistId: d.playlistId || null, idlePlaylistId: d.idlePlaylistId || null, labelSize: d.labelSize || "4x2", exitPin: d.exitPin || "" }, locationId = d.locationId || null;
+  let settings = { playlistId: d.playlistId || null, idlePlaylistId: d.idlePlaylistId || null, labelSize: d.labelSize || "4x2", exitPin: d.exitPin || "", ...(d.type === "display" && d.look && d.look !== "full" ? { look: d.look } : {}) }, locationId = d.locationId || null;
   if (d.type === "room") { const i = d.roomKey.indexOf("~"); locationId = d.roomKey.slice(0, i); settings = { room: d.roomKey.slice(i + 1), idle: d.idle === "mirror" ? "mirror" : "signage", playlistId: d.roomPlaylistId || null, hint: !!d.hint, exitPin: d.exitPin || "" }; }
   Object.assign(settings, deviceMapSettings(d));
   const sched = scheduleFromForm(d); if (sched.error) return formError(f, sched.error);
@@ -333,7 +334,7 @@ function idleHtml(kind, playlistId = devicePlaylistNow(thisDevice())) {
 function drawFollow(kind) {
   const m = follow.msg, data = m && routeData(m.key), app = $("#app");
   applyBrand();
-  if (kind !== "stage" && kind !== "overlay" && mediaDraw(app, m)) return;   // a video, website or file in place of the slides
+  if (kind !== "stage" && kind !== "overlay" && !(kind === "display" && ["lower", "green"].includes(screenLook())) && mediaDraw(app, m)) return;   // a video, website or file in place of the slides
   if (!data) {
     app.innerHTML = flat(html`${idleHtml(kind)}${deviceExitBtn()}`);
     // Between services the playlist (and its schedule) keeps moving.
@@ -344,8 +345,9 @@ function drawFollow(kind) {
   if (kind === "stage") { stageRedraw = () => drawFollow("stage"); app.innerHTML = flat(html`${stageMonitor(data, st, true)}${deviceExitBtn()}`); }
   else if (kind === "overlay") app.innerHTML = flat(html`<div class="ov-frame">${overlayHtml(liveAt(data.slides, st).cur, st)}</div>${deviceExitBtn()}`);
   else {
-    const s = st.black ? { kind: "black" } : st.logo ? { kind: "logo" } : timedSlide(liveAt(data.slides, st).cur, st.segAt);
-    const out = flat(html`<div class="display"><div class="stage">${slideHtml(s)}</div></div>${deviceExitBtn()}`);
+    const look = screenLook(), cur = liveAt(data.slides, st).cur;
+    const s = st.black ? { kind: "black" } : st.logo ? { kind: "logo" } : timedSlide(cur, st.segAt);
+    const out = flat(html`${look === "lower" || look === "green" ? lookHtml(look, cur, st) : lookHtml(look, s, st)}${deviceExitBtn()}`);
     // A video that's already playing keeps playing when the presenter's next message shows the same slide.
     if (out === app.dataset.shown && app.querySelector(".slide-video[data-live]")) return;
     swapWithFade(app, out, st.fade || 0);
