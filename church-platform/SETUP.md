@@ -297,28 +297,27 @@ Good to know:
 
 ## Deploying the server functions from GitHub
 
-The **Deploy Supabase functions** workflow (`.github/workflows/supabase-functions.yml`) keeps the server's edge
-functions the same as main. Each time main changes a function, it redeploys that function, and a change to a file in
-`_shared` redeploys every function that uses it. It only redeploys functions already on the project; to add a new one,
-run the workflow by hand with its name. Database changes (`upgrade-N.sql`) still go through the SQL editor.
+The server functions deploy from main through Supabase's **GitHub integration** (Project Settings, Integrations,
+GitHub). Its settings:
 
-Set it up once:
+- **Repository:** gunterfrazier/Apps. **Working directory:** `church-platform`, the folder that holds `supabase/`.
+  Never `veritas-logos`: that folder's `supabase/migrations` belong to the Veritas Logos project.
+- **Deploy to production:** on, with **main** as the production branch.
 
-1. In Supabase, open your account menu, then **Account preferences, Access Tokens**, and generate a token. Name it
-   something like "GitHub deploys".
-2. In GitHub, open the repository's **Settings, Secrets and variables, Actions**, and add a repository secret named
-   `SUPABASE_ACCESS_TOKEN` with the token.
-3. The project's ID is read from `public/config.js`. To deploy somewhere else, add a variable `SUPABASE_PROJECT_REF`.
-4. To deploy now, open **Actions, Deploy Supabase functions, Run workflow**. Leave "all" to redeploy every function
-   that's on the project, or name some (`push kiosk`).
+Each merge into main deploys every function listed in `supabase/config.toml`. A function in `supabase/functions` that
+isn't listed there doesn't deploy, so a new function needs a `[functions.name]` entry with `verify_jwt = false`.
+Database changes are not deployed this way: the church app has no `supabase/migrations` folder, so `upgrade-N.sql`
+still goes through the SQL editor.
 
-Without the secret, the workflow skips deploying and leaves a note on the run.
+There's also a GitHub workflow, **Deploy Supabase functions** (`.github/workflows/supabase-functions.yml`), that
+deploys only the functions a change touches. It stays idle until the repository secret `SUPABASE_ACCESS_TOKEN` is set.
+Use one or the other: with the token set, turn off **Deploy to production** in the integration.
 
 ## Time zones (version 27)
 
 For an existing project, run `supabase/upgrade-27.sql` after version 26, then deploy the edge functions again
 (`reminders`, `kiosk`, `ticket-receipt`, `push`, `church-lifecycle`, and the ones that use `_shared/settle.ts`).
-The **Deploy Supabase functions** workflow does that: run it with "all".
+Merging into main does that through the GitHub integration (Deploying the server functions from GitHub).
 
 - Each church sets its time zone under **Admin, Account details**. A campus in another zone sets its own under
   **Admin, Locations**. New churches start with the zone of the phone or computer that registered them.
