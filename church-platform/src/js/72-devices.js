@@ -348,7 +348,7 @@ function drawFollow(kind) {
     const out = flat(html`<div class="display"><div class="stage">${slideHtml(s)}</div></div>${deviceExitBtn()}`);
     // A video that's already playing keeps playing when the presenter's next message shows the same slide.
     if (out === app.dataset.shown && app.querySelector(".slide-video[data-live]")) return;
-    app.innerHTML = out; app.dataset.shown = out;
+    swapWithFade(app, out, st.fade || 0);
   }
 }
 let followTimer = 0;

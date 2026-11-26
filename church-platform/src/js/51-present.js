@@ -162,7 +162,8 @@ function slideHtml(s, c = S.church()) {
 }
 
 // live: a song section the operator picked that isn't next in the plan ({ label, i, returnTo, slides }). It plays, then the plan carries on after returnTo.
-const pres = { key: "", index: 0, live: null, black: false, logo: false, mode: "slideshow", segKey: "", segAt: 0, startedAt: 0, msg: "", cc: false, captions: "", transcript: [] };
+const presListAt = { here: "", top: 0 };
+const pres = { key: "", index: 0, live: null, black: false, logo: false, mode: "slideshow", cue: null, fade: 0, modeChosen: false, segKey: "", segAt: 0, startedAt: 0, msg: "", cc: false, captions: "", transcript: [] };
 /** What's on screen and what comes next, including a song section picked on the fly. Followers use this too. */
 function liveAt(slides, st) {
   const L = st?.live;
@@ -194,7 +195,7 @@ function presBroadcast() {
       }
     }
   } catch {}
-  const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, live: pres.live, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "", media: pres.media ? { ...pres.media } : null };
+  const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, live: pres.live, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "", media: pres.media ? { ...pres.media } : null, fade: pres.mode === "booth" ? pres.fade : 0 };
   // Presenting in a room: only that room's display hears it, on the room's own channel.
   if (pres.room) { Object.assign(msg, { room: pres.room.token, loc: pres.room.loc, msg: "", captions: "" }); try { presChannel?.postMessage(msg); } catch {} if (Backend.on) Backend.broadcast(msg, roomTopic(pres.room.token)); return; }
   try { presChannel?.postMessage(msg); } catch {}
@@ -217,7 +218,11 @@ Screens.present = (tail) => {
   const item = S.get(kind === "doc" ? "docs" : "services", id);
   const data = item?.churchId === S.state.current ? slidesFor(kind, id) : null;
   if (!data || !S.isMember() || !(S.can("present") || (kind === "doc" && canEditDoc(S.get("docs", id))) || (pres.room && pres.key === tail))) return { redirect: "ministry" };
-  if (pres.key !== tail) Object.assign(pres, { key: tail, index: 0, live: null, black: false, logo: false, msg: "", startedAt: Date.now(), segKey: "" });
+  if (pres.key !== tail) {
+    Object.assign(pres, { key: tail, index: 0, live: null, black: false, logo: false, msg: "", startedAt: Date.now(), segKey: "", cue: null });
+    // Churches trying Booth mode open in the Booth view on a computer, unless the operator picked another view.
+    if (boothOn() && !pres.room && !pres.modeChosen && innerWidth >= 1000) pres.mode = "booth";
+  }
   const { slides } = data;
   pres.index = clamp(pres.index, 0, slides.length - 1);
   // Each part of the service gets its own timer, starting when its first slide comes up.
@@ -230,15 +235,16 @@ Screens.present = (tail) => {
   // have stage displays, so lessons leave them out unless the lesson says it's taught there (Details).
   const noStage = inRoom || (kind === "doc" && !stageToolsOn(item));
   if (noStage && pres.mode === "stage") pres.mode = "slideshow";
-  const stageMode = pres.mode === "stage";
+  if (pres.mode === "booth" && (inRoom || !boothOn())) pres.mode = "slideshow";
+  const stageMode = pres.mode === "stage", boothMode = pres.mode === "booth";
   let lastSection = null;
   return {
     present: true,
-    page: html`<div class="present ${stageMode ? "operator-stage" : pres.mode}">
+    page: html`<div class="present ${stageMode ? "operator-stage" : pres.mode}${boothMode ? " booth-mode" : ""}">
       <header class="present-bar"><a class="icon-btn" href="#${thisDevice() ? "booth" : inRoom ? `roompresent-${roomKey(pres.room.loc, pres.room.room)}` : data.back}" aria-label="Back">${icon("back")}</a><b class="present-title">${data.title}</b>
-        <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a>${noStage ? "" : html`<a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a>`}</nav></header>
+        <nav class="seg" style="margin:0;flex:none" aria-label="Mode"><a href="#present-${tail}" data-act="pres-mode" data-mode="slideshow" ${attr(pres.mode === "slideshow", 'aria-current="page"')}>Slideshow</a><a href="#present-${tail}" data-act="pres-mode" data-mode="scroll" ${attr(pres.mode === "scroll", 'aria-current="page"')}>Scroll</a>${noStage ? "" : html`<a href="#present-${tail}" data-act="pres-mode" data-mode="stage" ${attr(stageMode, 'aria-current="page"')}>Stage</a>`}${boothOn() && !inRoom ? html`<a href="#present-${tail}" data-act="pres-mode" data-mode="booth" ${attr(boothMode, 'aria-current="page"')}>Booth</a>` : ""}</nav></header>
       ${inRoom ? roomStrip() : ""}${mediaStrip()}
-      ${pres.mode === "scroll" ? html`<div class="scroll-slides">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<h2 class="sec-head" style="color:#fff;margin-top:22px">${s.section}</h2>`) : ""}<div class="stage" aria-label="Slide ${i + 1}">${slideHtml(s)}</div>${s.notes ? html`<p class="scroll-notes">${icon("lock")} ${s.notes}</p>` : ""}`)}</div>`
+      ${boothMode ? boothOperator({ data, slides, at, shown, next, L, tail, noStage }) : pres.mode === "scroll" ? html`<div class="scroll-slides">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<h2 class="sec-head" style="color:#fff;margin-top:22px">${s.section}</h2>`) : ""}<div class="stage" aria-label="Slide ${i + 1}">${slideHtml(s)}</div>${s.notes ? html`<p class="scroll-notes">${icon("lock")} ${s.notes}</p>` : ""}`)}</div>`
       : html`<div class="present-main">
         ${stageMode ? stageMonitor(data, pres) : html`<div class="stage" id="stage" aria-live="polite" aria-label="Slide ${pres.index + 1} of ${slides.length}">${slideHtml(shown)}</div>`}
         <div class="present-controls">
@@ -272,8 +278,12 @@ Screens.present = (tail) => {
     after() {
       presBroadcast(); if (!inRoom) boothListen();
       // Keep the current slide visible in the list without scrolling the whole page.
-      const list = $(".slide-list"), on = $(".slide-pick.on");
-      if (list && on && (on.offsetTop < list.scrollTop || on.offsetTop + on.offsetHeight > list.scrollTop + list.clientHeight)) list.scrollTop = on.offsetTop - list.clientHeight / 2;
+      // Cueing in the Booth view redraws the list without moving it, so a double-click lands on the same slide.
+      const list = $(".slide-list"), on = $(".slide-pick.on"), here = `${pres.key}:${pres.index}:${!!pres.live}`;
+      if (list && presListAt.here === here) list.scrollTop = presListAt.top;
+      else if (list && on && (on.offsetTop < list.scrollTop || on.offsetTop + on.offsetHeight > list.scrollTop + list.clientHeight)) list.scrollTop = on.offsetTop - list.clientHeight / 2;
+      presListAt.here = here; presListAt.top = list?.scrollTop || 0;
+      list?.addEventListener("scroll", () => { presListAt.top = list.scrollTop; }, { passive: true });
     },
   };
 };
@@ -316,7 +326,7 @@ Actions["pres-section"] = (el) => {
 };
 Actions["pres-black"] = () => { pres.black = !pres.black; pres.logo = false; render(); };
 Actions["pres-logo"] = () => { pres.logo = !pres.logo; pres.black = false; render(); };
-Actions["pres-mode"] = (el) => { pres.mode = el.dataset.mode; render(); };
+Actions["pres-mode"] = (el) => { pres.mode = el.dataset.mode; pres.modeChosen = true; render(); };
 Actions["pres-full"] = async () => { const st = $("#stage") || $(".operator-stage"); try { await st.requestFullscreen(); } catch { toast("Full screen isn't available here"); } };
 Actions["pres-window"] = (el) => {
   const w = window.open(`${location.pathname}#display-${el.dataset.key}`, "our-faithful-display", "popup,width=1280,height=720");
@@ -327,6 +337,8 @@ document.addEventListener("keydown", (e) => {
   if (["ArrowRight", "PageDown", " "].includes(e.key)) { e.preventDefault(); if ($('[data-act="pres-go"][data-d="1"]:not([disabled])')) presMove(1); }
   else if (["ArrowLeft", "PageUp"].includes(e.key)) { e.preventDefault(); if (pres.live || pres.index > 0) presMove(-1); }
   else if (/^[1-9]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) { const chip = $$(".song-bar .sec-chip")[+e.key - 1]; if (chip) { e.preventDefault(); chip.click(); } }
+  else if (e.key === "Enter" && pres.mode === "booth" && !e.target.closest("button, a")) { e.preventDefault(); boothTake(); }
+  else if (e.key === "Escape" && pres.mode === "booth" && pres.cue != null) Actions["booth-uncue"]();
   else if (e.key.toLowerCase() === "b") Actions["pres-black"]();
   else if (e.key.toLowerCase() === "l") Actions["pres-logo"]();
   else if (e.key.toLowerCase() === "f") Actions["pres-full"]();
@@ -348,7 +360,7 @@ Screens.display = (tail) => {
     const s = !data ? null : state.black ? { kind: "black" } : state.logo ? { kind: "logo" } : timedSlide(liveAt(data.slides, state).cur, state.segAt);
     applyBrand(); last = state;
     if (mediaDraw($("#app"), state)) return;
-    $("#app").innerHTML = flat(html`<div class="display"><div class="stage">${slideHtml(s)}</div></div>`);
+    swapWithFade($("#app"), flat(html`<div class="display"><div class="stage">${slideHtml(s)}</div></div>`), state.fade || 0);
   };
   let last = { index: 0 };
   document.body.classList.add("presenting");

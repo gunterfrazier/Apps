@@ -1769,6 +1769,34 @@ await step("screens on the booth computer", async () => {
   if ((await t.$eval("#scr-2", (x) => x.value)) !== "") throw new Error("jobs should be remembered");
   await t.close();
 });
+await step("booth mode operator view", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.church")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await goTo("admin-features"); await page.check("input[name=lab_booth]"); await page.click("form[data-form=admin-features] button.block");
+  await page.waitForFunction(() => __app.S.church().labs?.booth === true);
+  const b = await tab(1400, 900), d = await tab(960, 540);
+  const live = (n, what) => b.waitForFunction((n) => new RegExp(`(^|\\D)${n} /`).test(document.querySelector(".booth-pane.program header")?.textContent || ""), n, { timeout: 8000 })
+    .catch(async () => { throw new Error(`${what}: Program shows "${await b.textContent(".booth-pane.program header").catch(() => "nothing")}"`); });
+  try {
+    await b.goto(base + "#present-service-riverside-svc-1"); await b.waitForSelector(".booth-op");
+    if (!(await b.$("[data-mode=booth][aria-current=page]"))) throw new Error("Booth view should open by default");
+    const preview = await b.textContent(".booth-pane.preview header");
+    if (!preview.includes("Slide 2, next")) throw new Error("preview should show the next slide: " + preview);
+    await b.click("[data-act=booth-take]"); await live(2, "Take with nothing cued");
+    await b.click('[data-act=booth-cue][data-i="5"]'); await b.waitForSelector('.slide-pick.cued[data-i="5"]');
+    if (!/(^|\D)2 \//.test(await b.textContent(".booth-pane.program header"))) throw new Error("cueing must not change what's live");
+    await d.goto(base + "#display-follow"); await d.waitForSelector(".display .stage");
+    await b.selectOption("[data-change=booth-fade]", "700");
+    await b.focus(".booth-list"); await b.keyboard.press("Enter"); await live(6, "Enter takes the cued slide");
+    await d.waitForSelector(".xfade-old", { state: "attached", timeout: 3000 }).catch(() => { throw new Error("the audience screen should fade"); });
+    await b.$eval(".booth-list", (l) => { l.style.maxHeight = "200px"; l.scrollTop = 0; });   // a long list that scrolls
+    await b.dblclick('[data-act=booth-cue][data-i="1"]'); await live(2, "double-click takes a slide");
+    await b.screenshot({ path: join(shots, "47c-booth-operator.png") });
+    await b.click("[data-act=pres-mode][data-mode=slideshow]"); await b.waitForSelector("#stage"); if (await b.$(".booth-op")) throw new Error("slideshow view");
+  } finally {
+    await d.close(); await b.close();
+    await page.evaluate(() => { const c = __app.S.church(); c.labs = { ...c.labs, booth: false }; __app.S.save(); });
+  }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await expectText("Control keys work once the app is connected");
