@@ -259,6 +259,7 @@ Screens.admin = (section) => {
       ])}
       ${sec("Kiosks, screens and printers", "", [
         item("manage.devices", "devices", "lock", "Screens and devices", devs.length ? `${plural(devs.length - unpaired, "device")} signed in${unpaired ? `, ${unpaired} waiting to pair` : ""}` : "Pair kiosks, presentation screens, stage displays and booth computers", warn(unpaired), "pair tablet"),
+        item(["manage.church", "manage.people"], "admin-signin", "lock", "Workstations, PINs and auto-lock", "Shared computers people sign in to with a PIN, and when they lock themselves", null, "workstation pin timeout inactivity logout lock"),
         item("checkin.station", "kiosk", "screen", "Check-in kiosk", "A self check-in station that prints name tags", null, "kids"),
         item("manage.devices", "paykiosk", "card", "Payment kiosk", "Tickets and gifts by card, phone or cash. Try it here", null, "pay"),
         item("manage.devices", "admin-readers", "card", "Card readers", readers ? `${plural(readers, "card reader")} for payment kiosks` : "Tap or insert cards at a payment kiosk", null, "stripe square terminal"),

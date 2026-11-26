@@ -70,7 +70,11 @@ const Backend = {
       if (pendingRoute) { const r = pendingRoute; pendingRoute = null; go(r); }
     })().finally(() => { this.starting = null; });
   },
-  async signOut() { return this.client?.auth.signOut({ scope: "local" }); },
+  async signOut() {
+    // Someone signed in on a shared workstation: signing out locks it, and it stays paired.
+    if (typeof Workstation !== "undefined" && Workstation.person()) return wsLockNow();
+    return this.client?.auth.signOut({ scope: "local" });
+  },
   /** Signs a church device back in with the sign-in it saved when it was paired. Keeps trying while it's offline. */
   resumeDevice() {
     const cred = DeviceSignin.get();

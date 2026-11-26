@@ -45,6 +45,7 @@ Screens.me = () => {
       <section class="sec"><h2 class="sec-head">My account</h2><div class="rows">
           ${row("#household", "people", "Household", me.household.length ? me.household.map((p) => p.name).join(", ") : "Add your family for classes and check-in")}
           ${S.isMember() ? row("#dates", "calendar", "My dates", "Birthday, anniversary and milestones") : ""}
+          ${S.isMember() && !thisDevice() ? row("#computers", "lock", "Church computers", "Your PIN for the church's shared computers, and when they lock") : ""}
           ${row("#help", "info", "Help & support", "Get assistance and manage diagnostic access")}
           ${row("#settings", "gear", "Settings", "Language, text size, read aloud and notifications")}
           ${row("#scan", "scan", "Scan a QR code")}
