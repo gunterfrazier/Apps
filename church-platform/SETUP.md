@@ -299,10 +299,30 @@ Good to know:
 - **If a build fails** on the Node version, add the environment variable `NODE_VERSION` = `22` under **Settings, Variables and Secrets**.
 - **Sign-in email from your own domain.** Step 3.3 can now use a sender at `ourfaithfulchurch.com` (Resend, Postmark, Brevo or SendGrid) instead of the Gmail account. Add the DNS records they give you in Cloudflare.
 
+## Deploying the server functions from GitHub
+
+The **Deploy Supabase functions** workflow (`.github/workflows/supabase-functions.yml`) keeps the server's edge
+functions the same as main. Each time main changes a function, it redeploys that function, and a change to a file in
+`_shared` redeploys every function that uses it. It only redeploys functions already on the project; to add a new one,
+run the workflow by hand with its name. Database changes (`upgrade-N.sql`) still go through the SQL editor.
+
+Set it up once:
+
+1. In Supabase, open your account menu, then **Account preferences, Access Tokens**, and generate a token. Name it
+   something like "GitHub deploys".
+2. In GitHub, open the repository's **Settings, Secrets and variables, Actions**, and add a repository secret named
+   `SUPABASE_ACCESS_TOKEN` with the token.
+3. The project's ID is read from `public/config.js`. To deploy somewhere else, add a variable `SUPABASE_PROJECT_REF`.
+4. To deploy now, open **Actions, Deploy Supabase functions, Run workflow**. Leave "all" to redeploy every function
+   that's on the project, or name some (`push kiosk`).
+
+Without the secret, the workflow skips deploying and leaves a note on the run.
+
 ## Time zones (version 27)
 
 For an existing project, run `supabase/upgrade-27.sql` after version 26, then deploy the edge functions again
 (`reminders`, `kiosk`, `ticket-receipt`, `push`, `church-lifecycle`, and the ones that use `_shared/settle.ts`).
+The **Deploy Supabase functions** workflow does that: run it with "all".
 
 - Each church sets its time zone under **Admin, Account details**. A campus in another zone sets its own under
   **Admin, Locations**. New churches start with the zone of the phone or computer that registered them.
