@@ -2324,7 +2324,7 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 
 /* Booth mode operator view (51b-booth-operator.js) */
 .booth-op { display: grid; gap: 12px; padding: 12px 16px 24px; }
-.booth-panes { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: center; }
+.booth-panes { display: grid; grid-template-columns: minmax(0, 1fr) 176px minmax(0, 1fr); gap: 14px; align-items: center; }
 .booth-pane header { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; color: #eef1ee; flex-wrap: wrap; }
 .booth-pane .faint { color: #9aa49e; }
 .booth-pane .stage { border-radius: 8px; overflow: hidden; outline: 3px solid #3a4440; }
@@ -2362,3 +2362,18 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 .obs-sheet-state { font-weight: 600; }
 .obs-sheet-state.on { color: #2f9e5b; }
 .obs-sheet-state.error { color: #e03131; }
+
+/* Cues on service parts (51c-booth-cues.js) */
+.cue-mode { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: center; font-size: .8rem; }
+.cue-mode .faint { color: #9aa49e; margin-right: 2px; }
+.cue-mode .chip { padding: 3px 9px; font-size: .78rem; }
+.cue-mode .chip.on.armed { background: #e03131; border-color: #e03131; color: #fff; }
+.cue-mode .chip.on.rehearse { background: #f08c00; border-color: #f08c00; color: #111; }
+.cue-ahead { display: inline-flex; gap: 4px; align-items: center; font-size: .8rem; padding: 1px 8px; border-radius: 999px; background: #2a302d; color: #eef1ee; }
+.cue-ahead.armed { background: #5c1a1a; }
+.cue-ahead.rehearse { background: #4a3500; }
+.cue-ahead svg, .cue-badge svg { width: 13px; height: 13px; }
+.slide-sec { display: flex; align-items: center; gap: 8px; }
+.cue-badge { margin-left: auto; display: inline-flex; gap: 3px; align-items: center; font: inherit; font-size: .75rem; background: none; border: 1px dashed #4a534f; color: #9aa49e; border-radius: 999px; padding: 1px 8px; cursor: pointer; }
+.cue-badge.has { border-style: solid; border-color: #f08c00; color: #ffd8a8; }
+.cue-add { margin-top: 12px; }

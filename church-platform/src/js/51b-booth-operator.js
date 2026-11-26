@@ -17,11 +17,12 @@ function boothOperator({ data, slides, at, shown, next, L, tail, noStage }) {
   return html`<div class="booth-op">
     <div class="booth-panes">
       <section class="booth-pane preview" aria-label="Preview">
-        <header><b>Preview</b><span class="faint">${cueLabel}</span>${pres.cue != null ? html`<button type="button" class="linkish" data-act="booth-uncue">Back to next</button>` : ""}</header>
+        <header><b>Preview</b><span class="faint">${cueLabel}</span>${pres.cue != null ? html`<button type="button" class="linkish" data-act="booth-uncue">Back to next</button>` : ""}${cuesAhead(slides, cued, at.cur)}</header>
         <div class="stage">${cued ? slideHtml(timedSlide(cued, Date.now())) : slideHtml({ kind: "black" })}</div>
       </section>
       <div class="booth-take">
         <button class="btn booth-take-btn" data-act="booth-take" ${attr(!cued, "disabled")} title="Take (Enter)">${icon("next")}Take</button>
+        ${pres.key.startsWith("service-") ? cueModeSwitch() : ""}
         <label class="booth-fade"><span class="faint">Take with</span><select data-change="booth-fade" aria-label="Transition">${FADES.map(([v, l]) => html`<option value="${v}" ${attr(pres.fade === v, "selected")}>${l}</option>`)}</select></label>
       </div>
       <section class="booth-pane program ${pres.black || pres.logo ? "held" : ""}" aria-label="Program">
@@ -44,7 +45,7 @@ function boothOperator({ data, slides, at, shown, next, L, tail, noStage }) {
     ${songBar(slides, at.cur)}
     ${pres.cc ? html`<p class="cc-live" aria-live="polite"><b>Captions</b> <span data-captions>${pres.captions || "Listening..."}</span></p>` : ""}
     <div class="booth-lower">
-      <div class="slide-list booth-list" role="listbox" aria-label="Slides: click to cue, double-click to take">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<p class="slide-sec">${s.section}</p>`) : ""}<button class="slide-pick ${!L && i === pres.index ? "on" : ""} ${i === pres.cue ? "cued" : ""}" data-act="booth-cue" data-i="${i}" aria-selected="${i === pres.cue}"><span>${i + 1}</span>${slideLabel(s)}</button>`)}</div>
+      <div class="slide-list booth-list" role="listbox" aria-label="Slides: click to cue, double-click to take">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<p class="slide-sec">${s.section}${cueBadge(s)}</p>`) : ""}<button class="slide-pick ${!L && i === pres.index ? "on" : ""} ${i === pres.cue ? "cued" : ""}" data-act="booth-cue" data-i="${i}" aria-selected="${i === pres.cue}"><span>${i + 1}</span>${slideLabel(s)}</button>`)}</div>
       <div class="booth-side">
         <div class="present-notes"><b>Notes</b><p>${at.cur?.notes || "No notes for this slide."}</p></div>
         ${noStage ? "" : html`<form class="stage-msg" data-form="stage-msg" novalidate><label for="stage-msg-in"><b>Message to the stage</b></label>
@@ -58,13 +59,11 @@ function boothTake() {
   if (pres.cue != null) { const i = pres.cue; pres.cue = null; Actions["pres-jump"]({ dataset: { i } }); }
   else if (liveAt(routeData(pres.key)?.slides || [], pres).next) presMove(1);
 }
-let boothClickTimer = null;
-Actions["booth-cue"] = (el) => {
-  const i = +el.dataset.i;
-  // A second click on the same slide within a moment takes it.
-  if (boothClickTimer && boothClickTimer.i === i) { clearTimeout(boothClickTimer.t); boothClickTimer = null; pres.cue = i; return boothTake(); }
-  clearTimeout(boothClickTimer?.t); boothClickTimer = { i, t: setTimeout(() => { boothClickTimer = null; }, 350) };
-  pres.cue = i; render();
+Actions["booth-cue"] = (el, e) => {
+  pres.cue = +el.dataset.i;
+  // A double-click takes it (the browser's own click count, so two single clicks with others between don't).
+  if (e?.detail >= 2) return boothTake();
+  render();
 };
 Actions["booth-uncue"] = () => { pres.cue = null; render(); };
 Actions["booth-take"] = boothTake;
