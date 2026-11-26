@@ -338,6 +338,20 @@ on a computer, the presenter opens in the **Booth** view:
   computer.
 - Slideshow, Scroll and Stage views are still there, and turning Booth mode off brings everything back as it was.
 
+## Cues in Booth mode
+
+In the Booth view, each part of a service plan has a **Cue** button on its heading in the slide list. A part's cues
+run when its first slide goes live: switch the OBS scene, start or stop the stream or the recording, or put a message
+on the stage display (or clear it). They're saved with the plan, so every booth computer runs the same ones.
+
+The **Cues** switch beside Take has three settings, kept on each computer:
+- **Rehearse** (where every computer starts): cues only say what they would do. Use it for a run-through.
+- **Armed**: cues run. Preview shows what will run when it goes up.
+- **Off**: cues don't run.
+
+Cues run when the live slide moves into a part, never when a presentation first opens. Stream and recording cues
+only act if OBS isn't already in that state.
+
 ## OBS in Booth mode
 
 In the Booth view, **OBS** connects to OBS Studio (version 28 or later) on the booth computer through its built-in

@@ -227,7 +227,7 @@ Screens.present = (tail) => {
   pres.index = clamp(pres.index, 0, slides.length - 1);
   // Each part of the service gets its own timer, starting when its first slide comes up.
   const segKey = `${tail}:${slides[pres.index]?.segIndex ?? slides[pres.index]?.section}`;
-  if (pres.segKey !== segKey) Object.assign(pres, { segKey, segAt: Date.now() });
+  if (pres.segKey !== segKey) { const moved = !!pres.segKey; Object.assign(pres, { segKey, segAt: Date.now() }); if (moved) cuesOnEnter(slides[pres.index]); }
   const at = liveAt(slides, pres), cur = timedSlide(at.cur, pres.segAt), next = at.next, L = pres.live;
   const shown = pres.black ? { kind: "black" } : pres.logo ? { kind: "logo" } : cur;
   const inRoom = !!pres.room;

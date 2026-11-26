@@ -1831,6 +1831,49 @@ await step("obs in the booth view", async () => {
     await page.evaluate(() => { const c = __app.S.church(); c.labs = { ...c.labs, booth: false }; __app.S.save(); });
   }
 });
+await step("cues on service parts", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.church")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await page.evaluate(() => { const c = __app.S.church(); c.labs = { ...c.labs, booth: true }; __app.S.save(); });
+  const obs = await fakeObs();
+  const b = await tab(1400, 900);
+  const toastHas = (t) => b.waitForFunction((t) => [...document.querySelectorAll(".toast, #toast, [role=status]")].some((x) => x.textContent.includes(t)), t, { timeout: 5000 });
+  try {
+    await b.goto(base + "?debug#home");
+    await b.evaluate((port) => { localStorage.setItem("ofc-obs", JSON.stringify({ host: "127.0.0.1", port: String(port), auto: true })); localStorage.removeItem("ofc-booth-cues"); }, obs.port);
+    await b.goto(base + "?debug#present-service-riverside-svc-1"); await b.waitForSelector(".obs-strip .obs-state.on", { timeout: 9000 });
+    if (!(await b.$(".cue-mode .chip.on.rehearse"))) throw new Error("cues should start in Rehearse");
+    // Slide 3 starts "Call to worship": give that part two cues.
+    // The slide just before "Call to worship" starts (earlier steps may have added slides to this plan).
+    const before = await b.$eval(".booth-list", (l) => { const h = [...l.querySelectorAll(".slide-sec")].find((p) => p.textContent.includes("Call to worship")); let n = h?.nextElementSibling; while (n && !n.matches(".slide-pick")) n = n.nextElementSibling; return n ? +n.dataset.i - 1 : -1; });
+    if (before < 0) throw new Error("no Call to worship part");
+    const cueBefore = `[data-act=booth-cue][data-i="${before}"]`;
+    await b.click(".booth-list .slide-sec:has-text('Call to worship') [data-act=cue-edit]");
+    await b.selectOption("#scrim select[name=name]", "Sermon"); await b.click("#scrim form[data-form=cue-add] button.btn:not([type=button])");
+    await b.selectOption("#scrim select[name=t]", "message"); await b.fill("#scrim input[name=text]", "Psalm next"); await b.click("#scrim form[data-form=cue-add] button.btn:not([type=button])");
+    await b.waitForSelector("#scrim .rows >> text=Stage message \"Psalm next\""); await b.click("#scrim [data-act=close-sheet]");
+    await b.waitForSelector(".booth-list .slide-sec:has-text('Call to worship') .cue-badge.has");
+    // Rehearse: going into the part only says what would happen.
+    await b.click(cueBefore); await b.click("[data-act=booth-take]");
+    await b.waitForSelector(".cue-ahead.rehearse");   // Preview is now the first Call to worship slide
+    await b.click("[data-act=booth-take]"); await toastHas("Rehearsal. Call to worship");
+    if (obs.state.scene !== "Pre-service") throw new Error("rehearsal must not switch OBS");
+    // Armed: the same move switches the scene and sends the stage message.
+    await b.click("[data-act=cue-mode][data-mode=armed]");
+    await b.click(cueBefore);
+    await b.click("[data-act=booth-take]");
+    await b.waitForSelector(".cue-ahead.armed"); await b.click("[data-act=booth-take]");
+    await b.waitForSelector(".obs-scenes .chip.on[data-name=Sermon]"); await b.waitForSelector("text=Clear \"Psalm next\"");
+    await b.screenshot({ path: join(shots, "47e-booth-cues.png") });
+    // Opening a presentation doesn't fire the cues of the slide it opens on; Off runs nothing.
+    await b.click("[data-act=cue-mode][data-mode=off]"); await b.click(cueBefore); await b.click("[data-act=booth-take]");
+    await b.click(".obs-scenes [data-name=Worship]"); await b.waitForSelector(".obs-scenes .chip.on[data-name=Worship]");
+    await b.click("[data-act=booth-take]"); await b.waitForTimeout(500); if (obs.state.scene !== "Worship") throw new Error("Off must not run cues");
+  } finally {
+    await page.evaluate(() => { const p = __app.S.get("services", "riverside-svc-1"); p.segments.forEach((s) => delete s.cues); const c = __app.S.church(); c.labs = { ...c.labs, booth: false }; __app.S.save(); });
+    await b.evaluate(() => { localStorage.removeItem("ofc-obs"); localStorage.removeItem("ofc-booth-cues"); }).catch(() => {});
+    await b.close(); await obs.close();
+  }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");
