@@ -26,7 +26,7 @@ function thisDevice() {
 function deviceRoutes(d) {
   const km = d.settings?.kioskMode;
   return { kiosk: km === "wayfind" ? ["wayfind"] : km === "both" ? ["kiosk", "wayfind"] : ["kiosk"], signage: [`signage-${d.settings?.playlistId || ""}`], display: ["display-follow"], room: ["display-room"], stage: ["stage-follow"], overlay: ["overlay-follow"],
-    booth: ["booth", "present", "booth-check", "boothwin"] }[d.type] || ["home"];
+    booth: ["booth", "present", "booth-check", "boothwin", "booth-screens", "display-follow", "stage-follow"] }[d.type] || ["home"];
 }
 // In the preview, devices are other tabs in the same browser. This keeps the admin's tab and the device's tab in step.
 let devChannel = null;
@@ -304,7 +304,8 @@ const follow = { msg: null, at: 0 };
 // A presentation in a room (m.room) is only for that room's display, never the main screens.
 function followMatch(m) {
   const d = thisDevice();
-  return m && !m.room && m.church === S.state.current && (!d?.locationId || !m.loc || m.loc === d.locationId);
+  const loc = d?.locationId || (typeof screenWindowLoc === "function" ? screenWindowLoc() : "");   // a screen window the booth opened for one campus
+  return m && !m.room && m.church === S.state.current && (!loc || !m.loc || m.loc === loc);
 }
 function followListen(draw, onRoom) {
   const on = (m) => {
@@ -354,7 +355,7 @@ let followTimer = 0;
 function startFollow(kind) {
   document.body.classList.add("presenting");
   document.documentElement.classList.toggle("overlay-page", kind === "overlay");
-  drawFollow(kind); followListen(() => drawFollow(kind));
+  drawFollow(kind); followListen(() => drawFollow(kind)); screenWindowFullscreen();
   // Without the booth, keep idle signage moving.
   clearInterval(followTimer); followTimer = setInterval(() => { if (!location.hash.endsWith("-follow")) return clearInterval(followTimer); if (!follow.msg) drawFollow(kind); }, 5000);
 }
@@ -373,6 +374,6 @@ Screens.booth = () => {
         <section class="sec"><h2 class="sec-head">Service plans</h2><div class="rows">${plans.length ? plans.map((p) => row(`#present-service-${p.id}`, "list", p.title, `${fmtDay(fromIsoDay(p.date))} at ${timeLabel(p.time, tzOf(p), p.date)}, ${plural(p.segments.length, "segment")}`)) : empty("No service plans coming up.")}</div></section>
         ${docs.length ? html`<section class="sec"><h2 class="sec-head">Sermons from the builder</h2><div class="rows">${docs.map((x) => row(`#present-doc-${x.id}`, "word", x.title, `${x.passage || ""}${x.passage ? ", " : ""}${fmtShort(fromIsoDay(x.date))}`))}</div></section>` : ""}
         <p class="faint">Presentation screens, stage displays and overlays paired to ${loc ? locName(loc) : "this church"} follow what you present here.</p>
-        <p><a class="btn ghost sm" href="#booth-check">${icon("screen")}Check this booth computer</a></p></main></div>`,
+        <div class="btns"><button class="btn" data-act="scr-open">${icon("screen")}Open my screens</button><a class="btn ghost sm" href="#booth-screens">Set up screens</a><a class="btn ghost sm" href="#booth-check">Check this booth computer</a></div></main></div>`,
   };
 };

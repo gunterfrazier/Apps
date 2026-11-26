@@ -255,6 +255,7 @@ Screens.present = (tail) => {
             ${noStage ? "" : html`<button class="btn ghost" data-act="pres-open" data-route="stage-${tail}" data-name="our-faithful-stage" aria-label="Open stage display">${icon("music")}<span class="lbl">Stage window</span></button>`}` : ""}
           ${inRoom ? "" : html`<button class="btn ghost" data-act="pres-overlay" data-key="${tail}" aria-label="Livestream overlay">${icon("live")}<span class="lbl">Overlay</span></button>
           <button class="btn ghost" data-act="pres-captions" aria-pressed="${pres.cc}" aria-label="Live captions">${icon("chat")}<span class="lbl">Captions</span></button>
+          <button class="btn ghost" data-act="pres-screens" aria-label="Open my screens" title="Open the audience and stage screens on their displays">${icon("screen")}<span class="lbl">Screens</span></button>
           <button class="btn ghost" data-act="pres-remote" aria-label="Phone remote" title="Move the slides from a phone">${icon("phone")}<span class="lbl">Remote</span></button>`}
         </div>
         ${songBar(slides, at.cur)}

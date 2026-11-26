@@ -326,6 +326,17 @@ over the old channel, but the booth's command channel (and the **Commands to the
 - **Devices, Check a booth computer** (or the link on a booth screen) tests a booth PC: its displays and placing
   windows on them, OBS, Companion, MIDI, USB DMX and how fast a command reaches it. Use Chrome or Edge.
 
+## Screens on the booth computer
+
+On the booth computer, in Chrome or Edge: **Set up screens** (on the booth's home, or **Screens** in the presenter)
+lists the displays plugged in. Give each a job: operator (this window), audience slides or stage display. With more
+than one campus, pick which campus the screens show. **Open my screens** then opens each window on its display, and
+they follow whatever is presented. The setup is kept on that computer.
+
+For one click on Sunday, allow pop-ups for the site and, under the site's settings in the browser, set
+**Automatic full screen** to **Allow**. Without it, each window shows a **Click for full screen** button. Set the
+computer's displays to extend, not mirror. Other browsers get plain windows to drag into place.
+
 ## Stream Deck through Companion (version 29)
 
 For an existing project, run `supabase/upgrade-29.sql` after version 28. The `control` function deploys with the
