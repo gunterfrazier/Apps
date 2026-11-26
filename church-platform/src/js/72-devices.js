@@ -26,7 +26,7 @@ function thisDevice() {
 function deviceRoutes(d) {
   const km = d.settings?.kioskMode;
   return { kiosk: km === "wayfind" ? ["wayfind"] : km === "both" ? ["kiosk", "wayfind"] : ["kiosk"], signage: [`signage-${d.settings?.playlistId || ""}`], display: ["display-follow"], room: ["display-room"], stage: ["stage-follow"], overlay: ["overlay-follow"],
-    booth: ["booth", "present"] }[d.type] || ["home"];
+    booth: ["booth", "present", "booth-check", "boothwin"] }[d.type] || ["home"];
 }
 // In the preview, devices are other tabs in the same browser. This keeps the admin's tab and the device's tab in step.
 let devChannel = null;
@@ -55,7 +55,7 @@ Screens.devices = () => {
   return {
     title: "Screens and devices", back: hasAdminTools() ? "admin" : "ministry",
     body: html`<p class="muted" style="margin-top:16px">Sign in the church's shared screens and tablets as devices, not as people. Each one does one job and stays signed in. Remove a device to sign it out.</p>
-      <div class="btns"><button class="btn" data-act="device-new">${icon("plus")}Add a device</button><a class="btn ghost" href="#admin-rooms">${icon("door")}Rooms</a><a class="btn ghost" href="#signs">${icon("image")}Signage playlists</a></div>
+      <div class="btns"><button class="btn" data-act="device-new">${icon("plus")}Add a device</button><a class="btn ghost" href="#admin-rooms">${icon("door")}Rooms</a><a class="btn ghost" href="#booth-check">${icon("screen")}Check a booth computer</a><a class="btn ghost" href="#signs">${icon("image")}Signage playlists</a></div>
       ${screenHealthPanel()}
       ${Object.entries(DEVICE_TYPES).map(([k, [label, ic]]) => { const ds = list.filter((d) => d.type === k); return ds.length ? html`<section class="sec"><h2 class="sec-head">${label}s</h2><div class="rows">${ds.map((d) => { const st = deviceStatus(d);
         return html`<button class="row" data-act="device-open" data-id="${d.id}"><span class="lead-ic">${icon(ic)}</span><span class="body"><span class="t">${d.name}</span><span class="s">${[d.locationId ? locName(d.locationId) : "", deviceSummary(d)].filter(Boolean).join(". ")}</span></span>
@@ -372,6 +372,7 @@ Screens.booth = () => {
       <main class="booth-main"><h1>What are we presenting?</h1>
         <section class="sec"><h2 class="sec-head">Service plans</h2><div class="rows">${plans.length ? plans.map((p) => row(`#present-service-${p.id}`, "list", p.title, `${fmtDay(fromIsoDay(p.date))} at ${timeLabel(p.time, tzOf(p), p.date)}, ${plural(p.segments.length, "segment")}`)) : empty("No service plans coming up.")}</div></section>
         ${docs.length ? html`<section class="sec"><h2 class="sec-head">Sermons from the builder</h2><div class="rows">${docs.map((x) => row(`#present-doc-${x.id}`, "word", x.title, `${x.passage || ""}${x.passage ? ", " : ""}${fmtShort(fromIsoDay(x.date))}`))}</div></section>` : ""}
-        <p class="faint">Presentation screens, stage displays and overlays paired to ${loc ? locName(loc) : "this church"} follow what you present here.</p></main></div>`,
+        <p class="faint">Presentation screens, stage displays and overlays paired to ${loc ? locName(loc) : "this church"} follow what you present here.</p>
+        <p><a class="btn ghost sm" href="#booth-check">${icon("screen")}Check this booth computer</a></p></main></div>`,
   };
 };

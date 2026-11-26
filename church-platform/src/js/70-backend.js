@@ -19,6 +19,9 @@ const DeviceSignin = {
 };
 let pairNotice = "";
 
+// Slides also go on the old open Realtime channel (present:…) for one release after upgrade-28.sql, so screens and
+// booths still on an older copy keep working. Turn this off in the release after that, once every project has run it.
+const LEGACY_LIVE = true;
 const Backend = {
   on: false, client: null, user: null, aiEnabled: true, ready: false, snap: new Map(), pending: false, warned: false, channel: null,
   configured() { return !IN_PREVIEW && !SANDBOX && !!PLATFORM.supabaseUrl && !!PLATFORM.supabasePublishableKey; },
@@ -299,22 +302,41 @@ const Backend = {
     if (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName) && a.closest("#app") && a.value) { a.addEventListener("blur", () => render(), { once: true }); return; }
     if (!$("#scrim")) render(); else pairSheetCheck();
   },
-  /** Presentation moves for screens on other devices. The main screens use present:<church>; a room's screen gets its own topic. */
+  /** Presentation moves for screens on other devices. Callers name the topic as before: present:<church> for the main
+   *  screens, present:<church>:room:<token> for a room's display. It travels on the matching private live:… channel,
+   *  which the database's Realtime rules check (upgrade-28.sql): members hear it, presenters send it. Until those rules
+   *  are on every project and every screen has reloaded, it also goes on the old open channel (LEGACY_LIVE); a message
+   *  heard on both is handled once. */
   chans: {},
+  seen: [],
+  liveTopics(topic) { const priv = topic.replace(/^present:/, "live:"); return LEGACY_LIVE ? [priv, topic] : [priv]; },
+  liveChannel(name, onMsg) {
+    const opts = name.startsWith("present:") ? undefined : { config: { private: true } };
+    return this.client.channel(name, opts).on("broadcast", { event: "slide" }, ({ payload }) => { if (this.firstTime(payload)) onMsg(payload); }).subscribe();
+  },
+  firstTime(payload) {
+    const id = payload?._id; if (!id) return true;
+    if (this.seen.includes(id)) return false;
+    this.seen.push(id); if (this.seen.length > 100) this.seen.shift();
+    return true;
+  },
   broadcast(msg, topic = `present:${S.state.current}`) {
     if (!this.ready) return;
+    const out = { ...msg, _id: uid() };
     // The sender listens too: a display may ask for a file to be sent again (see 80-media.js).
-    (this.chans[topic] ||= this.client.channel(topic).on("broadcast", { event: "slide" }, ({ payload }) => this.heard?.(payload)).subscribe()).send({ type: "broadcast", event: "slide", payload: msg });
+    for (const name of this.liveTopics(topic)) (this.chans[name] ||= this.liveChannel(name, (p) => this.heard?.(p))).send({ type: "broadcast", event: "slide", payload: out });
   },
   onBroadcast(cb, topic = `present:${S.state.current}`) {
     if (!this.ready) return;
     this.offBroadcast(topic);
-    this.chans[topic] = this.client.channel(topic).on("broadcast", { event: "slide" }, ({ payload }) => cb(payload)).subscribe();
+    for (const name of this.liveTopics(topic)) this.chans[name] = this.liveChannel(name, cb);
   },
   offBroadcast(topic) {
-    const ch = this.chans[topic]; if (!ch) return;
-    delete this.chans[topic];
-    try { this.client.removeChannel(ch); } catch { try { ch.unsubscribe(); } catch {} }
+    for (const name of this.liveTopics(topic)) {
+      const ch = this.chans[name]; if (!ch) continue;
+      delete this.chans[name];
+      try { this.client.removeChannel(ch); } catch { try { ch.unsubscribe(); } catch {} }
+    }
   },
 
   // ----- Server functions -----

@@ -162,6 +162,7 @@ node test/live.mjs      # the published setup: a sub-path and Supabase sign-in, 
 deno run -A test/payments.ts   # the payment functions with Stripe, PayPal and Square stand-ins
 node test/lifecycle.mjs        # the church-lifecycle function: emails, stopping recurring gifts, clearing files (stand-ins)
 TZ=America/Los_Angeles node test/timezones.mjs   # dates and times follow the church's zone, not the phone's
+PGLITE_DIR=<folder with @electric-sql/pglite> node test/live-channels.mjs   # who may hear and send on the private live channels
 ```
 
 Edit the files in `src/`, not `dist/`. `src/vendor/qrcode.js` (MIT) and `public/vendor/jsQR.js` (Apache-2.0) are the QR libraries.

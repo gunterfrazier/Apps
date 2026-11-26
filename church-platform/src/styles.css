@@ -2273,3 +2273,15 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 .sec-entryway-picker { margin-top: 12px; }
 .sec-entryway-picker summary { cursor: pointer; font-weight: 600; }
 .sec-entryway-picker .rows { margin-top: 8px; max-height: 13rem; overflow-y: auto; }
+
+/* Check this booth computer */
+.bc-item { margin-top: 12px; }
+.bc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bc-result { margin: 6px 0 0; }
+.bc-form .field { margin-top: 8px; min-width: 0; }
+.bc-form .field input { width: 100%; min-width: 0; box-sizing: border-box; }
+.bc-grid { display: grid; grid-template-columns: 1fr 6em; gap: 8px; }
+.bc-grid.three { grid-template-columns: 1fr 6em 1fr; }
+@media (max-width: 520px) { .bc-grid.three { grid-template-columns: 1fr 6em; } .bc-grid.three .field:last-child { grid-column: 1 / -1; } }
+.bc-window { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; gap: 12px; background: #000; color: #fff; }
+.bc-window b { font-size: clamp(48px, 12vw, 160px); line-height: 1; }
