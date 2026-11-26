@@ -2301,3 +2301,10 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 .remote .stage-msg .linkish { color: var(--brand); }
 .remote-list summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .remote-list .slide-list { max-height: none; }
+
+/* Control keys (72e-control-keys.js) */
+.ctl-made { margin-top: 12px; }
+.ctl-urls { display: grid; gap: 6px; margin: 8px 0; }
+.ctl-url { display: grid; grid-template-columns: 8.5em 1fr auto; gap: 8px; align-items: center; min-width: 0; }
+.ctl-url code { font-size: .78rem; overflow-wrap: anywhere; background: var(--sunken); padding: 4px 6px; border-radius: 6px; min-width: 0; }
+@media (max-width: 520px) { .ctl-url { grid-template-columns: 1fr auto; } .ctl-url span { grid-column: 1 / -1; font-weight: 600; } }

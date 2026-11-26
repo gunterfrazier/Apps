@@ -22,13 +22,20 @@ function boothCommand(cmd) {
   if (cmd.church !== S.state.current) return "another church";
   if (!pres.key || !location.hash.startsWith("#present-") || pres.room) return "nothing presenting here";
   if (cmd.key && cmd.key !== pres.key) return "meant for another presentation";
+  if (cmd.loc && presLoc(pres.key) && presLoc(pres.key) !== cmd.loc) return "meant for another campus";
   const data = routeData(pres.key); if (!data) return "nothing presenting here";
   const { next } = liveAt(data.slides, pres);
   switch (cmd.do) {
     case "next": if (next) presMove(1); break;
     case "prev": if (pres.live || pres.index > 0) presMove(-1); break;
     case "go": { const i = +cmd.i; if (!Number.isInteger(i) || i < 0 || i >= data.slides.length) return "no such slide"; Actions["pres-jump"]({ dataset: { i } }); break; }
-    case "section": if (!cmd.song || !cmd.label) return "no section named"; Actions["pres-section"]({ dataset: { song: cmd.song, label: cmd.label } }); break;
+    case "section": {
+      // A Stream Deck button names only the section ("Chorus"): it means the song on screen.
+      const song = cmd.song || liveAt(data.slides, pres).cur?.songId || data.slides[pres.index]?.songId;
+      const part = song && cmd.label && S.get("songs", song) && songParts(S.get("songs", song)).find((p) => sameLabel(p.label, cmd.label));
+      if (!part) return "no such section";
+      Actions["pres-section"]({ dataset: { song, label: part.label } }); break;
+    }
     case "black": pres.black = typeof cmd.on === "boolean" ? cmd.on : !pres.black; if (pres.black) pres.logo = false; render(); break;
     case "logo": pres.logo = typeof cmd.on === "boolean" ? cmd.on : !pres.logo; if (pres.logo) pres.black = false; render(); break;
     case "clear": pres.black = pres.logo = false; if (pres.media) Actions["pres-media-off"](); else render(); break;
