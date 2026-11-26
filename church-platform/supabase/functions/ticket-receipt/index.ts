@@ -8,9 +8,9 @@
 import { admin, caller, can, emailReady, fail, handle, json, sendEmail } from "../_shared/util.ts";
 import { emailHtml } from "../_shared/email.ts";
 import { sendText, textingOn } from "../_shared/messaging.ts";
+import { dateText, locationZones, zoneOf } from "../_shared/tz.ts";
 
 const money = (n: number) => `$${Number(n || 0).toFixed(2).replace(/\.00$/, "")}`;
-const day = (s: string) => new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/New_York" });
 
 handle(async (req) => {
   const { user, client } = await caller(req);
@@ -27,6 +27,8 @@ handle(async (req) => {
     db.from("churches").select("id, name, data").eq("id", churchId).maybeSingle()]);
   if (!evRow || !regRow || !church) return fail("That sign-up wasn't found.", 404);
   const ev = evRow.data, reg = regRow.data;
+  // Dates in the church's zone, or the event's campus's when it has its own.
+  const zone = (ev.locationId && (await locationZones(db, churchId)).get(ev.locationId)) || zoneOf(church), day = (s: string) => dateText(s, zone);
   const allowed = (await can(client, churchId, "take.payments")) || (await can(client, churchId, "manage.content")) || (ev.collectors || []).includes(user.id);
   if (!allowed) return fail("Your role doesn't include taking payments for this event.", 403);
 

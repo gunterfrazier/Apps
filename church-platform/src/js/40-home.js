@@ -3,7 +3,7 @@
 function servicesSummary(c) {
   const byDay = {};
   (c.locations || []).filter((l) => l.visibility !== "private").forEach((l) => (l.services || []).forEach((s) => (byDay[s.day] = byDay[s.day] || new Set()).add(s.time)));
-  return Object.entries(byDay).map(([d, times]) => `${DAYS[d]}s at ${listJoin([...times].sort().map(timeLabel))}`).join("; ") || "Service times coming soon";
+  return Object.entries(byDay).map(([d, times]) => `${DAYS[d]}s at ${listJoin([...times].sort().map((t) => timeLabel(t, churchTz(c))))}`).join("; ") || "Service times coming soon";
 }
 const churchCity = (c) => c.city || c.locations?.[0]?.address?.split(",").slice(-2).join(",").trim() || "";
 
@@ -144,6 +144,7 @@ Screens.start = (mode) => {
         <label class="field"><span>Church email</span><input type="email" name="email"></label>
         <label class="field"><span>Church phone</span><input type="tel" name="phone"></label></div>
       <label class="field"><span>City and state</span><input type="text" name="city" placeholder="Springfield, IL" maxlength="60"></label>
+      ${tzSelect("timeZone", DEVICE_TZ, { hint: "Services, events and everything else with a time use it. We picked this phone's zone; change it if the church is somewhere else." })}
       <label class="field"><span>One line about your church</span><input type="text" name="tagline" maxlength="90"></label>
       <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Church color</legend>
         ${colorPicker("customColor", PLATFORM.color, { label: "Church color", church: true })}
@@ -196,7 +197,7 @@ Forms["start-church"] = async (d, f, fd) => {
   const chosenColor = /^#[0-9a-fA-F]{6}$/.test(d.customColor || "") ? d.customColor.toLowerCase() : (d.color || BRAND_COLORS[0]);
   const selected = guided ? chosenSetupTopics(fd.getAll("setupTopic")) : [];
   const setup = guided ? { modules: Object.fromEntries(MODULES.map(([id]) => [id, selected.includes(id)])), setupGuide: { selected, done: {} } } : {};
-  const c = S.createChurch({ ...setup, name: d.name, handle, email: d.email || "", phone: d.phone || "", city: d.city || "", tagline: d.tagline || "", website: d.website || "", color: chosenColor, sign: ["Welcome", d.tagline || ""], locations });
+  const c = S.createChurch({ ...setup, name: d.name, handle, email: d.email || "", phone: d.phone || "", city: d.city || "", timeZone: validTz(d.timeZone) ? d.timeZone : DEVICE_TZ, tagline: d.tagline || "", website: d.website || "", color: chosenColor, sign: ["Welcome", d.tagline || ""], locations });
   toast(`${c.name} is ready at ${churchAddress(c)}. You're its primary account holder.`); go(guided ? "admin-setupguide" : "admin");
 };
 
@@ -234,7 +235,7 @@ Actions["quick-more"] = () => openSheet("Shortcuts", html`<div class="quick in-s
 Screens.home = () => {
   const c = S.church();
   const services = upcomingServices(c, 8).filter((s, i) => i === 0 || s.start - Date.now() < 7 * DAY).slice(0, 4);
-  const when = (s) => s.live ? `Started at ${fmtTime(s.start)}` : isoDay(s.start) === isoDay(new Date()) ? `Today at ${fmtTime(s.start)}` : `${fmt(s.start, { weekday: "long", month: "short", day: "numeric" })} at ${fmtTime(s.start)}`;
+  const when = (s) => s.live ? `Started at ${fmtTime(s.start, s.z)}` : isoDay(s.start, s.z) === today(s.z) ? `Today at ${fmtTime(s.start, s.z)}${yourTime(s.start, s.z)}` : `${fmt(s.start, { weekday: "long", month: "short", day: "numeric" }, s.z)} at ${fmtTime(s.start, s.z)}${yourTime(s.start, s.z)}`;
   const latest = S.on("sermons") && sermonsSorted()[0];
   const news = newsSorted();
   const urgent = unreadNews().filter((n) => n.urgent);
@@ -249,8 +250,9 @@ Screens.home = () => {
     ${campusChip()}
   </div></header>`;
 
-  const greet = () => { const h = new Date().getHours(), first = (S.me().name || "").split(" ")[0];
-    return html`<div class="greeting"><h1>${h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"}${first ? `, ${first}` : ""}</h1><p>${fmt(new Date(), { weekday: "long", month: "long", day: "numeric" })}</p></div>`; };
+  // The greeting follows the person's own clock, wherever they are; everything else on Home is church time.
+  const greet = () => { const h = zp(new Date(), DEVICE_TZ).h, first = (S.me().name || "").split(" ")[0];
+    return html`<div class="greeting"><h1>${h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"}${first ? `, ${first}` : ""}</h1><p>${fmt(new Date(), { weekday: "long", month: "long", day: "numeric" }, DEVICE_TZ)}</p></div>`; };
   // Each section of Home, by its ID in Admin, Home screen (homeLayout). A section with nothing to show is left out.
   const sections = {
     banner: () => html`<div class="home-banner">${bannerHtml(c)}</div>`,
@@ -328,10 +330,10 @@ function featuredEvent(e) {
   const addr = fullAddress(e);
   return html`<article class="feature-card ${e.image ? "has-photo" : ""}">
     <a class="fc-link" href="#event-${e.id}" aria-label="${e.title}">${e.image ? html`<img src="${e.image}" alt="" decoding="async">` : ""}</a>
-    <div class="fc-top">${e.category ? html`<span class="tag ec-cat">${e.category}</span>` : ""}<span class="ec-date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span></div>
+    <div class="fc-top">${e.category ? html`<span class="tag ec-cat">${e.category}</span>` : ""}<span class="ec-date"><span>${fmtMonth(d)}</span><b>${dayNum(d)}</b></span></div>
     <div class="fc-body">
       <h3 class="fc-title">${e.title}</h3>
-      <p class="fc-meta">${fmt(d, { weekday: "long" })} at ${fmtTime(d)}${placeText(e) ? ` · ${placeText(e)}` : ""}</p>
+      <p class="fc-meta">${fmt(d, { weekday: "long" }, tzOf(e))} at ${fmtTime(d, tzOf(e))}${placeText(e) ? ` · ${placeText(e)}` : ""}</p>
       <div class="fc-foot">
         ${people ? html`<span class="fc-going">${going.slice(0, 3).map((r) => avatar({ id: r.by, name: r.name || S.userName(r.by) }, "fc-face"))}<span>${reg ? (people > 1 ? `You and ${plural(people - (reg.count || 1), "other", "others")}` : "You're going") : `${plural(people, "person", "people")} going`}</span></span>` : html`<span class="fc-going"><span>${e.signup ? "Be the first to sign up" : "Everyone's welcome"}</span></span>`}
         <span class="fc-btns">${addr ? html`<a class="fc-btn" href="${mapLink(addr)}" target="_blank" rel="noopener" aria-label="Directions to ${e.title}">${icon("pin")}</a>` : ""}
@@ -352,11 +354,11 @@ function eventCard(e) {
   return html`<a class="event-card" href="#event-${e.id}">
     <div class="ec-media">${e.image ? html`<img src="${e.image}" alt="" loading="lazy" decoding="async">` : ""}
       ${e.category ? html`<span class="tag ec-cat">${e.category}</span>` : ""}
-      <span class="ec-date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span>
+      <span class="ec-date"><span>${fmtMonth(d)}</span><b>${dayNum(d)}</b></span>
       ${reg ? html`<span class="tag ok ec-tag">Going</span>` : ""}
     </div>
     <div class="ec-body">
-      <span class="ec-title">${e.title}</span><span class="ec-meta">${fmt(d, { weekday: "short" })} ${fmtTime(d)}</span><span class="ec-meta">${placeText(e)}</span>
+      <span class="ec-title">${e.title}</span><span class="ec-meta">${fmt(d, { weekday: "short" }, tzOf(e))} ${fmtTime(d, tzOf(e))}</span><span class="ec-meta">${placeText(e)}</span>
     </div></a>`;
 }
 
@@ -373,8 +375,8 @@ function eventRow(e) {
   const reg = myRegistration(e), d = new Date(e.start);
   return html`<a class="event-card-row" href="#event-${e.id}">
     ${e.image ? html`<div class="ecr-banner"><img src="${e.image}" alt=""></div>` : ""}
-    <div class="ecr-main"><span class="date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span>
-      <span class="body"><span class="t">${e.title}</span><span class="s">${fmt(d, { weekday: "short" })} ${fmtTime(d)} · ${placeText(e)}</span>${e.category ? html`<span class="tag brand" style="margin-top:4px">${e.category}</span>` : ""}</span>
+    <div class="ecr-main"><span class="date"><span>${fmtMonth(d)}</span><b>${dayNum(d)}</b></span>
+      <span class="body"><span class="t">${e.title}</span><span class="s">${fmt(d, { weekday: "short" }, tzOf(e))} ${fmtTime(d, tzOf(e))} · ${placeText(e)}</span>${e.category ? html`<span class="tag brand" style="margin-top:4px">${e.category}</span>` : ""}</span>
       ${reg ? html`<span class="tag ok">Going</span>` : icon("chev")}</div></a>`;
 }
 
@@ -572,7 +574,7 @@ Screens.live = () => {
       <section class="sec" aria-labelledby="watch-upcoming"><h2 class="sec-head" id="watch-upcoming">Upcoming services</h2>
         <div class="rows">${services.length ? services.map((s) => html`<div class="row">
           <span class="lead-ic">${icon(s.live ? "live" : "clock")}</span>
-          <span class="body"><span class="t">${s.label || "Service"}</span><span class="s">${fmtWhen(s.start)} · ${s.location.name}</span></span>
+          <span class="body"><span class="t">${s.label || "Service"}</span><span class="s">${fmtWhen(s.start, s.z)} · ${s.location.name}</span></span>
           ${s.live && (s.location.liveUrl || c.liveUrl) ? html`<button class="btn sm" data-act="live-loc" data-id="${s.location.id}" data-focus-stream="1">Watch live</button>` : ""}
         </div>`) : empty("No services scheduled.")}</div></section>
       <section class="sec" aria-labelledby="watch-past"><h2 class="sec-head" id="watch-past">Past services</h2>

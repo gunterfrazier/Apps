@@ -385,7 +385,7 @@ const ForegroundAlerts = {
     reply.dataset.id = radio ? n.id : "";
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.hide(), 8000);
-    const h = new Date().getHours(), p = prefs(), audio = this.audio;
+    const h = zp(new Date(), DEVICE_TZ).h, p = prefs(), audio = this.audio;   // quiet hours follow the person's own clock
     if (p.alertSound === false || (p.quiet && (h >= 21 || h < 7)) || audio?.state !== "running") return;
     if (radio) { radioTone(audio, "message"); return; }
     const tone = audio.createOscillator(), volume = audio.createGain(), now = audio.currentTime;
@@ -434,7 +434,7 @@ const Push = {
   async local(n) {
     const p = prefs();
     if (!p.push || typeof Notification === "undefined" || Notification.permission !== "granted" || document.visibilityState === "visible") return;
-    const h = new Date().getHours(); if (p.quiet && (h >= 21 || h < 7)) return;
+    const h = zp(new Date(), DEVICE_TZ).h; if (p.quiet && (h >= 21 || h < 7)) return;
     try { const reg = await navigator.serviceWorker.ready; reg.showNotification(n.title, { body: n.body, tag: n.id, icon: "icons/icon-192.png", badge: "icons/badge-96.png", data: { url: `./${n.link || "#alerts"}` } }); } catch {}
   },
 };

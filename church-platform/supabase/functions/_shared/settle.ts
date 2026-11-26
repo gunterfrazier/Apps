@@ -4,6 +4,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2.119.0";
 import { env, patchRecord } from "./util.ts";
 import type { PayEvent } from "./payments.ts";
 import { deliver, routeOf, type Church } from "./messaging.ts";
+import { dateText, zoneOf } from "./tz.ts";
 
 const money = (n: number) => `$${Number(n || 0).toFixed(2).replace(/\.00$/, "")}`;
 /** Where links in receipts and tickets point: the app's own address. */
@@ -58,7 +59,7 @@ export async function settle(db: SupabaseClient, m: Meta, amount: number, payRef
     // deno-lint-ignore no-explicit-any
     const fund = (church?.data?.funds || []).find((f: any) => f.id === m.fund)?.name || "General fund";
     if (church) await deliver(db, church as Church, "receipts", to, { title: `Thank you for your ${money(amount)} gift`, notifyKind: "give", id: `n-rcpt-${payRef}`,
-      lines: [`We received your ${money(amount)} gift to ${fund}${m.frequency && m.frequency !== "once" ? ` (${m.frequency})` : ""} on ${new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}.`, `Receipt ${payRef.replace(/[^a-z0-9]/gi, "").slice(-10).toUpperCase()}.`, church.data?.taxId ? `${church.name} is tax-exempt (EIN ${church.data.taxId}). No goods or services were provided in exchange for this gift.` : ""].filter(Boolean),
+      lines: [`We received your ${money(amount)} gift to ${fund}${m.frequency && m.frequency !== "once" ? ` (${m.frequency})` : ""} on ${dateText(at, zoneOf(church))}.`, `Receipt ${payRef.replace(/[^a-z0-9]/gi, "").slice(-10).toUpperCase()}.`, church.data?.taxId ? `${church.name} is tax-exempt (EIN ${church.data.taxId}). No goods or services were provided in exchange for this gift.` : ""].filter(Boolean),
       link: m.user ? `${appBase(m.origin)}#receipt-gift~${payRef}` : "", linkLabel: "See your receipt" }).catch((e) => console.error("receipt not sent", e));
     if (subscription && !(await patchRecord(db, "recurring", subscription, { lastAt: at, active: true }))) {
       await db.from("records").insert({ kind: "recurring", id: subscription, church_id: m.church, owner: m.user,

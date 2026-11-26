@@ -10,9 +10,11 @@
 import { admin, caller, emailReady, env, fail, fromCron, handle, json, sendEmail } from "../_shared/util.ts";
 import { emailHtml, emailText } from "../_shared/email.ts";
 import { keysFor, PROCESSORS } from "../_shared/payments.ts";
+import { DEFAULT_TZ, longDateText, zoneOf } from "../_shared/tz.ts";
 
 const MARKS = [180, 90, 30, 14, 7, 3, 1], DAY = 86400e3;
-const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+// Dates in the church's own zone (a purged church's settings are gone, so those use the default).
+const day = (iso: string, z: string = DEFAULT_TZ) => longDateText(iso, z);
 const appUrl = () => { const u = env("APP_URL"); return u ? (u.endsWith("/") ? u : `${u}/`) : ""; };
 const APP = "Our Faithful Church App";
 
@@ -82,23 +84,23 @@ async function tend(db: Db, c: Church) {
     const unstopped = await stopRecurring(db, c, d.at);
     out.email = await mail(db, c.id, `done-${d.at}`, c.owner_id, {
       subject: `${c.name} is deactivated`,
-      lines: [`The church account for ${c.name} in ${APP} was deactivated on ${day(d.at)}.`,
+      lines: [`The church account for ${c.name} in ${APP} was deactivated on ${day(d.at, zoneOf(c))}.`,
         "It is now hidden from everyone but you, and no longer in the list of churches in the app. Its recurring gifts have been stopped.",
         ...(unstopped ? [`${unstopped} recurring ${unstopped === "1" ? "gift" : "gifts"} could not be stopped automatically. Please stop ${unstopped === "1" ? "it" : "them"} in your payment processor's dashboard.`] : []),
-        `You can reactivate it any time before ${day(d.purgeAt)}. On that date, everything in the account is permanently deleted and cannot be brought back.`,
+        `You can reactivate it any time before ${day(d.purgeAt, zoneOf(c))}. On that date, everything in the account is permanently deleted and cannot be brought back.`,
         "We will remind you by email and in the app before then."],
       button: link ? ["Reactivate the account", `${link}#reactivate-${c.id}`] : undefined });
     const left = Math.ceil((new Date(d.purgeAt).getTime() - Date.now()) / DAY), mark = MARKS.filter((m) => m >= left).sort((a, b) => a - b)[0];
     if (left > 0 && mark) out.reminder = await mail(db, c.id, `m${mark}-${d.at}`, c.owner_id, {
       subject: `${c.name} will be permanently deleted in ${left} ${left === 1 ? "day" : "days"}`,
-      lines: [`The church account for ${c.name} in ${APP} has been deactivated since ${day(d.at)}.`,
-        `On ${day(d.purgeAt)}, ${left === 1 ? "tomorrow" : `${left} days from now`}, everything in it is permanently deleted from the app: members, giving records, sermons, events, groups and all the rest. This cannot be undone.`,
+      lines: [`The church account for ${c.name} in ${APP} has been deactivated since ${day(d.at, zoneOf(c))}.`,
+        `On ${day(d.purgeAt, zoneOf(c))}, ${left === 1 ? "tomorrow" : `${left} days from now`}, everything in it is permanently deleted from the app: members, giving records, sermons, events, groups and all the rest. This cannot be undone.`,
         "To keep the account, reactivate it before then. Everything comes back as it was."],
       button: link ? ["Reactivate the account", `${link}#reactivate-${c.id}`] : undefined });
   } else if (d.status === "active" && d.reactivatedAt && Date.now() - new Date(d.reactivatedAt).getTime() < 2 * DAY) {
     out.email = await mail(db, c.id, `back-${d.reactivatedAt}`, c.owner_id, {
       subject: `${c.name} is active again`,
-      lines: [`The church account for ${c.name} in ${APP} was reactivated on ${day(d.reactivatedAt)}. Members can see it again and it is back in the list of churches.`,
+      lines: [`The church account for ${c.name} in ${APP} was reactivated on ${day(d.reactivatedAt, zoneOf(c))}. Members can see it again and it is back in the list of churches.`,
         "Recurring gifts were stopped when the account was deactivated, so givers will need to set them up again. Screens and kiosks need to be paired again."],
       button: link ? ["Open the app", link] : undefined });
   }

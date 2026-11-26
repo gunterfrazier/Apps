@@ -6,18 +6,18 @@
 const canBook = () => S.isMember() && S.canAny(["book.rooms", "manage.locations"]);
 const canApproveRooms = () => S.isMember() && canApprove("rooms");
 const sameRoom = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase() && !!String(a || "").trim();
-const atTime = (day, hhmm) => fromIsoDay(day, hhmm).getTime();
+const atTime = (day, hhmm, z = tz()) => fromIsoDay(day, hhmm, z).getTime();
 const addMinutes = (hhmm, m) => { const [h, mm] = hhmm.split(":").map(Number), t = h * 60 + mm + m; return `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
 
 /** Start and end times of a booking that fall between from and to. */
 function bookingTimes(b, from, to) {
-  const out = []; let day = b.date;
+  const out = [], z = tzOf(b); let day = b.date;
   for (let i = 0; i < 520; i++) {
-    const s = atTime(day, b.start), e = atTime(day, b.end);
+    const s = atTime(day, b.start, z), e = atTime(day, b.end, z);
     if (s >= to) break;
     if (e > from) out.push([s, e]);
     if (b.repeat !== "weekly") break;
-    const d = fromIsoDay(day); d.setDate(d.getDate() + 7); day = isoDay(d);
+    day = isoAdd(day, 7);
     if (b.until && day > b.until) break;
   }
   return out;
@@ -26,12 +26,12 @@ function bookingTimes(b, from, to) {
 function meetingTimes(g, from, to) {
   const s = g.schedule; if (!s?.time) return [];
   const endT = s.endTime || addMinutes(s.time, 60);
-  if (s.kind === "once") { const a = atTime(s.date, s.time), e = atTime(s.date, endT); return a < to && e > from ? [[a, e]] : []; }
-  const out = [], d = new Date(Math.max(from, s.startDate ? atTime(s.startDate, "00:00") : from)); d.setHours(0, 0, 0, 0);
-  const last = Math.min(to, s.endDate ? atTime(s.endDate, "23:59") : to);
-  for (; d.getTime() <= last; d.setDate(d.getDate() + 1)) {
-    if (!(s.days || []).includes(d.getDay())) continue;
-    const day = isoDay(d), a = atTime(day, s.time), e = atTime(day, endT);
+  const z = tzOf(g);
+  if (s.kind === "once") { const a = atTime(s.date, s.time, z), e = atTime(s.date, endT, z); return a < to && e > from ? [[a, e]] : []; }
+  const out = [], last = Math.min(to, s.endDate ? atTime(s.endDate, "23:59", z) : to);
+  for (let day = isoDay(new Date(Math.max(from, s.startDate ? atTime(s.startDate, "00:00", z) : from)), z), i = 0; atTime(day, "00:00", z) <= last && i < 800; day = isoAdd(day, 1), i++) {
+    if (!(s.days || []).includes(isoDow(day))) continue;
+    const a = atTime(day, s.time, z), e = atTime(day, endT, z);
     if (a < to && e > from) out.push([a, e]);
   }
   return out;
@@ -63,7 +63,7 @@ function bookingConflicts(b, ignore = {}) {
     }));
   return hits;
 }
-const useWhen = (u) => `${u.weekly ? `${DAYS[new Date(u.start).getDay()]}s` : fmt(u.start, { weekday: "short", month: "short", day: "numeric" })}, ${fmtTime(u.start)} to ${fmtTime(u.end)}`;
+const useWhen = (u) => `${u.weekly ? `${DAYS[zp(u.start).dow]}s` : fmt(u.start, { weekday: "short", month: "short", day: "numeric" })}, ${fmtTime(u.start)} to ${fmtTime(u.end)}`;
 const useKind = (u) => u.kind === "event" ? "Event" : u.kind === "gathering" ? "Class or group" : u.kind === "service" ? "Service" : u.status === "requested" ? "Requested" : "Booked";
 
 let roomDay = null, roomLoc = null;
@@ -78,7 +78,7 @@ Screens.rooms = () => {
   const pct = (t) => clamp(((t - from) / 3600e3 - W0) / (W1 - W0) * 100, 0, 100);
   const pending = canApproveRooms() ? S.list("bookings").filter((b) => b.status === "requested" && (b.repeat === "weekly" ? !b.until || b.until >= today : b.date >= today)) : [];
   const mine = S.list("bookings").filter((b) => b.by === S.me().id && (b.repeat === "weekly" ? !b.until || b.until >= today : b.date >= today)).sort((a, b) => a.date.localeCompare(b.date));
-  const shift = (n) => { const d = fromIsoDay(roomDay); d.setDate(d.getDate() + n); return isoDay(d); };
+  const shift = (n) => isoAdd(roomDay, n);
   return {
     title: "Rooms", back,
     body: html`
@@ -104,7 +104,7 @@ Screens.rooms = () => {
       ${mine.length ? html`<section class="sec"><h2 class="sec-head">Your bookings</h2><div class="rows">${mine.map((b) => html`<button class="row" data-act="room-mine" data-id="${b.id}"><span class="lead-ic">${icon("door")}</span><span class="body"><span class="t">${b.title}</span><span class="s">${b.room}, ${bookingWhen(b)}</span></span><span class="tag ${b.status === "approved" ? "ok" : b.status === "declined" ? "warn" : ""}">${b.status === "approved" ? "Approved" : b.status === "declined" ? "Declined" : "Waiting"}</span></button>`)}</div></section>` : ""}`,
   };
 };
-const bookingWhen = (b) => `${b.repeat === "weekly" ? `${DAYS[fromIsoDay(b.date).getDay()]}s from ${fmtShort(fromIsoDay(b.date))}${b.until ? ` to ${fmtShort(fromIsoDay(b.until))}` : ""}` : fmtShort(fromIsoDay(b.date))}, ${timeLabel(b.start)} to ${timeLabel(b.end)}`;
+const bookingWhen = (b) => `${b.repeat === "weekly" ? `${DAYS[isoDow(b.date)]}s from ${fmtShort(fromIsoDay(b.date))}${b.until ? ` to ${fmtShort(fromIsoDay(b.until))}` : ""}` : fmtShort(fromIsoDay(b.date))}, ${timeLabel(b.start)} to ${timeLabel(b.end)}`;
 Actions["room-day"] = (el) => { roomDay = el.dataset.day; render(); };
 Inputs["room-day"] = (el) => { if (el.value) { roomDay = el.value; render(); } };
 Inputs["room-loc"] = (el) => { roomLoc = el.value; render(); };

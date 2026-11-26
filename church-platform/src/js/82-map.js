@@ -144,7 +144,7 @@ function mapDefaultFrom(l, toId, stepFree) {
 function placeToday(l, it) {
   const today = isoDay(new Date()), name = String(it.name || "").trim().toLowerCase(); if (!name) return [];
   const ev = S.visible("events").filter((e) => String(e.room || "").trim().toLowerCase() === name && isoDay(new Date(e.start)) === today && (!e.locationId || e.locationId === l.id)).map((e) => `${fmtTime(new Date(e.start))}: ${e.title}`);
-  const cls = S.visible("gatherings").filter((g) => String(g.room || "").trim().toLowerCase() === name && (g.schedule?.days || []).includes(new Date().getDay()) && (!g.locationId || g.locationId === l.id)).map((g) => `${g.schedule?.time ? `${g.schedule.time}: ` : ""}${g.name}`);
+  const cls = S.visible("gatherings").filter((g) => String(g.room || "").trim().toLowerCase() === name && (g.schedule?.days || []).includes(zp(new Date(), tz(l.id)).dow) && (!g.locationId || g.locationId === l.id)).map((g) => `${g.schedule?.time ? `${g.schedule.time}: ` : ""}${g.name}`);
   return [...ev, ...cls].slice(0, 4);
 }
 /** Search by name, kind, note, the words a church adds ("diapers", "coffee") and what's on there today ("youth group"). */

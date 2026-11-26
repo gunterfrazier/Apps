@@ -12,6 +12,7 @@ To rename the app, change `name` in `PLATFORM` at the top of `src/js/00-util.js`
 - Administrators start with full access, and only the primary can limit them. Everyone else can only change roles, and give roles, below their own.
 - Features can be turned off for the whole church, and the primary or an administrator chooses the defaults: role, private-location access, directory listing, prayer privacy, parent check-out and the first giving fund.
 - Campuses and locations, each with a unique ID (MAIN, EAST), rooms, service times and a livestream link. Locations are public or private. Each member sees every public location, and the private ones they've been given access to (or all of them).
+- A time zone for the church (Admin, Account details), and for any campus in another zone. Every date and time in the app is the church's: someone whose phone is elsewhere sees "9:00 AM ET", and event and service times add their own ("6:00 AM your time"). Reminders, receipts, kiosk tickets and reports use it too.
 
 **For everyone**
 - Home with the church's banner, landing page blocks, quick actions, the latest sermon, service times, an events carousel, reading plan and announcements.
@@ -160,6 +161,7 @@ node test/smoke.mjs     # clicks through every feature at phone size (needs Play
 node test/live.mjs      # the published setup: a sub-path and Supabase sign-in, sync, devices and payments (Supabase simulated)
 deno run -A test/payments.ts   # the payment functions with Stripe, PayPal and Square stand-ins
 node test/lifecycle.mjs        # the church-lifecycle function: emails, stopping recurring gifts, clearing files (stand-ins)
+TZ=America/Los_Angeles node test/timezones.mjs   # dates and times follow the church's zone, not the phone's
 ```
 
 Edit the files in `src/`, not `dist/`. `src/vendor/qrcode.js` (MIT) and `public/vendor/jsQR.js` (Apache-2.0) are the QR libraries.

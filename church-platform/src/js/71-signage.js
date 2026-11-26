@@ -104,7 +104,7 @@ function signBg(url) {
 function signFrame(pl, slide, { live = false } = {}) {
   return html`<div class="sg-stage ${pl.orientation === "portrait" ? "portrait" : ""} theme-${pl.theme || "brand"}" translate="no">
     ${slide ? signSlideHtml(slide, pl) : html`<div class="sg-slide"><div class="sg-pad sg-center"><div class="sg-big">${S.church().name}</div></div></div>`}
-    ${pl.clock !== false && live ? html`<div class="sg-clock" data-clock>${fmtTime(Date.now())}</div>` : ""}
+    ${pl.clock !== false && live ? html`<div class="sg-clock" data-clock>${fmtClock(Date.now())}</div>` : ""}
     ${pl.footer !== false && typeof screenFooterHtml === "function" ? screenFooterHtml(S.church(), "signage", slide?.kind === "video" || slide?.kind === "image" ? "media" : slide?.kind) : ""}</div>`;
 }
 

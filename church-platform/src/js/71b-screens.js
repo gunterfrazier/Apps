@@ -10,7 +10,7 @@
 
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const SCREEN_TYPES = ["signage", "room", "display", "stage"];
-const hhmm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+const hhmm = (d, z = tz()) => hhmmOf(d, z);
 
 /** The playlist a screen plays when nothing else is going on ("" or null: the church's logo). */
 function deviceBasePlaylist(d) {
@@ -19,7 +19,7 @@ function deviceBasePlaylist(d) {
 }
 /** The schedule entry in force now, if any. An entry that ends earlier than it starts runs overnight. */
 function scheduleRuleNow(d, now = new Date()) {
-  const t = hhmm(now), day = now.getDay(), prev = (day + 6) % 7;
+  const z = tzOf(d), t = hhmm(now, z), day = zp(now, z).dow, prev = (day + 6) % 7;
   return (d?.settings?.schedule || []).find((r) => {
     if (!r.from || !r.to) return false;
     if (r.from < r.to) return r.days.includes(day) && t >= r.from && t < r.to;
@@ -208,7 +208,7 @@ Forms["remote-play"] = (data) => {
   const now = new Date();
   let until = null;
   if (data.for === "60") until = new Date(+now + 3600e3);
-  else if (data.for === "today") { until = new Date(now); until.setHours(23, 59, 0, 0); }
+  else if (data.for === "today") until = fromIsoDay(today(tzOf(d)), "23:59", tzOf(d));
   else {
     // The next time the schedule would change what plays: look ahead in 5-minute steps, up to a week.
     const was = scheduleRuleNow(d, now);

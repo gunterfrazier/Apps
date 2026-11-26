@@ -41,7 +41,7 @@ const deptLabel = (k) => (BUDGET_DEPARTMENTS.find(([x]) => x === k) || [k, k])[1
 const payMethodFull = (m) => (TREASURER_METHODS.find(([k]) => k === m) || [m, methodLabel(m)])[1];
 
 function seedAccountingFor(cid) {
-  const now = new Date(), yr = now.getFullYear(), mStr = String(now.getMonth() + 1).padStart(2, "0");
+  const now = new Date(), yr = yearOf(now), mStr = pad2(monthOf(now));
   const batchId = `${cid}-batch-sun1`;
   const batches = [
     {
@@ -166,11 +166,11 @@ function treasurerSeg(active) {
 }
 
 /** Computes fund-by-fund accounting ledger for a given year. */
-function computeFundAccounting(year = new Date().getFullYear()) {
+function computeFundAccounting(year = yearOf()) {
   const c = S.church();
   if (!c) return { funds: [], totalIn: 0, totalOut: 0, totalNet: 0, byCat: {}, byMethod: {} };
-  const gifts = S.list("gifts").filter((g) => new Date(g.at).getFullYear() === year && g.status !== "refunded");
-  const expenses = S.list("expenses").filter((e) => new Date(e.date || e.at).getFullYear() === year && e.status !== "void");
+  const gifts = S.list("gifts").filter((g) => yearOf(g.at) === year && g.status !== "refunded");
+  const expenses = S.list("expenses").filter((e) => yearOf(e.date || e.at) === year && e.status !== "void");
 
   const byCat = {}, byMethod = {};
   gifts.forEach((g) => {
@@ -208,7 +208,7 @@ Screens.treasurer = (tail = "") => {
   const tab = ["donations", "expenses", "budgets", "reports"].includes(tail) ? tail : "overview";
   treasurerTab = tab;
   const activeHash = tab === "overview" ? "treasurer" : `treasurer-${tab}`;
-  const year = new Date().getFullYear();
+  const year = yearOf();
   const acct = computeFundAccounting(year);
 
   let content = "";
@@ -597,7 +597,7 @@ Forms["treas-funds-save"] = (d, f) => {
 function renderTreasurerExpenses(acct, year) {
   const c = S.church();
   const expenses = S.list("expenses").sort((a, b) => (b.date || b.at).localeCompare(a.date || a.at));
-  const byDept = BUDGET_DEPARTMENTS.map(([k, l]) => [l, expenses.filter((e) => e.department === k && new Date(e.date || e.at).getFullYear() === year).reduce((n, e) => n + (+e.amount || 0), 0)]).filter(([, n]) => n > 0);
+  const byDept = BUDGET_DEPARTMENTS.map(([k, l]) => [l, expenses.filter((e) => e.department === k && yearOf(e.date || e.at) === year).reduce((n, e) => n + (+e.amount || 0), 0)]).filter(([, n]) => n > 0);
   const expRows = expenses.map((e) => [
     e.date || isoDay(e.at),
     e.payee,
@@ -759,7 +759,7 @@ function renderTreasurerBudgets(acct, year) {
 }
 
 Actions["treas-budgets-edit"] = () => {
-  const year = new Date().getFullYear(), budgets = S.list("budgets").filter((b) => b.year === year);
+  const year = yearOf(), budgets = S.list("budgets").filter((b) => b.year === year);
   openSheet(`Edit ${year} ministry budgets`, html`<form data-form="treas-budgets-save" novalidate>
     ${BUDGET_DEPARTMENTS.map(([dept, label, defAnnual]) => {
       const rec = budgets.find((b) => b.department === dept);
@@ -769,7 +769,7 @@ Actions["treas-budgets-edit"] = () => {
   </form>`);
 };
 Forms["treas-budgets-save"] = (d) => {
-  const year = new Date().getFullYear(), cid = S.state.current;
+  const year = yearOf(), cid = S.state.current;
   BUDGET_DEPARTMENTS.forEach(([dept, label]) => {
     const amt = Math.max(0, parseFloat(d[`b_${dept}`]) || 0);
     const existing = S.list("budgets").find((b) => b.year === year && b.department === dept);
@@ -974,7 +974,7 @@ Actions["treas-weekly-csv"] = () => {
 }
 
 Actions["treas-donor-pdf"] = (el) => {
-  const c = S.church(), year = +el.dataset.year || new Date().getFullYear(), k = el.dataset.giver;
+  const c = S.church(), year = +el.dataset.year || yearOf(), k = el.dataset.giver;
   const list = giftsIn(S.list("gifts"), year).filter((g) => (g.by || g.name) === k);
   if (!list.length) { toast("No gifts found for this donor."); return; }
   const name = S.user(k)?.name || list[0].name || "Donor";
@@ -985,7 +985,7 @@ Actions["treas-donor-pdf"] = (el) => {
 {
   if (typeof DASH !== "undefined") {
     DASH.treasurer = ["Treasurer & fund balances", () => canTreasurer(), () => {
-      const acct = computeFundAccounting(new Date().getFullYear());
+      const acct = computeFundAccounting(yearOf());
       return html`
         <div class="stat-tiles" style="margin-bottom:10px">
           ${statTile("YTD Inflows", money(Math.round(acct.totalIn)), "Tithes, offerings & gifts")}

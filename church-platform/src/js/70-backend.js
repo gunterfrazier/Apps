@@ -194,7 +194,7 @@ const Backend = {
     row("profiles", uid, { id: uid, name: meRest.name, household: `${meRest.name}${household.length ? " and family" : ""}` });
     row("contacts", uid, { user_id: uid, email: meRest.email, phone: meRest.phone });
     row("families", uid, { user_id: uid, family: household, pickups: pickups || [] });
-    row("profile_private", uid, { user_id: uid, data: { audioPlaylists: st.audioPlaylists || {}, churchAttendeeTypes: st.churchAttendeeTypes || {}, prefs: st.prefs, notes: st.notes, verseNotes: st.verseNotes || {}, highlights: st.highlights || {}, saved: st.saved, progress: st.progress, seen: st.seen, chatSeen: st.chatSeen, reminded: st.reminded, campus: st.campus, current: st.current, training: st.training || null } });
+    row("profile_private", uid, { user_id: uid, data: { audioPlaylists: st.audioPlaylists || {}, churchAttendeeTypes: st.churchAttendeeTypes || {}, prefs: { ...st.prefs, phoneTz: DEVICE_TZ }, notes: st.notes, verseNotes: st.verseNotes || {}, highlights: st.highlights || {}, saved: st.saved, progress: st.progress, seen: st.seen, chatSeen: st.chatSeen, reminded: st.reminded, campus: st.campus, current: st.current, training: st.training || null } });
     st.memberships.forEach((m) => row("memberships", `${m.churchId}|${m.userId}`, { church_id: m.churchId, user_id: m.userId, role_key: m.roleId, locations: m.locations, listed: !!m.listed, joined: m.joined }));
     Object.values(st.churches).forEach((c) => {
       const { roles, locations, integrations, ownerId, previousOwner, ...data } = c;

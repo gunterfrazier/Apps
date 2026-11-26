@@ -11,7 +11,8 @@ const givingService = (l) => l?.name || GIVING_SERVICES.find(([k]) => k === l?.s
 const methodLabel = (m) => ({ bank: "Bank", cash: "Cash or check", paypal: "PayPal" })[m] || "Card";
 const hostOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } };
 const nextGiftDate = (r) => {
-  const d = new Date(r.lastAt || r.at), step = () => (r.frequency === "weekly" ? d.setDate(d.getDate() + 7) : d.setMonth(d.getMonth() + 1));
+  let d = new Date(r.lastAt || r.at);
+  const step = () => { d = r.frequency === "weekly" ? addDays(d, 7) : addMonths(d, 1); };
   step(); while (d < new Date()) step();
   return d;
 };
@@ -24,8 +25,8 @@ Screens.give = (tail = "") => {
   if (!S.on("giving")) return { redirect: "home" };
   const c = S.church(), preset = parseAmount(tail.split("~")[1] || "") || 50;
   const defFund = c.funds.some((f) => f.id === c.defaults.fundId) ? c.defaults.fundId : c.funds[0]?.id;
-  const year = new Date().getFullYear();
-  const total = myGifts().filter((g) => new Date(g.at).getFullYear() === year).reduce((n, g) => n + g.amount, 0);
+  const year = yearOf();
+  const total = myGifts().filter((g) => yearOf(g.at) === year).reduce((n, g) => n + g.amount, 0);
   const recurring = S.list("recurring").filter((r) => r.by === S.me().id && r.active);
   const link = c.givingLink?.url ? c.givingLink : null, inApp = !link || Pay.live(), methods = Pay.methods();
   return {
@@ -86,15 +87,15 @@ Actions["give-stop"] = async (el) => {
 
 Screens.history = () => {
   const gifts = myGifts(), c = S.church();
-  const years = [...new Set(gifts.map((g) => new Date(g.at).getFullYear()))];
+  const years = [...new Set(gifts.map((g) => yearOf(g.at)))];
   const statement = (y) => {
-    const list = gifts.filter((g) => new Date(g.at).getFullYear() === y);
+    const list = gifts.filter((g) => yearOf(g.at) === y);
     return `${c.name} giving statement, ${y}\n${S.me().name}\n\n${list.map((g) => `${fmtShort(g.at)}  ${fundName(g.fundId)}  ${money(g.amount)}`).join("\n")}\n\nTotal: ${money(list.reduce((n, g) => n + g.amount, 0))}\nNo goods or services were provided in exchange for these gifts.`;
   };
   return {
     title: "Giving history", back: "give", tab: "give",
     body: gifts.length ? years.map((y) => {
-      const list = gifts.filter((g) => new Date(g.at).getFullYear() === y);
+      const list = gifts.filter((g) => yearOf(g.at) === y);
       return html`<section class="sec"><div class="sec-head"><h2>${y}</h2><span class="muted"><b>${money(list.reduce((n, g) => n + g.amount, 0))}</b></span></div>
         <div class="rows">${list.map((g) => html`<div class="row"><span class="body"><span class="t">${money(g.amount)}</span><span class="s">${fundName(g.fundId)}, ${fmtShort(g.at)}${g.demo ? " (test)" : ""}${g.status === "refunded" ? ", refunded" : ""}</span></span><span class="faint">${methodLabel(g.method)}</span></div>`)}</div>
         <div class="btns"><button class="btn ghost sm" data-act="statement-pdf" data-year="${y}">${icon("download")}${y} statement (PDF)</button><button class="btn ghost sm" data-act="copy" data-done="Statement copied" data-text="${statement(y)}">${icon("copy")}Copy as text</button></div></section>`;

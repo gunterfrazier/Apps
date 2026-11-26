@@ -42,7 +42,7 @@ Screens.event = (id) => {
       <p style="margin:16px 0 4px"><span class="tag brand">${e.category}</span>${e.locationId && S.location(e.locationId)?.visibility === "private" ? html` <span class="tag">${icon("lock")}Private location</span>` : ""}</p>
       <h1>${e.title}</h1>
       <div class="meta">
-        ${icon("calendar")}<span>${fmtDay(e.start)}<br>${fmtTime(e.start)} to ${sameDay ? fmtTime(e.end) : `${fmtShort(e.end)} ${fmtTime(e.end)}`}</span>
+        ${icon("calendar")}<span>${fmtDay(e.start, tzOf(e))}<br>${fmtTime(e.start, tzOf(e))} to ${sameDay ? fmtTime(e.end, tzOf(e)) : `${fmtShort(e.end, tzOf(e))} ${fmtTime(e.end, tzOf(e))}`}${yourTime(e.start, tzOf(e)) ? html`<br><span class="faint">${yourTime(e.start, tzOf(e)).trim().replace(/^\(|\)$/g, "")}</span>` : ""}</span>
         ${icon("pin")}<span>${placeText(e)}<br><a href="${mapLink(fullAddress(e))}" target="_blank" rel="noopener">Directions</a></span>
         ${e.signup ? html`${icon("people")}<span>${taken} signed up${left != null ? `, ${Math.max(left, 0)} spots left` : ""}</span>` : ""}
         ${e.tickets?.length ? html`${icon("give")}<span>${e.tickets.map((t) => `${t.name} ${money(t.price)}`).join(", ")}</span>` : ""}
@@ -57,7 +57,7 @@ Screens.event = (id) => {
           : html`<button class="btn block" data-act="event-register" data-id="${e.id}">${e.tickets?.length ? "Get tickets" : "Sign up"}</button>`}
       </div>` : ""}
       <div class="btns">${ext(gcalLink(e.title, e.start, e.end, e.description, fullAddress(e)), "Add to Google Calendar", "btn ghost sm", "calendar")}
-        <button class="btn ghost sm" data-act="copy" data-done="Event details copied" data-text="${`${e.title}\n${fmtDay(e.start)}, ${fmtTime(e.start)}\n${placeText(e)}\n\n${e.description}\n${appLink(`event-${e.id}`)}`}">${icon("copy")}Copy details</button>
+        <button class="btn ghost sm" data-act="copy" data-done="Event details copied" data-text="${`${e.title}\n${fmtDay(e.start, tzOf(e))}, ${fmtTime(e.start, tzOf(e))}\n${placeText(e)}\n\n${e.description}\n${appLink(`event-${e.id}`)}`}">${icon("copy")}Copy details</button>
         ${e.tickets?.length && canTakePay(e) ? html`<a class="btn ghost sm" href="#tickets-${e.id}">${icon("list")}Tickets and payments</a>` : ""}
         ${S.can("qr.create") ? html`<button class="btn ghost sm" data-act="qr-for" data-target="${e.signup ? `register-event-${e.id}` : `event-${e.id}`}" data-label="${e.title}">${icon("qr")}QR code</button>` : ""}
         ${canGfx() && !featureOffFor("graphics") ? html`<button class="btn ghost sm" data-act="gfx-from" data-kind="event" data-id="${e.id}">${icon("image")}Make a graphic</button>` : ""}</div>`,

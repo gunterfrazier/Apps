@@ -137,7 +137,7 @@ async function loadTagTaps(force) {
   try {
     const { data, error } = await Backend.client.from("tag_taps").select("code,day,taps").eq("church_id", c);
     if (error) throw error;
-    const week = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10), byCode = {};
+    const week = isoDay(new Date(Date.now() - 7 * 864e5)), byCode = {};
     for (const r of data || []) {
       const t = (byCode[r.code] ||= { total: 0, week: 0, last: "" });
       t.total += r.taps; if (r.day >= week) t.week += r.taps; if (r.day > t.last) t.last = r.day;
@@ -147,7 +147,7 @@ async function loadTagTaps(force) {
   } catch { tagTaps.loading = false; tagTaps.at = Date.now(); tagTaps.church = c; }
 }
 const tapsFor = (t) => Backend.on ? (tagTaps.byCode[t.code] || { total: 0, week: 0, last: "" })
-  : { total: t.taps || 0, week: (t.tapDays || []).filter((d) => d >= new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10)).length, last: t.lastTap || "" };
+  : { total: t.taps || 0, week: (t.tapDays || []).filter((d) => d >= isoDay(new Date(Date.now() - 7 * 864e5))).length, last: t.lastTap || "" };
 
 // ---------- Opening a tag link: ourfaithfulchurch.com/t/<code> arrives as #tag-<code> ----------
 let tagOpening = { code: "", state: "", target: "" };
@@ -168,7 +168,7 @@ Screens.tag = (code = "") => {
     } else {
       const t = tagByCode(code);
       if (t) {
-        const day = new Date().toISOString().slice(0, 10);
+        const day = today();
         t.taps = (t.taps || 0) + 1; t.lastTap = day; t.tapDays = [...(t.tapDays || []), day].slice(-200); S.save();
         tagOpening.state = "found"; setTimeout(() => goToTagTarget(t.target), 0);
       } else tagOpening.state = "missing";

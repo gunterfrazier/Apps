@@ -73,9 +73,12 @@ const BSB = {
   "Numbers 6:24-26": "24 ‘May the LORD bless you and keep you; 25 may the LORD cause His face to shine upon you and be gracious to you; 26 may the LORD lift up His countenance toward you and give you peace.’",
 };
 
-function buildSeed() {
+/** The demo churches are all on Eastern time, so their history and coming week are built on that clock. */
+const SEED_TZ = "America/New_York";
+function buildSeed() { return withZone(SEED_TZ, buildSeedHere); }
+function buildSeedHere() {
   const now = new Date();
-  const lastSunday = startOfDay(new Date(now.getTime() - now.getDay() * DAY));
+  const lastSunday = fromIsoDay(isoWeekStart(today()));
   const sundayBack = (weeks) => new Date(lastSunday.getTime() - weeks * 7 * DAY + 10 * 3600e3).toISOString();
   const at = (dow, hhmm, weeks = 0) => nextWeekday(dow, hhmm, weeks).toISOString();
   const plus = (iso, hours) => new Date(new Date(iso).getTime() + hours * 3600e3).toISOString();
@@ -95,7 +98,7 @@ function buildSeed() {
   ];
   const users = Object.fromEntries(people.map(([k, name, household, phone]) => [`u-${k}`, { id: `u-${k}`, name, household, phone, email: `${k}@example.com`, family: [], pickups: [] }]));
   // Families with kids, for the check-in kiosk and staff rosters.
-  const yearsAgo = (y, m = 0) => { const d = new Date(now); d.setFullYear(d.getFullYear() - y); d.setMonth(d.getMonth() - m); return isoDay(d); };
+  const yearsAgo = (y, m = 0) => { const [ty, tm, td] = isoParts(today()), t = new Date(Date.UTC(ty - y, tm - 1 - m, 1)); return isoOf(t.getUTCFullYear(), t.getUTCMonth() + 1, Math.min(td, daysInMonth(t.getUTCFullYear(), t.getUTCMonth() + 1))); };
   const kid = (name, y, m, allergies = "", notes = "") => ({ id: uid(), name, kind: "child", birth: yearsAgo(y, m), allergies, notes });
   users["u-marcus"].family = [{ id: uid(), name: "Joy Bell", kind: "adult", birth: "", allergies: "", notes: "" }, kid("Eli Bell", 6, 2), kid("Nora Bell", 3, 5, "Peanuts")];
   users["u-marcus"].pickups = [{ id: uid(), name: "Sue Bell", relation: "Grandmother", phone: "(770) 555-0190", photo: "" }];
@@ -116,7 +119,7 @@ function buildSeed() {
   // ----- Churches (separate accounts, each with a primary account holder) -----
   const churches = [
     seedChurch({
-      id: "riverside", handle: "riverside-marietta", name: "Riverside Community Church", ownerId: "u-dana", color: "#1f6f78", sample: true,
+      id: "riverside", timeZone: "America/New_York", handle: "riverside-marietta", name: "Riverside Community Church", ownerId: "u-dana", color: "#1f6f78", sample: true,
       tagline: "A family of ordinary people following Jesus by the river.", sign: ["All are welcome", "Sundays 9 and 11"],
       email: "hello@riverside.example", phone: "(770) 555-0100", website: "https://riverside.example",
       locations: [
@@ -153,13 +156,13 @@ function buildSeed() {
       ] },
     }),
     seedChurch({
-      id: "cornerstone", handle: "cornerstone-dayton", name: "Cornerstone Bible Fellowship", ownerId: "u-elena", color: "#8c2f39", sample: true,
+      id: "cornerstone", timeZone: "America/New_York", handle: "cornerstone-dayton", name: "Cornerstone Bible Fellowship", ownerId: "u-elena", color: "#8c2f39", sample: true,
       tagline: "Verse by verse, together.", sign: ["Give thanks", "Thanksgiving Eve 7pm"],
       locations: [loc("cornerstone", "main", { code: "DAYTON", name: "Keystone Ave", address: "48 Keystone Ave, Dayton, OH", rooms: ["Sanctuary", "Room 104", "Library", "Choir room", "Kids wing", "Chapel"], services: [svc(0, "10:00", "Morning worship"), svc(3, "19:00", "Midweek prayer")] })],
       funds: [...DEFAULT_FUNDS, { id: "building", name: "Building fund", description: "The new fellowship hall" }],
     }),
     seedChurch({
-      id: "newhope", handle: "newhope-asheville", name: "New Hope Chapel", ownerId: "u-sam", color: "#3d4fa0", sample: true,
+      id: "newhope", timeZone: "America/New_York", handle: "newhope-asheville", name: "New Hope Chapel", ownerId: "u-sam", color: "#3d4fa0", sample: true,
       tagline: "Small church, big table. Come hungry.", sign: ["The coffee is on", "Sunday 10:30"],
       locations: [loc("newhope", "main", { code: "LAUREL", name: "Laurel Street", address: "15 Laurel St, Asheville, NC", rooms: ["Main room", "Back room", "Kids corner"], services: [svc(0, "10:30", "Sunday gathering")] })],
     }),
@@ -381,7 +384,7 @@ function buildSeed() {
 
   // ----- History for reports: weekly attendance, a year of giving, and newcomers being followed up -----
   const rnd = (n) => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
-  const pastSunday = (w) => { const d = new Date(now); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() || 7) - 7 * (w - 1)); return isoDay(d); };
+  const pastSunday = (w) => { const t = today(); return isoAdd(t, -(isoDow(t) || 7) - 7 * (w - 1)); };
   const attendance = [];
   const sizes = { "riverside-main@09:00": [150, 34, 70], "riverside-main@11:00": [205, 46, 95], "riverside-east@10:00": [72, 18, 0], "cornerstone-main@10:00": [104, 15, 32], "newhope-main@10:30": [52, 10, 0] };
   for (let w = 1; w <= 52; w++) Object.entries(sizes).forEach(([k, [a, kd, o]], j) => {

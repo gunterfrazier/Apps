@@ -223,7 +223,7 @@ function stageMonitor(data, st, full, tail = "") {
 
   return html`<div class="stage-mon ${full ? "full" : ""} ${chart ? "with-music" : ""} ${chart && view.lyrics ? "and-words" : ""}" aria-label="Stage display">
     <div class="sm-top">
-      <span class="sm-clock" data-clock>${fmtTime(now)}</span>
+      <span class="sm-clock" data-clock>${fmtClock(now)}</span>
       ${full ? html`${stageViewBtn()}${orientationSelect()}` : ""}
       <span class="sm-sec">${cur?.section || data?.title || ""}${cur?.label ? `, ${cur.label}` : ""}${full && view.syncMode !== "follow" ? html` <span class="tag ${view.syncMode === "leader" ? "ok" : "brand"}" style="font-size:.7rem;vertical-align:middle">${view.syncMode === "leader" ? "Band Leader" : "Independent"}</span>` : ""}</span>
       ${timer}
@@ -375,7 +375,7 @@ Actions["pres-captions"] = () => {
 // ----- One clock for every timer on screen -----
 function tickTimers() {
   const now = Date.now();
-  $$("[data-clock]").forEach((el) => { el.textContent = fmtTime(now); });
+  $$("[data-clock]").forEach((el) => { el.textContent = fmtClock(now); });
   $$("[data-cd-end]").forEach((el) => { el.textContent = cdText((+el.dataset.cdEnd - now) / 1000); });
   $$("[data-seg-start]").forEach((el) => { const left = +el.dataset.mins * 60 - (now - +el.dataset.segStart) / 1000; el.textContent = segLeftText(left); el.classList.toggle("over", left < 0); });
   $$("[data-since]").forEach((el) => { el.textContent = cdText((now - +el.dataset.since) / 1000); });

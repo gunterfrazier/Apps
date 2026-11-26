@@ -20,15 +20,12 @@ function incidentDuration(ms) {
 }
 
 function incidentPeriodBounds(period, date) {
-  const start = fromIsoDay(date);
-  if (period === "week") start.setDate(start.getDate() - start.getDay());
-  if (period === "month" || period === "year") start.setDate(1);
-  if (period === "year") start.setMonth(0);
-  const end = new Date(start);
-  if (period === "year") end.setFullYear(end.getFullYear() + 1);
-  else if (period === "month") end.setMonth(end.getMonth() + 1);
-  else end.setDate(end.getDate() + (period === "week" ? 7 : 1));
-  return { start, end };
+  let s = isoDay(date);
+  if (period === "week") s = isoWeekStart(s);
+  if (period === "month") s = `${s.slice(0, 7)}-01`;
+  if (period === "year") s = `${s.slice(0, 4)}-01-01`;
+  const e = period === "year" ? `${+s.slice(0, 4) + 1}-01-01` : period === "month" ? isoAddMonths(s, 1) : isoAdd(s, period === "week" ? 7 : 1);
+  return { start: fromIsoDay(s), end: fromIsoDay(e) };
 }
 
 function incidentGroupChart(title, dimension, buckets, filter) {
@@ -52,8 +49,7 @@ function renderIncidentDashboard() {
   const { period, date, filter } = incidentDashboard;
   const { start, end } = incidentPeriodBounds(period, date);
   const startDay = isoDay(start), endDay = isoDay(end);
-  const last = new Date(end);
-  last.setDate(last.getDate() - 1);
+  const last = addDays(end, -1);
   const rows = securityIncidentRows().filter(({ inc }) => {
     if (inc.kind === "DRILL_INJECT" || !Number.isFinite(Date.parse(inc.at))) return false;
     const day = isoDay(inc.at);
@@ -62,10 +58,7 @@ function renderIncidentDashboard() {
   const timeLabel = (row) => {
     const reported = new Date(row.inc.at);
     if (period === "year") return fmt(reported, { month: "long" });
-    if (period === "day") {
-      reported.setMinutes(0, 0, 0);
-      return fmt(reported, { hour: "numeric" });
-    }
+    if (period === "day") return fmt(reported, { hour: "numeric" });
     return fmt(reported, { month: "short", day: "numeric" });
   };
   const category = (row) => row.inc.category || "Uncategorized";
@@ -130,8 +123,7 @@ Forms["sec-dashboard-period"] = (d, f) => {
 
 Actions["sec-dashboard-shift"] = (el) => {
   const { period, date } = incidentDashboard, { start, end } = incidentPeriodBounds(period, date);
-  if (el.dataset.dir === "-1") start.setDate(start.getDate() - 1);
-  incidentDashboard.date = isoDay(el.dataset.dir === "-1" ? start : end);
+  incidentDashboard.date = isoDay(el.dataset.dir === "-1" ? addDays(start, -1) : end);
   incidentDashboard.filter = null;
   render();
   $(`[data-act="sec-dashboard-shift"][data-dir="${el.dataset.dir}"]`)?.focus({ preventScroll: true });

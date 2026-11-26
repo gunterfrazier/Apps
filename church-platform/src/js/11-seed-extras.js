@@ -10,7 +10,7 @@ function seedExtras(st, { now, daysAgo }) {
   if (!c) return st;
   const rnd = (n) => { const x = Math.sin(n * 9301 + 49297) * 233280; return x - Math.floor(x); };
   // w = 0 is the most recent Sunday before today, matching the weekly attendance history in buildSeed.
-  const sunday = (w) => { const d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() || 7) - 7 * w); return d; };
+  const sunday = (w) => { const t = isoDay(now); return fromIsoDay(isoAdd(t, -(isoDow(t) || 7) - 7 * w)); };
   const at = (w, hours) => new Date(sunday(w).getTime() + hours * 3600e3).toISOString();
   const key = (w, time = "09:00", loc = MAIN) => `${isoDay(sunday(w))}T${time}@${loc}`;
   const svcName = (w, label = "Early service", time = "9:00 AM") => `${label}, ${fmt(sunday(w), { weekday: "short", month: "short", day: "numeric" })} at ${time}`;

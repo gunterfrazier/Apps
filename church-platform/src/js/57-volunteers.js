@@ -8,7 +8,7 @@ const positionsOf = (team, c = S.church()) => c.positions?.[team] || [];
 // A request to join (status "requested") isn't on the team until a scheduler approves it, unless the person was pre-approved.
 const teamMembersOf = (team) => S.list("teamMembers").filter((m) => m.team === team && m.status !== "requested" && S.user(m.userId));
 const myTeams = () => S.list("teamMembers").filter((m) => m.userId === S.me().id && m.status !== "requested").map((m) => m.team);
-const planLabel = (p) => `${p.title}, ${fmtShort(fromIsoDay(p.date))} at ${timeLabel(p.time)}`;
+const planLabel = (p) => `${p.title}, ${fmtShort(fromIsoDay(p.date))} at ${timeLabel(p.time, tzOf(p), p.date)}`;
 const upcomingPlans = () => { const t = isoDay(new Date()); return S.list("services").filter((p) => p.date >= t).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)); };
 const myAssignments = (userId = S.me().id) => upcomingPlans().flatMap((p) => (p.assignments || []).filter((a) => a.userId === userId).map((a) => [p, a]));
 const pendingAsks = () => S.isMember() ? myAssignments().filter(([, a]) => a.status === "pending") : [];
@@ -27,13 +27,13 @@ const RECUR_BLOCKOUTS = [
 const recurLabel = (r) => (RECUR_BLOCKOUTS.find(([k]) => k === r) || ["", ""])[1];
 function matchesRecurBlockout(b, dayIso) {
   if (!b.recur) return false;
-  const d = fromIsoDay(dayIso);
+  const dow = isoDow(dayIso), dom = isoParts(dayIso)[2];
   if (b.from && dayIso < b.from) return false;
   if (b.to && b.to !== b.from && dayIso > b.to) return false;
-  if (b.recur.startsWith("dow-")) return d.getDay() === +b.recur.slice(4);
+  if (b.recur.startsWith("dow-")) return dow === +b.recur.slice(4);
   if (b.recur.startsWith("nth-")) {
-    const [, nth, dow] = b.recur.split("-");
-    return d.getDay() === +dow && Math.ceil(d.getDate() / 7) === +nth;
+    const [, nth, want] = b.recur.split("-");
+    return dow === +want && Math.ceil(dom / 7) === +nth;
   }
   return false;
 }
@@ -129,8 +129,8 @@ Actions["bcal-toggle"] = (el) => {
 function askCard([p, a]) {
   const d = fromIsoDay(p.date), [label, cls] = ASK_STATUS[a.status] || ASK_STATUS.pending;
   const isMe = a.userId === S.me().id;
-  return html`<div class="ask-card ${a.status}"><div class="row" style="padding:0"><span class="date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span>
-      <span class="body"><span class="t">${a.position}, ${a.team}</span><span class="s">${p.title} at ${timeLabel(p.time)}${p.locationId ? `, ${locName(p.locationId)}` : ""}</span>
+  return html`<div class="ask-card ${a.status}"><div class="row" style="padding:0"><span class="date"><span>${fmtMonth(d)}</span><b>${dayNum(d)}</b></span>
+      <span class="body"><span class="t">${a.position}, ${a.team}</span><span class="s">${p.title} at ${timeLabel(p.time, tzOf(p), p.date)}${p.locationId ? `, ${locName(p.locationId)}` : ""}</span>
       ${a.status !== "pending" ? html`<span class="tag ${cls}" style="margin-top:4px">${label}</span>` : ""}${a.note ? html`<span class="s">"${a.note}"</span>` : ""}</span></div>
     <div class="btns" style="margin-top:10px">${isMe && a.status === "pending" ? html`<button class="btn sm" data-act="ask-yes" data-plan="${p.id}" data-id="${a.id}">${icon("check")}Accept</button><button class="btn ghost sm" data-act="ask-no" data-plan="${p.id}" data-id="${a.id}">Decline</button>`
       : isMe && a.status === "accepted" ? html`<button class="btn ghost sm" data-act="ask-sub" data-plan="${p.id}" data-id="${a.id}">${icon("people")}Request a sub</button><button class="btn ghost sm" data-act="ask-no" data-plan="${p.id}" data-id="${a.id}">I can't make it</button>`
@@ -356,7 +356,7 @@ Screens.teams = () => {
       <section class="sec"><div class="sec-head"><h2>Upcoming services</h2><div class="btns" style="margin:0"><a class="btn sm" href="#schedule-matrix">${icon("hand")}Open Drag &amp; Drop Matrix</a></div></div>
         <div class="rows">${plans.length ? plans.map((p) => {
           const st = fillStats(p), d = fromIsoDay(p.date);
-          return html`<a class="row" href="#crew-${p.id}"><span class="date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span><span class="body"><span class="t">${p.title} at ${timeLabel(p.time)}</span><span class="s">${fillText(st)}</span>
+          return html`<a class="row" href="#crew-${p.id}"><span class="date"><span>${fmtMonth(d)}</span><b>${dayNum(d)}</b></span><span class="body"><span class="t">${p.title} at ${timeLabel(p.time, tzOf(p), p.date)}</span><span class="s">${fillText(st)}</span>
             <span class="meter" aria-hidden="true"><i style="width:${st.total ? Math.round((st.confirmed / st.total) * 100) : 0}%"></i><i class="w" style="width:${st.total ? Math.round((Math.min(st.waiting, st.total - st.confirmed) / st.total) * 100) : 0}%"></i></span></span>${icon("chev")}</a>`;
         }) : empty("Plan a service first, then schedule its teams here.", S.can("services.plan") ? html`<a class="btn" href="#services">Service plans</a>` : "")}</div></section>
       <section class="sec"><div class="sec-head"><h2>Teams</h2><button class="btn ghost sm" data-act="team-new">${icon("plus")}New team</button></div><div class="rows">${teamsOf().map((t, i) => html`<a class="row" href="#team-${i}"><span class="lead-ic">${icon("hand")}</span><span class="body"><span class="t">${t}</span><span class="s">${plural(teamMembersOf(t).length, "person", "people")}, ${plural(positionsOf(t).length, "position")}</span></span>${icon("chev")}</a>`)}</div></section>`,
@@ -428,7 +428,7 @@ Screens["schedule-matrix"] = () => {
                     const st = fillStats(p), d = fromIsoDay(p.date);
                     return html`<th>
                       <a href="#crew-${p.id}" style="text-decoration:none;color:inherit"><b>${fmt(d, { month: "short", day: "numeric" })}</b></a>
-                      <div class="faint" style="font-weight:400;font-size:.78rem">${p.title} · ${timeLabel(p.time)}</div>
+                      <div class="faint" style="font-weight:400;font-size:.78rem">${p.title} · ${timeLabel(p.time, tzOf(p), p.date)}</div>
                       <div style="margin-top:4px"><span class="tag ${st.open ? "warn" : "ok"}" style="font-size:.72rem">${st.confirmed}/${st.total} filled</span>
                         <button type="button" class="icon-btn sm" data-act="crew-broadcast-open" data-plan="${p.id}" title="Message crew for ${fmtShort(d)}" aria-label="Message crew">${icon("chat")}</button></div>
                     </th>`;
@@ -557,7 +557,7 @@ Actions["crew-broadcast-open"] = (el) => {
   if (!p) return;
   const crewIds = [...new Set((p.assignments || []).filter((a) => a.status !== "declined").map((a) => a.userId))];
   openSheet(`Message crew: ${p.title}`, html`<form data-form="crew-broadcast-send" novalidate><input type="hidden" name="planId" value="${p.id}">
-    <p class="muted" style="margin-top:0">${fmtDay(fromIsoDay(p.date))} at ${timeLabel(p.time)} · <b>${plural(crewIds.length, "volunteer")} scheduled</b>.</p>
+    <p class="muted" style="margin-top:0">${fmtDay(fromIsoDay(p.date))} at ${timeLabel(p.time, tzOf(p), p.date)} · <b>${plural(crewIds.length, "volunteer")} scheduled</b>.</p>
     <label class="field"><span>Who on this service?</span><select name="filter">
       <option value="all">Everyone scheduled (${crewIds.length})</option>
       <option value="accepted">Confirmed only (${(p.assignments || []).filter((a) => a.status === "accepted").length})</option>
@@ -626,7 +626,7 @@ Screens["schedule-calendar"] = () => {
       ${dayPlans.map((p) => {
         const st = fillStats(p);
         return html`<a class="scal-plan ${st.open ? "open" : "full"}" href="#crew-${p.id}">
-          <b>${timeLabel(p.time)} ${p.title}</b>
+          <b>${timeLabel(p.time, tzOf(p), p.date)} ${p.title}</b>
           <span>${st.confirmed}/${st.total} confirmed${st.open ? ` · ${st.open} open` : ""}</span>
         </a>`;
       })}
@@ -687,7 +687,7 @@ Forms["admin-away-save"] = (d) => {
 
 function planHead(p) {
   return html`<h1 style="margin-top:16px">${p.title}</h1>
-    <p class="muted" style="margin-top:4px">${fmtDay(fromIsoDay(p.date))} at ${timeLabel(p.time)}${p.locationId ? `, ${locName(p.locationId)}` : ""}.</p>
+    <p class="muted" style="margin-top:4px">${fmtDay(fromIsoDay(p.date))} at ${timeLabel(p.time, tzOf(p), p.date)}${p.locationId ? `, ${locName(p.locationId)}` : ""}.</p>
     ${seg([[`service-${p.id}`, "Order of service"], [`crew-${p.id}`, "Volunteers", S.isMember() && S.canAny(["schedule.teams", "services.plan"])]], location.hash.slice(1))}`;
 }
 Screens.crew = (id) => {
@@ -783,7 +783,7 @@ Screens.team = (i) => {
         }) : empty("Nobody on this team yet.")}</div></section>
       ${plans.length && positions.length ? html`<section class="sec"><h2 class="sec-head">Coming up</h2><div class="rows">${plans.map((p) => {
         const mine = (p.assignments || []).filter((a) => a.team === team && a.status !== "declined"), d = fromIsoDay(p.date);
-        return html`<a class="row" href="#crew-${p.id}"><span class="date"><span>${fmtMonth(d)}</span><b>${d.getDate()}</b></span><span class="body"><span class="t">${p.title}</span><span class="s">${mine.length ? mine.map((a) => `${a.position}: ${S.userName(a.userId)}${a.status === "pending" ? " (waiting)" : ""}`).join(", ") : "Nobody scheduled"}</span></span>${icon("chev")}</a>`;
+        return html`<a class="row" href="#crew-${p.id}"><span class="date"><span>${fmtMonth(d)}</span><b>${dayNum(d)}</b></span><span class="body"><span class="t">${p.title}</span><span class="s">${mine.length ? mine.map((a) => `${a.position}: ${S.userName(a.userId)}${a.status === "pending" ? " (waiting)" : ""}`).join(", ") : "Nobody scheduled"}</span></span>${icon("chev")}</a>`;
       })}</div></section>` : ""}`,
   };
 };

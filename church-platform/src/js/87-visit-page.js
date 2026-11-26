@@ -79,7 +79,7 @@ function visitBlockHtml(b, c, loc) {
     case "campus": {
       if (!loc) return "";
       const svcs = (loc.services || []).slice().sort((a, x) => a.day - x.day || a.time.localeCompare(x.time)), next = upcomingServices(c, 1, loc.id)[0];
-      const tm = (s) => { const [h, m] = s.time.split(":").map(Number); return fmtTime(new Date(2000, 0, 1, h, m)); };
+      const tm = (s) => timeLabel(s.time, tz(loc.id));
       return html`<section class="block">${head("When and where")}
         ${next ? html`<p class="vp-next">${icon("calendar")}<span>Next service: <b>${serviceName(next)}</b></span></p>` : ""}
         ${svcs.length ? html`<ul class="vp-times">${svcs.map((s) => html`<li><b>${DAYS[s.day]} ${tm(s)}</b><span>${s.label || "Service"}</span></li>`)}</ul>` : html`<p class="muted">Service times are coming soon.</p>`}

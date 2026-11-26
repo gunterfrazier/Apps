@@ -64,7 +64,7 @@ function fillTrainingChurch(tid, content) {
 
 async function createTrainingChurch({ source, joinRole, name }) {
   const real = S.church(), realId = real.id;
-  const t = S.createChurch({ name, handle: `${real.handle}-training`, color: real.color, locations: [] });
+  const t = S.createChurch({ name, handle: `${real.handle}-training`, color: real.color, timeZone: real.timeZone || "", locations: [] });
   const content = trainingContent(t.id, source, realId);
   fillTrainingChurch(t.id, content);
   t.training = { of: realId, ofName: real.name, source, at: new Date().toISOString(), by: S.me().id };

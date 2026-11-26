@@ -81,7 +81,7 @@ function gfxLogoSrc(d, c = S.church()) {
 
 // ----- Starting points, filled from the app -----
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const clock = (t) => fmtTime(new Date(`2000-01-01T${t || "09:00"}`)).replace(":00 ", " ");
+const clock = (t) => fmtClock(fromIsoDay(today(), t || "09:00")).replace(":00 ", " ");
 /** "Sundays 9 AM and 11 AM" for the main location's services (or every location's, when there's no main). */
 function serviceTimesText(c = S.church()) {
   const locs = S.locations(c.id), main = locs[0];

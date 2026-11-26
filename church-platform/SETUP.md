@@ -299,6 +299,21 @@ Good to know:
 - **If a build fails** on the Node version, add the environment variable `NODE_VERSION` = `22` under **Settings, Variables and Secrets**.
 - **Sign-in email from your own domain.** Step 3.3 can now use a sender at `ourfaithfulchurch.com` (Resend, Postmark, Brevo or SendGrid) instead of the Gmail account. Add the DNS records they give you in Cloudflare.
 
+## Time zones (version 27)
+
+For an existing project, run `supabase/upgrade-27.sql` after version 26, then deploy the edge functions again
+(`reminders`, `kiosk`, `ticket-receipt`, `push`, `church-lifecycle`, and the ones that use `_shared/settle.ts`).
+
+- Each church sets its time zone under **Admin, Account details**. A campus in another zone sets its own under
+  **Admin, Locations**. New churches start with the zone of the phone or computer that registered them.
+- Churches that registered before this have no zone yet. Until someone sets one, the app shows times in each phone's
+  own zone, as before, and the server uses Eastern time. Their **Dashboard** lists "Set the church's time zone"
+  under Needs attention for anyone who can edit the church account.
+- Every date and time in the app is the church's (or the campus's). Someone whose phone is in another zone sees
+  times labeled with the church's zone, like "9:00 AM ET", and event pages add their own time too.
+- Serving reminders now go out the day before the service in the church's zone. Before this, the server read a
+  service plan's time as UTC, so reminders for churches in the Americas went out several hours early.
+
 ## Deleting accounts (version 25)
 
 For an existing project, run `supabase/upgrade-25.sql` after version 24. It adds **Me, Delete my account**, which

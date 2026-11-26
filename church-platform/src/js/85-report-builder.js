@@ -90,7 +90,7 @@ function renderDoc(doc) {
 }
 
 // ----- Exports -----
-const docFile = (doc, ext) => `${slugify(`${doc.church} ${doc.title}`).slice(0, 60)}-${doc.at.slice(0, 10)}.${ext}`;
+const docFile = (doc, ext) => `${slugify(`${doc.church} ${doc.title}`).slice(0, 60)}-${isoDay(doc.at)}.${ext}`;
 function reportCsv(doc) {
   const out = [csvLine([doc.title]), csvLine([doc.church]), csvLine([`${doc.range ? `Last ${doc.range}, ` : ""}${doc.campus}`]), csvLine([`Prepared ${fmtWhen(doc.at)}`]), ""];
   doc.items.forEach((it) => { const t = itemTable(it); out.push(csvLine([`${it.pageLabel}: ${it.title}`]), csvLine(t.head), ...t.rows.map(csvLine), ""); });
@@ -279,10 +279,10 @@ Actions["rb-run"] = (el) => { const r = S.get("customReports", el.dataset.id); i
 /** The day a scheduled report last came due (6 in the morning), or null when it isn't scheduled or hasn't come due yet. */
 function reportDue(r, now = new Date()) {
   if (!["weekly", "monthly"].includes(r.freq)) return null;
-  const d = new Date(now); d.setHours(6, 0, 0, 0);
-  if (r.freq === "weekly") { d.setDate(d.getDate() - ((d.getDay() - (+r.weekday || 0) + 7) % 7)); if (d > now) d.setDate(d.getDate() - 7); }
-  else { d.setDate(Math.min(+r.monthday || 1, 28)); if (d > now) d.setMonth(d.getMonth() - 1); }
-  return r.created && d < new Date(r.created) ? null : isoDay(d);
+  const t = isoDay(now);
+  let day = r.freq === "weekly" ? isoAdd(t, -((isoDow(t) - (+r.weekday || 0) + 7) % 7)) : `${t.slice(0, 8)}${pad2(Math.min(+r.monthday || 1, 28))}`;
+  if (fromIsoDay(day, "06:00") > now) day = r.freq === "weekly" ? isoAdd(day, -7) : `${isoAddMonths(day, -1).slice(0, 8)}${day.slice(8)}`;
+  return r.created && fromIsoDay(day, "06:00") < new Date(r.created) ? null : day;
 }
 /** Runs any scheduled report that has come due and hasn't run yet, as the person who has the app open. */
 function reportAutorun() {

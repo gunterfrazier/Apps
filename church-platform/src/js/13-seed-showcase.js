@@ -28,7 +28,7 @@ const whatsNewFor = () => WHATS_NEW.filter(([, , , , route, can]) => !featureOff
   const featureSeed = buildSeed;
   buildSeed = function () {
     const st = featureSeed();
-    try { addShowcase(st); } catch (e) { console.error("Sample data for the newest features wasn't added", e); }
+    try { withZone(SEED_TZ, () => addShowcase(st)); } catch (e) { console.error("Sample data for the newest features wasn't added", e); }
     st.seedVersion = SEED_VERSION;
     return st;
   };
@@ -64,12 +64,12 @@ function addShowcase(st) {
   // ----- A Sunday school lesson from the Family Library. Its blocks are filled from the story when the app loads it. -----
   const elem = st.gatherings.find((g) => g.id === "riverside-elem9");
   if (elem) {
-    const next = new Date(); next.setDate(next.getDate() + ((7 - next.getDay()) % 7 || 7));
+    const next = fromIsoDay(isoAdd(today(), (7 - isoDow(today())) % 7 || 7));
     st.docs.push({ id: "riverside-doc-story", churchId: R, kind: "lesson", title: "The lost sheep", passage: "Luke 15:3-7", topic: "", date: isoDay(next), time: "09:00",
       locationId: MAIN, gatheringId: elem.id, authorId: elem.leaders?.[0] || "u-linda", published: true, shareWithParents: true, resource: "", blocks: [],
       storyId: "lost-sheep", storyPending: { id: "lost-sheep", age: "young", len: 45 }, updated: ago(1) });
     // A second lesson the week after, with the Zacchaeus story pictures behind every slide.
-    const after = new Date(next); after.setDate(after.getDate() + 7);
+    const after = addDays(next, 7);
     st.docs.push({ id: "riverside-doc-zacchaeus", churchId: R, kind: "lesson", title: "Zacchaeus", passage: "Luke 19:1-10", topic: "", date: isoDay(after), time: "09:00",
       locationId: MAIN, gatheringId: elem.id, authorId: elem.leaders?.[0] || "u-linda", published: false, shareWithParents: true, resource: "", blocks: [], bgStory: "zacchaeus",
       storyId: "zacchaeus", storyPending: { id: "zacchaeus", age: "young", len: 45 }, updated: ago(1) });

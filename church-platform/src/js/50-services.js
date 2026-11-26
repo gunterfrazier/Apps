@@ -25,7 +25,7 @@ Screens.services = () => {
   if (!canSeePlans()) return { redirect: "ministry" };
   const today = isoDay(new Date());
   const all = plansInView(), upcoming = all.filter((p) => p.date >= today), past = all.filter((p) => p.date < today).reverse().slice(0, 6);
-  const row = (p) => html`<a class="row" href="#service-${p.id}"><span class="date"><span>${fmtMonth(fromIsoDay(p.date))}</span><b>${fromIsoDay(p.date).getDate()}</b></span><span class="body"><span class="t">${p.title}</span><span class="s">${timeLabel(p.time)}${p.locationId ? `, ${locName(p.locationId)}` : ""}, ${plural(p.segments.length, "segment")}, ${planMinutes(p)} min</span></span>${icon("chev")}</a>`;
+  const row = (p) => html`<a class="row" href="#service-${p.id}"><span class="date"><span>${fmtMonth(fromIsoDay(p.date))}</span><b>${dayNum(p.date)}</b></span><span class="body"><span class="t">${p.title}</span><span class="s">${timeLabel(p.time, tzOf(p), p.date)}${p.locationId ? `, ${locName(p.locationId)}` : ""}, ${plural(p.segments.length, "segment")}, ${planMinutes(p)} min</span></span>${icon("chev")}</a>`;
   return {
     title: "Service plans", back: "ministry",
     body: html`<div class="btns" style="margin-top:16px">${canPlan() ? html`<button class="btn" data-act="plan-new">${icon("plus")}New service plan</button><a class="btn ghost" href="#songs">${icon("music")}Songs</a><a class="btn ghost" href="#layouts-service">${icon("layers")}Layouts</a><a class="btn ghost" href="#library">${icon("list")}Saved segments</a>` : ""}</div>
@@ -40,7 +40,7 @@ Actions["plan-new"] = (el) => {
     <label class="field"><span>Name</span><input type="text" name="title" value="${s?.label || "Sunday worship"}" required maxlength="60"></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Date</span><input type="date" name="date" value="${isoDay(s?.start || nextWeekday(0, "23:59"))}"></label><label class="field"><span>Time</span><input type="time" name="time" value="${s?.time || "10:00"}"></label></div>
     <label class="field"><span>Location</span><select name="locationId">${locationOptions(s?.location?.id)}</select></label>
-    <label class="field"><span>Start from</span><select name="from"><option value="">A blank plan</option>${layoutOptions("service", el?.dataset?.layout)}<optgroup label="Other"><option value="library">All my saved segments</option>${plansInView().slice().reverse().map((p) => html`<option value="${p.id}">Copy of ${p.title}, ${fmtShort(fromIsoDay(p.date))} ${timeLabel(p.time)}</option>`)}</optgroup></select></label>
+    <label class="field"><span>Start from</span><select name="from"><option value="">A blank plan</option>${layoutOptions("service", el?.dataset?.layout)}<optgroup label="Other"><option value="library">All my saved segments</option>${plansInView().slice().reverse().map((p) => html`<option value="${p.id}">Copy of ${p.title}, ${fmtShort(fromIsoDay(p.date))} ${timeLabel(p.time, tzOf(p), p.date)}</option>`)}</optgroup></select></label>
     <button class="btn block">Create plan</button></form>`);
 };
 Forms["plan-new"] = (d, f) => {

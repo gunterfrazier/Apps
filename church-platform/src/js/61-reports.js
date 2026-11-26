@@ -8,13 +8,13 @@ const canReports = () => S.isMember() && S.canAny(["view.reports", "view.giving"
 
 /** Bucket keys for the range, oldest first: the Sunday that starts each week, or the first of each month. */
 function reportBuckets(rangeKey = reportRange) {
-  const [, n, unit] = REPORT_RANGES[rangeKey], out = [], d = new Date(); d.setHours(12, 0, 0, 0);
-  if (unit === "week") { d.setDate(d.getDate() - d.getDay()); for (let i = n - 1; i >= 0; i--) { const x = new Date(d); x.setDate(d.getDate() - 7 * i); out.push(isoDay(x)); } }
-  else { d.setDate(1); for (let i = n - 1; i >= 0; i--) { const x = new Date(d); x.setMonth(d.getMonth() - i); out.push(isoDay(x)); } }
+  const [, n, unit] = REPORT_RANGES[rangeKey], out = [], t = today();
+  if (unit === "week") { const sun = isoWeekStart(t); for (let i = n - 1; i >= 0; i--) out.push(isoAdd(sun, -7 * i)); }
+  else for (let i = n - 1; i >= 0; i--) out.push(isoAddMonths(t, -i));
   return { unit, keys: out, start: out[0] };
 }
-const weekOf = (day) => { const d = fromIsoDay(day); d.setDate(d.getDate() - d.getDay()); return isoDay(d); };
-const bucketOf = (day, unit) => unit === "week" ? weekOf(day) : `${day.slice(0, 7)}-01`;
+const weekOf = (day) => isoWeekStart(isoDay(day));
+const bucketOf = (day, unit) => unit === "week" ? weekOf(day) : `${isoDay(day).slice(0, 7)}-01`;
 const bucketLabel = (key, unit) => unit === "week" ? fmt(fromIsoDay(key), { month: "short", day: "numeric" }) : fmt(fromIsoDay(key), { month: "short" });
 
 /** Attendance for each service in view: recorded head counts, with kids from check-ins when nobody counted them. */
@@ -63,7 +63,7 @@ Screens.reports = () => {
     const last = weeks[weeks.length - 1], prev = weeks[weeks.length - 2];
     const lastT = last ? weekTotal(last) : 0, delta = prev ? lastT - weekTotal(prev) : null;
     const kidsAvg = weeks.length ? Math.round(sum("kids", svc) / weeks.length) : 0;
-    const guests = S.list("followups").filter((f) => f.at.slice(0, 10) >= start);
+    const guests = S.list("followups").filter((f) => isoDay(f.at) >= start);
     body = html`${body}
       <section class="sec"><div class="sec-head"><h2>Attendance</h2><button class="btn ghost sm" data-act="att-record">${icon("plus")}Record attendance</button></div>
         <div class="stat-tiles">
@@ -93,10 +93,10 @@ Screens.reports = () => {
 
   // ----- Giving -----
   if (seeGive) {
-    const gifts = S.list("gifts").filter((g) => g.at.slice(0, 10) >= start);
+    const gifts = S.list("gifts").filter((g) => isoDay(g.at) >= start);
     const total = gifts.reduce((n, g) => n + g.amount, 0), givers = new Set(gifts.map((g) => g.by || g.name)).size;
     const recurring = new Set(gifts.filter((g) => g.frequency !== "once").map((g) => g.by || g.name)).size;
-    const per = keys.map((k) => gifts.filter((g) => bucketOf(g.at.slice(0, 10), unit) === k).reduce((n, g) => n + g.amount, 0));
+    const per = keys.map((k) => gifts.filter((g) => bucketOf(isoDay(g.at), unit) === k).reduce((n, g) => n + g.amount, 0));
     const funds = S.church().funds.map((f) => [f.name, gifts.filter((g) => g.fundId === f.id).reduce((n, g) => n + g.amount, 0)]).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
     body = html`${body}
       <section class="sec"><div class="sec-head"><h2>Giving</h2>${S.can("view.giving") ? html`<a href="#admin-giving">All gifts</a>` : ""}</div>
@@ -120,10 +120,11 @@ Inputs["report-range"] = (el) => { reportRange = el.value; render(); };
 function recentServiceTimes(days = 21) {
   const out = [], now = new Date();
   S.visibleLocations().forEach((l) => (l.services || []).forEach((s) => {
+    const z = tz(l.id), t = today(z);
     for (let back = 0; back <= days; back++) {
-      const d = new Date(now); d.setDate(d.getDate() - back); if (d.getDay() !== s.day) continue;
-      const [h, m] = s.time.split(":").map(Number); d.setHours(h, m, 0, 0); if (d > now) continue;
-      out.push({ ...s, start: d, location: l });
+      const day = isoAdd(t, -back); if (isoDow(day) !== s.day) continue;
+      const d = fromIsoDay(day, s.time, z); if (d > now) continue;
+      out.push({ ...s, start: d, z, location: l });
     }
   }));
   return out.sort((a, b) => b.start - a.start).slice(0, 8);

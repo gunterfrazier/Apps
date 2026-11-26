@@ -260,15 +260,15 @@ function upcomingServices(church = S.church(), count = 4, locationId) {
   const campus = locationId || S.campus(church.id);
   const locs = S.visibleLocations(church.id).filter((l) => campus === "all" || l.id === campus);
   for (let w = 0; w < 3; w++) locs.forEach((l) => (l.services || []).forEach((s) => {
-    const start = nextWeekday(s.day, s.time, w, new Date(now.getTime() - 90 * 60e3));
-    if (start.getTime() + 90 * 60e3 > now.getTime()) out.push({ ...s, location: l, start, live: start <= now });
+    const z = tz(l.id), start = nextWeekday(s.day, s.time, w, new Date(now.getTime() - 90 * 60e3), z);
+    if (start.getTime() + 90 * 60e3 > now.getTime()) out.push({ ...s, location: l, start, z, live: start <= now });
   }));
   const seen = new Set();
   return out.sort((a, b) => a.start - b.start).filter((x) => { const k = serviceKey(x); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, count);
 }
-const serviceKey = (svc) => `${isoDay(svc.start)}T${svc.time}@${svc.location?.id || ""}`;
+const serviceKey = (svc) => `${isoDay(svc.start, svc.z || tz(svc.location?.id || null))}T${svc.time}@${svc.location?.id || ""}`;
 const multiCampus = () => S.visibleLocations().length > 1;
-const serviceName = (svc) => `${svc.label || "Service"}${multiCampus() && svc.location ? ` (${svc.location.name})` : ""}, ${fmt(svc.start, { weekday: "short", month: "short", day: "numeric" })} at ${fmtTime(svc.start)}`;
+const serviceName = (svc) => `${svc.label || "Service"}${multiCampus() && svc.location ? ` (${svc.location.name})` : ""}, ${fmt(svc.start, { weekday: "short", month: "short", day: "numeric" }, svc.z || tz(svc.location?.id || null))} at ${fmtTime(svc.start, svc.z || tz(svc.location?.id || null))}`;
 
 function upcomingEvents() {
   const now = Date.now();
@@ -295,18 +295,19 @@ function securityCode() { const a = "ACDEFHJKLMNPRTUVWXY", n = "2346789"; const 
 // ---------- Classes and groups ----------
 function nextMeeting(g, from = new Date()) {
   const s = g.schedule; if (!s) return null;
-  if (s.kind === "once") { const d = fromIsoDay(s.date, s.time || "00:00"); const end = fromIsoDay(s.date, s.endTime || s.time || "23:59"); return end >= from ? d : null; }
-  const start = s.startDate ? fromIsoDay(s.startDate) : null, end = s.endDate ? fromIsoDay(s.endDate, "23:59") : null;
+  const z = tzOf(g);
+  if (s.kind === "once") { const d = fromIsoDay(s.date, s.time || "00:00", z); const end = fromIsoDay(s.date, s.endTime || s.time || "23:59", z); return end >= from ? d : null; }
+  const start = s.startDate ? fromIsoDay(s.startDate, "00:00", z) : null, end = s.endDate ? fromIsoDay(s.endDate, "23:59", z) : null;
   const base = new Date(Math.max(from.getTime() - 60 * 60e3, start ? start.getTime() : 0));
-  const options = (s.days || []).map((d) => nextWeekday(d, s.time || "09:00", 0, base)).filter((d) => !end || d <= end).sort((a, b) => a - b);
+  const options = (s.days || []).map((d) => nextWeekday(d, s.time || "09:00", 0, base, z)).filter((d) => !end || d <= end).sort((a, b) => a - b);
   return options[0] || null;
 }
 function scheduleText(g) {
   const s = g.schedule; if (!s) return "";
-  const span = s.endTime ? ` to ${timeLabel(s.endTime)}` : "";
-  if (s.kind === "once") return `${fmtDay(fromIsoDay(s.date))}, ${timeLabel(s.time)}${span}`;
-  const startsLater = s.startDate && fromIsoDay(s.startDate) > new Date();
-  return `${dayNames(s.days || [])} at ${timeLabel(s.time)}${span}${startsLater ? `, starting ${fmtShort(fromIsoDay(s.startDate))}` : ""}${s.endDate ? `, through ${fmtShort(fromIsoDay(s.endDate))}` : ""}`;
+  const z = tzOf(g), span = s.endTime ? ` to ${timeLabel(s.endTime, z, s.date)}` : "";
+  if (s.kind === "once") return `${fmtDay(s.date, z)}, ${timeLabel(s.time, z, s.date)}${span}`;
+  const startsLater = s.startDate && fromIsoDay(s.startDate, "00:00", z) > new Date();
+  return `${dayNames(s.days || [])} at ${timeLabel(s.time, z)}${span}${startsLater ? `, starting ${fmtShort(s.startDate, z)}` : ""}${s.endDate ? `, through ${fmtShort(s.endDate, z)}` : ""}`;
 }
 const gCount = (g) => g.sampleCount + Math.max(g._count || 0, g.members.filter((m) => m.status === "in").length);
 const gFull = (g) => g.capacity && gCount(g) >= g.capacity;

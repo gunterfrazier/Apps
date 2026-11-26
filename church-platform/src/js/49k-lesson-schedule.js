@@ -32,7 +32,7 @@ function meetsOn(g, date) {
   if (s.kind === "once") return s.date === date;
   if (s.startDate && date < s.startDate) return false;
   if (s.endDate && date > s.endDate) return false;
-  return (s.days || []).includes(fromIsoDay(date).getDay());
+  return (s.days || []).includes(isoDow(date));
 }
 
 // ----- The class, date and time fields -----
@@ -53,7 +53,7 @@ function lessonWhenRefresh(form) {
   const [y, m] = month.split("-").map(Number), first = new Date(y, m - 1, 1), today = isoDay(new Date());
   const cells = [];
   for (let i = 0; i < first.getDay(); i++) cells.push("");
-  for (let day = 1; day <= new Date(y, m, 0).getDate(); day++) cells.push(isoDay(new Date(y, m - 1, day)));
+  for (let day = 1; day <= daysInMonth(y, m); day++) cells.push(isoOf(y, m, day));
   const cell = (iso) => {
     if (!iso) return `<span class="lcal-pad"></span>`;
     const here = g ? lessonsOn(g.id, iso, "", except) : [], meets = meetsOn(g, iso), lesson = here[0], pic = lesson && lessonThumb(lesson);
@@ -86,12 +86,12 @@ function nextClassDay(g, exceptId = "") {
   let from = new Date();
   for (let i = 0; i < 60 && g; i++) {
     const n = nextMeeting(g, from); if (!n) break;
-    const date = isoDay(n), time = g.schedule?.time || "09:00";
+    const date = isoDay(n, tzOf(g)), time = g.schedule?.time || "09:00";
     if (!lessonsOn(g.id, date, time, exceptId).length) return { date, time };
     from = new Date(n.getTime() + 2 * 3600e3);
   }
   const n = g && nextMeeting(g);
-  return n ? { date: isoDay(n), time: g.schedule?.time || "09:00" } : { date: isoDay(nextWeekday(0, "23:59")), time: "09:00" };
+  return n ? { date: isoDay(n, tzOf(g)), time: g.schedule?.time || "09:00" } : { date: isoDay(nextWeekday(0, "23:59")), time: "09:00" };
 }
 Inputs["lw-class"] = (el) => {
   const form = el.form, g = S.get("gatherings", el.value), n = nextClassDay(g);
@@ -103,7 +103,7 @@ Inputs["lw-time"] = (el) => lessonWhenRefresh(el.form);
 Actions["lw-pick"] = (el) => { const form = el.closest("form"); form.elements.date.value = el.dataset.date; form.elements.replaceId.value = ""; lessonWhenRefresh(form); };
 Actions["lw-month"] = (el) => {
   const form = el.closest("form"), cal = form.querySelector(".lcal"), [y, m] = cal.dataset.month.split("-").map(Number);
-  const d = new Date(y, m - 1 + Number(el.dataset.step), 1); cal.dataset.month = isoDay(d).slice(0, 7); lessonWhenRefresh(form);
+  cal.dataset.month = isoOf(y, m + Number(el.dataset.step), 1).slice(0, 7); lessonWhenRefresh(form);
 };
 Actions["lw-replace"] = (el) => { const form = el.closest("form"); form.elements.replaceId.value = el.dataset.id; lessonWhenRefresh(form); };
 Actions["lw-keep"] = (el) => {
