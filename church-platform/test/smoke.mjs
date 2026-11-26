@@ -1718,6 +1718,25 @@ await step("screens follow the booth", async () => {
   await goTo("home"); await scr.waitForSelector(".display .slide.k-logo"); await mon.waitForSelector(".display .slide.k-logo");
   await scr.close(); await mon.close();
 });
+await step("phone remote", async () => {
+  if (!(await page.evaluate(() => __app.S.can("present")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await goTo("present-service-riverside-svc-1"); await page.waitForSelector("#stage .slide"); await page.click('[data-act=pres-jump][data-i="1"]');
+  const count = () => page.textContent(".present-count");
+  const r = await tab(390, 844); await r.goto(base + "#remote"); await r.waitForSelector(".remote-now .slide");
+  await r.click("[data-act=remote-cmd][data-do=next]"); await page.waitForFunction(() => document.querySelector(".present-count")?.textContent.startsWith("3 /"));
+  await r.waitForFunction(() => document.querySelector(".remote-title")?.textContent.includes("3 /"));
+  await r.click("[data-act=remote-cmd][data-do=prev]"); await page.waitForFunction(() => document.querySelector(".present-count")?.textContent.startsWith("2 /"));
+  await r.click("[data-act=remote-cmd][data-do=black]"); await page.waitForSelector("[data-act=pres-black][aria-pressed=true]"); await r.waitForSelector("[data-do=black][aria-pressed=true]");
+  await r.click("[data-act=remote-cmd][data-do=clear]"); await page.waitForSelector("[data-act=pres-black]:not([aria-pressed=true])");
+  await r.fill("#remote-msg-in", "Repeat the chorus"); await r.click("form[data-form=remote-msg] button"); await page.waitForSelector("text=Clear \"Repeat the chorus\"");
+  await r.click("[data-act=remote-cmd][data-do=message]"); await page.waitForSelector("text=Clear \"Repeat the chorus\"", { state: "detached" });
+  await r.click(".remote-list summary"); await r.click('.remote-list [data-do=go][data-i="4"]'); await page.waitForFunction(() => document.querySelector(".present-count")?.textContent.startsWith("5 /"));
+  await r.screenshot({ path: join(shots, "47b-remote.png"), fullPage: true });
+  if (!(await count()).startsWith("5 /")) throw new Error("remote jump");
+  await page.click("[data-act=pres-remote]"); await page.waitForSelector("#scrim .qr-art svg"); await page.click("#scrim [data-act=close-sheet]");
+  await goTo("home"); await r.waitForSelector("text=Waiting for the booth");
+  await r.close();
+});
 await step("booth and signage devices", async () => {
   const code = await pairNew("booth"); await page.click("#scrim [data-act=close-sheet]");
   const b = await tab(1280, 800); await b.goto(base + `#pair-${code}`); await b.click("form[data-form=pair] button");

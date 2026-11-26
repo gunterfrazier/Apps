@@ -309,10 +309,10 @@ const Backend = {
    *  heard on both is handled once. */
   chans: {},
   seen: [],
-  liveTopics(topic) { const priv = topic.replace(/^present:/, "live:"); return LEGACY_LIVE ? [priv, topic] : [priv]; },
-  liveChannel(name, onMsg) {
+  liveTopics(topic) { if (!topic.startsWith("present:")) return [topic]; const priv = topic.replace(/^present:/, "live:"); return LEGACY_LIVE ? [priv, topic] : [priv]; },
+  liveChannel(name, onMsg, event = "slide") {
     const opts = name.startsWith("present:") ? undefined : { config: { private: true } };
-    return this.client.channel(name, opts).on("broadcast", { event: "slide" }, ({ payload }) => { if (this.firstTime(payload)) onMsg(payload); }).subscribe();
+    return this.client.channel(name, opts).on("broadcast", { event }, ({ payload }) => { if (this.firstTime(payload)) onMsg(payload); }).subscribe();
   },
   firstTime(payload) {
     const id = payload?._id; if (!id) return true;
@@ -338,6 +338,15 @@ const Backend = {
       try { this.client.removeChannel(ch); } catch { try { ch.unsubscribe(); } catch {} }
     }
   },
+
+  /** Booth commands (next, black, a stage message...) from a phone remote or a control surface, on the private
+   *  control:<church> channel: only people and devices that can present send or hear them (upgrade-28.sql). One channel
+   *  per church serves both directions; ctlHeard is whoever is listening on this device. */
+  ctlName: () => `control:${S.state.current}`,
+  ctlChan() { const name = this.ctlName(); return (this.chans[name] ||= this.liveChannel(name, (p) => this.ctlHeard?.(p), "cmd")); },
+  sendControl(cmd) { if (!this.ready) return false; this.ctlChan().send({ type: "broadcast", event: "cmd", payload: { ...cmd, _id: uid() } }); return true; },
+  onControl(cb) { if (!this.ready) return; this.ctlHeard = cb; this.ctlChan(); },
+  offControl() { this.ctlHeard = null; },
 
   // ----- Server functions -----
   async call(name, body) {

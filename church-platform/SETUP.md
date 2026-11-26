@@ -326,6 +326,15 @@ over the old channel, but the booth's command channel (and the **Commands to the
 - **Devices, Check a booth computer** (or the link on a booth screen) tests a booth PC: its displays and placing
   windows on them, OBS, Companion, MIDI, USB DMX and how fast a command reaches it. Use Chrome or Edge.
 
+## Phone remote
+
+In the presenter, **Remote** shows a code to scan with a phone. On the phone (signed in by someone who can present),
+**#remote** shows what's on screen and what's next, and moves the slides: next and back, any slide, a song's
+sections, black, logo, clear, and a message to the stage. Commands go over the private control channel from
+version 28, so it needs `upgrade-28.sql`. If two campuses are presenting at once, the phone asks which one.
+Every way of driving the booth (the remote now; Stream Deck, MIDI and Companion later) sends the same commands,
+handled by `boothCommand()` in `src/js/72d-booth-remote.js`.
+
 ## Time zones (version 27)
 
 For an existing project, run `supabase/upgrade-27.sql` after version 26, then deploy the edge functions again
