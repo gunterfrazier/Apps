@@ -1741,6 +1741,34 @@ await step("phone remote", async () => {
   await goTo("home"); await r.waitForSelector("text=Waiting for the booth");
   await r.close();
 });
+await step("screens on the booth computer", async () => {
+  if (!(await page.evaluate(() => __app.S.can("present")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  const t = await tab(1280, 800);
+  await t.addInitScript(() => {
+    const mk = (label, left, w, h, extra = {}) => ({ label, left, top: 0, width: w, height: h, availLeft: left, availTop: 0, availWidth: w, availHeight: h, isPrimary: !left, ...extra });
+    const screens = [mk("Built-in", 0, 1440, 900), mk("Projector", 1440, 1920, 1080), mk("Stage TV", 3360, 1920, 1080)];
+    window.getScreenDetails = async () => ({ screens, currentScreen: screens[0] });
+    const q = navigator.permissions.query.bind(navigator.permissions);
+    navigator.permissions.query = (d) => d?.name === "window-management" ? Promise.resolve({ state: "granted" }) : q(d);
+  });
+  await t.goto(base + "#booth-screens"); await t.waitForSelector(".scr-form select");
+  if ((await t.$$(".scr-form select[data-key]")).length !== 3) throw new Error("three displays expected");
+  const jobs = await t.$$eval(".scr-form select[data-key]", (ss) => ss.map((x) => x.value));
+  if (jobs.join() !== "operator,display,stage") throw new Error("default jobs: " + jobs);
+  await t.screenshot({ path: join(shots, "49d-booth-screens.png"), fullPage: true });
+  const pops = []; t.context().on("page", (p) => pops.push(p));
+  await t.click("[data-act=scr-open]"); await t.waitForFunction(() => document.body.innerText.includes("Close 2 screens"));
+  await new Promise((r) => setTimeout(r, 1200));
+  const hashes = (await Promise.all(pops.map((p) => p.evaluate(() => location.hash + " " + window.name)))).sort();
+  if (!hashes[0].startsWith("#display-follow ofc-screen-display-0") || !hashes[1].startsWith("#stage-follow ofc-screen-stage-1")) throw new Error("windows: " + hashes);
+  await pops[0].waitForSelector(".fs-ask");   // headless Chrome won't go full screen without a click, so it asks
+  await t.click("[data-act=scr-close]"); for (const p of pops) await p.waitForEvent("close", { timeout: 3000 }).catch(() => {});
+  if (pops.some((p) => !p.isClosed())) throw new Error("Close should close the screens");
+  await t.selectOption("#scr-2", ""); await t.click("form[data-form=scr-save] button");
+  await t.reload(); await t.waitForSelector(".scr-form select");
+  if ((await t.$eval("#scr-2", (x) => x.value)) !== "") throw new Error("jobs should be remembered");
+  await t.close();
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await expectText("Control keys work once the app is connected");
