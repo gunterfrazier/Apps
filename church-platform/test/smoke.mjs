@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fakeObs } from "./fake-obs.mjs";
 
 const require = createRequire(import.meta.url);
 let playwright;
@@ -1797,9 +1798,42 @@ await step("booth mode operator view", async () => {
     await page.evaluate(() => { const c = __app.S.church(); c.labs = { ...c.labs, booth: false }; __app.S.save(); });
   }
 });
+await step("obs in the booth view", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.church")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await page.evaluate(() => { const c = __app.S.church(); c.labs = { ...c.labs, booth: true }; __app.S.save(); });
+  const obs = await fakeObs({ password: "hymn" }), wrong = await fakeObs({ password: "other" });
+  const b = await tab(1400, 900), r = await tab(400, 300);
+  const until = async (fn, what) => { for (let i = 0; i < 60; i++) { if (fn()) return; await new Promise((ok) => setTimeout(ok, 100)); } throw new Error(what); };
+  try {
+    await b.goto(base + "?debug#present-service-riverside-svc-1"); await b.waitForSelector(".booth-op");
+    await b.click("[data-act=obs-setup]"); await b.fill("#scrim input[name=port]", String(wrong.port)); await b.fill("#scrim input[name=password]", "hymn");
+    await b.click("#scrim form[data-form=obs-setup] button.btn:not([type=button])"); await b.waitForSelector("#scrim .obs-sheet-state.error >> text=refused the password");
+    await b.fill("#scrim input[name=port]", String(obs.port)); await b.fill("#scrim input[name=password]", "hymn"); await b.check("#scrim input[name=remember]"); await b.check("#scrim input[name=auto]");
+    await b.click("#scrim form[data-form=obs-setup] button.btn:not([type=button])"); await b.waitForSelector("#scrim .obs-sheet-state.on"); await b.click("#scrim [data-act=obs-done]");
+    await b.waitForSelector(".obs-strip .obs-state.on");
+    const chips = await b.$$eval(".obs-scenes .chip", (cs) => cs.map((c) => c.textContent + (c.classList.contains("on") ? "*" : "")));
+    if (chips.join() !== "Pre-service*,Worship,Sermon") throw new Error("scenes: " + chips);
+    await b.click(".obs-scenes [data-name=Sermon]"); await b.waitForSelector(".obs-scenes .chip.on[data-name=Sermon]"); if (obs.state.scene !== "Sermon") throw new Error("scene not switched");
+    await b.click("[data-act=obs-stream]"); await b.waitForSelector("[data-act=obs-stream][aria-pressed=true]"); if (!obs.state.streaming) throw new Error("stream not started");
+    await b.click("[data-act=obs-stream]"); await b.click("#scrim [data-act=obs-stream-stop]"); await b.waitForSelector("[data-act=obs-stream]:not([aria-pressed=true])"); if (obs.state.streaming) throw new Error("stream not stopped");
+    await b.click("[data-act=obs-record]"); await until(() => obs.state.recording, "record not started");
+    // A booth command (a phone remote or a Stream Deck button) switches the scene; an unknown scene does nothing.
+    await r.goto(base + "#home");
+    await r.evaluate(() => { const ch = new BroadcastChannel("our-faithful-control"); ch.postMessage({ do: "scene", name: "worship", church: "riverside" }); ch.postMessage({ do: "scene", name: "nope", church: "riverside" }); ch.postMessage({ do: "stream", church: "riverside" }); ch.close(); });
+    await until(() => obs.state.scene === "Worship", "a booth command should switch the scene"); if (obs.state.streaming) throw new Error("stream needs on or off");
+    await b.screenshot({ path: join(shots, "47d-booth-obs.png") });
+    // OBS restarts: the booth reconnects by itself, with the saved password.
+    obs.drop(); await b.waitForSelector(".obs-strip .obs-state.connecting"); await b.waitForSelector(".obs-strip .obs-state.on", { timeout: 9000 });
+    // Next time the Booth view opens, it connects by itself.
+    await b.reload(); await b.waitForSelector(".obs-strip .obs-state.on", { timeout: 9000 });
+  } finally {
+    await b.evaluate(() => localStorage.removeItem("ofc-obs")).catch(() => {}); await b.close(); await r.close(); await obs.close(); await wrong.close();
+    await page.evaluate(() => { const c = __app.S.church(); c.labs = { ...c.labs, booth: false }; __app.S.save(); });
+  }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
-  await goTo("devices"); await page.click("a[href='#control-keys']"); await expectText("Control keys work once the app is connected");
+  await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");
   // With a stand-in server: make a key, see its addresses once, then remove it.
   await page.evaluate(() => { const keys = [];
     __app.ctlKeys.client = { rpc: async (name, a) => {

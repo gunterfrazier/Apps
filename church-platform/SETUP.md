@@ -338,6 +338,18 @@ on a computer, the presenter opens in the **Booth** view:
   computer.
 - Slideshow, Scroll and Stage views are still there, and turning Booth mode off brings everything back as it was.
 
+## OBS in Booth mode
+
+In the Booth view, **OBS** connects to OBS Studio (version 28 or later) on the booth computer through its built-in
+WebSocket server: in OBS, **Tools, WebSocket Server Settings, Enable WebSocket server**, then copy the port and
+password into the app. The Booth view then shows OBS's scenes as buttons, and **Start stream** and **Record**
+(stopping the stream asks first). It reconnects by itself if OBS restarts, and can connect by itself whenever the
+Booth view opens. The address, and the password if you ask, are kept on that computer only.
+
+OBS on the same computer is `127.0.0.1`. For OBS on another computer, use its address; Chrome asks once to allow
+local network access. Stream Deck buttons can drive it too: `.../control/scene/Sermon`, `.../control/stream?on=true`,
+`.../control/record?on=false` (see Stream Deck through Companion).
+
 ## Screens on the booth computer
 
 On the booth computer, in Chrome or Edge: **Set up screens** (on the booth's home, or **Screens** in the presenter)

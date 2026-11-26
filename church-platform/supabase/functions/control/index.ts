@@ -7,13 +7,15 @@
 //   GET  /functions/v1/control/go/5?key=...           slide 5 (counting from 1)
 //   GET  /functions/v1/control/section/Chorus?key=... a section of the song on screen
 //   GET  /functions/v1/control/message?text=Wrap%20up&key=...   a message on the stage display (no text clears it)
+//   GET  /functions/v1/control/scene/Sermon?key=...   an OBS scene, on the booth computer that has OBS connected
+//   GET  /functions/v1/control/stream?on=true&key=... start (or on=false, stop) the OBS stream; /control/record the same
 // The key can go in an x-control-key header instead of the address, and a POST can send JSON:
 //   POST /functions/v1/control   { "do": "go", "i": 4 }   (i counts from 0)
 // The command goes to the presenter open on the booth (version 28's private control channel, sent by
 // control_send in upgrade-29.sql). Answers { ok: true }, or { error } with 401 (bad key), 429 (too many) or 400.
 import { admin, fail, handle, json } from "../_shared/util.ts";
 
-const DOS = ["next", "prev", "go", "section", "black", "logo", "clear", "message"];
+const DOS = ["next", "prev", "go", "section", "black", "logo", "clear", "message", "scene", "stream", "record"];
 const text = (v: unknown, n = 80) => String(v ?? "").trim().slice(0, n);
 
 handle(async (req) => {
@@ -35,6 +37,12 @@ handle(async (req) => {
   if (d === "section") { const label = text(path.slice(1).join("/") || q("label"), 40); if (!label) return fail("Say which section: /control/section/Chorus"); cmd.label = label; }
   if (d === "message") cmd.text = text(path.slice(1).join("/") || q("text"));
   if ((d === "black" || d === "logo") && q("on") != null) cmd.on = ["1", "true", "on", "yes", true].includes(q("on"));
+  if (d === "scene") { const name = text(path.slice(1).join("/") || q("name"), 80); if (!name) return fail("Say which scene: /control/scene/Sermon"); cmd.name = name; }
+  if (d === "stream" || d === "record") {
+    const on = String(q("on") ?? path[1] ?? "").toLowerCase();
+    if (!["true", "false", "on", "off", "1", "0", "start", "stop"].includes(on)) return fail(`Say whether to start or stop: /control/${d}?on=true or on=false`);
+    cmd.on = ["true", "on", "1", "start"].includes(on);
+  }
 
   const { data, error } = await admin().rpc("control_send", { k: key, cmd });
   if (error) throw error;

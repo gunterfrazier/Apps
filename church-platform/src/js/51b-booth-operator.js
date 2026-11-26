@@ -38,7 +38,9 @@ function boothOperator({ data, slides, at, shown, next, L, tail, noStage }) {
       <button class="btn ghost" data-act="pres-screens" title="Open the audience and stage screens on their displays">${icon("screen")}Screens</button>
       <button class="btn ghost" data-act="pres-remote" title="Move the slides from a phone">${icon("phone")}Remote</button>
       <button class="btn ghost" data-act="pres-captions" aria-pressed="${pres.cc}">${icon("chat")}Captions</button>
+      ${obsStrip() ? "" : html`<button class="btn ghost" data-act="obs-setup" title="Switch scenes and start the stream from here">${icon("live")}OBS</button>`}
     </div>
+    ${obsStrip()}
     ${songBar(slides, at.cur)}
     ${pres.cc ? html`<p class="cc-live" aria-live="polite"><b>Captions</b> <span data-captions>${pres.captions || "Listening..."}</span></p>` : ""}
     <div class="booth-lower">
