@@ -135,16 +135,170 @@ const isUrl = (s) => /^https?:\/\/[^\s]+$/i.test(String(s || "").trim());
 // ---------- Dates ----------
 const DAY = 864e5;
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
-const isoDay = (d) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
-const fromIsoDay = (s, hhmm = "00:00") => new Date(`${s}T${hhmm}`);
-const fmt = (d, o) => new Date(d).toLocaleDateString(appLocale(), o);
-const fmtDay = (d) => fmt(d, { weekday: "long", month: "long", day: "numeric" });
-const fmtShort = (d) => fmt(d, { month: "short", day: "numeric", year: new Date(d).getFullYear() !== new Date().getFullYear() ? "numeric" : undefined });
-const fmtWhen = (d) => `${fmt(d, { weekday: "short", month: "short", day: "numeric" })}, ${fmtTime(d)}`;
-const fmtTime = (d) => new Date(d).toLocaleTimeString(appLocale(), { hour: "numeric", minute: "2-digit" });
-const fmtMonth = (d) => fmt(d, { month: "short" });
-function timeLabel(hhmm) { if (!hhmm) return ""; const [h, m] = hhmm.split(":").map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return fmtTime(d); }
+
+// ---------- Time zones ----------
+// Every date and time in the app is the church's: a church has a time zone (Admin, Church details), and a campus in
+// another zone can have its own. Moments (an event's start, a gift, a check-in) are saved as UTC ISO strings; calendar
+// days are "YYYY-MM-DD" and clock times "HH:MM", both read in the church's zone. Nothing reads the phone's own zone
+// except to say "your time" when it differs. Use these helpers, never Date's getHours/getDate/setHours and friends.
+const DEVICE_TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; } })();
+const _tzOk = new Map();
+const validTz = (z) => {
+  if (!z || typeof z !== "string") return false;
+  if (!_tzOk.has(z)) { try { new Intl.DateTimeFormat("en-US", { timeZone: z }); _tzOk.set(z, true); } catch { _tzOk.set(z, false); } }
+  return _tzOk.get(z);
+};
+/** The zone for a location (by id), or, with no id, for whatever this screen is about: the paired device's location,
+ *  else the campus the person picked, else the church. Falls back to the phone's zone if the church hasn't set one. */
+let TZ_OVERRIDE = null;
+/** Runs fn with every default zone set to z (used to build the demo churches' data on their own clock). */
+const withZone = (z, fn) => { const o = TZ_OVERRIDE; TZ_OVERRIDE = z; try { return fn(); } finally { TZ_OVERRIDE = o; } };
+function tz(locId) {
+  if (TZ_OVERRIDE && locId === undefined) return TZ_OVERRIDE;
+  try {
+    const c = typeof S !== "undefined" && S.state && S.church?.();
+    if (!c) return DEVICE_TZ;
+    let id = locId;
+    if (id === undefined) id = (typeof thisDevice === "function" && thisDevice()?.locationId) || S.campus?.();
+    const l = id && id !== "all" ? (c.locations || []).find((x) => x.id === id) : null;
+    return validTz(l?.timeZone) ? l.timeZone : validTz(c.timeZone) ? c.timeZone : DEVICE_TZ;
+  } catch { return DEVICE_TZ; }
+}
+/** A church's own zone, for a church that may not be the current one (the church list, a public page). */
+const churchTz = (c) => (validTz(c?.timeZone) ? c.timeZone : DEVICE_TZ);
+/** The zone for something that may belong to a campus (a service plan, event, class, booking). */
+const tzOf = (item) => tz(item?.locationId || null);
+const _zfmt = new Map();
+const zoneFormatter = (z, key, opts) => {
+  const k = `${z}|${key}`;
+  if (!_zfmt.has(k)) _zfmt.set(k, new Intl.DateTimeFormat("en-US", { timeZone: z, ...opts }));
+  return _zfmt.get(k);
+};
+const WD3 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** The wall-clock parts of a moment in a zone: { y, mo (1-12), d, h, mi, s, dow (0 = Sunday) }. */
+function zp(d, z = tz()) {
+  const t = new Date(d);
+  if (isNaN(t)) return { y: NaN, mo: NaN, d: NaN, h: NaN, mi: NaN, s: NaN, dow: NaN };
+  const o = {};
+  for (const p of zoneFormatter(z, "parts", { hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric", weekday: "short" }).formatToParts(t)) o[p.type] = p.value;
+  return { y: +o.year, mo: +o.month, d: +o.day, h: +o.hour % 24, mi: +o.minute, s: +o.second, dow: WD3.indexOf(o.weekday) };
+}
+/** How far the zone's clock is ahead of UTC at that moment, in ms. */
+function zoneOffset(d, z = tz()) {
+  const t = Math.floor(new Date(d).getTime() / 1000) * 1000, p = zp(t, z);
+  return Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi, p.s) - t;
+}
+/** The moment a zone's clock reads y-mo-d h:mi. Days and months may overflow (d = 32 is next month's 1st).
+ *  A time skipped by a clock change lands just after it; a repeated one takes the first. */
+function zDate(y, mo, d, h = 0, mi = 0, z = tz()) {
+  const wall = Date.UTC(y, mo - 1, d, h, mi);
+  if (isNaN(wall)) return new Date(NaN);
+  const a = wall - zoneOffset(wall, z), b = wall - zoneOffset(a, z);
+  if (a === b) return new Date(a);
+  const fits = [a, b].filter((t) => t + zoneOffset(t, z) === wall);
+  return new Date(fits.length ? Math.min(...fits) : Math.max(a, b));
+}
+const pad2 = (n) => String(n).padStart(2, "0");
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const isoOf = (y, mo, d) => new Date(Date.UTC(y, mo - 1, d)).toISOString().slice(0, 10);   // normalizes overflow
+const isoParts = (s) => String(s).slice(0, 10).split("-").map(Number);
+/** Calendar arithmetic on "YYYY-MM-DD" strings, with no zone involved. */
+const isoAdd = (s, n) => { const [y, m, d] = isoParts(s); return isoOf(y, m, d + n); };
+const isoAddMonths = (s, n) => { const [y, m] = isoParts(s); return isoOf(y, m + n, 1); };
+const isoDow = (s) => { const [y, m, d] = isoParts(s); return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); };
+const daysInMonth = (y, mo) => new Date(Date.UTC(y, mo, 0)).getUTCDate();
+const isoWeekStart = (s) => isoAdd(s, -isoDow(s));   // the Sunday of that week
+/** The church's calendar day for a moment ("YYYY-MM-DD"). A "YYYY-MM-DD" string is already a day and comes back as is. */
+const _isoDayCache = new Map();
+const isoDay = (d, z = tz()) => {
+  if (typeof d === "string") {
+    if (ISO_DAY.test(d)) return d;
+    if (!d) return "";
+    const k = `${z}|${d}`, hit = _isoDayCache.get(k);
+    if (hit !== undefined) return hit;
+    if (_isoDayCache.size > 20000) _isoDayCache.clear();
+    const v = isoDay(new Date(d), z); _isoDayCache.set(k, v); return v;
+  }
+  const p = zp(d, z); return isNaN(p.y) ? "" : `${p.y}-${pad2(p.mo)}-${pad2(p.d)}`;
+};
+/** The church's year (and month, 1-12) for a moment or a "YYYY-MM-DD" day. */
+const yearOf = (d = new Date(), z = tz()) => +isoDay(d, z).slice(0, 4);
+const monthOf = (d = new Date(), z = tz()) => +isoDay(d, z).slice(5, 7);
+/** The church's month for a moment: "YYYY-MM". */
+const isoMonth = (d, z = tz()) => isoDay(d, z).slice(0, 7);
+const today = (z = tz()) => isoDay(new Date(), z);
+/** The moment a calendar day (and optional "HH:MM") begins in the church's zone. */
+function fromIsoDay(s, hhmm = "00:00", z = tz()) {
+  if (!s) return new Date(NaN);
+  const day = String(s).length > 10 ? isoDay(s, z) : String(s);
+  const [y, m, d] = isoParts(day), [h, mi] = String(hhmm || "00:00").split(":").map(Number);
+  return zDate(y, m, d, h || 0, mi || 0, z);
+}
+const startOfDay = (d, z = tz()) => fromIsoDay(isoDay(d, z), "00:00", z);
+/** The same clock time `n` calendar days later (or months, with addMonths), in the church's zone. */
+const addDays = (d, n, z = tz()) => { const p = zp(d, z); return zDate(p.y, p.mo, p.d + n, p.h, p.mi, z); };
+const addMonths = (d, n, z = tz()) => { const p = zp(d, z), t = new Date(Date.UTC(p.y, p.mo - 1 + n, 1)), y = t.getUTCFullYear(), mo = t.getUTCMonth() + 1; return zDate(y, mo, Math.min(p.d, daysInMonth(y, mo)), p.h, p.mi, z); };
+/** "HH:MM" of a moment, on the church's clock. */
+const hhmmOf = (d, z = tz()) => { const p = zp(d, z); return `${pad2(p.h)}:${pad2(p.mi)}`; };
+const minutesOf = (hhmm) => { const [h, m] = String(hhmm || "0:0").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+/** Is the phone's clock different from the zone's at that moment? Then times get a zone label. */
+const tzDiffers = (d = new Date(), z = tz()) => z !== DEVICE_TZ && zoneOffset(d, z) !== zoneOffset(d, DEVICE_TZ);
+/** A short name for the zone at that moment: "ET", "PT", "CT" where the browser knows one, else "EST" or "GMT+1". */
+function tzLabel(d = new Date(), z = tz()) {
+  const t = new Date(d); if (isNaN(t)) return "";
+  for (const style of ["shortGeneric", "short"]) {
+    try {
+      const n = zoneFormatter(z, `name-${style}`, { timeZoneName: style }).formatToParts(t).find((p) => p.type === "timeZoneName")?.value;
+      if (n) return n;
+    } catch { /* older browser without shortGeneric */ }
+  }
+  return z;
+}
+/** A zone's long name, for settings: "Eastern Time (New York)". */
+function tzLongName(z, d = new Date()) {
+  let n = "";
+  try { n = new Intl.DateTimeFormat(appLocale(), { timeZone: z, timeZoneName: "longGeneric" }).formatToParts(d).find((p) => p.type === "timeZoneName")?.value || ""; } catch { /* no longGeneric */ }
+  const city = String(z).split("/").pop().replace(/_/g, " ");
+  return n && !/^GMT/.test(n) ? `${n} (${city})` : `${city} (${tzLabel(d, z)})`;
+}
+const fmt = (d, o, z = tz()) => { const t = typeof d === "string" && ISO_DAY.test(d) ? fromIsoDay(d, "12:00", z) : new Date(d); return isNaN(t) ? "" : t.toLocaleDateString(appLocale(), { ...o, timeZone: z }); };
+const fmtDay = (d, z = tz()) => fmt(d, { weekday: "long", month: "long", day: "numeric" }, z);
+const fmtShort = (d, z = tz()) => fmt(d, { month: "short", day: "numeric", year: zp(typeof d === "string" && ISO_DAY.test(d) ? fromIsoDay(d, "12:00", z) : d, z).y !== zp(new Date(), z).y ? "numeric" : undefined }, z);
+/** A clock time with no zone label, for screens at the church (slides, clocks) where the label would be noise. */
+const fmtClock = (d, z = tz()) => { const t = new Date(d); return isNaN(t) ? "" : t.toLocaleTimeString(appLocale(), { hour: "numeric", minute: "2-digit", timeZone: z }); };
+/** A clock time in the church's zone, labeled ("9:00 AM ET") when the phone is somewhere else. */
+const fmtTime = (d, z = tz()) => { const s = fmtClock(d, z); return s && tzDiffers(d, z) ? `${s} ${tzLabel(d, z)}` : s; };
+const fmtWhen = (d, z = tz()) => `${fmt(d, { weekday: "short", month: "short", day: "numeric" }, z)}, ${fmtTime(d, z)}`;
+const fmtMonth = (d, z = tz()) => fmt(d, { month: "short" }, z);
+const dayNum = (d, z = tz()) => (typeof d === "string" && ISO_DAY.test(d) ? isoParts(d)[2] : zp(d, z).d);
+/** " (6:00 AM your time)" when the phone's zone differs, else "". Adds the day too when it falls on a different one. */
+function yourTime(d, z = tz()) {
+  const t = new Date(d);
+  if (isNaN(t) || !tzDiffers(t, z)) return "";
+  const sameDay = isoDay(t, z) === isoDay(t, DEVICE_TZ), es = lang() === "es";
+  const when = sameDay ? fmtClock(t, DEVICE_TZ) : `${fmt(t, { weekday: "short" }, DEVICE_TZ)} ${fmtClock(t, DEVICE_TZ)}`;
+  return es ? ` (${when}, tu hora)` : ` (${when} your time)`;
+}
+const COMMON_TZ = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu",
+  "America/Puerto_Rico", "America/Halifax", "America/Toronto", "America/Winnipeg", "America/Edmonton", "America/Vancouver", "America/Mexico_City",
+  "Europe/London", "Europe/Berlin", "Africa/Lagos", "Africa/Nairobi", "Asia/Manila", "Asia/Seoul", "Australia/Sydney"];
+const allTimeZones = () => { try { return Intl.supportedValuesOf("timeZone"); } catch { return COMMON_TZ; } };
+/** A <select> of time zones. `inherit` adds a first option that means "use the church's zone" (value ""). */
+function tzSelect(name, value, { inherit = "", label = "Time zone", hint = "" } = {}) {
+  const now = new Date(), cur = value && !COMMON_TZ.includes(value) && validTz(value) ? [value] : [];
+  const opt = (z) => html`<option value="${z}" ${attr(z === value, "selected")}>${tzLongName(z, now)}</option>`;
+  const rest = allTimeZones().filter((z) => !COMMON_TZ.includes(z) && !cur.includes(z));
+  return html`<label class="field"><span>${label}</span><select name="${name}" data-tz-select>
+      ${inherit ? html`<option value="" ${attr(!value, "selected")}>${inherit}</option>` : ""}
+      <optgroup label="Common">${[...cur, ...COMMON_TZ].map(opt)}</optgroup>
+      <optgroup label="All time zones">${rest.map((z) => html`<option value="${z}">${z.replace(/_/g, " ")}</option>`)}</optgroup>
+    </select>${hint ? html`<small>${hint}</small>` : ""}</label>`;
+}
+/** A church clock time ("09:00") as "9:00 AM", labeled when the phone is in another zone. `day` anchors it for the label. */
+function timeLabel(hhmm, z = tz(), day) {
+  if (!hhmm) return "";
+  return fmtTime(fromIsoDay(day || today(z), hhmm, z), z);
+}
 function ago(d) {
   const s = (Date.now() - new Date(d)) / 1000, es = lang() === "es";
   if (s < 60) return es ? "justo ahora" : "just now";
@@ -154,19 +308,17 @@ function ago(d) {
   return fmtShort(d);
 }
 /** Next occurrence of weekday `dow` at hh:mm, `weeks` weeks out (0 = this coming one, including today if still ahead). */
-function nextWeekday(dow, hhmm, weeks = 0, from = new Date()) {
-  const [h, m] = hhmm.split(":").map(Number);
-  const d = new Date(from); d.setHours(h, m, 0, 0);
-  let add = (dow - d.getDay() + 7) % 7;
-  if (add === 0 && d < from) add = 7;
-  d.setDate(d.getDate() + add + weeks * 7);
-  return d;
+function nextWeekday(dow, hhmm, weeks = 0, from = new Date(), z = tz()) {
+  const [h, m] = String(hhmm || "00:00").split(":").map(Number), p = zp(from, z);
+  let add = (dow - p.dow + 7) % 7;
+  if (add === 0 && zDate(p.y, p.mo, p.d, h, m, z) < new Date(from)) add = 7;
+  return zDate(p.y, p.mo, p.d + add + weeks * 7, h, m, z);
 }
 function ageFrom(birth) {
   if (!birth) return null;
-  const b = new Date(birth), n = new Date();
-  let a = n.getFullYear() - b.getFullYear();
-  if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--;
+  const [by, bm, bd] = isoParts(isoDay(birth)), [ny, nm, nd] = isoParts(today());
+  let a = ny - by;
+  if (nm < bm || (nm === bm && nd < bd)) a--;
   return a;
 }
 const dayNames = (days) => listJoin(days.map((d) => DAYS[d] + "s"));

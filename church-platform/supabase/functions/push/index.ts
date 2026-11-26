@@ -2,6 +2,7 @@
 // Set up as a Database Webhook on records (insert) with the header x-hook-secret (see SETUP.md).
 import webpush from "npm:web-push@3.6.7";
 import { admin, env, fail, json } from "../_shared/util.ts";
+import { hourIn, validTz, zoneOf } from "../_shared/tz.ts";
 
 webpush.setVapidDetails(env("VAPID_SUBJECT", "mailto:admin@example.com"), env("VAPID_PUBLIC_KEY"), env("VAPID_PRIVATE_KEY"));
 
@@ -17,9 +18,9 @@ Deno.serve(async (req) => {
   if (prefs.push === false) return json({ skipped: "off" });
   const group = ({ serve: "serve", chat: "chat", news: "news", event: "event", form: "staff", follow: "staff", room: "staff" } as Record<string, string>)[n.kind];
   if (group && prefs.notify?.[group] === false) return json({ skipped: "muted" });
-  // Quiet hours use the church's time zone if it has one.
+  // Quiet hours follow the person's own clock (the zone of the phone they last used), else the church's.
   const { data: c } = await db.from("churches").select("data").eq("id", record.church_id).maybeSingle();
-  const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: c?.data?.timeZone || "America/New_York" }).format(new Date()));
+  const hour = hourIn(validTz(prefs.phoneTz) ? prefs.phoneTz : zoneOf(c));
   if (prefs.quiet && (hour >= 21 || hour < 7)) return json({ skipped: "quiet" });
   const payload = JSON.stringify({ title: c?.data?.training ? `Training: ${n.title}` : n.title, body: n.body, url: `${env("APP_URL")}${n.link || "#alerts"}`, tag: record.id });
   let sent = 0;

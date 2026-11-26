@@ -78,7 +78,7 @@ function receiptSvg(r) {
   row("Paid now", money(r.amount), { bold: true });
   if (r.balance != null) row("Still due", r.balance ? money(r.balance) : "Nothing. Paid in full", { muted: !r.balance });
   y += 12; parts.push(`<line x1="${pad}" y1="${y}" x2="${W - pad}" y2="${y}" stroke="#e3e6ec"/>`);
-  row("Date", new Date(r.at).toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }), { muted: true });
+  row("Date", `${fmt(r.at, { month: "short", day: "numeric", year: "numeric" })}, ${fmtTime(r.at)}`, { muted: true });
   row("Paid with", r.method, { muted: true });
   if (r.payer) row("From", r.payer, { muted: true });
   if (r.receivedBy) row("Received by", r.receivedBy, { muted: true });

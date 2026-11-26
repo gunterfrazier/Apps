@@ -1,9 +1,12 @@
 // ---------- Admin: content, people, communication, Sundays, devices, giving, reports, visitors and church setup ----------
 // Each section checks the viewer's permissions. List-and-edit sections share the ADMIN pattern below.
 
-const toLocalInput = (iso) => { if (!iso) return ""; const d = new Date(iso); return `${isoDay(d)}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
-const fromLocalInput = (s) => s ? new Date(s).toISOString() : "";
-const dateToIso = (s) => (s ? new Date(`${s}T10:00`) : new Date()).toISOString();
+// Date and time boxes show and take the church's clock (or the campus's), whatever zone the phone is in.
+const toLocalInput = (iso, z = tz()) => { if (!iso) return ""; const d = new Date(iso); return isNaN(d) ? "" : `${isoDay(d, z)}T${hhmmOf(d, z)}`; };
+const fromLocalInput = (s, z = tz()) => { if (!s) return ""; const [day, hm] = String(s).split("T"), d = fromIsoDay(day, hm || "00:00", z); return isNaN(d) ? "" : d.toISOString(); };
+const dateToIso = (s) => (s ? fromIsoDay(s, "10:00") : new Date()).toISOString();
+/** A note under a time box when the phone is in a different zone from the church's. */
+const zoneHint = (z = tz()) => tzDiffers(new Date(), z) ? html`<small class="tz-hint">${icon("clock")} Church time: ${tzLongName(z)}</small>` : "";
 const allRooms = () => [...new Set(S.visibleLocations().flatMap((l) => l.rooms || []))];
 const myRank = () => S.role()?.rank || 0;
 
@@ -60,12 +63,12 @@ const ADMIN = {
       if (t.list.length && !d.signup) return "Turn on sign-ups to sell tickets.";
       if (t.list.length && !d.payInApp && !d.payInPerson) return "Choose at least one way to pay: in the app or in person.";
       if (d.locationId && d.location) {
-        const hits = roomUses(d.locationId, d.location, new Date(d.start).getTime(), new Date(d.end).getTime()).filter((u) => !(u.kind === "event" && u.id === rec?.id));
+        const z = tz(d.locationId || null), hits = roomUses(d.locationId, d.location, new Date(fromLocalInput(d.start, z)).getTime(), new Date(fromLocalInput(d.end, z)).getTime()).filter((u) => !(u.kind === "event" && u.id === rec?.id));
         if (hits.length) return `${d.location} is in use then for ${hits[0].title} (${fmtTime(hits[0].start)} to ${fmtTime(hits[0].end)}). Choose another room or time.`;
       }
       return null;
     },
-    save: (d, r) => ({ title: d.title, category: d.category || "Community", start: fromLocalInput(d.start), end: fromLocalInput(d.end), locationId: d.locationId || null, location: d.location, description: d.description, image: d.image || "", signup: !!d.signup, kids: !!d.kids, capacity: Math.max(0, +d.capacity || 0), registrations: r?.registrations || [], tickets: parseTickets(d.tickets, r).list, formId: d.formId || null,
+    save: (d, r) => ({ title: d.title, category: d.category || "Community", start: fromLocalInput(d.start, tz(d.locationId || null)), end: fromLocalInput(d.end, tz(d.locationId || null)), locationId: d.locationId || null, location: d.location, description: d.description, image: d.image || "", signup: !!d.signup, kids: !!d.kids, capacity: Math.max(0, +d.capacity || 0), registrations: r?.registrations || [], tickets: parseTickets(d.tickets, r).list, formId: d.formId || null,
       payInApp: !!d.payInApp, payInPerson: !!d.payInPerson, payPartial: !!d.payPartial, deposit: Math.max(0, +d.deposit || 0), payNote: d.payNote || "", collectors: d.collectors || [] }),
     after: (e) => { S.list("forms").forEach((f) => { if (f.id === e.formId) f.eventId = e.id; else if (f.eventId === e.id) f.eventId = null; }); },
     extra: (e) => e.signup && e.registrations.length ? html`<div class="panel" style="margin-bottom:8px"><div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap"><b>${registeredCount(e)} signed up${e.tickets?.length ? `, ${money(e.registrations.reduce((n, r) => n + regPaid(e, r), 0))} paid, ${money(e.registrations.reduce((n, r) => n + regBalance(e, r), 0))} owed` : ""}</b>
@@ -157,7 +160,7 @@ function adminField(f, rec) {
     case "textarea": return html`<label class="field"><span>${f.label}</span><textarea name="${f.name}" maxlength="${f.max || 2000}" ${req}>${v || ""}</textarea>${hint}</label>`;
     case "lines": return html`<label class="field"><span>${f.label}</span><textarea name="${f.name}" ${req}>${(v || []).join("\n")}</textarea>${hint}</label>`;
     case "checkbox": return html`<label class="check"><input type="checkbox" name="${f.name}" ${attr(v, "checked")}><span>${f.label}</span></label>`;
-    case "datetime": return html`<label class="field"><span>${f.label}</span><input type="datetime-local" name="${f.name}" value="${toLocalInput(v)}" ${req}>${hint}</label>`;
+    case "datetime": { const z = tz(rec?.locationId || null); return html`<label class="field"><span>${f.label}</span><input type="datetime-local" name="${f.name}" value="${toLocalInput(v, z)}" ${req}>${hint}${zoneHint(z)}</label>`; }
     case "location": return html`<label class="field"><span>${f.label}</span><select name="${f.name}">${locationOptions(v, f.allLabel)}</select>${hint}</label>`;
     case "room": return html`<label class="field"><span>${f.label}</span><input type="text" name="${f.name}" value="${v || ""}" list="room-list" maxlength="${f.max || 80}" ${req}><datalist id="room-list">${allRooms().map((r) => html`<option value="${r}">`)}</datalist>${hint}</label>`;
     case "suggest": return html`<label class="field"><span>${f.label}</span><input type="text" name="${f.name}" value="${v || ""}" list="dl-${f.name}" maxlength="40"><datalist id="dl-${f.name}">${f.options.map((o) => html`<option value="${o}">`)}</datalist>${hint}</label>`;
@@ -374,6 +377,7 @@ AdminScreens.account = () => {
         <label class="field"><span>Church email</span><input type="email" name="email" value="${c.email}"></label>
         <label class="field"><span>Church phone</span><input type="tel" name="phone" value="${c.phone}"></label></div>
       <label class="field"><span>City and state</span><input type="text" name="city" value="${c.city || ""}" maxlength="60"></label>
+      ${tzSelect("timeZone", validTz(c.timeZone) ? c.timeZone : "", { inherit: validTz(c.timeZone) ? "" : "Choose a time zone", hint: "Every date and time in the app is in this zone: services, events, classes, check-in and reports. People elsewhere see times labeled with it. A campus in another zone can have its own, under Locations." })}
       <label class="field"><span>One line about your church</span><input type="text" name="tagline" value="${c.tagline}" maxlength="90"></label>
       ${imageField("logo", "Logo", c.logo, "Any shape works: the whole logo always shows. Shown on Home, the banner and in the church list.", 512)}
       <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Church color</legend>
@@ -401,7 +405,7 @@ Forms["admin-account"] = async (d, f) => {
   const chosenColor = /^#[0-9a-fA-F]{6}$/.test(d.customColor || "") ? d.customColor.toLowerCase() : (d.color || c.color);
   // A new address: the old one keeps working (its NFC tags, QR codes and links already out there).
   const oldHandles = handle === c.handle ? c.oldHandles || [] : [...new Set([c.handle, ...(c.oldHandles || [])])].filter((h) => h !== handle).slice(0, 5);
-  S.updateChurch({ name: d.name, handle, oldHandles, email: d.email, phone: d.phone, city: d.city, tagline: d.tagline, logo: d.logo, color: chosenColor,
+  S.updateChurch({ name: d.name, handle, oldHandles, email: d.email, phone: d.phone, city: d.city, ...(validTz(d.timeZone) ? { timeZone: d.timeZone } : {}), tagline: d.tagline, logo: d.logo, color: chosenColor,
     website: d.s_website, social: Object.fromEntries(SOCIAL.filter(([k]) => k !== "website").map(([k]) => [k, d[`s_${k}`]])), ccli: d.ccli });
   applyBrand();
 Inputs["brand-picker"] = (el) => {
@@ -605,6 +609,7 @@ Actions["loc-edit"] = (el) => {
       <label class="field"><span>Name</span><input type="text" name="name" value="${l.name || ""}" required maxlength="40"></label>
       <label class="field"><span>Unique ID</span><input type="text" name="code" value="${l.code || ""}" maxlength="12" style="text-transform:uppercase" required></label></div>
     <label class="field"><span>Address</span><input type="text" name="address" value="${l.address || ""}" maxlength="120"></label>
+    ${tzSelect("timeZone", validTz(l.timeZone) ? l.timeZone : "", { inherit: `Same as the church: ${tzLongName(tz(null))}`, hint: "Only for a campus in a different time zone. Its services, events, classes and screens use this zone." })}
     <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Who can see it</legend><div class="radios">
       <label><input type="radio" name="visibility" value="public" ${attr(l.visibility !== "private", "checked")}><span>Public</span></label>
       <label><input type="radio" name="visibility" value="private" ${attr(l.visibility === "private", "checked")}><span>Private</span></label></div></fieldset>
@@ -628,7 +633,7 @@ Forms["loc-save"] = (d, f) => {
   for (let i = 0; i < 30 && `time${i}` in d; i++) if (d[`time${i}`]) services.push(svc(+d[`day${i}`], d[`time${i}`], d[`label${i}`] || "Worship service"));
   const rooms = d.rooms.split("\n").map((x) => x.trim()).filter(Boolean), oldInfo = (d.id && S.location(d.id)?.roomInfo) || {};
   const roomInfo = Object.fromEntries(Object.entries(oldInfo).filter(([k]) => rooms.some((r) => sameRoom(r, k))));
-  const rec = { name: d.name, code, address: d.address, visibility: d.visibility || "public", rooms, roomInfo, serviceRoom: d.serviceRoom, services: services.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)), liveUrl: d.liveUrl };
+  const rec = { name: d.name, code, address: d.address, timeZone: validTz(d.timeZone) && d.timeZone !== S.church().timeZone ? d.timeZone : "", visibility: d.visibility || "public", rooms, roomInfo, serviceRoom: d.serviceRoom, services: services.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)), liveUrl: d.liveUrl };
   if (d.id) Object.assign(S.location(d.id), rec); else c.locations.push({ id: `${c.id}-${code.toLowerCase()}-${uid().slice(-3)}`, ...rec });
   S.save(); closeSheet(); toast("Location saved"); render();
 };
@@ -700,10 +705,10 @@ Forms.checkout = (d, f) => {
 AdminScreens.giving = () => {
   const blocked = guard("view.giving"); if (blocked) return blocked;
   const c = S.church(), gifts = S.list("gifts");
-  const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  const now = zp(new Date()), y = now.y, m = now.mo;
   const sum = (list) => list.reduce((n, g) => n + g.amount, 0);
-  const thisYear = gifts.filter((g) => new Date(g.at).getFullYear() === y);
-  const thisMonth = thisYear.filter((g) => new Date(g.at).getMonth() === m);
+  const thisYear = gifts.filter((g) => zp(g.at).y === y);
+  const thisMonth = thisYear.filter((g) => zp(g.at).mo === m);
   const recent = [...gifts].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 12);
   const funds = [...c.funds, { id: "", name: "", description: "" }];
   return {
@@ -721,7 +726,7 @@ AdminScreens.giving = () => {
           <label class="field"><span>Tax ID (EIN) for statements</span><input type="text" name="taxId" value="${c.taxId || ""}" maxlength="20" placeholder="12-3456789"></label>
           <button class="btn ghost sm">Save</button></form></section>
       <section class="sec"><h2 class="sec-head">Year-end statements</h2><div class="panel">
-        <label class="field" style="margin-top:0"><span>Year</span><select id="stmt-year">${[y, y - 1, y - 2].map((n) => html`<option ${attr(n === (now.getMonth() < 2 ? y - 1 : y), "selected")}>${n}</option>`)}</select></label>
+        <label class="field" style="margin-top:0"><span>Year</span><select id="stmt-year">${[y, y - 1, y - 2].map((n) => html`<option ${attr(n === (now.mo < 3 ? y - 1 : y), "selected")}>${n}</option>`)}</select></label>
         <div class="btns"><button class="btn sm" data-act="statements-all" data-year="${y}">${icon("download")}All statements (PDF)</button><button class="btn ghost sm" data-act="statements-csv">${icon("download")}Gifts (CSV)</button></div>
         <p class="faint">One page or more per giver, with the church's details and tax note. Members can download their own under Giving history.</p></div></section>
       <div class="stat"><div><b>${money(sum(thisMonth))}</b><span>This month</span></div><div><b>${money(sum(thisYear))}</b><span>This year</span></div></div>

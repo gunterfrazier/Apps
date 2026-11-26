@@ -53,7 +53,7 @@ const hueOf = (s) =>[...String(s)].reduce((n, ch) => (n * 31 + ch.charCodeAt(0))
   const baseSeed = buildSeed;
   buildSeed = function () {
     const st = baseSeed();
-    try { addFeatureSamples(st); } catch (e) { console.error("Sample data for the new features wasn't added", e); }
+    try { withZone(SEED_TZ, () => addFeatureSamples(st)); } catch (e) { console.error("Sample data for the new features wasn't added", e); }
     return st;
   };
 }
@@ -62,7 +62,7 @@ function addFeatureSamples(st) {
   const R = "riverside", c = st.churches[R];
   if (!c) return;
   const now = Date.now(), ago = (d, h = 0) => new Date(now - d * DAY - h * 3600e3).toISOString(), dayAgo = (d) => isoDay(new Date(now - d * DAY));
-  const sunday = (n) => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 7) % 7) - 7 * n); return isoDay(d); };   // n Sundays back
+  const sunday = (n) => isoAdd(isoWeekStart(today()), -7 * n);   // n Sundays back
   const name = (u) => st.users[u]?.name || "Someone";
   const here = (k) => (st[k] ||= []);
 
@@ -103,7 +103,7 @@ function addFeatureSamples(st) {
     ["Kids", "Check-in desk", "u-ana"], ["Greeters", "Front door", "u-teresa"], ["Safety & Security", "Team lead", "u-marcus"]];
   const arrive = [["early", -24, "geofence"], ["on-time", -6, "geofence"], ["early", -15, "self"], ["late", 9, "geofence"], ["on-time", -2, "geofence"], ["early", -30, "staff"], ["on-time", 0, "geofence"], ["early", -40, "geofence"]];
   [1, 2, 3].forEach((n) => {
-    const date = sunday(n), key = `${date}T09:00@riverside-main`, at = (min) => new Date(`${date}T09:00:00`).getTime() + min * 60e3;
+    const date = sunday(n), key = `${date}T09:00@riverside-main`, at = (min) => fromIsoDay(date, "09:00").getTime() + min * 60e3;
     st.services.push({ id: `riverside-svc-past-${n}`, churchId: R, title: "Sunday worship", date, time: "09:00", locationId: "riverside-main", notes: "", segments: JSON.parse(JSON.stringify(plan?.segments || [])).map((s) => ({ ...s, id: uid() })),
       assignments: crew.map(([t, pos, u]) => ({ id: uid(), team: t, position: pos, userId: u, status: "accepted", note: "", at: ago(n * 7 + 5) })) });
     crew.forEach(([t, pos, u], i) => {
@@ -161,10 +161,10 @@ function addFeatureSamples(st) {
   [1, 2, 3, 4].forEach((n) => {
     const date = sunday(n), id = `${R}-batch-${n}`;
     st.batches.push({ id, churchId: R, locationId: "riverside-main", date, title: "Sunday offering count", counter1: name("u-dana"), counter2: name("u-teresa"), depositRef: `DEP-${2200 + n}`, status: n === 1 ? "open" : "closed",
-      notes: n === 1 ? "Counted after the 11:00. Deposit Monday." : "Verified and deposited.", at: new Date(`${date}T13:00:00`).toISOString() });
+      notes: n === 1 ? "Counted after the 11:00. Deposit Monday." : "Verified and deposited.", at: fromIsoDay(date, "13:00").toISOString() });
     cashGifts.forEach(([who, method, amount, category], i) => st.gifts.push({ id: `${R}-hand-${n}-${i}`, churchId: R, by: null, name: who, fundId: category === "missions" ? "missions" : category === "building" && c.funds.some((f) => f.id === "building") ? "building" : "general",
       category, amount: amount + n * 5 * (i % 2), frequency: "once", method, checkNo: method === "check" ? String(3100 + n * 10 + i) : "", envelopeNo: method === "cash" && who !== "Loose offering" ? String(140 + i) : "",
-      batchId: id, memo: "", taxDeductible: true, at: new Date(`${date}T12:00:00`).toISOString(), status: "paid", recordedBy: "u-dana", sample: true }));
+      batchId: id, memo: "", taxDeductible: true, at: fromIsoDay(date, "12:00").toISOString(), status: "paid", recordedBy: "u-dana", sample: true }));
   });
   const exp = (id, d, payee, description, department, amount, method, by, status, o = {}) => ({ id: `${R}-exp-${id}`, churchId: R, locationId: null, date: dayAgo(d), payee, description, fundId: department === "missions" ? "missions" : "general",
     department, amount, method, refNo: method === "check" ? `CHK-${1180 + d}` : method === "ach" ? `ACH-${7700 + d}` : "", status, by, approvedBy: status === "pending-approval" ? "" : name("u-dana"), receiptImg: "", at: ago(d), ...o });
@@ -175,7 +175,7 @@ function addFeatureSamples(st) {
     exp("snacks", 3, "Kroger", "Snacks and supplies for the nursery", "kids_youth", 64.27, "card", "u-linda", "paid"),
     exp("vbs", 1, "Oriental Trading", "Craft supplies for fall festival (reimbursement)", "kids_youth", 138.5, "check", "u-linda", "pending-approval"),
   );
-  const yr = new Date().getFullYear();
+  const yr = yearOf();
   st.budgets.push(...BUDGET_DEPARTMENTS.map(([dept, label, annual]) => ({ id: `${R}-bgt-${dept}-${yr}`, churchId: R, year: yr, department: dept, label, fundId: dept === "missions" ? "missions" : "general", annualAmount: annual })));
 
   // ----- Safety: the team's setup, a past drill and incidents already handled -----

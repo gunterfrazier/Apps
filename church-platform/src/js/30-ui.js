@@ -312,7 +312,7 @@ const MONTH_NAMES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "
 const monthName = (n) => (lang() === "es" ? MONTH_NAMES_ES[n - 1].replace(/^./, (ch) => ch.toUpperCase()) : MONTH_NAMES[n - 1]);
 function birthdayField(name, label, value = "", hint = "") {
   const [y, m, d] = /^\d{4}-\d{2}-\d{2}$/.test(value || "") ? value.split("-").map(Number) : [];
-  const nowY = new Date().getFullYear();
+  const nowY = yearOf();
   const part = (key, ph, val, options, auto, mode, max) => html`<span class="bd-part">
     <input type="text" inputmode="${mode}" placeholder="${ph}" aria-label="${label}: ${ph.toLowerCase()}" value="${val}" autocomplete="${auto}" maxlength="${max}" data-bd="${key}" data-input="bd-type" data-change="bd-done">
     <select tabindex="-1" aria-label="Choose the ${ph.toLowerCase()}" data-bd-pick="${key}" data-change="bd-pick"><option value="">${ph}</option>${options}</select>${icon("down")}</span>`;
@@ -336,7 +336,7 @@ function bdParse(key, raw) {
   }
   if (!/^\d+$/.test(s)) return -1;
   if (key === "d") return +s >= 1 && +s <= 31 ? +s : -1;
-  const nowY = new Date().getFullYear();
+  const nowY = yearOf();
   if (s.length === 2) return 2000 + +s <= nowY ? 2000 + +s : 1900 + +s;
   return s.length === 4 && +s >= nowY - 120 && +s <= nowY ? +s : -1;
 }
@@ -349,9 +349,9 @@ function bdCompose(field) {
   if (!m && !d && !y) hidden.value = "";
   else if (m <= 0 || d <= 0 || y <= 0) { hidden.value = ""; problem = m < 0 ? "Choose a month from the list, or type 1 to 12." : d < 0 ? "The day is a number from 1 to 31." : y < 0 ? "Type the year with four digits, like 2016." : "Enter the month, day and year."; }
   else {
-    const dt = new Date(y, m - 1, d);
-    if (dt.getMonth() !== m - 1) { hidden.value = ""; problem = `${MONTH_NAMES[m - 1]} doesn't have ${d} days.`; }
-    else if (dt > new Date()) { hidden.value = ""; problem = "That date hasn't happened yet."; }
+    const day = `${y}-${pad2(m)}-${pad2(d)}`;
+    if (d > daysInMonth(y, m)) { hidden.value = ""; problem = `${MONTH_NAMES[m - 1]} doesn't have ${d} days.`; }
+    else if (day > today()) { hidden.value = ""; problem = "That date hasn't happened yet."; }
     else hidden.value = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   }
   const age = hidden.value ? ageFrom(hidden.value) : null;

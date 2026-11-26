@@ -370,7 +370,7 @@ Screens.booth = () => {
     page: html`<div class="present booth">
       <header class="present-bar">${churchMark(S.church(), 34)}<b class="present-title">${d?.name || "Booth"}${loc ? `, ${locName(loc)}` : ""}</b>${deviceExitBtn()}</header>
       <main class="booth-main"><h1>What are we presenting?</h1>
-        <section class="sec"><h2 class="sec-head">Service plans</h2><div class="rows">${plans.length ? plans.map((p) => row(`#present-service-${p.id}`, "list", p.title, `${fmtDay(fromIsoDay(p.date))} at ${timeLabel(p.time)}, ${plural(p.segments.length, "segment")}`)) : empty("No service plans coming up.")}</div></section>
+        <section class="sec"><h2 class="sec-head">Service plans</h2><div class="rows">${plans.length ? plans.map((p) => row(`#present-service-${p.id}`, "list", p.title, `${fmtDay(fromIsoDay(p.date))} at ${timeLabel(p.time, tzOf(p), p.date)}, ${plural(p.segments.length, "segment")}`)) : empty("No service plans coming up.")}</div></section>
         ${docs.length ? html`<section class="sec"><h2 class="sec-head">Sermons from the builder</h2><div class="rows">${docs.map((x) => row(`#present-doc-${x.id}`, "word", x.title, `${x.passage || ""}${x.passage ? ", " : ""}${fmtShort(fromIsoDay(x.date))}`))}</div></section>` : ""}
         <p class="faint">Presentation screens, stage displays and overlays paired to ${loc ? locName(loc) : "this church"} follow what you present here.</p></main></div>`,
   };

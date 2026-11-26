@@ -451,7 +451,7 @@ function computeStaffVolunteerAttendance(startDay) {
       }
       rows.push({
         date: p.date,
-        service: `${p.title} (${timeLabel(p.time)})`,
+        service: `${p.title} (${timeLabel(p.time, tzOf(p), p.date)})`,
         userId: a.userId,
         name: S.userName(a.userId),
         category: isStaffMember(a.userId, c.id) ? "Staff & Volunteer" : "Volunteer",
@@ -480,7 +480,7 @@ function computeStaffVolunteerAttendance(startDay) {
       }
       rows.push({
         date: p.date,
-        service: `${p.title} (${timeLabel(p.time)})`,
+        service: `${p.title} (${timeLabel(p.time, tzOf(p), p.date)})`,
         userId: m.userId,
         name: S.userName(m.userId),
         category: "Staff / Leadership",

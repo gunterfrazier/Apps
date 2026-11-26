@@ -20,12 +20,13 @@ import { PayError, processorFor, stripeApi, type Keys } from "../_shared/payment
 import { settle, ticketBalance, appBase } from "../_shared/settle.ts";
 import { sendText, textingOn, type Church } from "../_shared/messaging.ts";
 import { emailHtml } from "../_shared/email.ts";
+import { dateText, locationZones, whenText, zoneOf } from "../_shared/tz.ts";
 
 const money = (n: number) => `$${Number(n || 0).toFixed(2).replace(/\.00$/, "")}`;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const CODE = "ACDEFHJKLMNPQRTUVWXY34679", newCode = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => CODE[b % CODE.length]).join("");
 const sha256 = async (s: string) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, "0")).join("");
-const when = (iso: string, tz: string) => new Date(iso).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: tz });
+const when = (iso: string, tz: string) => whenText(iso, tz);
 const SQUARE = { live: "https://connect.squareup.com", test: "https://connect.squareupsandbox.com" } as const;
 // deno-lint-ignore no-explicit-any
 async function square(keys: Keys, path: string, init: { method?: string; json?: unknown } = {}): Promise<{ ok: boolean; status: number; data: any }> {
@@ -52,14 +53,14 @@ handle(async (req) => {
     const { data: church } = await db.from("churches").select("id, name, data").eq("id", ev.church_id).maybeSingle();
     if (!church || church.data?.deactivation?.status === "deactivated") return fail("This ticket wasn't found.", 404);
     const left = await ticketBalance(db, `${eventId}~${by}`);
-    return json({ church: { name: church.name, color: church.data?.color }, ticket: ticketOf(ev.data, eventId, reg.data, left, church.data?.timeZone || "America/New_York", appBase(b.origin)) });
+    return json({ church: { name: church.name, color: church.data?.color }, ticket: ticketOf(ev.data, eventId, reg.data, left, (ev.data?.locationId && (await locationZones(db, ev.church_id)).get(ev.data.locationId)) || zoneOf(church), appBase(b.origin)) });
   }
 
   const { user, client } = await caller(req);
   if (!user) return fail("Sign in first.", 401);
   const { data: church } = await db.from("churches").select("id, name, data").eq("id", String(b.churchId || "")).maybeSingle();
   if (!church || church.data?.deactivation?.status === "deactivated") return fail("That church isn't available.", 404);
-  const tz = church.data?.timeZone || "America/New_York";
+  const tz = zoneOf(church);
   const saveChurch = (patch: Record<string, unknown>) => db.from("churches").update({ data: { ...church.data, ...patch } }).eq("id", church.id);
 
   // ----- Card readers: staff -----
@@ -324,7 +325,7 @@ handle(async (req) => {
   // deno-lint-ignore no-explicit-any
   async function sendCopy(out: any) {
     const email = String(b.email || out.email || "").trim(), phone = String(b.phone || out.phone || "").trim(), r = out.receipt, sent: string[] = [];
-    const lines = [`We received ${money(r.amount)} for ${r.title} on ${new Date(r.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: tz })}, paid with ${r.method}.`,
+    const lines = [`We received ${money(r.amount)} for ${r.title} on ${dateText(r.at, tz)}, paid with ${r.method}.`,
       ...(r.balance ? [`${money(r.balance)} left to pay.`] : []), `Receipt ${r.number}.`, ...(r.ticket ? [`Your ticket code is ${r.ticket.code}. Show the ticket at the door.`] : [])];
     if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && emailReady()) {
       const html = emailHtml({ heading: r.ticket ? `Your receipt and ticket: ${r.title}` : `Your receipt from ${church!.name}`, paragraphs: lines, button: r.ticket ? ["Open your ticket", r.ticket.link] : undefined,

@@ -120,11 +120,11 @@ const DATE_KINDS = { birthday: "Birthday", anniversary: "Wedding anniversary", b
 const canSeeDates = () => S.isMember() && S.canAny(["manage.people", "manage.followup"]);
 /** Milestones in the next `days`, soonest first, each with the date it falls on this time round. */
 function datesComing(days = 14) {
-  const today = fromIsoDay(isoDay(new Date()));
+  const t = today(), ty = +t.slice(0, 4), daysBetween = (a, b) => Math.round((Date.UTC(...isoParts(b).map((n, i) => i === 1 ? n - 1 : n)) - Date.UTC(...isoParts(a).map((n, i) => i === 1 ? n - 1 : n))) / DAY);
   return S.list("milestones").map((m) => {
-    const [, mo, da] = m.date.split("-").map(Number), next = new Date(today.getFullYear(), mo - 1, da, 12);
-    if (next < today) next.setFullYear(next.getFullYear() + 1);
-    return { m, next, years: next.getFullYear() - +m.date.slice(0, 4), inDays: Math.round((next - today) / DAY) };
+    const [, mo, da] = isoParts(m.date), on = (y) => isoOf(y, mo, Math.min(da, daysInMonth(y, mo)));   // Feb 29 falls on the 28th
+    const day = on(ty) < t ? on(ty + 1) : on(ty);
+    return { m, next: fromIsoDay(day, "12:00"), day, years: +day.slice(0, 4) - +m.date.slice(0, 4), inDays: daysBetween(t, day) };
   }).filter((x) => x.inDays <= days).sort((a, b) => a.next - b.next);
 }
 const dateLine = (x) => `${DATE_KINDS[x.m.kind] || "Date"}${x.m.label ? ` (${x.m.label})` : ""}${x.m.kind !== "birthday" && x.years > 0 && x.years < 120 ? `, ${plural(x.years, "year")}` : ""}`;
@@ -152,7 +152,7 @@ Actions["date-remove"] = (el) => { const m = S.get("milestones", el.dataset.id);
 /** Pastors and staff get a note in their notifications on the day. */
 function datesTick() {
   if (!S.church() || !canSeeDates() || thisDevice()) return;
-  const year = new Date().getFullYear(); let changed = false;
+  const year = yearOf(); let changed = false;
   datesComing(0).forEach((x) => {
     const id = `n-date-${x.m.id}-${year}-${S.me().id}`;
     if (x.m.userId === S.me().id || S.state.notifications.some((n) => n.id === id)) return;
@@ -167,7 +167,7 @@ const campaignTotals = {};   // from the server, for members who can't see every
 const canCampaigns = () => S.isMember() && S.can("view.giving");
 function campaignStats(c) {
   if (Backend.on && !S.can("view.giving")) return campaignTotals[c.id] || { given: 0, pledged: 0, pledges: 0 };
-  const gifts = S.list("gifts").filter((g) => g.fundId === c.fundId && g.at.slice(0, 10) >= c.start && (!c.end || g.at.slice(0, 10) <= c.end)), pl = S.list("pledges").filter((p) => p.campaignId === c.id);
+  const gifts = S.list("gifts").filter((g) => g.fundId === c.fundId && isoDay(g.at) >= c.start && (!c.end || isoDay(g.at) <= c.end)), pl = S.list("pledges").filter((p) => p.campaignId === c.id);
   return { given: gifts.reduce((n, g) => n + g.amount, 0), pledged: pl.reduce((n, p) => n + p.amount, 0), pledges: pl.length };
 }
 const campaignsOpen = () => S.list("campaigns").filter((c) => c.active !== false && (!c.end || c.end >= isoDay(new Date()))).sort((a, b) => (a.end || "9").localeCompare(b.end || "9"));
@@ -208,7 +208,7 @@ Actions["pledge-remove"] = (el) => { S.remove("pledges", el.dataset.id); S.save(
 AdminScreens.campaigns = () => {
   const stop = guard("view.giving"); if (stop) return stop;
   const list = S.list("campaigns").sort((a, b) => (b.start || "").localeCompare(a.start || ""));
-  const pledges = S.list("pledges").map((p) => [S.get("campaigns", p.campaignId)?.name || "", p.name || nameOf(p.userId), p.amount, p.at.slice(0, 10)]);
+  const pledges = S.list("pledges").map((p) => [S.get("campaigns", p.campaignId)?.name || "", p.name || nameOf(p.userId), p.amount, isoDay(p.at)]);
   return { title: "Pledge campaigns", back: "admin", body: html`<p class="muted" style="margin-top:14px">Set a goal for a fund, like a building fund. People pledge what they plan to give, and gifts to that fund count toward the goal.</p>
     <div class="btns"><button class="btn" data-act="campaign-edit">${icon("plus")}New campaign</button></div>
     <div style="display:grid;gap:12px;margin-top:14px">${list.map((c) => campaignCard(c, { manage: true }))}</div>

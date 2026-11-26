@@ -29,14 +29,14 @@ const giverKey = (g) => g.by || g.name || "Anonymous";
 const REPORT_PAGES = {
   people() {
     const { unit, keys, start } = reportBuckets(), members = S.members().filter((m) => S.user(m.userId));
-    const joined = members.filter((m) => (m.joined || "").slice(0, 10) >= start);
+    const joined = members.filter((m) => isoDay(m.joined) >= start);
     const grouped = members.filter((m) => inGroups(m.userId).length).length, serving = members.filter((m) => onTeams(m.userId).length).length;
     const byRole = Object.entries(members.reduce((o, m) => { const r = roleName(m); o[r] = (o[r] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]);
-    const rows = members.map((m) => [nameOf(m.userId), roleName(m), (m.joined || "").slice(0, 10), inGroups(m.userId).length, onTeams(m.userId).join(", ")]).sort((a, b) => a[0].localeCompare(b[0]));
+    const rows = members.map((m) => [nameOf(m.userId), roleName(m), isoDay(m.joined), inGroups(m.userId).length, onTeams(m.userId).join(", ")]).sort((a, b) => a[0].localeCompare(b[0]));
     return html`<section class="sec"><div class="sec-head"><h2>People</h2>${S.can("manage.people") ? html`<a href="#admin-people">Manage people</a>` : ""}</div>
       <div class="stat-tiles">${statTile("Members", members.length.toLocaleString(), "With an account here")}${statTile("Joined", joined.length.toLocaleString(), `Last ${REPORT_RANGES[reportRange][0]}`)}
         ${statTile("In a class or group", pct(grouped, members.length), plural(grouped, "person", "people"))}${statTile("On a serving team", pct(serving, members.length), plural(serving, "person", "people"))}</div>
-      ${stackedColumns("ppl", { title: unit === "week" ? "People who joined each week" : "People who joined each month", labels: keys.map((k) => bucketLabel(k, unit)), series: [["Joined", keys.map((k) => joined.filter((m) => bucketOf(m.joined.slice(0, 10), unit) === k).length)]], csv: `joined-${isoDay(new Date())}.csv` })}
+      ${stackedColumns("ppl", { title: unit === "week" ? "People who joined each week" : "People who joined each month", labels: keys.map((k) => bucketLabel(k, unit)), series: [["Joined", keys.map((k) => joined.filter((m) => bucketOf(isoDay(m.joined), unit) === k).length)]], csv: `joined-${isoDay(new Date())}.csv` })}
       <h3 class="sec-head" style="margin-top:18px">By role</h3>${hBarsT("By role", byRole, (n) => n.toLocaleString())}
       <h3 class="sec-head" style="margin-top:18px">Everyone</h3><div class="panel">${reportTable("people", "people", ["Name", "Role", "Joined", "Classes and groups", "Serving teams"], rows, { numeric: [3] })}</div></section>`;
   },
@@ -67,10 +67,10 @@ const REPORT_PAGES = {
   },
   events() {
     const { start } = reportBuckets(), now = new Date().toISOString();
-    const list = S.visible("events").filter((e) => e.start.slice(0, 10) >= start).sort((a, b) => a.start.localeCompare(b.start));
+    const list = S.visible("events").filter((e) => isoDay(e.start) >= start).sort((a, b) => a.start.localeCompare(b.start));
     const past = list.filter((e) => e.start < now), coming = list.filter((e) => e.start >= now), signups = list.filter((e) => e.signup);
     const total = signups.reduce((n, e) => n + registeredCount(e), 0);
-    const rows = list.map((e) => [e.title, e.start.slice(0, 10), e.category || "", e.signup ? registeredCount(e) : "", e.capacity || "", e.start < now ? "Past" : "Coming up"]);
+    const rows = list.map((e) => [e.title, isoDay(e.start), e.category || "", e.signup ? registeredCount(e) : "", e.capacity || "", e.start < now ? "Past" : "Coming up"]);
     return html`<section class="sec"><div class="sec-head"><h2>Events</h2><a href="#events">Calendar</a></div>
       <div class="stat-tiles">${statTile("Events held", past.length.toLocaleString(), `Last ${REPORT_RANGES[reportRange][0]}`)}${statTile("Coming up", coming.length.toLocaleString(), "On the calendar")}
         ${statTile("Sign-ups", total.toLocaleString(), plural(signups.length, "event with sign-up", "events with sign-up"))}</div>
@@ -78,17 +78,17 @@ const REPORT_PAGES = {
       <h3 class="sec-head" style="margin-top:18px">All events</h3><div class="panel">${reportTable("events", "events", ["Event", "Date", "Kind", "Signed up", "Room for", "When"], rows, { numeric: [3, 4], empty: "No events in this range." })}</div></section>`;
   },
   giving() {
-    const { keys, start } = reportBuckets(), all = S.list("gifts"), gifts = all.filter((g) => g.at.slice(0, 10) >= start);
+    const { keys, start } = reportBuckets(), all = S.list("gifts"), gifts = all.filter((g) => isoDay(g.at) >= start);
     // The stretch of the same length just before this one, to see who's new and who has stopped.
     const span = fromIsoDay(isoDay(new Date())) - fromIsoDay(start), before = isoDay(new Date(fromIsoDay(start).getTime() - span));
-    const earlier = all.filter((g) => g.at.slice(0, 10) < start), prior = all.filter((g) => g.at.slice(0, 10) >= before && g.at.slice(0, 10) < start);
+    const earlier = all.filter((g) => isoDay(g.at) < start), prior = all.filter((g) => isoDay(g.at) >= before && isoDay(g.at) < start);
     const now = new Set(gifts.map(giverKey)), everBefore = new Set(earlier.map(giverKey)), lapsed = [...new Set(prior.map(giverKey))].filter((k) => !now.has(k));
     const fresh = [...now].filter((k) => !everBefore.has(k)), total = gifts.reduce((n, g) => n + g.amount, 0);
     const by = (f) => Object.entries(gifts.reduce((o, g) => { const k = f(g); o[k] = (o[k] || 0) + g.amount; return o; }, {})).sort((a, b) => b[1] - a[1]);
     const label = (s) => String(s || "Other").replace(/^./, (c) => c.toUpperCase());
     const regular = gifts.filter((g) => g.frequency && g.frequency !== "once").reduce((n, g) => n + g.amount, 0);
     const givers = Object.values(gifts.reduce((o, g) => { const k = giverKey(g), r = (o[k] ||= { name: g.name || nameOf(g.by) || "Anonymous", n: 0, total: 0, last: "" }); r.n++; r.total += g.amount; if (g.at > r.last) r.last = g.at; return o; }, {}))
-      .sort((a, b) => b.total - a.total).map((r) => [r.name, r.n, Math.round(r.total * 100) / 100, r.last.slice(0, 10)]);
+      .sort((a, b) => b.total - a.total).map((r) => [r.name, r.n, Math.round(r.total * 100) / 100, isoDay(r.last)]);
     const funds = S.church().funds.map((f) => [f.name, gifts.filter((g) => g.fundId === f.id).reduce((n, g) => n + g.amount, 0)]).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
     return html`<section class="sec"><div class="sec-head"><h2>Giving in detail</h2><a href="#admin-giving">All gifts</a></div>
       <div class="stat-tiles">${statTile("Given", money(Math.round(total)), `Last ${REPORT_RANGES[reportRange][0]}`)}${statTile("Givers", now.size.toLocaleString(), plural(gifts.length, "gift"))}
@@ -97,7 +97,7 @@ const REPORT_PAGES = {
       ${funds.length ? html`<h3 class="sec-head" style="margin-top:18px">By fund</h3>${hBarsT("By fund", funds, money)}` : ""}
       ${gifts.length ? html`<h3 class="sec-head" style="margin-top:18px">By how it was given</h3>${hBarsT("By how it was given", by((g) => label(g.method)), money)}` : ""}
       <h3 class="sec-head" style="margin-top:18px">By giver</h3><div class="panel">${reportTable("givers", "giving-by-giver", ["Name", "Gifts", "Total", "Last gift"], givers, { numeric: [1, 2], empty: "No gifts in this range." })}</div>
-      ${lapsed.length ? html`<h3 class="sec-head" style="margin-top:18px">Stopped giving</h3><div class="panel">${reportTable("lapsed", "stopped-giving", ["Name", "Last gift"], lapsed.map((k) => { const l = prior.filter((g) => giverKey(g) === k).sort((a, b) => b.at.localeCompare(a.at))[0]; return [l.name || nameOf(l.by) || "Anonymous", l.at.slice(0, 10)]; }))}</div>` : ""}</section>`;
+      ${lapsed.length ? html`<h3 class="sec-head" style="margin-top:18px">Stopped giving</h3><div class="panel">${reportTable("lapsed", "stopped-giving", ["Name", "Last gift"], lapsed.map((k) => { const l = prior.filter((g) => giverKey(g) === k).sort((a, b) => b.at.localeCompare(a.at))[0]; return [l.name || nameOf(l.by) || "Anonymous", isoDay(l.at)]; }))}</div>` : ""}</section>`;
   },
 };
 const reportOverview = Screens.reports;
@@ -115,15 +115,15 @@ Screens.reports = (tab = "") => {
 const DASH = {
   numbers: ["Key numbers", () => true, () => {
     const members = S.members().filter((m) => S.user(m.userId)), month = isoDay(new Date()).slice(0, 7), cut = isoDay(new Date(Date.now() - 30 * DAY));
-    const tiles = [statTile("Members", members.length.toLocaleString(), `${members.filter((m) => (m.joined || "").slice(0, 10) >= cut).length} joined in the last 30 days`)];
+    const tiles = [statTile("Members", members.length.toLocaleString(), `${members.filter((m) => isoDay(m.joined) >= cut).length} joined in the last 30 days`)];
     if (S.can("view.reports")) {
       const from = isoDay(new Date(Date.now() - 28 * DAY)), svc = serviceAttendance().filter((r) => r.date >= from), weeks = new Set(svc.map((r) => weekOf(r.date))).size;
       tiles.push(statTile("Average attendance", (weeks ? Math.round(svc.reduce((n, r) => n + (+r.adults || 0) + (+r.kids || 0) + (+r.online || 0), 0) / weeks) : 0).toLocaleString(), "Per week, last 4 weeks"));
-      tiles.push(statTile("New people", S.list("followups").filter((f) => f.at.slice(0, 10) >= cut).length.toLocaleString(), "Last 30 days"));
+      tiles.push(statTile("New people", S.list("followups").filter((f) => isoDay(f.at) >= cut).length.toLocaleString(), "Last 30 days"));
     }
     if (S.can("view.giving")) {
-      const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); const lastMonth = isoDay(d).slice(0, 7);
-      const sum = (m) => S.list("gifts").filter((g) => g.at.slice(0, 7) === m).reduce((n, g) => n + g.amount, 0);
+      const lastMonth = isoAddMonths(today(), -1).slice(0, 7);
+      const sum = (m) => S.list("gifts").filter((g) => isoMonth(g.at) === m).reduce((n, g) => n + g.amount, 0);
       tiles.push(statTile("Given this month", money(Math.round(sum(month))), `${money(Math.round(sum(lastMonth)))} last month`));
     }
     return html`<div class="stat-tiles">${tiles}</div>`;
@@ -132,6 +132,7 @@ const DASH = {
     const w = waitingRequests(), items = [], c = S.church(), soon = isoDay(new Date(Date.now() + 14 * DAY));
     const add = (n, one, many, href) => { if (n) items.push(html`<a class="row" href="#${href}"><span class="body"><span class="t">${plural(n, one, many)}</span></span>${icon("chev")}</a>`); };
     if (c.ownerId === S.me().id && deactStatus(c) === "requested") add(1, "request to deactivate the church account", "", "admin-deactivate");
+    if (!validTz(c.timeZone) && S.can("manage.church")) items.push(html`<a class="row" href="#admin-account"><span class="body"><span class="t">Set the church's time zone</span><span class="s">Times show in each phone's own zone until you do</span></span>${icon("chev")}</a>`);
     add(w.rooms.length, "room request to approve", "room requests to approve", "rooms");
     add(w.volunteers.length, "person asking to join a team", "people asking to join a team", "teams");
     add(w.groups.length, "request to join a class or group", "requests to join a class or group", "admin-approvals");
@@ -147,12 +148,12 @@ const DASH = {
       <a class="dash-more" href="#reports">Attendance report</a>`;
   }],
   giving: ["Giving", () => S.can("view.giving"), () => {
-    const { keys } = reportBuckets("6m"), gifts = S.list("gifts").filter((g) => g.at.slice(0, 10) >= keys[0]);
-    return html`${stackedColumns("dash-give", { title: "Given each month, last 6 months", labels: keys.map((k) => bucketLabel(k, "month")), series: [["Given", keys.map((k) => gifts.filter((g) => `${g.at.slice(0, 7)}-01` === k).reduce((n, g) => n + g.amount, 0))]], money: true })}
+    const { keys } = reportBuckets("6m"), gifts = S.list("gifts").filter((g) => isoDay(g.at) >= keys[0]);
+    return html`${stackedColumns("dash-give", { title: "Given each month, last 6 months", labels: keys.map((k) => bucketLabel(k, "month")), series: [["Given", keys.map((k) => gifts.filter((g) => `${isoMonth(g.at)}-01` === k).reduce((n, g) => n + g.amount, 0))]], money: true })}
       <a class="dash-more" href="#reports-giving">Giving report</a>`;
   }],
   newcomers: ["New people", () => S.can("view.reports") || S.can("manage.followup"), () => {
-    const cut = isoDay(new Date(Date.now() - 84 * DAY)), g = S.list("followups").filter((f) => f.at.slice(0, 10) >= cut), by = (k) => g.filter((f) => f.status === k).length;
+    const cut = isoDay(new Date(Date.now() - 84 * DAY)), g = S.list("followups").filter((f) => isoDay(f.at) >= cut), by = (k) => g.filter((f) => f.status === k).length;
     return html`${g.length ? html`<p style="margin-top:0"><b>${plural(g.length, "new person", "new people")}</b> in the last 12 weeks.</p>${segBar([["Connected", by("connected")], ["Contacted", by("contacted")], ["Not reached yet", by("new")], ["Closed", by("closed")]])}`
       : html`<p class="muted" style="margin:0">No new people in the last 12 weeks.</p>`}${S.can("manage.followup") ? html`<a class="dash-more" href="#followup">Follow-up</a>` : ""}`;
   }],

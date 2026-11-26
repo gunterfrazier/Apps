@@ -18,7 +18,7 @@ const daysText = (n) => `${n} ${n === 1 ? "day" : "days"}`;
 const primaryName = (c = S.church()) => (c.ownerId === S.me().id ? S.me().name : S.user(c.ownerId)?.name) || "the primary account holder";
 /** Who sees the option at all: the primary, or someone whose role includes the privilege. Never for a training church. */
 const canAskDeactivate = (c = S.church()) => !!c && !c.training && (S.isPrimary(c.id) || (S.isMember(c.id) && S.can("church.deactivate", c.id)));
-const oneYearOn = (from = new Date()) => { const d = new Date(from); d.setFullYear(d.getFullYear() + 1); return d; };
+const oneYearOn = (from = new Date()) => addMonths(from, 12);
 
 /** What the server's church_deactivation() does, for when nothing leaves this browser. Throws with the reason it refused. */
 function deactLocal(c, action, note = "") {

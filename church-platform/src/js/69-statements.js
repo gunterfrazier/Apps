@@ -62,7 +62,7 @@ function statementPages(c, giver, year, gifts) {
   }
   return pages;
 }
-const giftsIn = (list, year) => list.filter((g) => new Date(g.at).getFullYear() === year && g.status !== "refunded").sort((a, b) => new Date(a.at) - new Date(b.at));
+const giftsIn = (list, year) => list.filter((g) => yearOf(g.at) === year && g.status !== "refunded").sort((a, b) => new Date(a.at) - new Date(b.at));
 Actions["statement-pdf"] = (el) => {
   const c = S.church(), y = +el.dataset.year, me = S.me();
   saveFile(`${slugify(c.name)}-giving-${y}.pdf`, makePdf(statementPages(c, { name: me.name }, y, giftsIn(myGifts(), y))));
@@ -77,7 +77,7 @@ Actions["statements-all"] = (el) => {
   toast(`${plural(byGiver.size, "statement")} in one PDF`);
 };
 Actions["statements-csv"] = () => {
-  const c = S.church(), y = +($("#stmt-year")?.value || new Date().getFullYear()), q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+  const c = S.church(), y = +($("#stmt-year")?.value || yearOf()), q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
   const rows = [["Date", "Giver", "Fund", "Method", "Frequency", "Amount", "Status"].map(q).join(","),
     ...giftsIn(S.list("gifts"), y).map((g) => [isoDay(g.at), S.user(g.by)?.name || g.name, fundName(g.fundId, c), g.method, g.frequency, g.amount, g.status || (g.demo || g.sample ? "test" : "paid")].map(q).join(","))];
   saveFile(`${slugify(c.name)}-gifts-${y}.csv`, rows.join("\n") + "\n");

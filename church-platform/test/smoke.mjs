@@ -143,9 +143,9 @@ await step("geofenced arrival confirms a group and starts child intake", async (
     const { S } = __app;
     const loc = S.location("riverside-main");
     const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const time = __app.hhmmOf(now);   // the church's clock, which may not be this browser's
     const original = { services: loc.services, geo: loc.geofence, prefs: S.state.prefs.geofenceCheckin, presence: S.state.presence.map((r) => r.id) };
-    loc.services = [{ day: now.getDay(), time, label: "Arrival test service" }];
+    loc.services = [{ day: __app.zp(now).dow, time, label: "Arrival test service" }];
     loc.geofence = { enabled: true, lat: 34, lng: -85, radiusMeters: 200 };
     S.state.prefs.geofenceCheckin = false;
     sessionStorage.removeItem("our-faithful-geofence-arrived");
@@ -938,8 +938,7 @@ await step("custom incident report workflow", async () => {
     await page.evaluate(() => {
       const { S } = __app;
       const incident = S.get("securityIncidents", "report-test-incident");
-      const at = new Date(incident.at);
-      at.setHours(9, 0, 0, 0);
+      const at = __app.fromIsoDay(__app.isoDay(incident.at), "09:00");
       S.update("securityIncidents", incident.id, { at: at.toISOString() });
       const later = (minutes) => new Date(+at + minutes * 60000).toISOString();
       S.add("securityIncidentEvents", { incidentId: incident.id, type: "arrive", actorName: "Marcus Bell", by: "u-marcus", at: later(5) });
@@ -1773,8 +1772,8 @@ await step("rooms: numbers and where they are, and a room display teachers prese
   if (await page.evaluate(() => __app.S.state.roomSessions.length)) throw new Error("the presentation's record wasn't cleared");
   // Who has a room: the class's teacher from 15 minutes before it starts until it ends, and not on another day.
   const access = await page.evaluate(() => {
-    const sun = new Date(); sun.setDate(sun.getDate() + ((7 - sun.getDay()) % 7 || 7)); sun.setHours(8, 50, 0, 0);
-    const at = (h, m) => { const d = new Date(sun); d.setHours(h, m); return d.getTime(); };
+    const t = __app.today(), sun = __app.isoAdd(t, (7 - __app.isoDow(t)) % 7 || 7);   // next Sunday, church time
+    const at = (h, m) => __app.fromIsoDay(sun, `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`).getTime();
     const a = (t) => __app.roomAccess("u-linda", "riverside-main", "Room 104", t);
     return [a(at(8, 30)).ok, a(at(8, 50)).ok, a(at(10, 0)).ok, a(at(10, 20)).ok, a(at(8, 50)).until === at(10, 15), a(at(8, 50) + 86400e3).ok];
   });
@@ -1847,7 +1846,7 @@ await step("form builder and responses", async () => {
 await step("room booking", async () => {
   await goTo("rooms"); await expectText("Wedding rehearsal"); await page.click("[data-act=room-approve]"); await expectText("Your bookings").catch(() => {});
   await page.click('[data-act=room-request][data-room="Room 104"]'); await page.fill("#scrim input[name=title]", "Parent meeting");
-  const sunday = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+  const sunday = await page.evaluate(() => { const t = __app.today(); return __app.isoAdd(t, (7 - __app.isoDow(t)) % 7 || 7); });
   await page.fill("#scrim input[name=date]", sunday); await page.fill("#scrim input[name=start]", "09:30"); await page.fill("#scrim input[name=end]", "10:00");
   await page.dispatchEvent("#scrim input[name=end]", "change"); await page.waitForSelector("#scrim .room-msg.warn"); await shot("37-room-conflict");
   await sheetSubmit(); await page.waitForSelector("#scrim .err");
@@ -2826,7 +2825,7 @@ await step("approvals: requests notify everyone who can approve; volunteers can 
   if (!(await groupAsked())) throw new Error("a member's request to join the group should wait");
   await asRole("teacher");
   await goTo("rooms"); await page.click("[data-act=room-request] >> nth=0"); await page.fill("#scrim input[name=title]", "Teachers' prayer");
-  await page.fill("#scrim input[name=date]", await page.evaluate(() => { const d = new Date(Date.now() + 9 * 864e5); return d.toISOString().slice(0, 10); }));
+  await page.fill("#scrim input[name=date]", await page.evaluate(() => __app.isoAdd(__app.today(), 9)));
   await page.fill("#scrim input[name=start]", "06:00"); await page.fill("#scrim input[name=end]", "06:45");
   if (!(await page.isChecked("#scrim input[name=notifyApprovers]"))) throw new Error("the room request should notify approvers by default");
   await sheetSubmit(); await sheetGone();
@@ -2941,7 +2940,7 @@ await step("attendance, dates, campaigns, email and the activity log", async () 
   if (!(await page.evaluate(() => !!window.__app))) { await page.goto(base + "?debug#home"); await page.waitForSelector("#app"); }
   // A service that started five minutes ago, and this person as the primary account holder.
   const other = await page.evaluate(() => { const S = __app.S; S.setCurrent("riverside"); const c = S.church(); c.ownerId = S.me().id; sessionStorage.removeItem("our-faithful-presence-asked"); S.state.prefs.askPresence = true;
-    const t = new Date(Date.now() - 5 * 60e3), l = c.locations[0]; l.services = [{ day: t.getDay(), time: `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`, label: "Test gathering" }, ...l.services.filter((x) => x.label !== "Test gathering")];
+    const t = new Date(Date.now() - 5 * 60e3), l = c.locations[0]; l.services = [{ day: __app.zp(t).dow, time: __app.hhmmOf(t), label: "Test gathering" }, ...l.services.filter((x) => x.label !== "Test gathering")];
     S.state.presence = []; S.save(); return S.members().map((m) => S.user(m.userId)).find((u) => u && u.id !== S.me().id); });
   // Opening the app during the service asks whether you're here.
   await goTo("me"); await goTo("home"); await page.waitForSelector("#scrim [data-act=presence-yes]", { timeout: 4000 }); await shot("80-presence-prompt");
@@ -2957,7 +2956,7 @@ await step("attendance, dates, campaigns, email and the activity log", async () 
     const p = S.list("presence").find((x) => x.userId === id && x.date > "2026-02"); if (p) S.remove("presence", p.id); }, other.id);
   await goTo("reports-attendance"); await page.waitForSelector('[data-act=report-csv][data-id=away]'); await expectText("Not seen in 4 weeks"); await expectText(other.name); await shot("83-attendance-report");
   // Dates: your own, and the dashboard shows what's coming.
-  await goTo("dates"); const soon = await page.evaluate(() => { const d = new Date(Date.now() + 3 * 864e5); return `1985-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+  await goTo("dates"); const soon = await page.evaluate(() => `1985-${__app.isoAdd(__app.today(), 3).slice(5)}`);
   await page.fill("form[data-form=date-add] input[name=date]", soon); await page.click("form[data-form=date-add] button"); await expectText("Birthday"); await shot("84-my-dates");
   await goTo("dashboard"); await expectText("Birthdays and milestones");
   // A pledge campaign: made by staff, pledged to from Give, shown on the dashboard.

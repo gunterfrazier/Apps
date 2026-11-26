@@ -538,6 +538,15 @@ end $$;
 -- the primary decides. A deactivated church is hidden from everyone but its primary (church_live above), who can
 -- reactivate it for one year. After that its data is removed for good.
 -- A line in someone's notifications, written by the server.
+-- ---------- Time zones ----------
+-- Each church's zone (churches.data.timeZone, set in Admin, Account details), checked against the zones Postgres
+-- knows. Dates written into notices use it, so "deleted on March 3" is the church's March 3, not UTC's.
+create or replace function church_zone(c text) returns text language sql stable security definer set search_path = public as $$
+  select coalesce((select z.name from churches ch join pg_timezone_names z on z.name = ch.data->>'timeZone' where ch.id = c limit 1), 'America/New_York')
+$$;
+revoke execute on function church_zone(text) from public, anon;
+grant execute on function church_zone(text) to authenticated;
+
 create or replace function lifecycle_note(c text, person uuid, nid text, title text, body text, link text) returns boolean language plpgsql security definer set search_path = public as $$
 begin
   insert into records (kind, id, church_id, owner, data) values ('notifications', nid, c, person::text,
@@ -586,7 +595,7 @@ begin
       'requestedBy', case when st = 'requested' then d->'requestedBy' end, 'requestedByName', case when st = 'requested' then d->'requestedByName' end,
       'reason', nullif(left(coalesce(nullif(note, ''), d->>'reason', ''), 500), '')));
     perform lifecycle_note(c, me, 'n-deact-done-' || c || '-' || floor(extract(epoch from now()))::bigint,
-      ch.name || ' is deactivated', 'Only you can see it now. Reactivate it any time before ' || to_char(due, 'FMMonth FMDD, YYYY') || '. After that, everything in it is permanently deleted.', '#reactivate-' || c);
+      ch.name || ' is deactivated', 'Only you can see it now. Reactivate it any time before ' || to_char(due at time zone church_zone(c), 'FMMonth FMDD, YYYY') || '. After that, everything in it is permanently deleted.', '#reactivate-' || c);
   elsif action = 'reactivate' then
     if ch.owner_id <> me then raise exception 'Only the primary account holder can reactivate the church account'; end if;
     if st <> 'deactivated' then return d; end if;
@@ -640,7 +649,7 @@ begin
     select min(x) into m from unnest(array[180, 90, 30, 14, 7, 3, 1]) x where x >= days;
     if m is not null and lifecycle_note(r.id, r.owner_id, 'n-deact-' || r.id || '-' || floor(extract(epoch from (r.d->>'at')::timestamptz))::bigint || '-' || m,
         r.name || ' will be deleted in ' || days || case when days = 1 then ' day' else ' days' end,
-        'The church account is deactivated. Everything in it is permanently deleted on ' || to_char((r.d->>'purgeAt')::timestamptz, 'FMMonth FMDD, YYYY') || '. Reactivate it to keep it.',
+        'The church account is deactivated. Everything in it is permanently deleted on ' || to_char((r.d->>'purgeAt')::timestamptz at time zone church_zone(r.id), 'FMMonth FMDD, YYYY') || '. Reactivate it to keep it.',
         '#reactivate-' || r.id) then reminded := reminded + 1; end if;
   end loop;
   if fn_url is not null and (exists (select 1 from churches where data->'deactivation'->>'status' in ('requested', 'deactivated'))
@@ -1808,7 +1817,7 @@ begin
   if tag !~ '^[a-z0-9-]{3,30}$' then return null; end if;
   select * into r from records where kind = 'tagLinks' and lower(data->>'code') = tag limit 1;
   if not found or not church_live(r.church_id) or coalesce((r.data->>'paused')::boolean, false) then return null; end if;
-  insert into tag_taps (code, church_id, day, taps) values (tag, r.church_id, current_date, 1)
+  insert into tag_taps (code, church_id, day, taps) values (tag, r.church_id, (now() at time zone church_zone(r.church_id))::date, 1)
     on conflict (code, day) do update set taps = tag_taps.taps + 1;
   return jsonb_build_object('target', r.data->>'target', 'churchId', r.church_id);
 end $$;

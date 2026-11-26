@@ -380,7 +380,7 @@ Screens.sermon = (id) => {
       ${renderPewSyncSection(s)}
       <p class="faint" style="margin:16px 0 2px">${s.series}</p>
       <h1>${s.title}</h1>
-      <p class="muted" style="margin-top:4px">${s.speaker}, ${fmtDay(s.date)}${s.time ? ` at ${timeLabel(s.time)}` : ""}${s.locationId && multiCampus() ? `, ${locName(s.locationId)}` : ""}</p>
+      <p class="muted" style="margin-top:4px">${s.speaker}, ${fmtDay(s.date, tzOf(s))}${s.time ? ` at ${timeLabel(s.time, tzOf(s), isoDay(s.date, tzOf(s)))}` : ""}${s.locationId && multiCampus() ? `, ${locName(s.locationId)}` : ""}</p>
       ${sermonMedia(s)}
       <div class="btns">
         <button class="btn ${saved ? "soft" : "ghost"} sm" data-act="toggle-save" data-id="${s.id}" aria-pressed="${saved}">${icon("bookmark")}${saved ? "Saved" : "Save"}</button>

@@ -35,7 +35,7 @@ Screens.followup = () => {
   const all = S.list("followups").sort((a, b) => new Date(b.at) - new Date(a.at)), me = S.me().id;
   const open = all.filter((f) => f.status === "new" || f.status === "contacted"), mine = open.filter((f) => f.assignedTo === me), done = all.filter((f) => f.status === "connected" || f.status === "closed");
   const list = { open, mine, done }[followView] || open;
-  const month = new Date(); month.setDate(1); month.setHours(0, 0, 0, 0);
+  const month = fromIsoDay(`${today().slice(0, 8)}01`);
   const newThisMonth = all.filter((f) => new Date(f.at) >= month).length, waiting = all.filter((f) => f.status === "new").length;
   const recent = all.filter((f) => Date.now() - new Date(f.at) < 90 * DAY && f.status !== "new"), connected = recent.filter((f) => f.status === "connected").length;
   return {

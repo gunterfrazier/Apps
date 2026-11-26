@@ -205,7 +205,7 @@ Forms["tk-record"] = async (d, f) => {
   if (["email", "both"].includes(way) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) return formError(f, "Add an email address for the receipt, or choose another way.");
   if (["text", "both"].includes(way) && toPhone.replace(/\D/g, "").length < 10) return formError(f, "Add a mobile number for the receipt, or choose another way.");
   const by = S.can("manage.content") && d.receivedBy ? d.receivedBy : S.me().id;
-  const day = d.day && d.day < isoDay(new Date()) ? new Date(`${d.day}T12:00:00`).toISOString() : new Date().toISOString();
+  const day = d.day && d.day < isoDay(new Date()) ? fromIsoDay(d.day, "12:00").toISOString() : new Date().toISOString();
   const p = S.add("ticketPayments", { eventId: e.id, regId: regIdOf(e, r), payerId: r.by, amount, method: d.method === "check" ? "check" : "cash", status: "paid", checkNo: d.method === "check" ? String(d.checkNo || "").trim() : "",
     receivedBy: by, receivedByName: nameOf(by), recordedBy: S.me().id, note: String(d.note || "").trim(), at: day, receipts: [] });
   r.paid = { status: regBalance(e, r) > 0 ? "partial" : "paid", at: day, tracked: true };
@@ -393,10 +393,10 @@ Actions["tk-open"] = (el) => {
 function tkTables(rows) {
   return {
     signups: { head: ["Name", "Event", "Tickets", "Signed up", "Total", "Paid", "Balance", "Status", "Paid with", "Received by", "Last payment", "Checked in", "Email", "Phone"],
-      rows: rows.map((x) => { const c = entryCount(x.e, x.r); return [x.name, x.event, x.tickets, String(x.at || "").slice(0, 10), x.total, x.paid, x.balance, PAY_STATUS[x.status], x.methodText, x.receiverText, String(x.last || "").slice(0, 10), c.now ? `${c.now} in now` : c.came ? "Came, left" : "No", x.email, x.phone]; }), numeric: [4, 5, 6] },
+      rows: rows.map((x) => { const c = entryCount(x.e, x.r); return [x.name, x.event, x.tickets, isoDay(x.at || ""), x.total, x.paid, x.balance, PAY_STATUS[x.status], x.methodText, x.receiverText, isoDay(x.last || ""), c.now ? `${c.now} in now` : c.came ? "Came, left" : "No", x.email, x.phone]; }), numeric: [4, 5, 6] },
     payments: { head: ["Date", "Name", "Event", "Amount", "Paid with", "Check number", "Received by", "Status", "Receipt", "Note"],
-      rows: tkPayRows(rows).map(({ x, p }) => [String(p.at).slice(0, 10), x.name, x.event, p.amount, PAY_METHODS[p.method], p.checkNo || "", p.method === "app" ? "Paid in the app" : p.receivedByName || nameOf(p.receivedBy),
-        p.status === "void" ? `Voided: ${p.voidReason}` : p.status === "test" ? "Test" : p.status === "refunded" ? "Refunded" : "Paid", (p.receipts || []).map((r) => `${r.via === "text" ? "Texted" : "Emailed"} ${String(r.at).slice(0, 10)}`).join("; "), p.note || ""]), numeric: [3] },
+      rows: tkPayRows(rows).map(({ x, p }) => [isoDay(p.at || ""), x.name, x.event, p.amount, PAY_METHODS[p.method], p.checkNo || "", p.method === "app" ? "Paid in the app" : p.receivedByName || nameOf(p.receivedBy),
+        p.status === "void" ? `Voided: ${p.voidReason}` : p.status === "test" ? "Test" : p.status === "refunded" ? "Refunded" : "Paid", (p.receipts || []).map((r) => `${r.via === "text" ? "Texted" : "Emailed"} ${isoDay(r.at || "")}`).join("; "), p.note || ""]), numeric: [3] },
   };
 }
 // Under Reports too, so it prints, exports and goes into custom reports like the rest. It follows the filters and grouping chosen on #tickets.
