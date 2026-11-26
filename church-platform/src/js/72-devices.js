@@ -55,7 +55,7 @@ Screens.devices = () => {
   return {
     title: "Screens and devices", back: hasAdminTools() ? "admin" : "ministry",
     body: html`<p class="muted" style="margin-top:16px">Sign in the church's shared screens and tablets as devices, not as people. Each one does one job and stays signed in. Remove a device to sign it out.</p>
-      <div class="btns"><button class="btn" data-act="device-new">${icon("plus")}Add a device</button><a class="btn ghost" href="#admin-rooms">${icon("door")}Rooms</a><a class="btn ghost" href="#booth-check">${icon("screen")}Check a booth computer</a><a class="btn ghost" href="#signs">${icon("image")}Signage playlists</a></div>
+      <div class="btns"><button class="btn" data-act="device-new">${icon("plus")}Add a device</button><a class="btn ghost" href="#admin-rooms">${icon("door")}Rooms</a><a class="btn ghost" href="#booth-check">${icon("screen")}Check a booth computer</a><a class="btn ghost" href="#control-keys">${icon("key")}Control keys</a><a class="btn ghost" href="#signs">${icon("image")}Signage playlists</a></div>
       ${screenHealthPanel()}
       ${Object.entries(DEVICE_TYPES).map(([k, [label, ic]]) => { const ds = list.filter((d) => d.type === k); return ds.length ? html`<section class="sec"><h2 class="sec-head">${label}s</h2><div class="rows">${ds.map((d) => { const st = deviceStatus(d);
         return html`<button class="row" data-act="device-open" data-id="${d.id}"><span class="lead-ic">${icon(ic)}</span><span class="body"><span class="t">${d.name}</span><span class="s">${[d.locationId ? locName(d.locationId) : "", deviceSummary(d)].filter(Boolean).join(". ")}</span></span>

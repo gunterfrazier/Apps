@@ -326,6 +326,26 @@ over the old channel, but the booth's command channel (and the **Commands to the
 - **Devices, Check a booth computer** (or the link on a booth screen) tests a booth PC: its displays and placing
   windows on them, OBS, Companion, MIDI, USB DMX and how fast a command reaches it. Use Chrome or Edge.
 
+## Stream Deck through Companion (version 29)
+
+For an existing project, run `supabase/upgrade-29.sql` after version 28. The `control` function deploys with the
+others.
+
+1. In the app: **Devices, Control keys, Make a key** (needs Screens and devices). Name it after where it lives, like
+   "Booth Stream Deck", and pick a campus if the church has more than one. Copy the key: it's shown once.
+2. Install the free [Bitfocus Companion](https://bitfocus.io/companion) on the computer the Stream Deck plugs into.
+3. In Companion, add a **Generic HTTP Requests** connection. For each button, add an **HTTP Request (GET)** action
+   with an address the app shows after making the key, for example:
+   - `https://<project>.supabase.co/functions/v1/control/next?key=ofc_...`
+   - `.../control/prev`, `.../control/black`, `.../control/logo`, `.../control/clear`
+   - `.../control/go/5` (slide 5, counting from 1)
+   - `.../control/section/Chorus` (a section of the song on screen)
+   - `.../control/message?text=Wrap%20up` (a message on the stage display; no text clears it)
+4. Open the service in the presenter on the booth and press a button.
+
+The key can go in an `x-control-key` header instead of the address. Each key may send 30 commands in 10 seconds.
+Remove a key under **Control keys** and its buttons stop working right away. The server keeps only a hash of each key.
+
 ## Phone remote
 
 In the presenter, **Remote** shows a code to scan with a phone. On the phone (signed in by someone who can present),

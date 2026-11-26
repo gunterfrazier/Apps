@@ -1733,9 +1733,31 @@ await step("phone remote", async () => {
   await r.click(".remote-list summary"); await r.click('.remote-list [data-do=go][data-i="4"]'); await page.waitForFunction(() => document.querySelector(".present-count")?.textContent.startsWith("5 /"));
   await r.screenshot({ path: join(shots, "47b-remote.png"), fullPage: true });
   if (!(await count()).startsWith("5 /")) throw new Error("remote jump");
+  // A Stream Deck button names only a section; a command for another campus is ignored.
+  await r.evaluate(() => { const ch = new BroadcastChannel("our-faithful-control"); ch.postMessage({ do: "next", church: "riverside", loc: "nowhere" }); ch.postMessage({ do: "section", label: "verse 2", church: "riverside" }); ch.close(); });
+  await page.waitForSelector(".sec-chip.on >> text=Verse 2");
+  if ((await page.textContent(".present-count")).startsWith("6 /")) throw new Error("a command for another campus moved the slides");
   await page.click("[data-act=pres-remote]"); await page.waitForSelector("#scrim .qr-art svg"); await page.click("#scrim [data-act=close-sheet]");
   await goTo("home"); await r.waitForSelector("text=Waiting for the booth");
   await r.close();
+});
+await step("control keys page", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await goTo("devices"); await page.click("a[href='#control-keys']"); await expectText("Control keys work once the app is connected");
+  // With a stand-in server: make a key, see its addresses once, then remove it.
+  await page.evaluate(() => { const keys = [];
+    __app.ctlKeys.client = { rpc: async (name, a) => {
+      if (name === "control_keys_list") return { data: keys.map((k) => ({ ...k })) };
+      if (name === "control_key_create") { keys.push({ id: "k" + keys.length, name: a.key_name, location_id: a.loc, hint: "9f3a", created_at: new Date().toISOString(), last_used: null, created_by_name: "Wes Parker" }); return { data: { id: "k0", key: "ofc_" + "0".repeat(60) + "9f3a" } }; }
+      if (name === "control_key_remove") { keys.splice(keys.findIndex((k) => k.id === a.key_id), 1); return {}; }
+      return { error: { message: "unknown" } }; } }; });
+  await goTo("devices"); await goTo("control-keys"); await expectText("No control keys yet");
+  await page.fill("#ctl-name", "Booth Stream Deck"); await page.click("form[data-form=ctl-new] button"); await expectText("Copy the key for Booth Stream Deck now");
+  await expectText("/functions/v1/control/next?key="); await page.waitForSelector(".rows >> text=Booth Stream Deck");
+  await shot("49c-control-keys");
+  await page.click("[data-act=ctl-done]"); await page.click("[data-act=ctl-remove]"); await page.click("#scrim [data-act=ctl-remove-yes]"); await expectText("No control keys yet");
+  await page.evaluate(() => { __app.ctlKeys.client = null; });
+  await goTo("devices");
 });
 await step("booth and signage devices", async () => {
   const code = await pairNew("booth"); await page.click("#scrim [data-act=close-sheet]");

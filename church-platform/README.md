@@ -163,6 +163,7 @@ deno run -A test/payments.ts   # the payment functions with Stripe, PayPal and S
 node test/lifecycle.mjs        # the church-lifecycle function: emails, stopping recurring gifts, clearing files (stand-ins)
 TZ=America/Los_Angeles node test/timezones.mjs   # dates and times follow the church's zone, not the phone's
 PGLITE_DIR=<folder with @electric-sql/pglite> node test/live-channels.mjs   # who may hear and send on the private live channels
+PGLITE_DIR=<folder with @electric-sql/pglite> node test/control-keys.mjs     # control keys for a Stream Deck: who makes them, limits
 ```
 
 Edit the files in `src/`, not `dist/`. `src/vendor/qrcode.js` (MIT) and `public/vendor/jsQR.js` (Apache-2.0) are the QR libraries.
