@@ -2285,3 +2285,19 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 @media (max-width: 520px) { .bc-grid.three { grid-template-columns: 1fr 6em; } .bc-grid.three .field:last-child { grid-column: 1 / -1; } }
 .bc-window { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; gap: 12px; background: #000; color: #fff; }
 .bc-window b { font-size: clamp(48px, 12vw, 160px); line-height: 1; }
+
+/* Phone remote (72d-booth-remote.js) */
+.remote { margin-top: 14px; display: grid; gap: 12px; }
+.remote-title { margin: 0; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.remote-now { border-radius: 10px; overflow: hidden; }
+.remote-moves { display: grid; grid-template-columns: 1fr 2.4fr; gap: 10px; }
+.remote-moves .btn { min-height: 72px; justify-content: center; font-size: 1.15rem; }
+.remote-screen { margin: 0; }
+.remote-screen .btn { flex: 1; justify-content: center; }
+.remote-song { margin: 0; }
+.remote-next-t { margin: 0; }
+.remote .stage-msg { margin: 0; background: var(--surface); border-color: var(--line); color: var(--ink); }
+.remote .stage-msg input { background: var(--sunken); color: var(--ink); border-color: var(--line); }
+.remote .stage-msg .linkish { color: var(--brand); }
+.remote-list summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.remote-list .slide-list { max-height: none; }

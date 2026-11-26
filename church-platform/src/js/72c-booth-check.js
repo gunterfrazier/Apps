@@ -133,8 +133,10 @@ Actions["bc-control"] = () => {
   if (!Backend.on || !Backend.ready) return bcSet("control", null, "This copy of the app isn't connected to the server (demo, training or preview), so there's nothing to time.");
   const topic = `control:${S.state.current}`, id = uid(), started = performance.now();
   let done = false;
+  // The client keeps one channel per topic, so set aside the app's own control channel while this one hears itself.
+  const own = Backend.chans[topic]; if (own) { delete Backend.chans[topic]; try { Backend.client.removeChannel(own); } catch { /* gone */ } }
   const ch = Backend.client.channel(topic, { config: { private: true, broadcast: { self: true, ack: true } } });
-  const finish = (ok, text) => { if (done) return; done = true; try { Backend.client.removeChannel(ch); } catch { /* gone */ } bcSet("control", ok, text); };
+  const finish = (ok, text) => { if (done) return; done = true; try { Backend.client.removeChannel(ch); } catch { /* gone */ } if (Backend.ctlHeard) Backend.ctlChan(); bcSet("control", ok, text); };
   const timer = setTimeout(() => finish(false, "No answer in 8 seconds. The server's private channel rules may not be installed yet (upgrade-28.sql)."), 8000);
   ch.on("broadcast", { event: "check" }, ({ payload }) => { if (payload?.id !== id) return; clearTimeout(timer); const ms = Math.round(performance.now() - started); finish(ms < 600, `A command came back in ${ms} ms${ms < 600 ? "." : ", slower than the 600 ms Booth mode aims for. Check this computer's connection."}`); });
   ch.subscribe((status) => {

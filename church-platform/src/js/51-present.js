@@ -254,7 +254,8 @@ Screens.present = (tail) => {
           ${!IN_PREVIEW && presChannel && !inRoom ? html`<button class="btn ghost" data-act="pres-window" data-key="${tail}" aria-label="Open display window">${icon("screen")}<span class="lbl">Display window</span></button>
             ${noStage ? "" : html`<button class="btn ghost" data-act="pres-open" data-route="stage-${tail}" data-name="our-faithful-stage" aria-label="Open stage display">${icon("music")}<span class="lbl">Stage window</span></button>`}` : ""}
           ${inRoom ? "" : html`<button class="btn ghost" data-act="pres-overlay" data-key="${tail}" aria-label="Livestream overlay">${icon("live")}<span class="lbl">Overlay</span></button>
-          <button class="btn ghost" data-act="pres-captions" aria-pressed="${pres.cc}" aria-label="Live captions">${icon("chat")}<span class="lbl">Captions</span></button>`}
+          <button class="btn ghost" data-act="pres-captions" aria-pressed="${pres.cc}" aria-label="Live captions">${icon("chat")}<span class="lbl">Captions</span></button>
+          <button class="btn ghost" data-act="pres-remote" aria-label="Phone remote" title="Move the slides from a phone">${icon("phone")}<span class="lbl">Remote</span></button>`}
         </div>
         ${songBar(slides, at.cur)}
         ${pres.cc ? html`<p class="cc-live" aria-live="polite"><b>Captions</b> <span data-captions>${pres.captions || "Listening..."}</span></p>` : ""}
@@ -268,7 +269,7 @@ Screens.present = (tail) => {
         <div class="slide-list">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<p class="slide-sec">${s.section}</p>`) : ""}<button class="slide-pick ${!L && i === pres.index ? "on" : ""}" data-act="pres-jump" data-i="${i}"><span>${i + 1}</span>${s.partType ? html`<i class="pt-dot pt-${s.partType}" aria-hidden="true"></i>` : ""}${slideLabel(s)}</button>`)}</div>
       </div>`}</div>`,
     after() {
-      presBroadcast();
+      presBroadcast(); if (!inRoom) boothListen();
       // Keep the current slide visible in the list without scrolling the whole page.
       const list = $(".slide-list"), on = $(".slide-pick.on");
       if (list && on && (on.offsetTop < list.scrollTop || on.offsetTop + on.offsetHeight > list.scrollTop + list.clientHeight)) list.scrollTop = on.offsetTop - list.clientHeight / 2;
@@ -277,7 +278,7 @@ Screens.present = (tail) => {
 };
 function slideLabel(s) {
   if (s.instrumental) return `${s.label}: ${s.kind === "title" ? `${s.title}, instrumental` : "instrumental, clear screen"}`;
-  return s.kind === "logo" ? "Logo" : s.kind === "lyrics" ? `${s.label}: ${s.body.split("\n")[0]}` : s.kind === "scripture" ? s.ref : s.kind === "qr" ? `QR: ${s.title}` : s.kind === "media" ? s.body || "Picture" : (s.title || s.body || "").split("\n")[0].slice(0, 60);
+  return s.kind === "logo" ? "Logo" : s.kind === "lyrics" ? `${s.label}: ${(typeof stripInlineChords === "function" ? stripInlineChords(s.body) : s.body).split("\n")[0]}` : s.kind === "scripture" ? s.ref : s.kind === "qr" ? `QR: ${s.title}` : s.kind === "media" ? s.body || "Picture" : (s.title || s.body || "").split("\n")[0].slice(0, 60);
 }
 const presMove = (d) => {
   pres.black = pres.logo = false;
