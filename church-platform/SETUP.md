@@ -326,6 +326,18 @@ over the old channel, but the booth's command channel (and the **Commands to the
 - **Devices, Check a booth computer** (or the link on a booth screen) tests a booth PC: its displays and placing
   windows on them, OBS, Companion, MIDI, USB DMX and how fast a command reaches it. Use Chrome or Edge.
 
+## Booth mode (try early)
+
+Booth mode is off until a church turns it on under **Admin, Features and defaults, Try early, Try Booth mode**. Then,
+on a computer, the presenter opens in the **Booth** view:
+
+- **Preview** (green) is what goes up next and **Program** (red) is what the room sees. **Take**, or Enter, sends
+  Preview to Program. With nothing cued, Preview is the next slide, so Take works like Next.
+- Click a slide in the list to cue it into Preview; double-click to take it straight away. Escape uncues.
+- **Take with** chooses a cut or a quick or slow fade; the audience screens do the fade. The choice is kept on that
+  computer.
+- Slideshow, Scroll and Stage views are still there, and turning Booth mode off brings everything back as it was.
+
 ## Screens on the booth computer
 
 On the booth computer, in Chrome or Edge: **Set up screens** (on the booth's home, or **Screens** in the presenter)

@@ -2321,3 +2321,30 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 .scr-tips { margin-top: 14px; }
 .scr-tips summary { cursor: pointer; }
 .fs-ask { position: fixed; z-index: 9999; left: 50%; bottom: 8vh; transform: translateX(-50%); font: 600 1.4rem/1 system-ui, sans-serif; padding: 18px 28px; border-radius: 999px; border: 0; background: #fff; color: #111; box-shadow: 0 8px 30px rgba(0,0,0,.45); cursor: pointer; }
+
+/* Booth mode operator view (51b-booth-operator.js) */
+.booth-op { display: grid; gap: 12px; padding: 12px 16px 24px; }
+.booth-panes { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: center; }
+.booth-pane header { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; color: #eef1ee; flex-wrap: wrap; }
+.booth-pane .faint { color: #9aa49e; }
+.booth-pane .stage { border-radius: 8px; overflow: hidden; outline: 3px solid #3a4440; }
+.booth-pane.preview .stage { outline-color: #2f9e5b; }
+.booth-pane.program .stage { outline-color: #e03131; }
+.booth-pane.program.held .stage { outline-style: dashed; }
+.booth-pane .linkish { color: #ffd43b; }
+.live-dot { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #fff; background: #e03131; border-radius: 4px; padding: 1px 6px; }
+.booth-take { display: grid; gap: 10px; justify-items: center; }
+.booth-take-btn { min-width: 130px; min-height: 72px; font-size: 1.25rem; justify-content: center; }
+.booth-fade { display: grid; gap: 4px; justify-items: center; font-size: .8rem; }
+.booth-fade select { background: #1d2220; color: #eef1ee; border: 1px solid #343c38; border-radius: 8px; padding: 6px 8px; }
+.booth-controls { justify-content: center; }
+.booth-lower { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; align-items: start; }
+.booth-lower .booth-list { grid-column: auto; max-height: 42vh; }
+.slide-pick.cued { outline: 2px solid #2f9e5b; outline-offset: -2px; }
+.booth-side { display: grid; gap: 12px; }
+@media (max-width: 900px) { .booth-panes { grid-template-columns: 1fr; } .booth-take { grid-auto-flow: column; } .booth-lower { grid-template-columns: 1fr; } }
+.display .stage { position: relative; }
+.xfade-old { position: absolute; inset: 0; animation: xfade-out linear forwards; pointer-events: none; }
+.xfade-old > * { width: 100%; height: 100%; }
+@keyframes xfade-out { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .xfade-old { display: none; } }

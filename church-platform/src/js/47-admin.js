@@ -440,6 +440,9 @@ AdminScreens.features = () => {
         ${MODULES.filter((m) => m[3] === group).map(([k, label, what]) => html`<label class="feature-row"><span class="body"><b>${label}</b><small>${what}</small></span>
           <input type="checkbox" class="switch" name="m_${k}" ${attr(c.modules?.[k] !== false, "checked")} aria-label="${label}"></label>`)}</fieldset>`)}
       <p class="faint">${MODULES.filter(([k]) => c.modules?.[k] !== false).length} of ${MODULES.length} features on.</p>
+      <fieldset class="feature-group"><legend>Try early</legend>
+        <label class="feature-row"><span class="body"><b>Try Booth mode</b><small>Run Sunday from the booth computer: a Preview and Program view with a Take button, your screens opened on the right displays, and Stream Deck buttons. Still being built; turn it off any time.</small></span>
+          <input type="checkbox" class="switch" name="lab_booth" ${attr(c.labs?.booth === true, "checked")} aria-label="Try Booth mode"></label></fieldset>
       <h2 style="margin-top:22px">Defaults for new members</h2>
       <label class="field"><span>Role when someone joins</span><select name="roleId">${[...c.roles].sort((a, b) => a.rank - b.rank).map((r) => html`<option value="${r.id}" ${attr(r.id === dft.roleId, "selected")}>${r.name}</option>`)}</select><small>Start with the lowest level of access. You can give people more later.</small></label>
       ${c.locations.some((l) => l.visibility === "private") ? html`<fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Private locations new members can see</legend>
@@ -454,7 +457,7 @@ AdminScreens.features = () => {
 };
 Forms["admin-features"] = (d, f, fd) => {
   const c = S.church();
-  S.updateChurch({ modules: Object.fromEntries(MODULES.map(([k]) => [k, !!d[`m_${k}`]])),
+  S.updateChurch({ modules: Object.fromEntries(MODULES.map(([k]) => [k, !!d[`m_${k}`]])), labs: { ...c.labs, booth: !!d.lab_booth },
     defaults: { ...c.defaults, roleId: d.roleId, locations: fd.getAll("defLoc"), listInDirectory: !!d.listInDirectory, prayerPrivate: !!d.prayerPrivate, parentCheckout: !!d.parentCheckout, fundId: d.fundId } });
   toast("Saved"); render();
 };
