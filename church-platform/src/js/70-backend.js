@@ -333,6 +333,15 @@ const Backend = {
     return this.client.storage.from("media").getPublicUrl(full).data.publicUrl;
   },
   podcastUrl(churchId) { return `${PLATFORM.supabaseUrl}/functions/v1/podcast?church=${encodeURIComponent(churchId)}`; },
+  /** The push function's public key, for subscribing this device (it makes its key pair itself; see supabase/push.sql). */
+  async pushKey() {
+    if (this._pushKey) return this._pushKey;
+    try {
+      const r = await fetch(`${PLATFORM.supabaseUrl}/functions/v1/push`, { headers: { apikey: PLATFORM.supabasePublishableKey } });
+      this._pushKey = r.ok ? (await r.json()).publicKey || "" : "";
+    } catch { this._pushKey = ""; }
+    return this._pushKey;
+  },
   async savePush(sub) { await this.client.from("push_subscriptions").upsert({ endpoint: sub.endpoint, user_id: this.user.id, keys: sub.keys }, { onConflict: "endpoint" }); },
   async removePush(endpoint) { await this.client.from("push_subscriptions").delete().eq("endpoint", endpoint); },
 };

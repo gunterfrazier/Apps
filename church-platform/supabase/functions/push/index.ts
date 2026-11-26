@@ -1,13 +1,40 @@
 // Sends a push notification to someone's devices when a notification record is added for them.
-// Set up as a Database Webhook on records (insert) with the header x-hook-secret (see SETUP.md).
+// A trigger on records (supabase/push.sql) calls it for each new notification, with the header x-hook-secret.
+//
+// Keys: the first time it runs, it makes its own VAPID key pair and keeps it in Supabase Vault (push_keys_save), so
+// there's nothing to generate or paste. The app asks it for the public key (GET) to subscribe people's devices.
+// Keys set as function secrets (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, PUSH_HOOK_SECRET, the older setup) still win.
 import webpush from "npm:web-push@3.6.7";
-import { admin, env, fail, json } from "../_shared/util.ts";
+import { admin, cors, env, fail, json } from "../_shared/util.ts";
 import { hourIn, validTz, zoneOf } from "../_shared/tz.ts";
 
-webpush.setVapidDetails(env("VAPID_SUBJECT", "mailto:admin@example.com"), env("VAPID_PUBLIC_KEY"), env("VAPID_PRIVATE_KEY"));
+type Config = { hooks: string[]; publicKey: string; privateKey: string };
+let config: Config | null = null;
+async function loadConfig(): Promise<Config> {
+  if (config) return config;
+  const db = admin();
+  let { data } = await db.rpc("push_config");
+  let keys = data?.keys;
+  if (!env("VAPID_PRIVATE_KEY") && !keys?.privateKey) {
+    const made = webpush.generateVAPIDKeys();
+    await db.rpc("push_keys_save", { k: { publicKey: made.publicKey, privateKey: made.privateKey } });   // only the first one made is kept
+    ({ data } = await db.rpc("push_config"));
+    keys = data?.keys;
+  }
+  const publicKey = env("VAPID_PUBLIC_KEY") || keys?.publicKey || "", privateKey = env("VAPID_PRIVATE_KEY") || keys?.privateKey || "";
+  const app = env("APP_URL");
+  if (publicKey && privateKey) webpush.setVapidDetails(env("VAPID_SUBJECT") || (/^https:\/\//.test(app) ? app.replace(/\/$/, "") : "mailto:admin@example.com"), publicKey, privateKey);
+  config = { hooks: [env("PUSH_HOOK_SECRET"), data?.hook].filter(Boolean), publicKey, privateKey };
+  return config;
+}
 
 Deno.serve(async (req) => {
-  if (req.headers.get("x-hook-secret") !== env("PUSH_HOOK_SECRET")) return fail("Not allowed", 401);
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  const cfg = await loadConfig();
+  // The public key is public by design: devices need it to subscribe.
+  if (req.method === "GET") return json({ publicKey: cfg.publicKey });
+  if (!cfg.hooks.length || !cfg.hooks.includes(req.headers.get("x-hook-secret") || "")) return fail("Not allowed", 401);
+  if (!cfg.privateKey) return fail("Push keys aren't set up", 503);
   const { record } = await req.json();
   if (record?.kind !== "notifications" || !record.owner) return json({ skipped: true });
   const db = admin(), n = record.data;
@@ -26,6 +53,7 @@ Deno.serve(async (req) => {
   let sent = 0;
   for (const s of subs || []) {
     try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload, { TTL: 60 * 60 * 12 }); sent++; }
+    // deno-lint-ignore no-explicit-any
     catch (e: any) { if (e.statusCode === 404 || e.statusCode === 410) await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint); }
   }
   return json({ sent });

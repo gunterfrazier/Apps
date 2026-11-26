@@ -128,14 +128,10 @@ Year-end statements need nothing extra: members download a PDF under **Giving hi
 
 ## 7. Push notifications
 
-1. Make a key pair (run anywhere with Node): `npx web-push generate-vapid-keys`
-2. Add the **public** key as the `VAPID_PUBLIC_KEY` repository variable (step 4) and run **Publish Our Faithful Church App** again.
-3. Set the server secrets and deploy:
-   ```bash
-   supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@yourchurch.org PUSH_HOOK_SECRET=any-long-random-text
-   supabase functions deploy push
-   ```
-4. In Supabase, **Database, Webhooks, Create a new hook**: table `records`, event **Insert**, type **Supabase Edge Functions**, function `push`, and add an HTTP header `x-hook-secret` with the same random text.
+1. Deploy the function: `supabase functions deploy push`
+2. Open `supabase/push.sql`, replace `YOUR-PROJECT` with `iigterjskwnqmnoysbha`, and run it in the SQL editor.
+
+That's all. The push function makes its own key pair the first time it runs and keeps it in Supabase Vault, and the app asks it for the public key. The password the database sends it with each notification is made by `push.sql` and kept in Vault too, so there's nothing to generate, paste or set as a secret, and no Database Webhook to create. (Keys set the older way, as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `PUSH_HOOK_SECRET` secrets with `vapidPublicKey` in `config.js`, still work and take priority.)
 
 People turn push on under **Me, Settings**. On iPhone, push works only after the app is added to the Home Screen (iOS 16.4 and later).
 
