@@ -313,6 +313,19 @@ There's also a GitHub workflow, **Deploy Supabase functions** (`.github/workflow
 deploys only the functions a change touches. It stays idle until the repository secret `SUPABASE_ACCESS_TOKEN` is set.
 Use one or the other: with the token set, turn off **Deploy to production** in the integration.
 
+## Private live channels (version 28)
+
+For an existing project, run `supabase/upgrade-28.sql` after version 27. Until it's run, screens still follow slides
+over the old channel, but the booth's command channel (and the **Commands to the booth** check) won't work.
+
+- Slides, room displays and booth commands now go over private Realtime channels (`live:<church>`,
+  `live:<church>:room:<token>`, `control:<church>`). Only the church's members and paired screens hear them; only
+  people and devices that can present send them; a room's channel also accepts the teacher holding that room's session.
+- For one release the app also keeps sending on the old public `present:<church>` channel, so screens running an
+  older copy keep following. The next release turns that off (`LEGACY_LIVE` in `src/js/70-backend.js`).
+- **Devices, Check a booth computer** (or the link on a booth screen) tests a booth PC: its displays and placing
+  windows on them, OBS, Companion, MIDI, USB DMX and how fast a command reaches it. Use Chrome or Edge.
+
 ## Time zones (version 27)
 
 For an existing project, run `supabase/upgrade-27.sql` after version 26, then deploy the edge functions again

@@ -1734,6 +1734,20 @@ await step("booth and signage devices", async () => {
   await s.waitForFunction(() => !document.body.classList.contains("device-mode")); await s.close();
   await goTo("devices"); await shot("49-devices");
 });
+await step("check this booth computer", async () => {
+  await goTo("devices"); await page.click("a[href='#booth-check']"); await page.waitForSelector("[data-check=browser] .tag");
+  await expectText("Check this booth computer"); await expectText("OBS Studio");
+  await page.click("[data-act=bc-control]"); await page.waitForSelector("[data-check=control] .bc-result");
+  await page.fill("form[data-form=bc-obs] input[name=port]", "1"); await page.click("form[data-form=bc-obs] button"); await page.waitForSelector("[data-check=obs] .bc-result", { timeout: 12000 });
+  const [win] = await Promise.all([page.waitForEvent("popup"), page.evaluate(() => window.open(location.pathname + "#boothwin-2", "bc-test"))]);
+  await win.waitForSelector(".bc-window"); if (!(await win.textContent(".bc-window")).includes("2")) throw new Error("test window should show its display number"); await win.close();
+  await shot("49b-booth-check");
+  const code = await pairNew("booth"); await page.click("#scrim [data-act=close-sheet]");
+  const b = await tab(1280, 800); await b.goto(base + `#pair-${code}`); await b.click("form[data-form=pair] button"); await b.waitForSelector(".booth-main .row");
+  await b.click("a[href='#booth-check']"); await b.waitForSelector("[data-check=displays]");
+  if ((await b.evaluate(() => location.hash)) !== "#booth-check") throw new Error("a booth device should be able to open its check page");
+  await b.close();
+});
 await step("rooms: numbers and where they are, and a room display teachers present to", async () => {
   await page.goto(base + "?debug#admin-rooms"); await expectText("Education building, 2nd floor");
   await page.click('[data-act=room-info][data-room="riverside-main~Room%20106"]');
