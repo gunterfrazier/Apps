@@ -40,7 +40,8 @@ async function openMyScreens() {
   const want = details ? details.screens.map((s) => ({ s, job: jobs[scrKey(s)] })).filter((x) => x.job === "display" || x.job === "stage") : [];
   if (!want.length) { go("booth-screens"); return 0; }
   boothScr.wins.forEach((w) => { try { w.close(); } catch { /* gone */ } });
-  boothScr.wins = want.map(({ s, job }, i) => window.open(`${location.pathname}#${job}-follow`, `ofc-screen-${job}-${i}-${loc}`,
+  const looks = scrSetup().looks || {};
+  boothScr.wins = want.map(({ s, job }, i) => window.open(`${location.pathname}#${job}-follow`, `ofc-screen-${job}-${i}~${job === "display" ? looks[scrKey(s)] || "" : ""}~${loc}`,
     `popup,left=${s.availLeft ?? s.left},top=${s.availTop ?? s.top},width=${s.availWidth ?? s.width},height=${s.availHeight ?? s.height},fullscreen`)).filter(Boolean);
   if (boothScr.wins.length < want.length) toast("The browser blocked some windows. Allow pop-ups for this site, then try again.");
   else toast(`Opened ${boothScr.wins.length === 1 ? "1 screen" : `${boothScr.wins.length} screens`}`);
@@ -50,8 +51,10 @@ async function openMyScreens() {
 function closeMyScreens() { boothScr.wins.forEach((w) => { try { w.close(); } catch { /* gone */ } }); boothScr.wins = []; render(); }
 
 /** In a window this page opened: go full screen, or ask for a click if the browser wants one. */
-const SCREEN_WINDOW = /^ofc-screen-(display|stage)-\d+-?(.*)$/.exec(window.name || "");
-const screenWindowLoc = () => SCREEN_WINDOW?.[2] || "";
+// Window names: ofc-screen-<job>-<n>~<look>~<campus> (older copies wrote ofc-screen-<job>-<n>-<campus>).
+const SCREEN_WINDOW = /^ofc-screen-(display|stage)-\d+(?:~([a-z]*)~(.*)|-?(.*))$/.exec(window.name || "");
+const screenWindowLoc = () => SCREEN_WINDOW?.[3] ?? SCREEN_WINDOW?.[4] ?? "";
+const screenWindowLook = () => SCREEN_WINDOW?.[2] || "";
 function screenWindowFullscreen() {
   if (!SCREEN_WINDOW || document.fullscreenElement || $(".fs-ask")) return;
   document.documentElement.requestFullscreen?.().catch(() => {
@@ -83,7 +86,8 @@ Screens["booth-screens"] = () => {
           ${d.screens.length < 2 ? html`<p class="faint">Only one display is connected. Plug in the projector or TV and it appears here.</p>` : ""}
           <div class="scr-map" aria-hidden="true">${scrMap(d, jobs)}</div>
           ${d.screens.map((s, i) => html`<div class="field scr-row"><label for="scr-${i}">${scrName(s, i)} <span class="faint">${s.width}×${s.height}${s === d.currentScreen ? ", where this window is" : ""}</span></label>
-            <select id="scr-${i}" name="job-${i}" data-key="${scrKey(s)}">${SCREEN_JOBS.map(([v, l]) => html`<option value="${v}" ${attr(jobs[scrKey(s)] === v, "selected")}>${l}</option>`)}</select></div>`)}
+            <div class="scr-pick"><select id="scr-${i}" name="job-${i}" data-key="${scrKey(s)}" data-change="scr-job">${SCREEN_JOBS.map(([v, l]) => html`<option value="${v}" ${attr(jobs[scrKey(s)] === v, "selected")}>${l}</option>`)}</select>
+            <select name="look-${i}" data-look="${scrKey(s)}" aria-label="Look on ${scrName(s, i)}" ${attr(jobs[scrKey(s)] !== "display", "hidden")}>${SCREEN_LOOKS.map(([v, l]) => html`<option value="${v}" ${attr((setup.looks?.[scrKey(s)] || "full") === v, "selected")}>${l}</option>`)}</select></div></div>`)}
           ${locs.length > 1 ? html`<div class="field"><label for="scr-loc">These screens show</label><select id="scr-loc" name="loc">${locationOptions(setup.loc || "", "Whatever is presented at any campus")}</select></div>` : ""}
           <div class="btns"><button class="btn ghost">Save</button></div></form>
         <div class="btns"><button class="btn" data-act="scr-open">${icon("screen")}Open my screens</button>${open ? html`<button class="btn ghost" data-act="scr-close">${icon("x")}Close ${open === 1 ? "the screen" : `${open} screens`}</button>` : ""}</div>`}
@@ -111,6 +115,9 @@ Actions["scr-close"] = closeMyScreens;
 function scrKeep(f) {
   const jobs = { ...(scrSetup().jobs || {}) };
   for (const sel of f.querySelectorAll("select[data-key]")) jobs[sel.dataset.key] = sel.value;
-  scrSave({ ...scrSetup(), jobs, loc: f.querySelector("[name=loc]")?.value || "" });
+  const looks = { ...(scrSetup().looks || {}) };
+  for (const sel of f.querySelectorAll("select[data-look]")) looks[sel.dataset.look] = sel.value === "full" ? undefined : sel.value;
+  scrSave({ ...scrSetup(), jobs, looks: JSON.parse(JSON.stringify(looks)), loc: f.querySelector("[name=loc]")?.value || "" });
 }
 Forms["scr-save"] = (d, f) => { scrKeep(f); toast("Saved for this computer"); render(); };
+Inputs["scr-job"] = (el) => { const look = el.parentElement.querySelector("select[data-look]"); if (look) look.hidden = el.value !== "display"; };

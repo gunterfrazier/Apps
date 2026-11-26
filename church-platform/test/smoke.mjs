@@ -1756,13 +1756,27 @@ await step("screens on the booth computer", async () => {
   if ((await t.$$(".scr-form select[data-key]")).length !== 3) throw new Error("three displays expected");
   const jobs = await t.$$eval(".scr-form select[data-key]", (ss) => ss.map((x) => x.value));
   if (jobs.join() !== "operator,display,stage") throw new Error("default jobs: " + jobs);
+  if (!(await t.$("select[data-look]:not([hidden])"))) throw new Error("an audience display should offer a look");
+  // The stage TV becomes a second audience screen with a green lower third, for a chroma key.
+  await t.selectOption("#scr-2", "display"); await t.selectOption("select[name=look-2]", "green");
   await t.screenshot({ path: join(shots, "49d-booth-screens.png"), fullPage: true });
   const pops = []; t.context().on("page", (p) => pops.push(p));
   await t.click("[data-act=scr-open]"); await t.waitForFunction(() => document.body.innerText.includes("Close 2 screens"));
   await new Promise((r) => setTimeout(r, 1200));
-  const hashes = (await Promise.all(pops.map((p) => p.evaluate(() => location.hash + " " + window.name)))).sort();
-  if (!hashes[0].startsWith("#display-follow ofc-screen-display-0") || !hashes[1].startsWith("#stage-follow ofc-screen-stage-1")) throw new Error("windows: " + hashes);
+  const names = (await Promise.all(pops.map((p) => p.evaluate(() => location.hash + " " + window.name)))).sort();
+  if (!names[0].startsWith("#display-follow ofc-screen-display-0~~") || !names[1].startsWith("#display-follow ofc-screen-display-1~green~")) throw new Error("windows: " + names);
   await pops[0].waitForSelector(".fs-ask");   // headless Chrome won't go full screen without a click, so it asks
+  // With a lyric slide live, the full screen shows the slide and the keyed one only the words.
+  const full = pops.find((p) => p.url().endsWith("#display-follow") && !p.isClosed()) && (await Promise.all(pops.map(async (p) => [p, await p.evaluate(() => window.name)]))).find(([, n]) => n.includes("~~"))[0];
+  const keyed = (await Promise.all(pops.map(async (p) => [p, await p.evaluate(() => window.name)]))).find(([, n]) => n.includes("~green~"))[0];
+  const op = await tab(1280, 800); await op.goto(base + "#present-service-riverside-svc-1"); await op.waitForSelector(".slide-list");
+  const verse = await op.$$eval(".slide-list .slide-pick", (bs) => bs.find((b) => /Verse 1:/.test(b.textContent))?.dataset.i);
+  await op.click(`.slide-list .slide-pick[data-i="${verse}"]`);
+  await full.waitForSelector(".display .slide.k-lyrics"); await keyed.waitForSelector(".look-key.look-green .ov-lt");
+  if (await keyed.$(".display .slide")) throw new Error("the keyed screen should show only the words");
+  await keyed.screenshot({ path: join(shots, "49e-look-green.png") });
+  await op.click("[data-act=pres-logo]"); await keyed.waitForSelector(".look-key .ov-lt", { state: "detached" });   // a logo isn't words: the key goes clear
+  await op.close();
   await t.click("[data-act=scr-close]"); for (const p of pops) await p.waitForEvent("close", { timeout: 3000 }).catch(() => {});
   if (pops.some((p) => !p.isClosed())) throw new Error("Close should close the screens");
   await t.selectOption("#scr-2", ""); await t.click("form[data-form=scr-save] button");
