@@ -1888,6 +1888,46 @@ await step("cues on service parts", async () => {
     await b.close(); await obs.close();
   }
 });
+await step("set list mode", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.church")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await page.evaluate(() => { const c = __app.S.church(); c.labs = { ...c.labs, booth: true }; __app.S.save(); localStorage.removeItem("ofc-setlist"); });
+  await goTo("service-riverside-svc-1"); await page.waitForSelector("a[href='#setlist-riverside-svc-1']");
+  const m = await tab(390, 844), b = await tab(1400, 900);
+  try {
+    await m.goto(base + "#setlist-riverside-svc-1"); await m.waitForSelector(".sl-song");
+    await m.waitForSelector("text=Waiting for the booth");
+    await m.waitForSelector(".sl-song.open .cp-chord");                       // Chords is the starting part); }
+    await m.click("[data-act=sl-part][data-part=vocals]"); await m.waitForSelector(".sl-song.open .sl-words >> text=Blessed assurance");
+    await m.click("[data-act=sl-part][data-part=rhythm]"); await m.waitForSelector(".sl-song.open .sl-beat");
+    await m.click("[data-act=sl-part][data-part=chords]");
+    // The booth puts the first song's first verse up: the musician's page follows.
+    await b.goto(base + "?debug#present-service-riverside-svc-1"); await b.waitForSelector(".booth-op");
+    const verse = await b.$$eval(".booth-list .slide-pick", (bs) => bs.find((x) => /Verse 1:/.test(x.textContent))?.dataset.i);
+    await b.dblclick(`.booth-list .slide-pick[data-i="${verse}"]`);
+    await m.waitForSelector(".sl-state.live >> text=Following the room");
+    await m.waitForSelector(".sl-song.live.open .sl-sec.on h3 >> text=Verse 1", { timeout: 8000 }).catch(async () => {
+      throw new Error("following: " + await m.evaluate(() => [document.querySelector(".sl-state")?.textContent, document.querySelector(".sl-song.live .sl-t")?.textContent, document.querySelector(".sl-song.open .sl-t")?.textContent, [...document.querySelectorAll(".sl-sec.on h3")].map((h) => h.textContent).join("/")].join(" | ")) + " | booth: " + await b.evaluate((v) => JSON.stringify({ hash: location.hash, verse: v, i: __app.pres.index, live: !!__app.pres.live, mode: __app.pres.mode, cue: __app.pres.cue, prog: document.querySelector(".booth-pane.program header")?.textContent, pick: document.querySelector(`.slide-pick[data-i="${v}"]`)?.textContent }), verse));
+    });
+    // A pedal moves only the musician's copy.
+    const program = await b.textContent(".booth-pane.program header");
+    await m.keyboard.press("ArrowRight"); await m.waitForSelector("text=On your own");
+    if (await m.$(".sl-song.open .sl-sec.on h3 >> text=Verse 1")) throw new Error("the pedal should move to the next section");
+    if ((await b.textContent(".booth-pane.program header")) !== program) throw new Error("a pedal must not move the slides");
+    await m.click("[data-act=sl-live]"); await m.waitForSelector(".sl-song.open .sl-sec.on h3 >> text=Verse 1");
+    // The leader asks for the chorus: it comes up in the booth's Preview, not live.
+    const ask = await m.$$eval(".sl-song.live [data-act=sl-send]", (bs) => bs.map((x) => x.dataset.label).find((l) => !/^(intro|verse 1)$/i.test(l)));   // the chorus (some steps rename it)
+    await m.click(`.sl-song.live [data-act=sl-send][data-label="${ask}"]`);
+    await b.waitForSelector(".booth-pane.preview header >> text=cued");
+    if ((await b.textContent(".booth-pane.program header")) !== program) throw new Error("a leader's section should wait in Preview");
+    // A quick cue reaches the band.
+    await m.click("[data-act=sl-cue][data-text=Repeat]"); await m.waitForSelector(".sl-msg >> text=Repeat");
+    await m.screenshot({ path: join(shots, "47f-setlist.png"), fullPage: true });
+    await m.click("[data-act=sl-cue][data-text='']"); await m.waitForSelector(".sl-msg", { state: "detached" });
+  } finally {
+    await m.close(); await b.close();
+    await page.evaluate(() => { const c = __app.S.church(); c.labs = { ...c.labs, booth: false }; __app.S.save(); localStorage.removeItem("ofc-setlist"); });
+  }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");

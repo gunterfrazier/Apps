@@ -60,9 +60,10 @@ function boothTake() {
   else if (liveAt(routeData(pres.key)?.slides || [], pres).next) presMove(1);
 }
 Actions["booth-cue"] = (el, e) => {
+  // A double-click takes the slide its first click cued (the browser's own click count, so two single clicks with
+  // others between don't), even if the redraw after that first click moved the list under the pointer.
+  if (e?.detail >= 2 && pres.cue != null) return boothTake();
   pres.cue = +el.dataset.i;
-  // A double-click takes it (the browser's own click count, so two single clicks with others between don't).
-  if (e?.detail >= 2) return boothTake();
   render();
 };
 Actions["booth-uncue"] = () => { pres.cue = null; render(); };

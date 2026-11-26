@@ -45,6 +45,13 @@ function boothCommand(cmd) {
       const song = cmd.song || liveAt(data.slides, pres).cur?.songId || data.slides[pres.index]?.songId;
       const part = song && cmd.label && S.get("songs", song) && songParts(S.get("songs", song)).find((p) => sameLabel(p.label, cmd.label));
       if (!part) return "no such section";
+      // From the band leader's set list: in the Booth view, put the section in Preview for the operator to take.
+      if (cmd.cue && pres.mode === "booth") {
+        const here = pres.live ? pres.live.returnTo : pres.index, seg = Number.isInteger(cmd.seg) ? cmd.seg : data.slides[here]?.segIndex;
+        const firstOf = (from) => data.slides.findIndex((s, i) => i > from && s.songId === song && s.segIndex === seg && !s.chunk && sameLabel(s.label, part.label));
+        const at = firstOf(here) >= 0 ? firstOf(here) : firstOf(-1);
+        if (at >= 0 && at !== pres.index) { pres.cue = at; render(); toast(`The band asks for ${part.label}: it's in Preview`); break; }
+      }
       Actions["pres-section"]({ dataset: { song, label: part.label } }); break;
     }
     case "black": pres.black = typeof cmd.on === "boolean" ? cmd.on : !pres.black; if (pres.black) pres.logo = false; render(); break;
