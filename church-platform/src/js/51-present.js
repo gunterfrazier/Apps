@@ -276,7 +276,7 @@ Screens.present = (tail) => {
         <div class="slide-list">${slides.map((s, i) => html`${s.section && s.section !== lastSection ? (lastSection = s.section, html`<p class="slide-sec">${s.section}</p>`) : ""}<button class="slide-pick ${!L && i === pres.index ? "on" : ""}" data-act="pres-jump" data-i="${i}"><span>${i + 1}</span>${s.partType ? html`<i class="pt-dot pt-${s.partType}" aria-hidden="true"></i>` : ""}${slideLabel(s)}</button>`)}</div>
       </div>`}</div>`,
     after() {
-      presBroadcast(); if (!inRoom) boothListen();
+      presBroadcast(); if (!inRoom) boothListen(); if (boothMode) obsAuto();
       // Keep the current slide visible in the list without scrolling the whole page.
       // Cueing in the Booth view redraws the list without moving it, so a double-click lands on the same slide.
       const list = $(".slide-list"), on = $(".slide-pick.on"), here = `${pres.key}:${pres.index}:${!!pres.live}`;

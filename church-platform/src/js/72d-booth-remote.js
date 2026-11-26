@@ -8,7 +8,8 @@
 
 let ctlLocal = null;
 try { ctlLocal = "BroadcastChannel" in window ? new BroadcastChannel("our-faithful-control") : null; } catch { ctlLocal = null; }
-const BOOTH_COMMANDS = ["next", "prev", "go", "section", "black", "logo", "clear", "message", "ping"];
+const BOOTH_COMMANDS = ["next", "prev", "go", "section", "black", "logo", "clear", "message", "ping", "scene", "stream", "record"];
+const OBS_COMMANDS = ["scene", "stream", "record"];
 
 function sendBoothCommand(cmd) {
   const out = { ...cmd, church: S.state.current, from: S.me()?.name || "" };
@@ -20,6 +21,16 @@ function sendBoothCommand(cmd) {
 function boothCommand(cmd) {
   if (!cmd || !BOOTH_COMMANDS.includes(cmd.do)) return "unknown command";
   if (cmd.church !== S.state.current) return "another church";
+  // OBS commands go to whichever booth window has OBS connected, presenting or not.
+  if (OBS_COMMANDS.includes(cmd.do)) {
+    if (!Obs.on) return "OBS isn't connected here";
+    if (cmd.loc && pres.key && presLoc(pres.key) && presLoc(pres.key) !== cmd.loc) return "meant for another campus";
+    const say = (e) => toast(`OBS: ${e.message}`);
+    if (cmd.do === "scene") { const name = Obs.scenes.find((s) => s.toLowerCase() === String(cmd.name || "").trim().toLowerCase()); if (!name) return "no such scene"; Obs.setScene(name).catch(say); }
+    else if (typeof cmd.on !== "boolean") return "say on or off";
+    else (cmd.do === "stream" ? Obs.setStream(cmd.on) : Obs.setRecord(cmd.on)).catch(say);
+    return "";
+  }
   if (!pres.key || !location.hash.startsWith("#present-") || pres.room) return "nothing presenting here";
   if (cmd.key && cmd.key !== pres.key) return "meant for another presentation";
   if (cmd.loc && presLoc(pres.key) && presLoc(pres.key) !== cmd.loc) return "meant for another campus";
