@@ -185,7 +185,8 @@ function docButtons(d) {
         ${canAI() ? html`<button class="btn ghost sm" data-act="ai-build" data-id="${d.id}">${icon("bolt")}${d.kind === "lesson" && !d.blocks.some((b) => b.type !== "scripture") ? "Draft this lesson" : "Draft questions"}</button>` : ""}
 `;
 }
-const touch = (d) => { d.updated = new Date().toISOString(); S.save(); };
+// Every change to a document goes through touch, which also records it for undo (49c-builder-keys.js).
+const touch = (d, o) => { d.updated = new Date().toISOString(); if (typeof docHistory === "function") docHistory(d, o); S.save(); };
 Actions["block-vis"] = (el) => { const d = S.get("docs", el.dataset.doc), b = d.blocks[+el.dataset.i]; b.show = !b.show; touch(d); render(); };
 Actions["dblock-move"] = (el) => { const d = S.get("docs", el.dataset.doc), i = +el.dataset.i, j = i + +el.dataset.dir; if (j < 0 || j >= d.blocks.length) return; [d.blocks[i], d.blocks[j]] = [d.blocks[j], d.blocks[i]]; touch(d); render(); };
 Actions["dblock-new"] = (el) => blockEditor(el.dataset.doc, -1, { type: el.dataset.type, show: !["note", "action"].includes(el.dataset.type), translation: "BSB", label: "Cue" });

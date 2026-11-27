@@ -2187,6 +2187,65 @@ await step("desktop builder with panes and a Study pane", async () => {
     if (await d.$(".desk")) throw new Error("a narrow window should keep the phone builder");
   } finally { await d.close(); }
 });
+await step("keyboard: command box, shortcuts and undo", async () => {
+  if (!(await page.evaluate(() => __app.S.can("build.sermons")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await page.evaluate(() => {
+    const S = __app.S, B = (type, x) => ({ id: Math.random().toString(36).slice(2), type, show: type !== "note", notes: "", ...x });
+    S.state.docs = S.state.docs.filter((x) => x.id !== "keys-test");
+    S.state.docs.push({ id: "keys-test", churchId: S.state.current, kind: "sermon", title: "Keys", passage: "John 15:1-8", authorId: S.me().id, published: false, updated: new Date().toISOString(),
+      blocks: [B("keynote", { text: "First" }), B("point", { text: "Second" }), B("point", { text: "Third" })] });
+    S.save(); S.flush?.();
+  });
+  const d = await tab(1440, 900);
+  const count = () => d.$$eval(".ol-item", (l) => l.length), selText = () => d.textContent(".ol-item.on .ol-text span");
+  try {
+    await d.goto(base + "#build-keys-test"); await d.waitForSelector(".desk .panes");
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    // Ctrl+K: add a passage with its text, below the selected block.
+    await d.keyboard.press("Control+k"); await d.waitForSelector("#cmdk input:focus");
+    await d.keyboard.type("add scripture Romans 8:28");
+    await d.waitForSelector("#cmdk [data-cmd='0'][aria-selected=true]:has-text('Add Romans 8:28')");
+    await d.keyboard.press("Enter"); await d.waitForSelector("#cmdk", { state: "detached" });
+    await d.waitForSelector(".ol-item:nth-child(2).on .ol-text:has-text('Romans 8:28')");
+    if (!(await d.inputValue(".pane[data-pane=editor] textarea[name=text]")).includes("28")) throw new Error("the passage should come with its text");
+    // Undo and redo, outside a text field.
+    await d.focus(".ol-item:nth-child(2) .ol-pick");
+    await d.keyboard.press("Control+z"); await d.waitForFunction(() => document.querySelectorAll(".ol-item").length === 3);
+    await d.keyboard.press("Control+Shift+z"); await d.waitForFunction(() => document.querySelectorAll(".ol-item").length === 4);
+    // Typing is one undo step.
+    await d.click(".ol-item:nth-child(3) .ol-pick"); await d.fill(".pane[data-pane=editor] textarea[name=text]", "Second, rewritten"); await d.waitForSelector(".desk-saved:text('Saved')");
+    await d.focus(".ol-item:nth-child(3) .ol-pick"); await d.keyboard.press("Control+z");
+    await d.waitForSelector(".ol-item:nth-child(3) .ol-text:has-text('Second'):not(:has-text('rewritten'))");
+    // Duplicate, private, move, delete.
+    await d.focus(".ol-item:nth-child(3) .ol-pick");
+    await d.keyboard.press("Control+d"); await d.waitForFunction(() => document.querySelectorAll(".ol-item").length === 5);
+    if ((await d.$$eval(".ol-item", (l) => l.findIndex((x) => x.classList.contains("on")))) !== 3) throw new Error("the copy should be selected, below the original");
+    await d.keyboard.press("Control+h"); await d.waitForSelector(".ol-item:nth-child(4).on.private");
+    await d.keyboard.press("Control+h"); await d.waitForSelector(".ol-item:nth-child(4).on:not(.private)");
+    await d.focus(".ol-item:nth-child(4) .ol-pick"); await d.keyboard.press("Alt+ArrowUp"); await d.waitForSelector(".ol-item:nth-child(3).on");
+    await d.focus(".ol-item:nth-child(3) .ol-pick"); await d.keyboard.press("Delete"); await d.waitForFunction(() => document.querySelectorAll(".ol-item").length === 4);
+    await d.keyboard.press("Control+z"); await d.waitForFunction(() => document.querySelectorAll(".ol-item").length === 5);
+    // Enter in the outline opens "add" in the command box.
+    await d.focus(".ol-item:nth-child(1) .ol-pick"); await d.keyboard.press("Enter");
+    await d.waitForSelector("#cmdk [data-cmd]:has-text('Add question')");
+    await d.keyboard.type("question"); await d.keyboard.press("Enter");
+    await d.waitForSelector(".pane[data-pane=editor] input[name=_type][value=question]", { state: "attached" });
+    await d.click("[data-act=desk-cancel]");
+    // ? lists the shortcuts for this page.
+    await d.focus(".ol-item:nth-child(1) .ol-pick"); await d.keyboard.press("?");
+    await d.waitForSelector("#scrim .keys-sheet h3:text('Builder')");
+    await d.screenshot({ path: join(shots, "50i-shortcuts.png") });
+    await d.keyboard.press("Escape"); await d.waitForSelector("#scrim", { state: "detached" });
+    // Search: people and pages, within this role's permissions; the sidebar button opens it too.
+    await d.click(".side-search"); await d.waitForSelector("#cmdk input:focus");
+    await d.keyboard.type("dana"); await d.waitForSelector("#cmdk .cmdk-g[aria-label=People] [data-cmd]");
+    await d.screenshot({ path: join(shots, "50j-command-box.png") });
+    await d.fill("#cmdk input", "open finance"); await d.waitForSelector("#cmdk [data-cmd='0']:has-text('Finance')");
+    await d.keyboard.press("Enter"); await d.waitForFunction(() => location.hash === "#treasurer");
+    await d.keyboard.press("Control+k"); await d.keyboard.type("new sermon"); await d.keyboard.press("Enter");
+    await d.waitForSelector("#scrim #sheet-title:text('New sermon')");
+  } finally { await d.close(); }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");

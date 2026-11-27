@@ -187,7 +187,7 @@ function deskStrip(d) {
 /* ----- Drawing, keeping the scroll, and loading the Study pane ----- */
 function deskCapture() {
   const root = $(".desk"); if (!root) return;
-  if (deskTimer) { clearTimeout(deskTimer); deskTimer = 0; const f = $("form[data-desk-auto]", root); if (f) deskAutosave(f, true); }
+  deskFlush();
   // Kept only for the next drawing of the same document, so another page doesn't inherit it.
   desk.scroll = Object.fromEntries([...$$(".pane", root).map((p) => [p.dataset.pane, $(".pane-body", p).scrollTop]), ["strip", $(".strip-row", root)?.scrollLeft || 0], ["_doc", root.dataset.doc]]);
 }
@@ -257,6 +257,8 @@ function deskRefresh(d) {
 
 /* ----- Saving as you type ----- */
 let deskTimer = 0;
+/** Saves what's been typed but not saved yet (before a redraw, an undo or a shortcut). */
+function deskFlush() { if (!deskTimer) return; clearTimeout(deskTimer); deskTimer = 0; const f = $("form[data-desk-auto]"); if (f) deskAutosave(f, true); }
 function deskKick(e) {
   const f = e.target.closest?.("form[data-desk-auto]"); if (!f) return;
   clearTimeout(deskTimer);
@@ -271,7 +273,7 @@ function deskAutosave(f, quiet) {
   const doc = S.get("docs", data._doc), i = +data._i; if (!doc || !doc.blocks[i] || !canEditDoc(doc)) return;
   const { b, err } = blockFromForm(doc, data), s = $(".desk-saved", f);
   if (err) { if (s) s.textContent = err; return; }
-  doc.blocks[i] = { ...doc.blocks[i], ...b }; touch(doc);
+  doc.blocks[i] = { ...doc.blocks[i], ...b }; touch(doc, { typing: true });
   if (s) s.textContent = "Saved";
   if (!quiet) deskRefresh(doc);
 }
