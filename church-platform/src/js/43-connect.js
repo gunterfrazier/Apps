@@ -212,34 +212,39 @@ function directoryEntries() {
     return { id: m.userId, name: u.name || "Member", household: isMe ? (u.household?.length ? `${u.name} and family` : u.name) : u.household || u.name, phone: u.phone, email: u.email, isMe };
   }).sort((a, b) => a.name.split(" ").pop().localeCompare(b.name.split(" ").pop()));
 }
-Screens.directory = () => {
+/** The directory; on a computer, with the person picked (selId) beside it. */
+function directoryView(selId) {
   if (!S.on("directory")) return { redirect: "connect" };
   if (!S.isMember()) return { title: "Connect", tab: "connect", body: html`${seg(connectSeg(), "directory")}${needMember("see the church directory")}` };
   if (!S.can("use.directory")) return { title: "Connect", tab: "connect", body: html`${seg(connectSeg(), "directory")}${noAccess("the directory")}` };
-  const list = directoryEntries(), listed = !!S.membership().listed;
-  return {
-    title: "Connect", tab: "connect",
-    body: html`${seg(connectSeg(), "directory")}
+  const list = directoryEntries(), listed = !!S.membership().listed, sel = selId && list.find((x) => x.id === selId);
+  const listPart = html`
       <label class="check panel" style="margin-top:14px;padding:12px 16px"><input type="checkbox" data-change="directory-me" ${attr(listed, "checked")}><span><b>List me in the directory</b><br><span class="faint">Other members will see your name, phone and email.</span></span></label>
       <label class="field"><span class="sr">Search the directory</span><input type="search" placeholder="Search by name" data-input="filter-rows" data-target="#dir-list" data-empty="#dir-none"></label>
       <div class="rows" id="dir-list">${list.map((p) => html`<a class="row" href="#person-${p.id}" data-search="${p.name} ${p.household}">${avatar(p)}<span class="body"><span class="t">${p.name}${p.isMe ? " (you)" : ""}</span><span class="s">${p.household}</span></span>${icon("chev")}</a>`)}</div>
-      <div id="dir-none" class="empty" ${attr(list.length, "hidden")}><p>${list.length ? "Nobody matches that name." : "Nobody is listed yet."}</p></div>`,
-  };
-};
-Inputs["directory-me"] = (el) => { S.membership().listed = el.checked; S.save(); toast(el.checked ? "You're listed" : "You're no longer listed"); render(); };
-Screens.person = (id) => {
-  if (!S.isMember() || !S.can("use.directory")) return { redirect: "directory" };
-  const p = directoryEntries().find((x) => x.id === id);
-  if (!p) return { redirect: "directory" };
+      <div id="dir-none" class="empty" ${attr(list.length, "hidden")}><p>${list.length ? "Nobody matches that name." : "Nobody is listed yet."}</p></div>`;
   return {
-    title: p.name, back: "directory", tab: "connect",
-    body: html`<div style="display:flex;gap:14px;align-items:center;margin-top:18px">${avatar(p, "lg")}<div><h1 style="font-size:1.5rem">${p.name}</h1><p class="muted" style="margin:0">${p.household}</p></div></div>
+    title: "Connect", tab: "connect",
+    body: isDesktop() ? html`${seg(connectSeg(), "directory")}${splitView(listPart, sel && personDetail(sel), "directory")}` : html`${seg(connectSeg(), "directory")}${listPart}`,
+  };
+}
+Screens.directory = () => directoryView(null);
+Inputs["directory-me"] = (el) => { S.membership().listed = el.checked; S.save(); toast(el.checked ? "You're listed" : "You're no longer listed"); render(); };
+/** One person's details: their page on a phone, the right side of the directory on a computer. */
+function personDetail(p) {
+  return html`<div style="display:flex;gap:14px;align-items:center;margin-top:18px">${avatar(p, "lg")}<div><h1 style="font-size:1.5rem">${p.name}</h1><p class="muted" style="margin:0">${p.household}</p></div></div>
       <div class="rows" style="margin-top:18px">
         ${p.phone ? html`<a class="row" href="tel:${p.phone.replace(/[^\d+]/g, "")}"><span class="lead-ic">${icon("phone")}</span><span class="body"><span class="t">${p.phone}</span><span class="s">Call or text</span></span></a>` : ""}
         ${p.email ? html`<a class="row" href="mailto:${p.email}"><span class="lead-ic">${icon("mail")}</span><span class="body"><span class="t">${p.email}</span><span class="s">Email</span></span></a>` : ""}
         ${!p.phone && !p.email ? empty("No contact details listed.") : ""}
       </div>
       <div class="btns">${p.phone || p.email ? html`<button class="btn ghost sm" data-act="copy" data-done="Contact copied" data-text="${[p.name, p.phone, p.email].filter(Boolean).join("\n")}">${icon("copy")}Copy contact</button>` : ""}
-        ${!p.isMe && S.on("chat") && S.can("use.chat") ? html`<button class="btn ghost sm" data-act="dm-start" data-user="${p.id}">${icon("chat")}Message</button>` : ""}</div>`,
-  };
+        ${!p.isMe && S.on("chat") && S.can("use.chat") ? html`<button class="btn ghost sm" data-act="dm-start" data-user="${p.id}">${icon("chat")}Message</button>` : ""}</div>`;
+}
+Screens.person = (id) => {
+  if (!S.isMember() || !S.can("use.directory")) return { redirect: "directory" };
+  const p = directoryEntries().find((x) => x.id === id);
+  if (!p) return { redirect: "directory" };
+  if (isDesktop()) return { ...directoryView(id), title: p.name };
+  return { title: p.name, back: "directory", tab: "connect", body: personDetail(p) };
 };
