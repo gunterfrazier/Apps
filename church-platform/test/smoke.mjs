@@ -2347,6 +2347,42 @@ await step("desktop layouts: role defaults, saved layouts", async () => {
   await goTo("home"); await goTo("admin-layouts"); await page.waitForSelector("section.card .row .t:text('My study')");
   await page.selectOption(`select[name="role-${me.role}"]`, ""); await page.click("form[data-form=desk-layout-roles] button.btn");
 });
+await step("desktop people: list beside details", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.people") && __app.S.can("use.directory")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  const d = await tab(1440, 900);
+  try {
+    // The directory: the person opens beside the list; arrow keys move through it without filling Back.
+    await d.goto(base + "#directory"); await d.waitForSelector(".split .split-none");
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    await d.click("#dir-list a.row >> nth=1"); await d.waitForSelector(".split-detail h1");
+    const first = await d.textContent(".split-detail h1"), hash1 = await d.evaluate(() => location.hash);
+    if (!(await d.$(`#dir-list a.row.on[href="${hash1}"]`))) throw new Error("the picked person should be marked in the list");
+    const histLen = await d.evaluate(() => history.length);
+    await d.focus("#dir-list a.row.on"); await d.keyboard.press("ArrowDown");
+    await d.waitForFunction((t) => document.querySelector(".split-detail h1")?.textContent !== t, first);
+    if (!(await d.evaluate(() => document.activeElement?.matches("#dir-list a.row.on")))) throw new Error("focus should stay on the list");
+    if ((await d.evaluate(() => history.length)) !== histLen) throw new Error("arrow keys shouldn't add to Back");
+    // A search keeps filtering while you pick from it.
+    const name = (await d.textContent("#dir-list a.row >> nth=0 >> .t")).split(" ")[0];
+    await d.fill(".split-list input[type=search]", name); await d.keyboard.press("ArrowDown");
+    await d.waitForFunction(() => document.activeElement?.matches("#dir-list a.row"));
+    await d.keyboard.press("Enter"); await d.waitForFunction((n) => document.querySelector(".split-detail h1")?.textContent.includes(n), name);
+    if ((await d.inputValue(".split-list input[type=search]")) !== name) throw new Error("the search should stay after picking someone");
+    // Admin, People: role and access beside the list.
+    await d.goto(base + "#admin-people"); await d.waitForSelector(".split-detail form[data-form=member-save]");
+    const a0 = await d.textContent(".split-detail h2");
+    await d.click("#people-list .row >> nth=2"); await d.waitForFunction((t) => document.querySelector(".split-detail h2")?.textContent !== t, a0);
+    if (await d.$("#scrim")) throw new Error("on a computer the editor sits beside the list, not in a sheet");
+    const a2 = await d.textContent(".split-detail h2");
+    await d.focus("#people-list .row.on"); await d.keyboard.press("ArrowDown"); await d.waitForFunction((t) => document.querySelector(".split-detail h2")?.textContent !== t, a2);
+    await d.click("#people-list .row >> nth=3", { button: "right" }); await d.waitForSelector("#ctx .ctx-i:has-text('Edit role and access')");
+    await d.keyboard.press("Escape");
+    await d.screenshot({ path: join(shots, "50m-people-split.png") });
+    // A narrow window keeps the phone layout.
+    await d.setViewportSize({ width: 800, height: 900 }); await d.goto(base + "#directory"); await d.waitForSelector("#dir-list");
+    if (await d.$(".split")) throw new Error("a narrow window should keep the plain list");
+  } finally { await d.close(); }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");

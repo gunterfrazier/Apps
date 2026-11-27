@@ -2749,3 +2749,21 @@ body.side-folded .side-search kbd { display: none; }
 .ol-bar b { flex: 1; font-size: .88rem; white-space: nowrap; }
 .ol-bar .icon-btn { width: 32px; height: 32px; }
 .ol-item.picked { background: color-mix(in srgb, var(--brand) 18%, transparent); box-shadow: inset 3px 0 0 var(--brand); }
+
+/* ---------- Desktop list beside details (31e-split.js) ---------- */
+.split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; margin-top: 12px; min-height: 420px; }
+.split-list, .split-detail { min-height: 0; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.split-list { padding: 4px 12px 12px; }
+.split-detail { padding: 18px 24px 28px; }
+.split-list .row.on { background: color-mix(in srgb, var(--brand) 12%, transparent); box-shadow: inset 3px 0 0 var(--brand); }
+.split-list .row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.split-list .panel { margin-top: 10px !important; }
+.split-none { height: 100%; display: grid; place-content: center; justify-items: center; gap: 6px; color: var(--ink-2); }
+.split-none svg { width: 34px; height: 34px; opacity: .5; }
+.split-detail > div:first-child[style*="margin-top:18px"] { margin-top: 0 !important; }
+.member-head { display: flex; gap: 14px; align-items: center; }
+.member-head h2 { margin: 0; font-size: 1.45rem; }
+.member-head p { margin: 2px 0 0; }
+.member-contact { margin: 16px 0 6px; }
+.split-detail h3 { margin: 18px 0 8px; }
+.split-detail form[data-form=member-save] > p.muted:first-of-type { display: none; } /* the contact details are already above */

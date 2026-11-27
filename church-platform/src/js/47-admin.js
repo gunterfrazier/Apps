@@ -534,20 +534,36 @@ AdminScreens.people = () => {
   if (!S.canAny(["manage.people", "manage.roles"])) return guard("manage.people");
   const c = S.church();
   const list = S.members().map((m) => ({ m, u: S.user(m.userId) })).filter((x) => x.u).sort((a, b) => (S.role(c.id, b.m.userId).rank - S.role(c.id, a.m.userId).rank) || a.u.name.localeCompare(b.u.name));
-  return {
-    title: "People", back: "admin",
-    body: html`<label class="field" style="margin-top:14px"><span class="sr">Search people</span><input type="search" placeholder="Search by name or role" data-input="filter-rows" data-target="#people-list" data-empty="#people-none"></label>
-      <div class="rows" id="people-list">${list.map(({ m, u }) => { const r = S.role(c.id, m.userId); return html`<button class="row" data-act="member-edit" data-user="${u.id}" data-search="${u.name} ${r.name}">${avatar(u)}<span class="body"><span class="t">${u.name}${u.id === S.me().id ? " (you)" : ""}</span><span class="s">${r.name}${c.locations.length > 1 ? `, ${accessText(m)}` : ""}</span></span>${icon("edit")}</button>`; })}</div>
+  const desk = isDesktop(), sel = desk ? S.user(adminPeopleSel) && list.find((x) => x.u.id === adminPeopleSel)?.u || list[0]?.u : null;
+  const listPart = html`<label class="field" style="margin-top:14px"><span class="sr">Search people</span><input type="search" placeholder="Search by name or role" data-input="filter-rows" data-target="#people-list" data-empty="#people-none"></label>
+      <div class="rows" id="people-list">${list.map(({ m, u }) => { const r = S.role(c.id, m.userId); return html`<button class="row ${u.id === sel?.id ? "on" : ""}" data-act="member-edit" data-user="${u.id}" data-search="${u.name} ${r.name}">${avatar(u)}<span class="body"><span class="t">${u.name}${u.id === S.me().id ? " (you)" : ""}</span><span class="s">${r.name}${c.locations.length > 1 ? `, ${accessText(m)}` : ""}</span></span>${icon("edit")}</button>`; })}</div>
       <div id="people-none" class="empty" hidden><p>Nobody matches.</p></div>
-      ${S.can("manage.people") ? html`<div class="btns"><button class="btn ghost" data-act="member-add">${icon("plus")}Add someone</button></div>` : ""}`,
-  };
+      ${S.can("manage.people") ? html`<div class="btns"><button class="btn ghost" data-act="member-add">${icon("plus")}Add someone</button></div>` : ""}`;
+  return { title: "People", back: "admin", wide: desk, body: desk ? splitView(listPart, sel && memberDetail(sel), "admin-people") : listPart };
 };
+/** The person picked on the desktop People page. */
+let adminPeopleSel = null;
 Actions["member-edit"] = (el) => {
-  const c = S.church(), u = S.user(el.dataset.user), m = S.membership(c.id, u.id), r = S.role(c.id, u.id);
+  const u = S.user(el.dataset.user); if (!u) return;
+  if (isDesktop() && location.hash === "#admin-people") { adminPeopleSel = u.id; Split.focus = el.matches(".split-list .row") && document.activeElement === el; render(); return; }
+  openSheet(u.name, memberForm(u));
+};
+/** On a computer: who they are, their groups, and the same form as the phone's sheet. */
+function memberDetail(u) {
+  const c = S.church(), m = S.membership(c.id, u.id), r = S.role(c.id, u.id);
+  const groups = S.visible("gatherings").filter((g) => (g.members || []).some((x) => x.userId === u.id && x.status === "in"));
+  return html`<div class="member-head">${avatar(u, "lg")}<div><h2>${u.name}</h2><p class="muted">${[r?.name, u.household && u.household !== u.name ? u.household : "", m?.joined ? `Joined ${fmtShort(new Date(m.joined))}` : ""].filter(Boolean).join(". ")}</p></div></div>
+    <div class="rows member-contact">${u.phone ? html`<a class="row" href="tel:${u.phone.replace(/[^\d+]/g, "")}"><span class="lead-ic">${icon("phone")}</span><span class="body"><span class="t">${u.phone}</span><span class="s">Call or text</span></span></a>` : ""}
+      ${u.email ? html`<a class="row" href="mailto:${u.email}"><span class="lead-ic">${icon("mail")}</span><span class="body"><span class="t">${u.email}</span><span class="s">Email</span></span></a>` : ""}
+      ${groups.length ? html`<div class="row"><span class="lead-ic">${icon("people")}</span><span class="body"><span class="t">${groups.map((g) => g.name).join(", ")}</span><span class="s">Groups and classes</span></span></div>` : ""}</div>
+    <h3>Role and access</h3>${memberForm(u)}`;
+}
+function memberForm(u) {
+  const c = S.church(), m = S.membership(c.id, u.id), r = S.role(c.id, u.id);
   const primary = S.isPrimary(c.id, u.id);
   const canRole = S.can("manage.roles") && !primary && (S.isPrimary() || r.rank < myRank()) && u.id !== S.me().id;
   const assignable = [...c.roles].filter((x) => S.isPrimary() || x.rank < myRank()).sort((a, b) => b.rank - a.rank);
-  openSheet(u.name, html`<form data-form="member-save" novalidate><input type="hidden" name="user" value="${u.id}">
+  return html`<form data-form="member-save" novalidate><input type="hidden" name="user" value="${u.id}">
     <p class="muted" style="margin-top:0">${u.email || ""}${u.phone ? ` ${u.phone}` : ""}</p>
     ${primary ? html`<p><span class="tag brand">Primary account holder</span></p>` : canRole ? html`<label class="field"><span>Role</span><select name="roleId">${assignable.map((x) => html`<option value="${x.id}" ${attr(x.id === m.roleId, "selected")}>${x.name}</option>`)}</select><small>${r.id === "admin" || assignable.some((x) => x.id === "admin") ? "Administrators get full access unless the primary limits the Administrator role." : ""}</small></label>`
       : html`<p><b>Role:</b> ${r.name}</p>`}
@@ -558,8 +574,20 @@ Actions["member-edit"] = (el) => {
     <label class="check"><input type="checkbox" name="listed" ${attr(m.listed, "checked")} ${attr(!S.can("manage.people"), "disabled")}><span>Listed in the directory</span></label>
     <div class="btns">${canRole || S.can("manage.people") ? html`<button class="btn">Save</button>` : ""}
       ${S.can("manage.people") && !primary && u.id !== S.me().id ? html`<button type="button" class="btn danger" data-act="member-remove" data-user="${u.id}">Remove from church</button>` : ""}
-      ${S.isPrimary() && !primary ? html`<button type="button" class="btn ghost" data-act="make-primary" data-user="${u.id}">Make primary account holder</button>` : ""}</div></form>`);
-};
+      ${S.isPrimary() && !primary ? html`<button type="button" class="btn ghost" data-act="make-primary" data-user="${u.id}">Make primary account holder</button>` : ""}</div></form>`;
+}
+// Right-click someone on the People page.
+contextMenuFor(".row[data-act=member-edit]", (el) => {
+  const u = S.user(el.dataset.user); if (!u) return null;
+  const listed = S.on("directory") && S.can("use.directory") && directoryEntries().some((p) => p.id === u.id);
+  return [{ head: u.name },
+    { label: "Edit role and access", icon: "edit", run: () => Actions["member-edit"](el) },
+    listed && { label: "Open in the directory", icon: "user", run: goTo(`person-${u.id}`) },
+    u.id !== S.me().id && S.on("chat") && S.can("use.chat") && { label: "Send a message", icon: "chat", run: () => Actions["dm-start"]({ dataset: { user: u.id } }) },
+    u.phone && { label: `Call ${u.phone}`, icon: "phone", run: () => { location.href = `tel:${u.phone.replace(/[^\d+]/g, "")}`; } },
+    u.email && { label: "Email", icon: "mail", run: () => { location.href = `mailto:${u.email}`; } },
+    (u.phone || u.email) && { label: "Copy contact", icon: "copy", run: () => Actions["copy"]({ dataset: { done: "Contact copied", text: [u.name, u.phone, u.email].filter(Boolean).join("\n") } }) }];
+});
 Forms["member-save"] = (d, f, fd) => {
   const c = S.church(), m = S.membership(c.id, d.user);
   if (d.roleId) {
