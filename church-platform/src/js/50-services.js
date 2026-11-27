@@ -28,7 +28,7 @@ Screens.services = () => {
   const row = (p) => html`<a class="row" href="#service-${p.id}"><span class="date"><span>${fmtMonth(fromIsoDay(p.date))}</span><b>${dayNum(p.date)}</b></span><span class="body"><span class="t">${p.title}</span><span class="s">${timeLabel(p.time, tzOf(p), p.date)}${p.locationId ? `, ${locName(p.locationId)}` : ""}, ${plural(p.segments.length, "segment")}, ${planMinutes(p)} min</span></span>${icon("chev")}</a>`;
   return {
     title: "Service plans", back: "ministry",
-    body: html`<div class="btns" style="margin-top:16px">${canPlan() ? html`<button class="btn" data-act="plan-new">${icon("plus")}New service plan</button><a class="btn ghost" href="#songs">${icon("music")}Songs</a><a class="btn ghost" href="#layouts-service">${icon("layers")}Layouts</a><a class="btn ghost" href="#library">${icon("list")}Saved segments</a>` : ""}</div>
+    body: html`<div class="btns" style="margin-top:16px">${isDesktop() ? html`<a class="btn ghost" href="#services-grid">${icon("calendar")}Side by side</a>` : ""}${canPlan() ? html`<button class="btn" data-act="plan-new">${icon("plus")}New service plan</button><a class="btn ghost" href="#songs">${icon("music")}Songs</a><a class="btn ghost" href="#layouts-service">${icon("layers")}Layouts</a><a class="btn ghost" href="#library">${icon("list")}Saved segments</a>` : ""}</div>
       <section class="sec"><h2 class="sec-head">Upcoming</h2><div class="rows">${upcoming.length ? upcoming.map(row) : empty("No services planned yet.")}</div></section>
       ${past.length ? html`<section class="sec"><h2 class="sec-head">Recent</h2><div class="rows">${past.map(row)}</div></section>` : ""}`,
   };

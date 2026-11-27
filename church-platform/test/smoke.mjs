@@ -2473,6 +2473,47 @@ await step("offering count: counters, a second counter, and the depositor", asyn
     if (total !== 353) throw new Error(`the batch should total $353 ($250 check, $60 and $43 cash): ${total}`);
   } finally { await d.close(); await role("admin"); await page.evaluate((was) => { const S = __app.S; S.church().ownerId = was; S.save(); S.flush?.(); }, owner); }
 });
+await step("service plans side by side", async () => {
+  if (!(await page.evaluate(() => __app.S.can("services.plan")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await page.evaluate(() => {
+    const S = __app.S, seg = (type, title, minutes, extra = {}) => ({ id: Math.random().toString(36).slice(2), type, title, minutes, show: true, notes: "", content: {}, ...extra });
+    S.state.services = S.state.services.filter((x) => !x.id.startsWith("pg-"));
+    S.state.services.push(
+      { id: "pg-a", churchId: S.state.current, title: "Grid A", date: "2030-01-06", time: "10:00", locationId: null, notes: "", segments: [seg("welcome", "Welcome", 3), seg("scripture", "Reading", 4, { content: { ref: "Psalm 23" } }), seg("prayer", "Prayer", 5)],
+        assignments: [{ id: "pa1", team: "Worship", position: "Keys", userId: S.me().id, status: "accepted" }] },
+      { id: "pg-b", churchId: S.state.current, title: "Grid B", date: "2030-01-13", time: "10:00", locationId: null, notes: "", segments: [seg("welcome", "Welcome", 3)], assignments: [] });
+    S.save(); S.flush?.();
+  });
+  const d = await tab(1440, 900);
+  const count = (id) => d.$$eval(`.pg-stack[data-plan="${id}"] .pg-seg`, (x) => x.length), titles = (id) => d.$$eval(`.pg-stack[data-plan="${id}"] .pg-seg b`, (x) => x.map((b) => b.textContent));
+  try {
+    // M on a plan opens the grid starting at that plan.
+    await openWhenThere(d, base + "#service-pg-a", "#sort-list");
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    await d.focus("body"); await d.keyboard.press("m"); await d.waitForSelector('.pg-stack[data-plan="pg-a"]');
+    if ((await d.$$eval(".pg-head a", (a) => a[0]?.getAttribute("href"))) !== "#service-pg-a") throw new Error("the grid should start at the plan M was pressed on");
+    if (!(await d.$('.pg-stack[data-plan="pg-b"]'))) throw new Error("the next week sits beside it");
+    if (!(await d.$(".pg-pos:has-text('Keys')"))) throw new Error("the team shows in rows by position");
+    // Drag down to reorder; onto the next week to copy.
+    await d.locator('.pg-stack[data-plan="pg-a"] .pg-seg >> nth=0').dragTo(d.locator('.pg-stack[data-plan="pg-a"] .pg-seg >> nth=2'), { targetPosition: { x: 20, y: 30 } });
+    await d.waitForFunction(() => document.querySelector('.pg-stack[data-plan="pg-a"] .pg-seg:last-of-type b')?.textContent === "Welcome");
+    if ((await titles("pg-a")).join() !== "Reading,Prayer,Welcome") throw new Error(`reorder: ${(await titles("pg-a")).join()}`);
+    await d.locator('.pg-stack[data-plan="pg-a"] .pg-seg >> nth=0').dragTo(d.locator('.pg-stack[data-plan="pg-b"] .pg-add'));
+    await d.waitForFunction(() => document.querySelectorAll('.pg-stack[data-plan="pg-b"] .pg-seg').length === 2);
+    if ((await count("pg-a")) !== 3) throw new Error("copying to another week leaves the original");
+    // Right-click: copy to the next service.
+    await d.click('.pg-stack[data-plan="pg-a"] .pg-seg >> nth=1', { button: "right" }); await d.click("#ctx .ctx-i:has-text('Copy to the next service')");
+    await d.waitForFunction(() => document.querySelectorAll('.pg-stack[data-plan="pg-b"] .pg-seg').length === 3);
+    // Click a segment: the editor opens beside the grid.
+    await d.click('.pg-stack[data-plan="pg-b"] .pg-seg >> nth=0'); await d.waitForSelector("#scrim.drawer form[data-form=seg-save]");
+    if (!(await d.isVisible(".pg"))) throw new Error("the grid stays in view while editing");
+    await d.screenshot({ path: join(shots, "50p-plan-grid.png") });
+    await d.keyboard.press("Escape");
+  } finally {
+    await d.close();
+    await page.evaluate(() => { const S = __app.S; S.state.services = S.state.services.filter((x) => !x.id.startsWith("pg-")); S.save(); S.flush?.(); });
+  }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");
