@@ -1672,6 +1672,9 @@ await step("digital signage", async () => {
   if (!(await page.evaluate(() => document.body.classList.contains("presenting")))) throw new Error("player isn't full screen");
 });
 // Screens and kiosks open in other tabs, like separate devices would.
+// A tab opened straight after the main tab saves can start from the copy before it (browsers pass changes between tabs
+// a moment late; the merge then brings it in). Open a page that needs the new data again if it isn't there yet.
+const openWhenThere = async (p, url, sel) => { for (let n = 0; n < 3; n++) { await p.goto(url); if (await p.waitForSelector(sel, { timeout: 4000 }).catch(() => null)) return; } throw new Error(`${sel} never appeared at ${url}`); };
 const tab = async (w, h) => { const p = await ctx.newPage(); await p.setViewportSize({ width: w, height: h }); p.on("pageerror", (e) => errors.push(`device tab: ${e.message} ${(e.stack || "").split("\n")[1] || ""}`)); return p; };
 const pairNew = async (type, fill = async () => {}) => {
   await goTo("devices"); await page.click("[data-act=device-new]"); await page.locator(`#scrim input[name=type][value=${type}]`).evaluate((el) => el.click());
@@ -2116,7 +2119,7 @@ await step("desktop builder with panes and a Study pane", async () => {
   const d = await tab(1440, 900);
   try {
     await d.evaluate(() => localStorage.removeItem("ofc-panes")).catch(() => {});
-    await d.goto(base + "#build-desk-test"); await d.waitForSelector(".desk .panes");
+    await openWhenThere(d, base + "#build-desk-test", ".desk .panes");
     if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
     for (const p of ["outline", "editor", "study"]) if (!(await d.$(`.desk .pane[data-pane=${p}]`))) throw new Error(`missing the ${p} pane`);
     if (await d.$(".block-card")) throw new Error("the desktop builder shouldn't show the phone's block cards");
@@ -2178,7 +2181,7 @@ await step("desktop builder with panes and a Study pane", async () => {
     await d.click("[data-act=desk-tab][data-tab=lesson]"); await d.waitForSelector(".study[data-tab=lesson]");
     await d.goto(base + "#build-riverside-doc-study"); await d.waitForSelector(".desk .pane[data-pane=editor]");
     if (await d.$("[data-act=desk-tab][data-tab=lesson]")) throw new Error("only lessons have the Lesson tab");
-    await d.goto(base + "#build-desk-test"); await d.waitForSelector(".desk .panes");
+    await openWhenThere(d, base + "#build-desk-test", ".desk .panes");
     await d.click("[data-act=desk-tab][data-tab=veritas]"); await d.waitForSelector(".vt-host:not([hidden])");
     await d.goto(base + "#home"); await d.waitForSelector(".vt-host[hidden]", { state: "attached" });
     await d.goto(base + "#build-desk-test"); await d.waitForSelector(".desk .panes");
@@ -2199,7 +2202,7 @@ await step("keyboard: command box, shortcuts and undo", async () => {
   const d = await tab(1440, 900);
   const count = () => d.$$eval(".ol-item", (l) => l.length), selText = () => d.textContent(".ol-item.on .ol-text span");
   try {
-    await d.goto(base + "#build-keys-test"); await d.waitForSelector(".desk .panes");
+    await openWhenThere(d, base + "#build-keys-test", ".desk .panes");
     if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
     // Ctrl+K: add a passage with its text, below the selected block.
     await d.keyboard.press("Control+k"); await d.waitForSelector("#cmdk input:focus");
@@ -2240,11 +2243,64 @@ await step("keyboard: command box, shortcuts and undo", async () => {
     await d.click(".side-search"); await d.waitForSelector("#cmdk input:focus");
     await d.keyboard.type("dana"); await d.waitForSelector("#cmdk .cmdk-g[aria-label=People] [data-cmd]");
     await d.screenshot({ path: join(shots, "50j-command-box.png") });
-    await d.fill("#cmdk input", "open finance"); await d.waitForSelector("#cmdk [data-cmd='0']:has-text('Finance')");
-    await d.keyboard.press("Enter"); await d.waitForFunction(() => location.hash === "#treasurer");
-    await d.keyboard.press("Control+k"); await d.keyboard.type("new sermon"); await d.keyboard.press("Enter");
+    await d.fill("#cmdk input", "new sermon"); await d.keyboard.press("Enter");
     await d.waitForSelector("#scrim #sheet-title:text('New sermon')");
+    await d.keyboard.press("Escape"); await d.waitForSelector("#scrim", { state: "detached" });
+    await d.keyboard.press("Control+k"); await d.keyboard.type("open finance"); await d.waitForSelector("#cmdk [data-cmd='0']:has-text('Finance')");
+    await d.keyboard.press("Enter"); await d.waitForFunction(() => location.hash === "#treasurer");
   } finally { await d.close(); }
+});
+await step("right-click menus, multi-select and hover previews", async () => {
+  if (!(await page.evaluate(() => __app.S.can("build.sermons")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await page.evaluate(() => {
+    const S = __app.S, B = (type, x) => ({ id: Math.random().toString(36).slice(2), type, show: type !== "note", notes: "", ...x });
+    S.state.docs = S.state.docs.filter((x) => x.id !== "sel-test");
+    S.state.docs.push({ id: "sel-test", churchId: S.state.current, kind: "sermon", title: "Select", passage: "John 3:16", authorId: S.me().id, published: false, updated: new Date().toISOString(),
+      blocks: [B("keynote", { text: "A" }), B("scripture", { ref: "John 3:16", translation: "BSB", text: "" }), B("point", { text: "B" }), B("point", { text: "C" }), B("point", { text: "D" })] });
+    S.save(); S.flush?.();
+  });
+  // The main tab stays open on Admin, which saves after each change from this tab (scheduled reports): the two tabs'
+  // saves merge (mergeSaved in 20-store.js) instead of one putting back the other's older copy.
+  const d = await tab(1440, 900);
+  const n = () => d.$$eval(".ol-item", (l) => l.length), picked = () => d.$$eval(".ol-item.picked", (l) => l.length);
+  try {
+    await openWhenThere(d, base + "#build-sel-test", ".desk .panes");
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    // Right-click a block: it becomes the open block, and the menu acts on it.
+    await d.click(".ol-item:nth-child(3) .ol-pick", { button: "right" }); await d.waitForSelector("#ctx .ctx-head:has-text('Point')");
+    await d.waitForSelector(".ol-item:nth-child(3).on");
+    await d.keyboard.press("Escape"); await d.waitForSelector("#ctx", { state: "detached" });
+    await d.click(".ol-item:nth-child(3) .ol-pick", { button: "right" }); await d.click("#ctx .ctx-i:has-text('Duplicate')");
+    await d.waitForFunction(() => document.querySelectorAll(".ol-item").length === 6);
+    // Ctrl-click two more: three selected, with a bar that acts on all of them.
+    await d.click(".ol-item:nth-child(5) .ol-pick", { modifiers: ["Control"] }); await d.click(".ol-item:nth-child(6) .ol-pick", { modifiers: ["Control"] });
+    if ((await picked()) !== 3) throw new Error(`three blocks should be selected, not ${await picked()}`);
+    await d.waitForSelector(".ol-bar b:text('3 selected')");
+    await d.click(".ol-bar [data-do=hide]"); await d.waitForFunction(() => document.querySelectorAll(".ol-item.private").length === 3);
+    await d.click(".ol-item:nth-child(5) .ol-pick", { button: "right" }); await d.waitForSelector("#ctx .ctx-head:text('3 blocks')");
+    await d.screenshot({ path: join(shots, "50k-right-click.png") });
+    await d.click("#ctx .ctx-i:has-text('Delete 3 blocks')");
+    await d.focus(".ol-item:nth-child(1) .ol-pick"); await d.keyboard.press("Control+z"); await d.waitForFunction(() => document.querySelectorAll(".ol-item").length === 6);
+    // Shift-click selects a run; Esc clears it; a plain click goes back to one block.
+    await d.click(".ol-item:nth-child(1) .ol-pick"); await d.click(".ol-item:nth-child(3) .ol-pick", { modifiers: ["Shift"] });
+    if ((await picked()) !== 3) throw new Error("shift-click should select blocks 1 to 3");
+    await d.keyboard.press("Escape"); await d.waitForFunction(() => !document.querySelector(".ol-item.picked"));
+    await d.click(".ol-item:nth-child(1) .ol-pick"); await d.keyboard.press("Shift+ArrowDown"); await d.keyboard.press("Shift+ArrowDown");
+    if ((await picked()) !== 3) throw new Error("Shift+Down should extend the selection");
+    await d.click(".ol-item:nth-child(4) .ol-pick"); if ((await picked()) !== 0) throw new Error("a plain click should go back to one block");
+    // Hovering a Bible reference shows the verse.
+    await d.mouse.move(5, 5); await d.hover(".ol-pick[data-verse='John 3:16']");
+    await d.waitForSelector("#hov:not([hidden]) .hov-verse:has-text('loved')");
+    // People: a card on hover, and a menu on right-click.
+    await d.goto(base + "#directory"); await d.waitForSelector("#dir-list a.row[href^='#person-']");
+    await d.mouse.move(5, 5); await d.hover("#dir-list a.row[href^='#person-'] >> nth=0");
+    await d.waitForSelector("#hov:not([hidden]) .hov-person");
+    await d.click("#dir-list a.row[href^='#person-'] >> nth=0", { button: "right" }); await d.waitForSelector("#ctx .ctx-i:has-text('Copy contact')");
+    await d.keyboard.press("Escape");
+  } finally { await d.close(); }
+  // With two tabs saving, a scheduled report the main tab ran isn't lost and run again (with a second notification).
+  const dupes = await page.evaluate(() => { const seen = new Set(), d = []; __app.S.list("reportRuns").filter((r) => r.auto).forEach((r) => { const k = `${r.reportId}|${r.period}`; if (seen.has(k)) d.push(k); seen.add(k); }); return d; });
+  if (dupes.length) throw new Error(`scheduled reports ran twice: ${dupes.join(", ")}`);
 });
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
@@ -2785,16 +2841,19 @@ await step("AI drafts", async () => {
   await page.evaluate(() => { delete window.__aiStub; });
 });
 await step("settings: Spanish, text size and notifications", async () => {
+  // The security radio dock floats over the bottom of the page for security team members: bring each control up first.
+  const mid = (sel) => page.$eval(sel, (el) => el.scrollIntoView({ block: "center" }));
   await goTo("settings"); await page.click('[data-act=set-lang][data-v="es"]'); await page.waitForSelector("text=Idioma");
   await goTo("home"); await page.waitForSelector('nav.tabs >> text=Inicio'); await shot("43-home-es");
   await goTo("events"); await expectText("Eventos"); await goTo("checkin"); await expectText("Registrar");
   await goTo("event-riverside-e8"); await expectText("Comprar boletos"); await shot("44-event-es");
-  await goTo("settings"); await page.check('input[name=text][value="xl"]', { force: true });
+  await goTo("settings"); await mid('input[name=text][value="xl"]'); await page.check('input[name=text][value="xl"]', { force: true });
   if (!(await page.evaluate(() => document.documentElement.classList.contains("text-xl")))) throw new Error("text size didn't apply");
-  await page.click('label.switch-row:has-text("Más contraste") input'); await shot("45-settings-es");
+  await mid('label.switch-row:has-text("Más contraste") input'); await page.click('label.switch-row:has-text("Más contraste") input'); await shot("45-settings-es");
   await page.click('[data-act=set-lang][data-v="en"]'); await page.waitForSelector("text=Language");
-  await page.check('input[name=text][value="m"]', { force: true }); await page.click('label.switch-row:has-text("More contrast") input');
-  await page.click('label.switch-row:has-text("Messages") input');
+  await mid('input[name=text][value="m"]'); await page.check('input[name=text][value="m"]', { force: true });
+  await mid('label.switch-row:has-text("More contrast") input'); await page.click('label.switch-row:has-text("More contrast") input');
+  await mid('label.switch-row:has-text("Messages") input'); await page.click('label.switch-row:has-text("Messages") input');
   await goTo("chat"); await page.click(".rows a.row >> nth=0"); await page.fill("#msg", "See you Sunday!"); await page.press("#msg", "Enter");
   await goTo("sermon-riverside-s0").catch(() => {}); await goTo("word"); await page.click("#sermon-list a.row >> nth=0"); await page.waitForSelector("[data-act=listen]");
   await goTo("admin-news"); await page.click("[data-act=admin-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "Parking lot closed Sunday");

@@ -2723,3 +2723,29 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border: 1px sol
 .side-search { width: 100%; border: 0; background: none; font: inherit; cursor: pointer; text-align: left; }
 .side-search kbd { margin-left: auto; }
 body.side-folded .side-search kbd { display: none; }
+
+/* ---------- Right-click menus and hover previews (31d-context.js); selecting several blocks (49d) ---------- */
+.ctx { position: fixed; z-index: 70; min-width: 220px; max-width: 320px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 40px rgba(12, 16, 24, .22); animation: fade .08s ease-out; }
+.ctx-head { margin: 2px 8px 6px; font: 700 .76rem var(--sans); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctx-i { width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: 500 .92rem var(--sans); text-align: left; cursor: pointer; outline: none; }
+.ctx-i svg { width: 16px; height: 16px; color: var(--ink-2); flex: none; }
+.ctx-i span:first-of-type { flex: 1; }
+.ctx-i:focus, .ctx-i:hover:not([disabled]) { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+.ctx-i[disabled] { opacity: .4; cursor: default; }
+.ctx-i.danger, .ctx-i.danger svg { color: var(--danger, #b42318); }
+.ctx-k { font-size: .76rem; color: var(--ink-2); }
+.ctx-sep { height: 1px; margin: 5px 6px; background: var(--line); }
+.hov { position: fixed; z-index: 65; max-width: 360px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(12, 16, 24, .18); pointer-events: none; font-size: .9rem; animation: fade .1s ease-out; }
+.hov[hidden] { display: none; }
+.hov-h { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; }
+.hov-h svg { width: 15px; height: 15px; color: var(--brand); }
+.hov-h .faint { margin-left: auto; font-size: .78rem; }
+.hov-verse { margin: 0; font-family: var(--serif, Georgia, serif); line-height: 1.5; }
+.hov-more { margin: 6px 0 0; font-size: .78rem; }
+.hov-person { display: flex; gap: 10px; align-items: center; }
+.hov-person > div { display: flex; flex-direction: column; }
+.verse-wrap { display: contents; }
+.ol-bar { position: sticky; top: -12px; z-index: 1; display: flex; align-items: center; gap: 2px; margin: -12px -16px 8px; padding: 6px 10px 6px 16px; background: color-mix(in srgb, var(--brand) 10%, var(--surface)); border-bottom: 1px solid var(--line); }
+.ol-bar b { flex: 1; font-size: .88rem; white-space: nowrap; }
+.ol-bar .icon-btn { width: 32px; height: 32px; }
+.ol-item.picked { background: color-mix(in srgb, var(--brand) 18%, transparent); box-shadow: inset 3px 0 0 var(--brand); }

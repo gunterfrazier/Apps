@@ -63,7 +63,7 @@ function bibleHref(ref) {
 }
 function readLink(ref, label = "Read", cls = "btn sm") {
   const href = bibleHref(ref); if (!href) return "";
-  return href.startsWith("#") ? html`<a class="${cls}" href="${href}">${icon("word")}${label}</a>` : ext(href, label, cls, "word");
+  return href.startsWith("#") ? html`<a class="${cls}" href="${href}" data-verse="${refLabel(parseRef(ref))}">${icon("word")}${label}</a>` : html`<span class="verse-wrap" data-verse="${refLabel(parseRef(ref))}">${ext(href, label, cls, "word")}</span>`;
 }
 
 // ----- Past sermons and lessons on a passage (like Logos's sermon markers) -----
