@@ -38,7 +38,7 @@ function paneResizeTarget(r) {
 }
 function paneSetCol(r, key, w) {
   const el = $(`:scope > [data-pane="${key}"]`, r.parentElement); if (!el) return;
-  el.dataset.col = `${w}px`; paneLayout(r.parentElement);
+  el.dataset.col = `${w}px`; paneLayout(r.parentElement); vtSync();
 }
 document.addEventListener("pointerdown", (e) => {
   const r = e.target.closest?.(".pane-resizer"); if (!r || e.button !== 0) return;
@@ -155,12 +155,15 @@ function deskEditor(d) {
 
 function deskStudy(d) {
   const ref = deskRef(d), tabs = [["passage", "Passage"], ["related", "Related"], ["past", d.kind === "sermon" ? "Past sermons" : "Past teaching"]];
+  if (Veritas.enabled()) tabs.push(["veritas", "Veritas"]);
   if (d.kind === "lesson") tabs.push(["lesson", "Lesson"]);
   if (!tabs.some(([k]) => k === desk.tab)) desk.tab = "passage";
   const t = desk.t || bibleT();
   let body;
   if (desk.tab === "lesson") body = html`${S.on("kidsintro") && d.storyId ? kidsBookendsPanel(d) : ""}${S.on("storylessons") ? storyBgPanel(d) : ""}${familyPanel(d)}`;
   else if (!ref) body = empty("Add a Scripture block, or set the main passage in Details, and this pane follows it.");
+  else if (desk.tab === "veritas") body = html`<p class="faint vt-note">Veritas Logos, live from veritaslogos.com. ${desk.pin ? "Pinned to" : "Following"} ${ref}. <a href="${Veritas.read(ref)}" target="_blank" rel="noopener">Open in a new tab</a></p>
+    <div class="vt-slot" data-src="${Veritas.read(ref)}" aria-hidden="true"></div>`;
   else if (desk.tab === "related") body = html`<p class="faint">Passages related to ${ref}. Click one to read it here.</p><div class="study-xrefs" data-ref="${ref}" aria-live="polite"><p class="faint">Finding related passages...</p></div>`;
   else if (desk.tab === "past") body = pastPanel(ref, { doc: d.id, label: `From our church on ${ref}`, max: 12 }) || empty(`Nothing from your church on ${ref} yet.`);
   else body = html`<div class="study-ref"><b>${ref}</b><select data-change="desk-t" aria-label="Translation">${Bible.translations.map((x) => html`<option ${attr(x === t, "selected")}>${x}</option>`)}</select></div>
@@ -189,7 +192,7 @@ function deskCapture() {
   desk.scroll = Object.fromEntries([...$$(".pane", root).map((p) => [p.dataset.pane, $(".pane-body", p).scrollTop]), ["strip", $(".strip-row", root)?.scrollLeft || 0], ["_doc", root.dataset.doc]]);
 }
 const deskRenderBase = render;
-render = function (...a) { deskCapture(); return deskRenderBase.apply(this, a); }; // eslint-disable-line no-func-assign
+render = function (...a) { deskCapture(); const r = deskRenderBase.apply(this, a); vtSync(); return r; }; // eslint-disable-line no-func-assign
 
 function deskAfter(d) {
   const root = $(".desk"); if (!root) return;
@@ -211,7 +214,7 @@ function deskAfter(d) {
 }
 /** The workspace fills the window below the top bar; the panes scroll inside it. */
 function deskFit() { const root = $(".desk"); if (root) root.style.height = `${Math.max(480, innerHeight - root.getBoundingClientRect().top - 12)}px`; }
-addEventListener("resize", deskFit);
+addEventListener("resize", () => { deskFit(); vtSync(); });
 
 function deskSortable(d) {
   makeSortable($("#sort-list"), (from, to, kb) => { if (moveItem(d.blocks, from, to)) { touch(d); render(); if (kb) $$("#sort-list [data-drag]")[to]?.focus(); } });
@@ -249,7 +252,7 @@ function deskRefresh(d) {
   const st = $(".desk-strip", root);
   if (st) { const x = $(".strip-row", st)?.scrollLeft || 0; st.outerHTML = flat(deskStrip(d)); const row = $(".desk-strip .strip-row", root); if (row) row.scrollLeft = x; }
   const sp = $('.pane[data-pane="study"]', root), ref = deskRef(d) || "";
-  if (sp && $(".study", sp)?.dataset.ref !== ref) { $(".pane-body", sp).innerHTML = flat(deskStudy(d)); deskFill(); }
+  if (sp && $(".study", sp)?.dataset.ref !== ref) { $(".pane-body", sp).innerHTML = flat(deskStudy(d)); deskFill(); vtSync(); }
 }
 
 /* ----- Saving as you type ----- */
@@ -322,3 +325,30 @@ document.addEventListener("keydown", (e) => {
   if (!next) return;
   e.preventDefault(); desk.id = next.dataset.id; desk.draft = null; desk.focus = "ol"; render();
 });
+
+/* ----- The Veritas tab: the live Veritas Logos app beside the writing ----- */
+// The builder redraws its panes on every click, and redrawing (or even moving) an iframe reloads it. So the frame lives
+// in one fixed box on the page, outside anything that redraws, and sits over the Study pane's .vt-slot. It loads once;
+// after that a new passage only changes the link's #read-... part, which the Veritas app follows without reloading.
+const VtFrame = { host: null, frame: null, src: "", seen: null };
+function vtSync() {
+  const slot = $(".vt-slot");
+  if (!slot) { if (VtFrame.host) VtFrame.host.hidden = true; return; }
+  if (!VtFrame.host) {
+    VtFrame.host = document.createElement("div"); VtFrame.host.className = "vt-host";
+    VtFrame.frame = document.createElement("iframe");
+    Object.assign(VtFrame.frame, { title: "Veritas Logos", referrerPolicy: "strict-origin-when-cross-origin" });
+    VtFrame.frame.setAttribute("allow", "clipboard-write");
+    VtFrame.host.appendChild(VtFrame.frame); document.body.appendChild(VtFrame.host);
+    VtFrame.seen = new ResizeObserver(() => vtPlace());
+  }
+  if (VtFrame.src !== slot.dataset.src) { VtFrame.src = slot.dataset.src; VtFrame.frame.src = VtFrame.src; }
+  VtFrame.seen.disconnect(); VtFrame.seen.observe(slot);
+  vtPlace();
+}
+function vtPlace() {
+  const slot = $(".vt-slot"); if (!slot || !VtFrame.host) return;
+  const r = slot.getBoundingClientRect();
+  Object.assign(VtFrame.host.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+  VtFrame.host.hidden = r.width < 20 || r.height < 20;
+}
