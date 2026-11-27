@@ -29,23 +29,43 @@ Screens.build = (id) => { const v = buildPhoneOrDesk(id); const d = S.get("docs"
 /* ----- Block actions shared by shortcuts and commands ----- */
 const buildDoc = () => { const m = location.hash.match(/^#build-(.+)$/), d = m && S.get("docs", m[1]); return d && canEditDoc(d) ? d : null; };
 const deskIndex = (d) => (typeof desk !== "undefined" && desk.doc === d.id && !desk.draft ? d.blocks.findIndex((b) => b.id === desk.id) : -1);
+// Each acts on the selected blocks (several, with Ctrl-click or Shift-click: 49d-builder-select.js), or the one open.
 function deskDuplicate(d) {
-  const i = deskIndex(d); if (i < 0) return;
-  const copy = { ...JSON.parse(JSON.stringify(d.blocks[i])), id: uid() };
-  d.blocks.splice(i + 1, 0, copy); desk.id = copy.id; touch(d); render(); toast("Duplicated");
+  const idx = deskTargets(d); if (!idx.length) return;
+  const copies = idx.map((i) => ({ ...JSON.parse(JSON.stringify(d.blocks[i])), id: uid() }));
+  d.blocks.splice(idx.at(-1) + 1, 0, ...copies);
+  desk.id = copies[0].id; deskSelSet(d, copies.length > 1 ? copies.map((c) => c.id) : []);
+  touch(d); render(); toast(copies.length > 1 ? `Duplicated ${copies.length} blocks` : "Duplicated");
 }
-function deskTogglePrivate(d) {
-  const i = deskIndex(d), b = d.blocks[i]; if (!b || b.type === "note") return;
-  b.show = !b.show; touch(d); render(); toast(b.show ? "Shown on screen" : "Kept private");
+function deskTogglePrivate(d, show) {
+  const list = deskTargets(d).map((i) => d.blocks[i]).filter((b) => b.type !== "note"); if (!list.length) return;
+  const on = show ?? !list.some((b) => b.show);
+  list.forEach((b) => { b.show = on; }); touch(d); render();
+  toast(`${list.length > 1 ? `${list.length} blocks: ` : ""}${on ? "shown on screen" : "kept private"}`.replace(/^./, (c) => c.toUpperCase()));
 }
-function deskMove(d, dir) {
-  const i = deskIndex(d), j = i + dir; if (i < 0 || j < 0 || j >= d.blocks.length) return;
-  moveItem(d.blocks, i, j); desk.focus = $(".ol-pick:focus") ? "ol" : null; touch(d); render();
+function deskSendHome(d, home) {
+  const list = deskTargets(d).map((i) => d.blocks[i]).filter((b) => b.type !== "note"); if (!list.length || d.kind !== "lesson") return;
+  const on = home ?? !list.some((b) => b.home);
+  list.forEach((b) => { b.home = on; }); touch(d); render();
+  toast(on ? "Goes home on the family page" : "Not on the family page");
+}
+function deskMove(d, dir, to) {
+  const idx = deskTargets(d); if (!idx.length) return;
+  if (to != null) { // to the top (0) or the bottom (-1), keeping their order
+    const moving = idx.map((i) => d.blocks[i]), rest = d.blocks.filter((_, i) => !idx.includes(i));
+    d.blocks = to === 0 ? [...moving, ...rest] : [...rest, ...moving];
+  } else {
+    if (dir < 0 ? idx[0] === 0 : idx.at(-1) === d.blocks.length - 1) return;
+    (dir < 0 ? idx : [...idx].reverse()).forEach((i) => moveItem(d.blocks, i, i + dir));
+  }
+  desk.focus = $(".ol-pick:focus") ? "ol" : null; touch(d); render();
 }
 function deskDelete(d) {
-  const i = deskIndex(d); if (i < 0) return;
-  desk.id = (d.blocks[i + 1] || d.blocks[i - 1])?.id || null; desk.focus = "ol";
-  d.blocks.splice(i, 1); touch(d); render(); toast(`Deleted. ${keyLabel("Mod+Z")} brings it back.`);
+  const idx = deskTargets(d); if (!idx.length) return;
+  const gone = new Set(idx.map((i) => d.blocks[i].id));
+  desk.id = (d.blocks.slice(idx.at(-1) + 1).find((b) => !gone.has(b.id)) || d.blocks.slice(0, idx[0]).at(-1))?.id || null; desk.focus = "ol";
+  d.blocks = d.blocks.filter((b) => !gone.has(b.id)); deskSelClear();
+  touch(d); render(); toast(`${gone.size > 1 ? `Deleted ${gone.size} blocks` : "Deleted"}. ${keyLabel("Mod+Z")} brings ${gone.size > 1 ? "them" : "it"} back.`);
 }
 /** Adds a passage with its text: below the selected block on the desktop builder, otherwise at the end. */
 async function addScripture(d, ref) {
@@ -87,25 +107,27 @@ document.addEventListener("keydown", (e) => {
 /* ----- The builder's commands in the command box ----- */
 commandSource((q) => {
   const d = buildDoc(); if (!d) return [];
-  const kind = DOC_KINDS[d.kind].label.toLowerCase(), here = `This ${kind}`, desktop = deskOn(), sel = deskIndex(d) >= 0;
+  const now = () => buildDoc() || d; // looked up when chosen
+  const kind = DOC_KINDS[d.kind].label.toLowerCase(), here = `This ${kind}`, desktop = deskOn(), sel = deskTargets(d).length > 0, many = deskTargets(d).length > 1;
   const where = desktop && sel ? "below the selected block" : "at the end";
   const out = Object.entries(BLOCKS).map(([type, t]) => ({ group: here, label: `Add ${t.label.toLowerCase()}`, sub: where, icon: t.icon, keywords: "new block insert", always: true,
     run: () => Actions["dblock-new"]({ dataset: { doc: d.id, type } }) }));
   // "add scripture Romans 8:28", "scripture John 3:16", or just a reference: add it with its text.
   const m = q.match(/^(?:add\s+)?(?:scripture|verse|verses|passage|reading)?\s*(.+)$/i), r = m && parseRef(m[1]);
-  if (r) out.push({ group: here, label: `Add ${refLabel(r)}`, sub: `Scripture, with its text, ${where}`, icon: "word", score: 60, run: () => addScripture(d, refLabel(r)) });
+  if (r) out.push({ group: here, label: `Add ${refLabel(r)}`, sub: `Scripture, with its text, ${where}`, icon: "word", score: 60, run: () => addScripture(now(), refLabel(r)) });
   out.push(
     { group: here, label: `Present this ${kind}`, icon: "screen", keywords: "show slides start", run: goTo(`present-doc-${d.id}`) },
     { group: here, label: "Edit slides", icon: "image", run: goTo(`slides-doc-${d.id}`) },
     { group: here, label: "Presenter page", icon: "note", keywords: "notes", run: goTo(`resource-${d.id}`) },
-    { group: here, label: "Print the presenter page", icon: "print", keys: "Mod+P", run: () => printPresenterPage(d) },
+    { group: here, label: "Print the presenter page", icon: "print", keys: "Mod+P", run: () => printPresenterPage(now()) },
     { group: here, label: "Details", sub: "Title, passage, date", icon: "edit", keywords: "title date passage settings", run: () => Actions["doc-details"]({ dataset: { id: d.id } }) },
     { group: here, label: d.published ? "Unpublish" : "Publish", icon: "share", run: () => Actions["doc-publish"]({ dataset: { id: d.id } }) },
-    { group: here, label: "Undo", icon: "back", keys: "Mod+Z", run: () => docUndo(d) },
-    { group: here, label: "Redo", icon: "next", keys: "Mod+Shift+Z", run: () => docUndo(d, true) });
+    { group: here, label: "Undo", icon: "back", keys: "Mod+Z", run: () => docUndo(now()) },
+    { group: here, label: "Redo", icon: "next", keys: "Mod+Shift+Z", run: () => docUndo(now(), true) });
   if (desktop && sel) out.push(
-    { group: here, label: "Duplicate the selected block", icon: "copy", keys: "Mod+D", keywords: "copy", run: () => deskDuplicate(d) },
-    { group: here, label: d.blocks[deskIndex(d)].show ? "Keep the selected block private" : "Show the selected block on screen", icon: "eye", keys: "Mod+H", keywords: "hide private show", run: () => deskTogglePrivate(d) },
-    { group: here, label: "Delete the selected block", icon: "trash", keywords: "remove", run: () => deskDelete(d) });
+    { group: here, label: many ? "Duplicate the selected blocks" : "Duplicate the selected block", icon: "copy", keys: "Mod+D", keywords: "copy", run: () => deskDuplicate(now()) },
+    { group: here, label: many ? "Keep the selected blocks private" : "Keep the selected block private", icon: "eyeoff", keys: "Mod+H", keywords: "hide private", run: () => deskTogglePrivate(now(), false) },
+    { group: here, label: many ? "Show the selected blocks on screen" : "Show the selected block on screen", icon: "eye", keywords: "show screen", run: () => deskTogglePrivate(now(), true) },
+    { group: here, label: many ? "Delete the selected blocks" : "Delete the selected block", icon: "trash", keywords: "remove", run: () => deskDelete(now()) });
   return out;
 });

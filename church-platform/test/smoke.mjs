@@ -2240,11 +2240,62 @@ await step("keyboard: command box, shortcuts and undo", async () => {
     await d.click(".side-search"); await d.waitForSelector("#cmdk input:focus");
     await d.keyboard.type("dana"); await d.waitForSelector("#cmdk .cmdk-g[aria-label=People] [data-cmd]");
     await d.screenshot({ path: join(shots, "50j-command-box.png") });
-    await d.fill("#cmdk input", "open finance"); await d.waitForSelector("#cmdk [data-cmd='0']:has-text('Finance')");
-    await d.keyboard.press("Enter"); await d.waitForFunction(() => location.hash === "#treasurer");
-    await d.keyboard.press("Control+k"); await d.keyboard.type("new sermon"); await d.keyboard.press("Enter");
+    await d.fill("#cmdk input", "new sermon"); await d.keyboard.press("Enter");
     await d.waitForSelector("#scrim #sheet-title:text('New sermon')");
+    await d.keyboard.press("Escape"); await d.waitForSelector("#scrim", { state: "detached" });
+    await d.keyboard.press("Control+k"); await d.keyboard.type("open finance"); await d.waitForSelector("#cmdk [data-cmd='0']:has-text('Finance')");
+    await d.keyboard.press("Enter"); await d.waitForFunction(() => location.hash === "#treasurer");
   } finally { await d.close(); }
+});
+await step("right-click menus, multi-select and hover previews", async () => {
+  if (!(await page.evaluate(() => __app.S.can("build.sermons")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await page.evaluate(() => {
+    const S = __app.S, B = (type, x) => ({ id: Math.random().toString(36).slice(2), type, show: type !== "note", notes: "", ...x });
+    S.state.docs = S.state.docs.filter((x) => x.id !== "sel-test");
+    S.state.docs.push({ id: "sel-test", churchId: S.state.current, kind: "sermon", title: "Select", passage: "John 3:16", authorId: S.me().id, published: false, updated: new Date().toISOString(),
+      blocks: [B("keynote", { text: "A" }), B("scripture", { ref: "John 3:16", translation: "BSB", text: "" }), B("point", { text: "B" }), B("point", { text: "C" }), B("point", { text: "D" })] });
+    S.save(); S.flush?.();
+  });
+  // The main tab, left on Admin, runs scheduled reports and saves after each change from this tab; in the preview two
+  // tabs share one copy of the data, so a save landing within 150 ms of another can put back the older copy. Park it.
+  await page.goto("about:blank");
+  const d = await tab(1440, 900);
+  const n = () => d.$$eval(".ol-item", (l) => l.length), picked = () => d.$$eval(".ol-item.picked", (l) => l.length);
+  try {
+    await d.goto(base + "#build-sel-test"); await d.waitForSelector(".desk .panes");
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    // Right-click a block: it becomes the open block, and the menu acts on it.
+    await d.click(".ol-item:nth-child(3) .ol-pick", { button: "right" }); await d.waitForSelector("#ctx .ctx-head:has-text('Point')");
+    await d.waitForSelector(".ol-item:nth-child(3).on");
+    await d.keyboard.press("Escape"); await d.waitForSelector("#ctx", { state: "detached" });
+    await d.click(".ol-item:nth-child(3) .ol-pick", { button: "right" }); await d.click("#ctx .ctx-i:has-text('Duplicate')");
+    await d.waitForFunction(() => document.querySelectorAll(".ol-item").length === 6);
+    // Ctrl-click two more: three selected, with a bar that acts on all of them.
+    await d.click(".ol-item:nth-child(5) .ol-pick", { modifiers: ["Control"] }); await d.click(".ol-item:nth-child(6) .ol-pick", { modifiers: ["Control"] });
+    if ((await picked()) !== 3) throw new Error(`three blocks should be selected, not ${await picked()}`);
+    await d.waitForSelector(".ol-bar b:text('3 selected')");
+    await d.click(".ol-bar [data-do=hide]"); await d.waitForFunction(() => document.querySelectorAll(".ol-item.private").length === 3);
+    await d.click(".ol-item:nth-child(5) .ol-pick", { button: "right" }); await d.waitForSelector("#ctx .ctx-head:text('3 blocks')");
+    await d.screenshot({ path: join(shots, "50k-right-click.png") });
+    await d.click("#ctx .ctx-i:has-text('Delete 3 blocks')");
+    await d.focus(".ol-item:nth-child(1) .ol-pick"); await d.keyboard.press("Control+z"); await d.waitForFunction(() => document.querySelectorAll(".ol-item").length === 6);
+    // Shift-click selects a run; Esc clears it; a plain click goes back to one block.
+    await d.click(".ol-item:nth-child(1) .ol-pick"); await d.click(".ol-item:nth-child(3) .ol-pick", { modifiers: ["Shift"] });
+    if ((await picked()) !== 3) throw new Error("shift-click should select blocks 1 to 3");
+    await d.keyboard.press("Escape"); await d.waitForFunction(() => !document.querySelector(".ol-item.picked"));
+    await d.click(".ol-item:nth-child(1) .ol-pick"); await d.keyboard.press("Shift+ArrowDown"); await d.keyboard.press("Shift+ArrowDown");
+    if ((await picked()) !== 3) throw new Error("Shift+Down should extend the selection");
+    await d.click(".ol-item:nth-child(4) .ol-pick"); if ((await picked()) !== 0) throw new Error("a plain click should go back to one block");
+    // Hovering a Bible reference shows the verse.
+    await d.mouse.move(5, 5); await d.hover(".ol-pick[data-verse='John 3:16']");
+    await d.waitForSelector("#hov:not([hidden]) .hov-verse:has-text('loved')");
+    // People: a card on hover, and a menu on right-click.
+    await d.goto(base + "#directory"); await d.waitForSelector("#dir-list a.row[href^='#person-']");
+    await d.mouse.move(5, 5); await d.hover("#dir-list a.row[href^='#person-'] >> nth=0");
+    await d.waitForSelector("#hov:not([hidden]) .hov-person");
+    await d.click("#dir-list a.row[href^='#person-'] >> nth=0", { button: "right" }); await d.waitForSelector("#ctx .ctx-i:has-text('Copy contact')");
+    await d.keyboard.press("Escape");
+  } finally { await d.close(); await page.goto(base + "?debug#admin"); await page.waitForSelector("#app"); }
 });
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }

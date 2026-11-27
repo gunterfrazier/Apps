@@ -127,11 +127,12 @@ function deskSummary(b) {
 
 function deskOutline(d) {
   let slide = 0;
-  return html`${d.blocks.length ? html`<div class="ol-list" id="sort-list">${d.blocks.map((b, i) => {
+  return html`${deskSelBar(d)}${d.blocks.length ? html`<div class="ol-list" id="sort-list" aria-multiselectable="true">${d.blocks.map((b, i) => {
       const shown = b.show && b.type !== "note"; if (shown) slide++;
       const on = !desk.draft && b.id === desk.id;
-      return html`<div class="ol-item ${on ? "on" : ""} ${shown ? "" : "private"}" data-index="${i}">${dragHandle(`${BLOCKS[b.type].label} ${i + 1}`)}
-        <button type="button" class="ol-pick" data-act="desk-pick" data-id="${b.id}" aria-current="${on ? "true" : "false"}">
+      const vr = b.type === "scripture" && parseRef(b.ref) ? b.ref : "";
+      return html`<div class="ol-item ${on ? "on" : ""} ${shown ? "" : "private"} ${deskPicked(d, b.id) ? "picked" : ""}" data-index="${i}">${dragHandle(`${BLOCKS[b.type].label} ${i + 1}`)}
+        <button type="button" class="ol-pick" data-act="desk-pick" data-id="${b.id}" aria-current="${on ? "true" : "false"}" ${vr ? html`data-verse="${vr}"` : ""}>
           <span class="ol-num" title="${shown ? `On screen, slide ${slide}` : "Private"}">${shown ? slide : icon("lock")}</span>
           <span class="ol-text"><b>${BLOCKS[b.type].label}</b><span>${deskSummary(b)}</span></span></button>
         ${b.type !== "note" ? html`<button type="button" class="icon-btn" data-act="block-vis" data-doc="${d.id}" data-i="${i}" aria-label="${shown ? "Keep private" : "Show on screen"}" title="${shown ? "Shown on screen. Click to keep private." : "Private. Click to show on screen."}">${icon(shown ? "eye" : "eyeoff")}</button>` : ""}
@@ -238,7 +239,7 @@ function deskFill() {
     xrefsFor(b, r.chapter, verses, 15).then(async (list) => {
       const t = desk.t || bibleT(), preview = await Promise.all(list.map((x) => Bible.text(refLabel(x.ref), t, false).then((s) => s.slice(0, 150) + (s.length > 150 ? "..." : ""), () => "")));
       if (!xb.isConnected) return;
-      xb.innerHTML = flat(list.length ? html`<div class="rows">${list.map((x, i) => html`<div class="row xref-row"><button type="button" class="body" data-act="desk-look" data-ref="${x.label}"><span class="t">${x.label}</span>${preview[i] ? html`<span class="s">${preview[i]}</span>` : ""}</button>
+      xb.innerHTML = flat(list.length ? html`<div class="rows">${list.map((x, i) => html`<div class="row xref-row"><button type="button" class="body" data-act="desk-look" data-ref="${x.label}" data-verse="${x.label}"><span class="t">${x.label}</span>${preview[i] ? html`<span class="s">${preview[i]}</span>` : ""}</button>
           <button type="button" class="btn ghost sm" data-act="desk-insert" data-ref="${x.label}" aria-label="Insert ${x.label}">${icon("plus")}Insert</button></div>`)}</div>${xrefCredit()}` : html`<p class="muted">No cross-references for this passage yet.</p>${xrefCredit()}`);
     }, () => { if (xb.isConnected) xb.innerHTML = flat(html`<p class="muted">Related passages couldn't load. Check your connection.</p>`); });
   }
@@ -301,7 +302,7 @@ Actions["dblock-delete"] = (el) => {
 };
 Actions["desk-pick"] = (el) => {
   if (!el.dataset.id) return;
-  desk.id = el.dataset.id; desk.draft = null;
+  desk.id = el.dataset.id; desk.draft = null; deskSelClear();
   desk.focus = el.matches(".ol-pick") ? "ol" : el.matches(".strip-slide") ? "strip" : null;
   render();
 };
@@ -322,10 +323,10 @@ Actions["desk-insert"] = async (el) => {
 };
 // Arrow keys in the outline move between blocks.
 document.addEventListener("keydown", (e) => {
-  const b = e.target.closest?.(".ol-pick"); if (!b || e.altKey || e.ctrlKey || e.metaKey || !["ArrowDown", "ArrowUp"].includes(e.key)) return;
+  const b = e.target.closest?.(".ol-pick"); if (!b || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !["ArrowDown", "ArrowUp"].includes(e.key)) return;
   const all = $$(".ol-pick"), next = all[all.indexOf(b) + (e.key === "ArrowDown" ? 1 : -1)];
   if (!next) return;
-  e.preventDefault(); desk.id = next.dataset.id; desk.draft = null; desk.focus = "ol"; render();
+  e.preventDefault(); desk.id = next.dataset.id; desk.draft = null; desk.focus = "ol"; deskSelClear(); render();
 });
 
 /* ----- The Veritas tab: the live Veritas Logos app beside the writing ----- */
