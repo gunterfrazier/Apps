@@ -143,6 +143,7 @@ function render() {
   if (typeof desktopClasses === "function") desktopClasses(view, head);
   view.after?.();
   if (typeof wsBar === "function") wsBar();
+  if (typeof secToolbarDraw === "function") secToolbarDraw();
   if (typeof hydrateColorSuggestions === "function") hydrateColorSuggestions();
   if (typeof Player !== "undefined") Player.syncUI(head, view);
   SecurityRadio.sync(head);

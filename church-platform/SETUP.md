@@ -403,6 +403,24 @@ For one click on Sunday, allow pop-ups for the site and, under the site's settin
 **Automatic full screen** to **Allow**. Without it, each window shows a **Click for full screen** button. Set the
 computer's displays to extend, not mirror. Other browsers get plain windows to drag into place.
 
+## Security desk and the floating toolbar
+
+On a computer, Security Command's home becomes a desk for the head of security or a supervisor, in three columns:
+- **Left:** the protocol status, with doors checked and people accounted for during a protocol; all clear or change
+  level; and links to doors, roll call, reunification, medical, drills and protocols.
+- **Middle:** the security channel.
+- **Right:** open incidents.
+
+**Floating toolbar** opens a small window that stays on top of every other program, so it can sit over the camera
+software while the cameras fill the screen. Chrome and Edge open it as an always-on-top picture-in-picture window;
+other browsers open a small ordinary window. From it you can:
+- see the protocol level
+- declare a level (levels above someone's limit still go for approval) or give the all clear
+- read and send on the security channel
+- report an incident (what, where, what you see)
+- see how many incidents are open, and jump back to Security Command
+
+It has the same permissions as Security Command itself.
 ## Screen wall
 
 **Screen wall** (in the sidebar under Sunday, or **Devices, Screen wall**) is for people who present or look after

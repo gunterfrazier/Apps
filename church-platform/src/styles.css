@@ -2483,6 +2483,52 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
   body.has-side .ws-bar { left: calc(var(--side-now) + 12px); }
 }
 
+/* Security desk and floating toolbar (98g-security-desk.js) */
+.sec-desk { display: grid; grid-template-columns: 280px minmax(0, 1fr) 300px; gap: 18px; align-items: start; margin-top: 12px; }
+.sec-desk-col { display: grid; gap: 12px; position: sticky; top: 76px; }
+.sec-desk-status { border-left: 6px solid #2f9e5b; }
+.sec-desk-status.live { border-left-color: var(--lvl-col, #e03131); background: color-mix(in srgb, var(--lvl-col, #e03131) 9%, var(--surface)); }
+.sec-desk-status p { margin: 0 0 6px; }
+.sec-desk-level { font-size: 1.05rem; }
+.sec-desk-float p { margin: 0 0 6px; }
+.sec-pri-critical { color: #c92a2a; } .sec-pri-high { color: #e8590c; } .sec-pri-medium { color: #f08c00; } .sec-pri-low { color: var(--ink-3); }
+.sec-tb-body { margin: 0; background: #0f1412; color: #eef1ee; font-family: var(--sans); }
+.sec-tb-body #sec-tb { padding: 8px; display: grid; gap: 8px; }
+.sec-tb-bar { display: flex; gap: 6px; align-items: center; }
+.sec-tb-level { flex: none; font: 800 .85rem var(--display); padding: 7px 10px; border-radius: 8px; background: #2f9e5b; color: #fff; white-space: nowrap; }
+.sec-tb-level.live { background: var(--lvl-col, #e03131); animation: sec-tb-pulse 1.6s ease-in-out infinite; }
+@keyframes sec-tb-pulse { 50% { filter: brightness(1.25); } }
+.sec-tb-btn { flex: none; display: inline-flex; gap: 4px; align-items: center; font: 700 .8rem var(--display); padding: 7px 9px; border-radius: 8px; border: 1px solid #343c38; background: #1d2220; color: #eef1ee; cursor: pointer; }
+.sec-tb-btn svg { width: 16px; height: 16px; }
+.sec-tb-btn.warn { border-color: #f08c00; color: #ffd8a8; }
+.sec-tb-btn.danger { background: #7a1f1f; border-color: #e03131; }
+.sec-tb-btn.ok { background: #1b5e37; border-color: #2f9e5b; }
+.sec-tb-msg { flex: 1; min-width: 0; text-align: left; font: .8rem var(--sans); padding: 7px 9px; border-radius: 8px; border: 1px solid #343c38; background: #151918; color: #cfd6d2; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sec-tb-panel { background: #151918; border: 1px solid #2a312e; border-radius: 10px; padding: 8px; }
+.sec-tb-panel p { margin: 0 0 6px; font-size: .85rem; }
+.sec-tb-levels { display: grid; gap: 4px; }
+.sec-tb-lvl { display: flex; gap: 8px; align-items: center; text-align: left; font: 600 .85rem var(--display); padding: 6px 8px; border-radius: 8px; border: 0; border-left: 6px solid var(--lvl-col); background: #1d2220; color: #eef1ee; cursor: pointer; }
+.sec-tb-lvl small { margin-left: auto; color: #ffd8a8; font-weight: 500; }
+.sec-tb-feed p { margin: 0 0 4px; font-size: .8rem; }
+.sec-tb-feed .faint { color: #9aa49e; }
+.sec-tb-form { display: flex; gap: 6px; align-items: center; }
+.sec-tb-form.report { display: grid; gap: 6px; }
+.sec-tb-form input, .sec-tb-form select { flex: 1; min-width: 0; font: inherit; font-size: .85rem; padding: 6px 8px; border-radius: 6px; border: 1px solid #343c38; background: #0f1412; color: #eef1ee; }
+.sec-tb-urgent { display: flex; gap: 4px; align-items: center; font-size: .78rem; white-space: nowrap; }
+.sec-tb-urgent input { flex: none; }
+.sec-tb-body .err { color: #ffa8a8; font-size: .8rem; margin: 4px 0 0; }
+/* On the desk, the message box sits in the channel column; on a computer the radio dock keeps to the bottom-right corner. */
+.sec-desk-main .sec-chat-form { position: static; transform: none; width: auto; margin-top: 10px; box-shadow: none; }
+#app:has(.sec-desk) { padding-bottom: 150px; }
+@media (min-width: 1100px) {
+  body.has-side #security-radio-dock { left: auto; right: 16px; bottom: 16px; transform: none; width: min(420px, calc(100vw - var(--side-now) - 32px)); }
+}
+@media (min-width: 1100px) { body.has-side:has(.sec-desk) #security-radio-dock { width: 300px; right: 18px; } }
+.sec-tb-level { max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.sec-tb-msg { min-width: 70px; }
+@media (max-width: 620px) { .sec-tb-btn span { display: none; } .sec-tb-level { max-width: 120px; } }
+.sec-tb-body #sec-tb { grid-template-columns: minmax(0, 1fr); }
+.sec-tb-bar { min-width: 0; }
 /* Screen wall (72k-screen-wall.js) */
 .wall-bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 14px 0; }
 .wall-bar .muted { margin: 0; flex: 1 1 260px; }
