@@ -26,8 +26,11 @@ if (!FORWARDING) {
   // Without a server, every tab of this browser shares one saved copy. When another tab saves (an admin making a pairing
   // code, a display showing the next slide), pick it up, so this tab doesn't later save its older copy over it.
   window.addEventListener("storage", (e) => {
-    if (e.key !== PLATFORM.storageKey || !e.newValue || Backend.on || S._timer) return;
-    S.load(); if (typeof wsAfterLoad === "function") wsAfterLoad();
+    if (e.key !== PLATFORM.storageKey || !e.newValue || Backend.on) return;
+    S._othersSaved = true; // this tab's next save merges with it (20-store.js)
+    if (S._timer) return;
+    if (!S.incoming()) return;
+    if (typeof wsAfterLoad === "function") wsAfterLoad();
     const busy = document.getElementById("scrim") || document.activeElement?.matches?.("input, textarea, select, [contenteditable]");
     if (!busy) render();
   });

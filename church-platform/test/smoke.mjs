@@ -1672,6 +1672,9 @@ await step("digital signage", async () => {
   if (!(await page.evaluate(() => document.body.classList.contains("presenting")))) throw new Error("player isn't full screen");
 });
 // Screens and kiosks open in other tabs, like separate devices would.
+// A tab opened straight after the main tab saves can start from the copy before it (browsers pass changes between tabs
+// a moment late; the merge then brings it in). Open a page that needs the new data again if it isn't there yet.
+const openWhenThere = async (p, url, sel) => { for (let n = 0; n < 3; n++) { await p.goto(url); if (await p.waitForSelector(sel, { timeout: 4000 }).catch(() => null)) return; } throw new Error(`${sel} never appeared at ${url}`); };
 const tab = async (w, h) => { const p = await ctx.newPage(); await p.setViewportSize({ width: w, height: h }); p.on("pageerror", (e) => errors.push(`device tab: ${e.message} ${(e.stack || "").split("\n")[1] || ""}`)); return p; };
 const pairNew = async (type, fill = async () => {}) => {
   await goTo("devices"); await page.click("[data-act=device-new]"); await page.locator(`#scrim input[name=type][value=${type}]`).evaluate((el) => el.click());
@@ -2116,7 +2119,7 @@ await step("desktop builder with panes and a Study pane", async () => {
   const d = await tab(1440, 900);
   try {
     await d.evaluate(() => localStorage.removeItem("ofc-panes")).catch(() => {});
-    await d.goto(base + "#build-desk-test"); await d.waitForSelector(".desk .panes");
+    await openWhenThere(d, base + "#build-desk-test", ".desk .panes");
     if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
     for (const p of ["outline", "editor", "study"]) if (!(await d.$(`.desk .pane[data-pane=${p}]`))) throw new Error(`missing the ${p} pane`);
     if (await d.$(".block-card")) throw new Error("the desktop builder shouldn't show the phone's block cards");
@@ -2178,7 +2181,7 @@ await step("desktop builder with panes and a Study pane", async () => {
     await d.click("[data-act=desk-tab][data-tab=lesson]"); await d.waitForSelector(".study[data-tab=lesson]");
     await d.goto(base + "#build-riverside-doc-study"); await d.waitForSelector(".desk .pane[data-pane=editor]");
     if (await d.$("[data-act=desk-tab][data-tab=lesson]")) throw new Error("only lessons have the Lesson tab");
-    await d.goto(base + "#build-desk-test"); await d.waitForSelector(".desk .panes");
+    await openWhenThere(d, base + "#build-desk-test", ".desk .panes");
     await d.click("[data-act=desk-tab][data-tab=veritas]"); await d.waitForSelector(".vt-host:not([hidden])");
     await d.goto(base + "#home"); await d.waitForSelector(".vt-host[hidden]", { state: "attached" });
     await d.goto(base + "#build-desk-test"); await d.waitForSelector(".desk .panes");
@@ -2199,7 +2202,7 @@ await step("keyboard: command box, shortcuts and undo", async () => {
   const d = await tab(1440, 900);
   const count = () => d.$$eval(".ol-item", (l) => l.length), selText = () => d.textContent(".ol-item.on .ol-text span");
   try {
-    await d.goto(base + "#build-keys-test"); await d.waitForSelector(".desk .panes");
+    await openWhenThere(d, base + "#build-keys-test", ".desk .panes");
     if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
     // Ctrl+K: add a passage with its text, below the selected block.
     await d.keyboard.press("Control+k"); await d.waitForSelector("#cmdk input:focus");
@@ -2256,13 +2259,12 @@ await step("right-click menus, multi-select and hover previews", async () => {
       blocks: [B("keynote", { text: "A" }), B("scripture", { ref: "John 3:16", translation: "BSB", text: "" }), B("point", { text: "B" }), B("point", { text: "C" }), B("point", { text: "D" })] });
     S.save(); S.flush?.();
   });
-  // The main tab, left on Admin, runs scheduled reports and saves after each change from this tab; in the preview two
-  // tabs share one copy of the data, so a save landing within 150 ms of another can put back the older copy. Park it.
-  await page.goto("about:blank");
+  // The main tab stays open on Admin, which saves after each change from this tab (scheduled reports): the two tabs'
+  // saves merge (mergeSaved in 20-store.js) instead of one putting back the other's older copy.
   const d = await tab(1440, 900);
   const n = () => d.$$eval(".ol-item", (l) => l.length), picked = () => d.$$eval(".ol-item.picked", (l) => l.length);
   try {
-    await d.goto(base + "#build-sel-test"); await d.waitForSelector(".desk .panes");
+    await openWhenThere(d, base + "#build-sel-test", ".desk .panes");
     if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
     // Right-click a block: it becomes the open block, and the menu acts on it.
     await d.click(".ol-item:nth-child(3) .ol-pick", { button: "right" }); await d.waitForSelector("#ctx .ctx-head:has-text('Point')");
@@ -2295,7 +2297,10 @@ await step("right-click menus, multi-select and hover previews", async () => {
     await d.waitForSelector("#hov:not([hidden]) .hov-person");
     await d.click("#dir-list a.row[href^='#person-'] >> nth=0", { button: "right" }); await d.waitForSelector("#ctx .ctx-i:has-text('Copy contact')");
     await d.keyboard.press("Escape");
-  } finally { await d.close(); await page.goto(base + "?debug#admin"); await page.waitForSelector("#app"); }
+  } finally { await d.close(); }
+  // With two tabs saving, a scheduled report the main tab ran isn't lost and run again (with a second notification).
+  const dupes = await page.evaluate(() => { const seen = new Set(), d = []; __app.S.list("reportRuns").filter((r) => r.auto).forEach((r) => { const k = `${r.reportId}|${r.period}`; if (seen.has(k)) d.push(k); seen.add(k); }); return d; });
+  if (dupes.length) throw new Error(`scheduled reports ran twice: ${dupes.join(", ")}`);
 });
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
@@ -2836,16 +2841,19 @@ await step("AI drafts", async () => {
   await page.evaluate(() => { delete window.__aiStub; });
 });
 await step("settings: Spanish, text size and notifications", async () => {
+  // The security radio dock floats over the bottom of the page for security team members: bring each control up first.
+  const mid = (sel) => page.$eval(sel, (el) => el.scrollIntoView({ block: "center" }));
   await goTo("settings"); await page.click('[data-act=set-lang][data-v="es"]'); await page.waitForSelector("text=Idioma");
   await goTo("home"); await page.waitForSelector('nav.tabs >> text=Inicio'); await shot("43-home-es");
   await goTo("events"); await expectText("Eventos"); await goTo("checkin"); await expectText("Registrar");
   await goTo("event-riverside-e8"); await expectText("Comprar boletos"); await shot("44-event-es");
-  await goTo("settings"); await page.check('input[name=text][value="xl"]', { force: true });
+  await goTo("settings"); await mid('input[name=text][value="xl"]'); await page.check('input[name=text][value="xl"]', { force: true });
   if (!(await page.evaluate(() => document.documentElement.classList.contains("text-xl")))) throw new Error("text size didn't apply");
-  await page.click('label.switch-row:has-text("Más contraste") input'); await shot("45-settings-es");
+  await mid('label.switch-row:has-text("Más contraste") input'); await page.click('label.switch-row:has-text("Más contraste") input'); await shot("45-settings-es");
   await page.click('[data-act=set-lang][data-v="en"]'); await page.waitForSelector("text=Language");
-  await page.check('input[name=text][value="m"]', { force: true }); await page.click('label.switch-row:has-text("More contrast") input');
-  await page.click('label.switch-row:has-text("Messages") input');
+  await mid('input[name=text][value="m"]'); await page.check('input[name=text][value="m"]', { force: true });
+  await mid('label.switch-row:has-text("More contrast") input'); await page.click('label.switch-row:has-text("More contrast") input');
+  await mid('label.switch-row:has-text("Messages") input'); await page.click('label.switch-row:has-text("Messages") input');
   await goTo("chat"); await page.click(".rows a.row >> nth=0"); await page.fill("#msg", "See you Sunday!"); await page.press("#msg", "Enter");
   await goTo("sermon-riverside-s0").catch(() => {}); await goTo("word"); await page.click("#sermon-list a.row >> nth=0"); await page.waitForSelector("[data-act=listen]");
   await goTo("admin-news"); await page.click("[data-act=admin-edit]:not([data-id])"); await page.fill("#scrim input[name=title]", "Parking lot closed Sunday");

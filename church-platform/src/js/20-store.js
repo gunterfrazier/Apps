@@ -4,13 +4,62 @@
 
 const PRIMARY_ROLE = { id: "primary", name: "Primary account holder", rank: 100, perms: Object.fromEntries(PERMS.map(([, k]) => [k, true])), builtin: true };
 
+/**
+ * Three-way merge of the saved data, for two tabs saving at once without a server. base: what this tab last read or
+ * wrote; theirs: what another tab has saved since; mine: what this tab is about to save. Lists of records (anything with
+ * an id) and maps (churches, users, prefs) merge entry by entry: a record only one side changed takes that side's
+ * version, one only one side added is kept, and one deleted on one side is dropped unless the other side changed it.
+ * When both sides changed the same record or value, this tab's (the newer save) wins.
+ */
+function mergeSaved(base, theirs, mine) {
+  const str = (x) => (x === undefined ? "\u0000" : JSON.stringify(x));
+  const plain = (x) => !!x && typeof x === "object" && !Array.isArray(x);
+  const records = (a) => Array.isArray(a) && a.every((x) => plain(x) && x.id != null);
+  const pick = (b, t, m) => (str(m) === str(b) ? t : m); // a record both have: theirs if I didn't touch it, else mine
+  const list = (b, t, m) => {
+    const B = new Map(b.map((x) => [x.id, x])), T = new Map(t.map((x) => [x.id, x])), M = new Map(m.map((x) => [x.id, x]));
+    const out = [];
+    const keep = (id) => {
+      const inB = B.has(id), inT = T.has(id), inM = M.has(id);
+      if (inT && inM) return pick(B.get(id), T.get(id), M.get(id));
+      if (inM) return !inB || str(M.get(id)) !== str(B.get(id)) ? M.get(id) : undefined; // they deleted it: gone, unless I changed it
+      if (inT) return !inB || str(T.get(id)) !== str(B.get(id)) ? T.get(id) : undefined; // I deleted it: gone, unless they changed it
+      return undefined;
+    };
+    t.forEach((x) => { const r = keep(x.id); if (r !== undefined) out.push(r); });
+    m.forEach((x) => { if (!T.has(x.id)) { const r = keep(x.id); if (r !== undefined) out.push(r); } });
+    return out;
+  };
+  const entry = (b, t, m, depth) => {
+    if (str(m) === str(b)) return t;
+    if (str(t) === str(b) || str(t) === str(m)) return m;
+    if (records(b ?? []) && records(t) && records(m)) return list(b ?? [], t, m);
+    if (depth < 2 && plain(t) && plain(m)) { // the whole saved file (depth 0), and maps such as churches and users (depth 1)
+      const o = {}, bb = plain(b) ? b : {};
+      new Set([...Object.keys(t), ...Object.keys(m)]).forEach((k) => {
+        const inT = k in t, inM = k in m;
+        const v = inT && inM ? entry(bb[k], t[k], m[k], depth + 1)
+          : inM ? (!(k in bb) || str(m[k]) !== str(bb[k]) ? m[k] : undefined)
+            : (!(k in bb) || str(t[k]) !== str(bb[k]) ? t[k] : undefined);
+        if (v !== undefined) o[k] = v;
+      });
+      return o;
+    }
+    return m;
+  };
+  return entry(base, theirs, mine, 0);
+}
+
 const S = {
   state: null,
+  _seen: null, // the saved text as this tab last read or wrote it, to notice another tab's save
+  _rev: null, // its version
+  _othersSaved: false, // another tab saved since this one last read: check before writing
   memory: null, // fallback when localStorage is unavailable
 
   load() {
     let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(PLATFORM.storageKey) || "null"); } catch { saved = this.memory; }
+    try { this._seen = localStorage.getItem(PLATFORM.storageKey); saved = JSON.parse(this._seen || "null"); this._rev = saved?._rev || null; this.remember(this._rev, this._seen); } catch { saved = this.memory; this._seen = null; }
     // A demo or training session (or the preview) on older sample data starts over on the newest, so it shows every
     // feature. You stay you; a practice copy of a real church and the live app are never rebuilt.
     if (saved && saved.v === 2 && (saved.seedVersion || 0) < SEED_VERSION && !saved.sandbox?.copyOf && !Backend.configured()
@@ -57,12 +106,63 @@ const S = {
     const own = typeof wsDemo !== "undefined" && wsDemo ? { ...this.state, me: wsDemo.orig } : this.state;   // see 72i-workstation.js
     const cached = Backend.configured() ? { ...own, securityRadioMessages: [], securityDoorChecks: [],
       notifications: own.notifications.filter((n) => n.kind !== "security-radio") } : own;
-    const data = JSON.stringify(cached);
-    try { localStorage.setItem(PLATFORM.storageKey, data); }
+    // Without a server, every tab of the app (the booth's display windows included) shares this one copy. Each save
+    // records its version (_rev) and the version it was based on (_parent). If another tab saved since this one last read
+    // or wrote, merge instead of writing over their changes (mergeSaved, below).
+    let out = cached, parent = this._rev;
+    // Only after the browser said another tab saved (the storage event): a tab on its own saves just as before.
+    if (!Backend.configured() && this._seen != null && this._othersSaved) {
+      this._othersSaved = false;
+      try {
+        const now = localStorage.getItem(PLATFORM.storageKey);
+        if (now && now !== this._seen) {
+          const theirs = JSON.parse(now), merged = mergeSaved(this.ancestor(theirs), theirs, cached);
+          out = merged; parent = theirs._rev || null;
+          if (JSON.stringify(merged) !== JSON.stringify(cached)) {
+            this.state = merged;
+            if (typeof wsAfterLoad === "function") wsAfterLoad();
+            const busy = document.getElementById("scrim") || document.activeElement?.matches?.("input, textarea, select, [contenteditable]");
+            if (!busy && typeof render === "function") setTimeout(render);
+          }
+        }
+      } catch { /* unreadable: save this tab's copy as before */ }
+    }
+    const rev = uid();
+    const data = JSON.stringify({ ...out, _rev: rev, _parent: parent });
+    try { localStorage.setItem(PLATFORM.storageKey, data); this._seen = data; this._rev = rev; this.remember(rev, data); }
     catch (e) {
       this.memory = JSON.parse(data);
       if (e && e.name === "QuotaExceededError") toast("This device is out of room. Remove some uploaded images.");
     }
+  },
+  // The last few versions this tab read or wrote, to find what two tabs' saves have in common.
+  _revs: new Map(),
+  remember(rev, text) { if (!rev || !text) return; this._revs.delete(rev); this._revs.set(rev, text); while (this._revs.size > 4) this._revs.delete(this._revs.keys().next().value); },
+  /** What this tab and theirs both started from: this tab's last version if theirs was based on it, else the version
+   *  theirs was based on if this tab saw it, else nothing known (then the merge keeps everything either side has). */
+  ancestor(theirs) {
+    const text = theirs._parent && theirs._parent === this._rev ? this._seen : this._revs.get(theirs._parent);
+    return text ? JSON.parse(text) : null;
+  },
+  /** Another tab saved (the storage event). Take it as it is if it was based on this tab's last version; if it was
+   *  saved without seeing that (browsers pass changes between tabs a moment late), merge so nothing this tab added is
+   *  lost, and save the merge for the other tab to pick up. Returns false when there's nothing new. */
+  incoming() {
+    const now = localStorage.getItem(PLATFORM.storageKey);
+    if (!now || now === this._seen) return false;
+    let theirs; try { theirs = JSON.parse(now); } catch { return false; }
+    if (!Backend.configured() && this._seen && theirs._parent !== this._rev && theirs._rev !== this._rev) {
+      try {
+        const mine = JSON.parse(this._seen), merged = mergeSaved(this.ancestor(theirs), theirs, mine);
+        if (JSON.stringify(merged) !== JSON.stringify(theirs)) {
+          const rev = uid(), data = JSON.stringify({ ...merged, _rev: rev, _parent: theirs._rev || null });
+          localStorage.setItem(PLATFORM.storageKey, data); this.remember(theirs._rev, now);
+        }
+      } catch { /* fall back to taking theirs */ }
+    }
+    this.remember(theirs._rev, now);
+    this.load(); this._othersSaved = false;
+    return true;
   },
   reset() { const me = this.state.me; this.state = buildSeed(); this.state.me = { ...this.state.me, id: me.id }; this.save(); },
 
