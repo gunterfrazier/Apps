@@ -2383,6 +2383,47 @@ await step("desktop people: list beside details", async () => {
     if (await d.$(".split")) throw new Error("a narrow window should keep the plain list");
   } finally { await d.close(); }
 });
+await step("desktop reports: real tables", async () => {
+  if (!(await page.evaluate(() => __app.S.can("view.reports") && __app.S.can("manage.people")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  const d = await tab(1440, 900);
+  const T = '.dt[data-dt="people"]', heads = () => d.$$eval(`${T} thead th .dt-sort`, (b) => b.map((x) => x.firstChild.textContent));
+  try {
+    await d.goto(base + "#home"); await d.evaluate(() => localStorage.removeItem("ofc-dt"));
+    await d.goto(base + "#reports-people"); await d.waitForSelector(`${T} tbody tr`);
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    const n = await d.$$eval(`${T} tbody tr`, (r) => r.length), members = await page.evaluate(() => __app.S.members().length);
+    if (n !== members) throw new Error(`on a computer the table shows every row: ${n} of ${members}`);
+    // Sort: a number column starts biggest first, then reverses, then goes back.
+    const col = `${T} [data-act=dt-sort][data-col="3"]`, groups = () => d.$$eval(`${T} tbody tr`, (r) => r.map((x) => +x.cells[4].textContent.replace(/\D/g, "")));
+    await d.click(col); await d.waitForSelector(`${T} th[aria-sort=descending]`);
+    let g = await groups(); if (g.some((v, i) => i && v > g[i - 1])) throw new Error(`should sort biggest first: ${g.join(",")}`);
+    await d.click(col); await d.waitForSelector(`${T} th[aria-sort=ascending]`);
+    g = await groups(); if (g.some((v, i) => i && v < g[i - 1])) throw new Error("should sort smallest first");
+    await d.click(col); await d.waitForFunction((t) => !document.querySelector(`${t} th[aria-sort=ascending], ${t} th[aria-sort=descending]`), T);
+    // Columns: hide one; it stays hidden after a reload.
+    await d.click(`${T} [data-act=dt-cols]`); await d.click("#ctx .ctx-i:has-text('Serving teams')");
+    await d.waitForFunction((t) => document.querySelectorAll(`${t} thead .dt-sort`).length === 4, T);
+    await d.keyboard.press("Escape");
+    await d.reload(); await d.waitForSelector(`${T} tbody tr`);
+    if ((await heads()).includes("Serving teams")) throw new Error("a hidden column should stay hidden");
+    // The heading stays put while the rows scroll.
+    const wrap = `${T} .dt-wrap`, top0 = (await d.locator(`${T} thead th >> nth=1`).boundingBox()).y;
+    await d.$eval(wrap, (w) => { w.scrollTop = 200; }); await d.waitForTimeout(50);
+    if (Math.abs((await d.locator(`${T} thead th >> nth=1`).boundingBox()).y - top0) > 1) throw new Error("the heading should stick");
+    await d.$eval(wrap, (w) => { w.scrollTop = 0; });
+    // Tick a run of rows and download just those.
+    await d.click(`${T} tbody tr >> nth=0 >> input`); await d.click(`${T} tbody tr >> nth=3 >> input`, { modifiers: ["Shift"] });
+    await d.waitForSelector(`${T} .dt-sel b:text('4 selected')`);
+    const [dl] = await Promise.all([d.waitForEvent("download"), d.click(`${T} [data-act=dt-csv]`)]);
+    if (!/selected/.test(dl.suggestedFilename())) throw new Error(`download name: ${dl.suggestedFilename()}`);
+    const csv = readFileSync(await dl.path(), "utf8").trim().split("\n"); if (csv.length !== 5) throw new Error(`the download should have the 4 picked rows: ${csv.length - 1}`);
+    await d.screenshot({ path: join(shots, "50n-report-table.png") });
+    // Right-click a person's row.
+    await d.click(`${T} tbody tr >> nth=1`, { button: "right" }); await d.waitForSelector("#ctx .ctx-i:has-text('Role and access')");
+    await d.click("#ctx .ctx-i:has-text('Role and access')"); await d.waitForSelector(".split-detail form[data-form=member-save]");
+    await d.goto(base + "#home"); await d.evaluate(() => localStorage.removeItem("ofc-dt"));
+  } finally { await d.close(); }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");
