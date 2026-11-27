@@ -2140,6 +2140,16 @@ await step("desktop builder with panes and a Study pane", async () => {
     await d.waitForSelector(".ol-item:nth-child(2) .ol-text:has-text('Psalm 1:1-3')");
     if ((await d.getAttribute(".study", "data-ref")) !== "John 15:1-8") throw new Error("a pinned Study pane should stay on its passage");
     await d.click("[data-act=desk-pin]"); await d.waitForFunction(() => document.querySelector(".study")?.dataset.ref === "Psalm 1:1-3");
+    // The Veritas tab: the live app beside the writing. The frame loads once and follows the outline without reloading.
+    await d.click("[data-act=desk-tab][data-tab=veritas]"); await d.waitForSelector(".vt-host:not([hidden]) iframe");
+    if ((await d.getAttribute(".vt-host iframe", "src")) !== "https://veritaslogos.com/app/#read-psalms-1-1-3") throw new Error(`the Veritas tab should open on the passage: ${await d.getAttribute(".vt-host iframe", "src")}`);
+    const slot = await d.locator(".vt-slot").boundingBox(), host = await d.locator(".vt-host").boundingBox();
+    if (Math.abs(slot.x - host.x) > 1 || Math.abs(slot.width - host.width) > 1 || Math.abs(slot.height - host.height) > 1) throw new Error("the Veritas frame should sit over its place in the Study pane");
+    await d.evaluate(() => { document.querySelector(".vt-host iframe").dataset.mark = "same"; });
+    await d.click(".ol-item:nth-child(1) .ol-pick"); await d.waitForSelector(".ol-item:nth-child(1).on");
+    if ((await d.getAttribute(".vt-host iframe", "src")) !== "https://veritaslogos.com/app/#read-john-15-1-8" || !(await d.$(".vt-host iframe[data-mark=same]"))) throw new Error("the frame should follow to the main passage without being replaced");
+    await d.click(".ol-item:nth-child(2) .ol-pick"); await d.waitForSelector(".ol-item:nth-child(2).on");
+    await d.click("[data-act=desk-tab][data-tab=passage]"); await d.waitForSelector(".vt-host[hidden]", { state: "attached" });
     // Related passages, and Insert drops one in below the selected block.
     const before = await d.$$eval(".ol-item", (l) => l.length);
     await d.click("[data-act=desk-tab][data-tab=related]"); await d.waitForSelector(".xref-row [data-act=desk-insert]");
@@ -2168,6 +2178,9 @@ await step("desktop builder with panes and a Study pane", async () => {
     await d.click("[data-act=desk-tab][data-tab=lesson]"); await d.waitForSelector(".study[data-tab=lesson]");
     await d.goto(base + "#build-riverside-doc-study"); await d.waitForSelector(".desk .pane[data-pane=editor]");
     if (await d.$("[data-act=desk-tab][data-tab=lesson]")) throw new Error("only lessons have the Lesson tab");
+    await d.goto(base + "#build-desk-test"); await d.waitForSelector(".desk .panes");
+    await d.click("[data-act=desk-tab][data-tab=veritas]"); await d.waitForSelector(".vt-host:not([hidden])");
+    await d.goto(base + "#home"); await d.waitForSelector(".vt-host[hidden]", { state: "attached" });
     await d.goto(base + "#build-desk-test"); await d.waitForSelector(".desk .panes");
     // A narrow window gets today's phone builder.
     await d.setViewportSize({ width: 800, height: 900 }); await d.waitForSelector(".block-card"); 

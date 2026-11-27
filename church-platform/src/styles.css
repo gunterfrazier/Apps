@@ -2684,3 +2684,12 @@ body.has-side:has(.desk) #app { padding-bottom: 0; }
 .strip-slide.on { color: var(--brand); }
 .strip-slide:focus-visible .stage { outline: 3px solid var(--brand); }
 .desk-toggles .chip { display: inline-flex; align-items: center; gap: 6px; }
+
+/* The Veritas tab (49b-builder-desk.js): the frame sits over .vt-slot from outside the redrawn page. */
+.pane-body:has(.vt-slot) { overflow: hidden; display: flex; flex-direction: column; }
+.pane-body:has(.vt-slot) .study { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.vt-note { margin: 0 0 8px; font-size: .85rem; }
+.vt-slot { flex: 1; min-height: 240px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.vt-host { position: fixed; z-index: 15; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
+.vt-host[hidden] { display: none; }
+.vt-host iframe { width: 100%; height: 100%; border: 0; display: block; }
