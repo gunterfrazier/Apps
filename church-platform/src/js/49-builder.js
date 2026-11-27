@@ -142,17 +142,7 @@ Screens.build = (id) => {
       <h1>${d.title}</h1>
       <p class="muted" style="margin-top:4px">${[d.passage, g?.name, docWhen(d), d.locationId && multiCampus() ? locName(d.locationId) : ""].filter(Boolean).join(". ")}</p>
       ${isUnassigned(d) ? html`<div class="demo-note">${icon("calendar")}<div>Unassigned draft: no class, date or time yet. <button class="btn ghost sm" data-act="doc-assign" data-id="${d.id}" style="margin-top:6px">Assign to a class</button></div></div>` : ""}
-      <div class="btns">
-        ${S.can("present") || canEditDoc(d) ? html`<a class="btn sm" href="#present-doc-${d.id}">${icon("screen")}Present</a>` : ""}
-        <a class="btn ghost sm" href="#slides-doc-${d.id}">${icon("image")}Edit slides</a>
-        <a class="btn ghost sm" href="#resource-${d.id}">${icon("note")}Presenter page</a>
-        <button class="btn ghost sm" data-act="doc-details" data-id="${d.id}">${icon("edit")}Details</button>
-        <button class="btn ghost sm" data-act="layout-save" data-kind="doc" data-id="${d.id}">${icon("layers")}Save as layout</button>
-        <button class="btn ghost sm" data-act="doc-publish" data-id="${d.id}">${d.published ? "Unpublish" : "Publish"}</button>
-        ${d.kind === "lesson" && canEditDoc(d) && S.on("storylessons") ? html`<a class="btn ${d.blocks.some((b) => b.type !== "scripture") ? "ghost " : ""}sm" href="#storylesson-${d.id}">${icon("book")}${d.storyId ? "Bible stories" : "Start from a Bible story"}</a>
-          <a class="btn ghost sm" href="#lessonschurch-${d.id}">${icon("book")}Start from Lessons.church</a>` : ""}
-        ${canAI() ? html`<button class="btn ghost sm" data-act="ai-build" data-id="${d.id}">${icon("bolt")}${d.kind === "lesson" && !d.blocks.some((b) => b.type !== "scripture") ? "Draft this lesson" : "Draft questions"}</button>` : ""}
-      </div>
+      <div class="btns">${docButtons(d)}</div>
       ${d.kind === "lesson" && S.on("kidsintro") && d.storyId ? kidsBookendsPanel(d) : ""}
       ${d.kind === "lesson" && S.on("storylessons") ? storyBgPanel(d) : ""}
       ${d.passage ? pastPanel(d.passage, { doc: d.id, label: "You've preached or taught on this before", max: 3 }) : ""}
@@ -181,6 +171,20 @@ Screens.build = (id) => {
     after() { makeSortable($("#sort-list"), (from, to, kb) => { if (moveItem(d.blocks, from, to)) { touch(d); render(); if (kb) $$("#sort-list [data-drag]")[to]?.focus(); } }); },
   };
 };
+/** The builder's buttons (present, slides, presenter page, details...), shared by the phone page and the desktop workspace. */
+function docButtons(d) {
+  return html`
+        ${S.can("present") || canEditDoc(d) ? html`<a class="btn sm" href="#present-doc-${d.id}">${icon("screen")}Present</a>` : ""}
+        <a class="btn ghost sm" href="#slides-doc-${d.id}">${icon("image")}Edit slides</a>
+        <a class="btn ghost sm" href="#resource-${d.id}">${icon("note")}Presenter page</a>
+        <button class="btn ghost sm" data-act="doc-details" data-id="${d.id}">${icon("edit")}Details</button>
+        <button class="btn ghost sm" data-act="layout-save" data-kind="doc" data-id="${d.id}">${icon("layers")}Save as layout</button>
+        <button class="btn ghost sm" data-act="doc-publish" data-id="${d.id}">${d.published ? "Unpublish" : "Publish"}</button>
+        ${d.kind === "lesson" && canEditDoc(d) && S.on("storylessons") ? html`<a class="btn ${d.blocks.some((b) => b.type !== "scripture") ? "ghost " : ""}sm" href="#storylesson-${d.id}">${icon("book")}${d.storyId ? "Bible stories" : "Start from a Bible story"}</a>
+          <a class="btn ghost sm" href="#lessonschurch-${d.id}">${icon("book")}Start from Lessons.church</a>` : ""}
+        ${canAI() ? html`<button class="btn ghost sm" data-act="ai-build" data-id="${d.id}">${icon("bolt")}${d.kind === "lesson" && !d.blocks.some((b) => b.type !== "scripture") ? "Draft this lesson" : "Draft questions"}</button>` : ""}
+`;
+}
 const touch = (d) => { d.updated = new Date().toISOString(); S.save(); };
 Actions["block-vis"] = (el) => { const d = S.get("docs", el.dataset.doc), b = d.blocks[+el.dataset.i]; b.show = !b.show; touch(d); render(); };
 Actions["dblock-move"] = (el) => { const d = S.get("docs", el.dataset.doc), i = +el.dataset.i, j = i + +el.dataset.dir; if (j < 0 || j >= d.blocks.length) return; [d.blocks[i], d.blocks[j]] = [d.blocks[j], d.blocks[i]]; touch(d); render(); };
@@ -193,6 +197,12 @@ function qrTargets() {
     ...S.visible("gatherings").map((g) => [g.registration === "none" ? `gathering-${g.id}` : `register-gathering-${g.id}`, `${g.type === "class" ? "Class" : "Group"}: ${g.name}`])];
 }
 function blockEditor(docId, i, b) {
+  if (typeof deskEdit === "function" && deskEdit(docId, i, b)) return; // The desktop builder edits in its middle pane.
+  openSheet(`${i < 0 ? "Add" : "Edit"}: ${BLOCKS[b.type].label}`, docBlockForm(docId, i, b), { wide: true });
+}
+/** The form for one block. On the desktop builder (desk) it sits in the editor pane, saves as you type, and a new block's
+ *  place comes from the outline instead of a Position menu. */
+function docBlockForm(docId, i, b, desk = null) {
   const type = b.type;
   const showToggle = type !== "note" ? html`<label class="check"><input type="checkbox" name="show" ${attr(b.show, "checked")}><span><b>Show on screen</b><br><span class="faint">Unchecked items stay on your presenter page only.</span></span></label>` : html`<p class="faint">Private notes never show on screen.</p>`;
   const notes = type !== "note" ? html`<label class="field"><span>Speaker notes (private)</span><textarea name="notes" style="min-height:70px">${b.notes || ""}</textarea></label>` : "";
@@ -212,13 +222,13 @@ function blockEditor(docId, i, b) {
       <label class="field"><span>QR code on screen (optional)</span><select name="target">${qrTargets().map(([k, l]) => html`<option value="${k}" ${attr(k === (b.target || ""), "selected")}>${l}</option>`)}</select><small>When this cue is shown on screen, people can scan straight to it.</small></label>`; break;
     default: fields = html`<label class="field"><span>${type === "keynote" ? "Big statement" : type === "question" ? "Question" : type === "note" ? "Note to yourself" : "Point"}</span><textarea name="text" style="min-height:90px" required>${b.text || ""}</textarea></label>`;
   }
-  openSheet(`${i < 0 ? "Add" : "Edit"}: ${BLOCKS[type].label}`, html`<form data-form="dblock-save" novalidate><input type="hidden" name="_doc" value="${docId}"><input type="hidden" name="_i" value="${i}"><input type="hidden" name="_type" value="${type}">
+  return html`<form data-form="dblock-save" novalidate ${desk && i >= 0 ? "data-desk-auto" : ""}><input type="hidden" name="_doc" value="${docId}"><input type="hidden" name="_i" value="${i}"><input type="hidden" name="_type" value="${type}">
     ${fields}${showToggle}
     ${S.get("docs", docId)?.kind === "lesson" && type !== "note" ? html`<label class="check"><input type="checkbox" name="home" ${attr(b.home, "checked")}><span><b>Send home on the family page</b><br><span class="faint">Parents see it in the parent portal, even if it's private in class.</span></span></label>` : ""}
     ${type === "media" ? html`<label class="check"><input type="checkbox" name="print" ${attr(b.print, "checked")}><span><b>Printable handout</b><br><span class="faint">A coloring page or worksheet: gets a Print button here and on the family page.</span></span></label>` : ""}
     ${notes}
-    ${(() => { const n = S.get("docs", docId).blocks.length; return positionField(i >= 0 ? n : n + 1, i >= 0 ? i : n); })()}
-    <div class="btns"><button class="btn">${i < 0 ? "Add" : "Save"}</button>${i >= 0 ? html`<button type="button" class="btn ghost" data-act="item-save" data-kind="block" data-source="${docId}" data-i="${i}">${icon("bookmark")}Save for reuse</button><button type="button" class="btn danger" data-act="dblock-delete" data-doc="${docId}" data-i="${i}">Delete</button>` : ""}</div></form>`, { wide: true });
+    ${desk ? (i < 0 ? html`<input type="hidden" name="_pos" value="${desk.at}">` : "") : (() => { const n = S.get("docs", docId).blocks.length; return positionField(i >= 0 ? n : n + 1, i >= 0 ? i : n); })()}
+    <div class="btns"><button class="btn">${i < 0 ? "Add" : desk ? "Done" : "Save"}</button>${desk && i < 0 ? html`<button type="button" class="btn ghost" data-act="desk-cancel">Cancel</button>` : ""}${i >= 0 ? html`<button type="button" class="btn ghost" data-act="item-save" data-kind="block" data-source="${docId}" data-i="${i}">${icon("bookmark")}Save for reuse</button><button type="button" class="btn danger" data-act="dblock-delete" data-doc="${docId}" data-i="${i}">Delete</button>` : ""}${desk && i >= 0 ? html`<span class="desk-saved faint" aria-live="polite"></span>` : ""}</div></form>`;
 }
 Actions["fill-bible"] = async (el) => {
   const f = el.closest("form"), ref = $("input[name=ref]", f).value, t = $("select[name=translation]", f).value;
@@ -228,20 +238,29 @@ Actions["fill-bible"] = async (el) => {
   catch { formError(f, "That passage couldn't be loaded here. Type or paste the text instead."); }
   el.disabled = false; el.textContent = "Fill from the Bible";
 };
-Forms["dblock-save"] = (d, f) => {
-  const doc = S.get("docs", d._doc), type = d._type;
+/** Reads a block form's values into a block, or returns { err }. */
+function blockFromForm(doc, d) {
+  const type = d._type;
   const b = { type, show: type === "note" ? false : !!d.show, notes: d.notes || "" };
   if (doc.kind === "lesson" && type !== "note") b.home = Boolean(d.home);
   if (type === "media") b.print = Boolean(d.print);
-  if (type === "scripture") { if (!parseRef(d.ref)) return formError(f, "Enter a Bible reference like John 3:16."); Object.assign(b, { ref: refLabel(parseRef(d.ref)), translation: d.translation, text: d.text }); }
-  else if (type === "media") { if (!d.image && !d.url) return formError(f, "Add a picture or a link."); if (d.url && !isUrl(d.url)) return formError(f, "The link should start with https://"); Object.assign(b, { image: d.image, url: d.url, caption: d.caption }); }
+  if (type === "scripture") { if (!parseRef(d.ref)) return { err: "Enter a Bible reference like John 3:16." }; Object.assign(b, { ref: refLabel(parseRef(d.ref)), translation: d.translation, text: d.text }); }
+  else if (type === "media") { if (!d.image && !d.url) return { err: "Add a picture or a link." }; if (d.url && !isUrl(d.url)) return { err: "The link should start with https://" }; Object.assign(b, { image: d.image, url: d.url, caption: d.caption }); }
   else if (type === "text") Object.assign(b, { title: d.title, text: d.text });
   else if (type === "action") Object.assign(b, { label: d.label || "Cue", text: d.text, target: d.target });
-  else { if (!d.text) return formError(f, "Write something first."); b.text = d.text; }
+  else { if (!d.text) return { err: "Write something first." }; b.text = d.text; }
+  return { b };
+}
+Forms["dblock-save"] = (d, f) => {
+  const doc = S.get("docs", d._doc), { b, err } = blockFromForm(doc, d);
+  if (err) return formError(f, err);
   const i = +d._i;
   if (i >= 0) doc.blocks[i] = { ...doc.blocks[i], ...b }; else doc.blocks.push({ id: uid(), ...b });
-  if (d._pos !== undefined && d._pos !== "") moveItem(doc.blocks, i >= 0 ? i : doc.blocks.length - 1, +d._pos);
-  touch(doc); closeSheet(); render();
+  let at = i >= 0 ? i : doc.blocks.length - 1;
+  if (d._pos !== undefined && d._pos !== "") { moveItem(doc.blocks, at, +d._pos); at = Math.min(+d._pos, doc.blocks.length - 1); }
+  touch(doc); closeSheet();
+  if (typeof deskSaved === "function") deskSaved(doc, at, i < 0);
+  render();
 };
 Actions["dblock-delete"] = (el) => { const d = S.get("docs", el.dataset.doc); d.blocks.splice(+el.dataset.i, 1); touch(d); closeSheet(); render(); };
 Actions["doc-publish"] = (el) => { const d = S.get("docs", el.dataset.id); d.published = !d.published; touch(d); toast(d.published ? "Published" : "Back to draft"); render(); };
