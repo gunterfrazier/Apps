@@ -386,7 +386,7 @@ const NEW_PERM_DEFAULTS = {
 };
 /** What each kind of signed-in church device may do. Devices never get a person's role. */
 // A room display reads bookings ("rooms.view", a device-only permission) to know who has the room right now.
-const DEVICE_PERMS = { kiosk: ["checkin.station", "use.checkin", "checkin.events"], gate: ["checkin.events"], signage: [], display: ["present"], room: ["present", "rooms.view"], stage: ["present"], overlay: ["present"], booth: ["present"] };
+const DEVICE_PERMS = { kiosk: ["checkin.station", "use.checkin", "checkin.events"], gate: ["checkin.events"], signage: [], display: ["present"], room: ["present", "rooms.view"], stage: ["present"], overlay: ["present"], booth: ["present"], workstation: [] };
 const mmss = (secs) => { const s = Math.max(0, Math.round(secs)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 /** Every feature a church can turn on or off: [key, name, what it is, group]. Groups organize Admin, Features. */
 const MODULES = [

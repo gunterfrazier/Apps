@@ -1888,6 +1888,50 @@ await step("cues on service parts", async () => {
     await b.close(); await obs.close();
   }
 });
+await step("workstations with name and pin", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.church") && __app.S.can("manage.people")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  // The admin sets their own PIN; an easy one is refused.
+  await goTo("me"); await page.click("a[href='#computers']"); await page.waitForSelector("form[data-form=my-pin]");
+  await page.fill("form[data-form=my-pin] [name=pin]", "123456"); await page.fill("form[data-form=my-pin] [name=again]", "123456"); await page.click("form[data-form=my-pin] button.btn:not([type=button])");
+  await page.waitForSelector("form[data-form=my-pin] .err >> text=too easy");
+  await page.fill("form[data-form=my-pin] [name=pin]", "482915"); await page.fill("form[data-form=my-pin] [name=again]", "482915"); await page.click("form[data-form=my-pin] button.btn:not([type=button])");
+  await page.waitForSelector("text=Your PIN is set");
+  // A second person has a PIN too.
+  const ben = await page.evaluate(() => { const S = __app.S, m = S.members().find((x) => x.userId !== S.me().id && S.user(x.userId)?.name); ((S.state.wsPins ||= {})[S.state.current] ||= {})[m.userId] = { pin: "730594", enabled: true, at: new Date().toISOString() }; S.save(); return { id: m.userId, name: S.userName(m.userId) }; });
+  // The church locks after 30 minutes; the member role after 15.
+  await goTo("admin-signin"); await page.selectOption("form[data-form=admin-locks] [name=master]", "30");
+  const roleId = await page.evaluate((id) => __app.S.membership(undefined, id).roleId, ben.id);
+  await page.selectOption(`form[data-form=admin-locks] [name=role-min-${roleId}]`, "15"); await page.click("form[data-form=admin-locks] button.btn");
+  await page.waitForFunction((r) => __app.S.church().timeouts?.master === 30 && __app.S.church().timeouts?.roles?.[r]?.minutes === 15, roleId);
+  const code = await pairNew("workstation"); await page.click("#scrim [data-act=close-sheet]");
+  const w = await tab(1280, 800);
+  try {
+    await w.goto(base + `?debug#pair-${code}`); await w.click("form[data-form=pair] button"); await w.waitForSelector(".ws-lock");
+    const names = await w.$$eval(".ws-form select[name=who] option", (os) => os.map((o) => o.textContent));
+    if (!names.some((n) => n.startsWith(ben.name)) || names.length < 3) throw new Error("lock screen names: " + names);
+    await w.selectOption(".ws-form select[name=who]", ben.id); await w.fill(".ws-form [name=pin]", "000000"); await w.click(".ws-form button");
+    await w.waitForSelector(".ws-form .err >> text=didn't match");
+    await w.selectOption(".ws-form select[name=who]", ben.id); await w.fill(".ws-form [name=pin]", "730594"); await w.click(".ws-form button");
+    await w.waitForSelector(`#ws-bar >> text=${ben.name}`); await w.waitForSelector("#ws-bar >> text=locks after 15 minutes idle");
+    if ((await w.evaluate(() => __app.S.me().id)) !== ben.id) throw new Error("the workstation should act as the person");
+    await w.evaluate(() => { location.hash = "#me"; });
+    await w.waitForSelector("a[href='#computers']");   // not held to the lock screen
+    await w.screenshot({ path: join(shots, "49f-workstation-signed-in.png") });
+    await w.click("#ws-bar [data-act=ws-lock]"); await w.waitForSelector(".ws-lock"); if (await w.$("#ws-bar")) throw new Error("the bar should go with the lock");
+    // Sign in again, then go quiet: a warning a minute before, Stay signed in, and then the lock.
+    await w.selectOption(".ws-form select[name=who]", ben.id); await w.fill(".ws-form [name=pin]", "730594"); await w.click(".ws-form button"); await w.waitForSelector("#ws-bar");
+    await w.evaluate(() => { const r = JSON.parse(localStorage.getItem("ofc-ws")); r.active = Date.now() - 14.5 * 60e3; localStorage.setItem("ofc-ws", JSON.stringify(r)); __app.Workstation.person().active = r.active; });
+    await w.waitForSelector("#ws-warn >> text=Still there?"); await w.click("#ws-warn [data-act=ws-stay]"); await w.waitForSelector("#ws-warn", { state: "detached" });
+    await w.evaluate(() => { const r = JSON.parse(localStorage.getItem("ofc-ws")); r.active = Date.now() - 16 * 60e3; localStorage.setItem("ofc-ws", JSON.stringify(r)); });
+    await w.waitForSelector(".ws-lock .err >> text=without activity", { timeout: 5000 });
+    await w.screenshot({ path: join(shots, "49g-workstation-lock.png") });
+  } finally {
+    await w.close();
+  }
+  await goTo("admin-signin"); await page.waitForSelector(`.rows >> text=${ben.name}`); await page.waitForSelector("text=Recent sign-ins"); await shot("49h-admin-signin");
+  const signins = await page.$$eval("h2:has-text('Recent sign-ins') + .rows .row", (rs) => rs.length); if (signins < 2) throw new Error("both sign-ins should be logged, saw " + signins);
+  await page.evaluate(() => { const S = __app.S; S.state.devices = S.state.devices.filter((d) => d.type !== "workstation"); delete S.state.wsPins; delete S.state.wsSignins; delete S.church().timeouts; localStorage.removeItem("ofc-ws"); S.save(); });
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");

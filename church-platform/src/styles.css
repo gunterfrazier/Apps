@@ -2387,3 +2387,25 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 .scr-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .scr-pick select[hidden] { display: none; }
 @media (max-width: 600px) { .scr-pick { grid-template-columns: 1fr; } }
+
+/* Workstations (72i-workstation.js, 72j-workstation-settings.js) */
+.ws-lock { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: linear-gradient(160deg, var(--brand, #1f3a5f), #0d1520); }
+.ws-card { width: min(440px, 100%); background: var(--surface); color: var(--ink); border-radius: 20px; padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,.35); display: grid; gap: 14px; }
+.ws-church { display: flex; gap: 12px; align-items: center; }
+.ws-church > div { display: grid; }
+.ws-clock { margin: 0; font-size: 2.6rem; font-weight: 800; letter-spacing: -.02em; }
+.ws-form .field select, .ws-form .field input { font-size: 1.15rem; padding: 12px; }
+.ws-form input[name=pin]:not(:placeholder-shown) { letter-spacing: .5em; }
+.ws-help { margin: 0; }
+.ws-bar { position: fixed; z-index: 900; left: 12px; bottom: 12px; display: flex; gap: 10px; align-items: center; background: #111827; color: #f9fafb; border-radius: 999px; padding: 6px 6px 6px 14px; box-shadow: 0 6px 20px rgba(0,0,0,.3); font-size: .85rem; max-width: calc(100vw - 24px); }
+.ws-bar svg { width: 16px; height: 16px; flex: none; }
+.ws-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-warn { position: fixed; z-index: 1000; inset: auto 0 0 0; margin: 0 auto 70px; width: min(460px, calc(100vw - 24px)); background: var(--surface); color: var(--ink); border: 2px solid #f08c00; border-radius: 16px; padding: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+.ws-warn p { margin: 0 0 10px; }
+.lock-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px 10px; align-items: center; margin: 6px 0 12px; }
+.lock-grid [role=columnheader] { font-size: .78rem; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.lock-grid select { width: 100%; }
+@media (max-width: 560px) { .lock-grid { grid-template-columns: 1fr 1fr; } .lock-grid [role=columnheader]:first-child { display: none; } .lock-grid [role=cell]:nth-child(3n+4) { grid-column: 1 / -1; } }
+.lock-add { margin: 6px 0; }
+.sub-head { font-size: .95rem; margin: 14px 0 4px; }
+.row-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }

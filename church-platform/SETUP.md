@@ -386,6 +386,36 @@ For one click on Sunday, allow pop-ups for the site and, under the site's settin
 **Automatic full screen** to **Allow**. Without it, each window shows a **Click for full screen** button. Set the
 computer's displays to extend, not mirror. Other browsers get plain windows to drag into place.
 
+## Workstations: shared computers with name and PIN (version 30)
+
+For an existing project, run `supabase/upgrade-30.sql` after version 29. The `workstation` function deploys with the
+others.
+
+A workstation is a shared church computer: the office PC, the security desk, the counting room.
+- **Pairing:** pair it under **Devices, Add a device, Workstation**, like the booth computer. Paired, it shows a lock
+  screen, and the workstation itself can do nothing else.
+- **Signing in:** people pick their name, type their 6-digit PIN, and the app opens as them, with what their role
+  allows.
+- **Locking:** **Lock**, at the bottom left, signs them out, and the computer goes back to the lock screen, still paired.
+
+**PINs.** Each person sets their own under **Me, Church computers**. Only people with a PIN appear on the lock screen.
+- **Storage:** only a scrambled (bcrypt) copy of each PIN is kept.
+- **Easy PINs refused:** a digit repeated six times, or counting up or down.
+- **Lockout:** five wrong tries lock that name for 15 minutes.
+- **Admin controls:** admins with **Members and the directory** can clear a PIN, switch someone off, or unlock them under
+  **Admin, Workstations, PINs and auto-lock**. The same page lists recent sign-ins.
+
+**Automatic lock.** On the same page, admins with **Church account, features and defaults** set:
+- **The church limit:** how long a workstation may sit unused before it locks (60 minutes until set). Nobody's limit can
+  be longer.
+- **Per role and per person:** a shorter limit, and whether that role or person may choose a shorter time for
+  themselves. A person's setting wins over their role's.
+- **Each person's own choice:** under **Me, Church computers**, when they're allowed. It's always within their limit.
+
+A minute before the lock, the workstation asks "Still there?". A browser closed and reopened after the limit locks
+before showing anything. People sign in with the email on their account, so someone who signs in only by phone
+number can't use a workstation yet.
+
 ## Stream Deck through Companion (version 29)
 
 For an existing project, run `supabase/upgrade-29.sql` after version 28. The `control` function deploys with the

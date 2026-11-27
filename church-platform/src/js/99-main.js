@@ -27,7 +27,7 @@ if (!FORWARDING) {
   // code, a display showing the next slide), pick it up, so this tab doesn't later save its older copy over it.
   window.addEventListener("storage", (e) => {
     if (e.key !== PLATFORM.storageKey || !e.newValue || Backend.on || S._timer) return;
-    S.load();
+    S.load(); if (typeof wsAfterLoad === "function") wsAfterLoad();
     const busy = document.getElementById("scrim") || document.activeElement?.matches?.("input, textarea, select, [contenteditable]");
     if (!busy) render();
   });
@@ -44,4 +44,4 @@ if (!FORWARDING) {
 }
 
 // For local testing only: open the app with ?debug to reach the store from the console.
-if (/[?&]debug\b/.test(location.search)) window.__app = { S, ctlKeys, Obs, pres, tz, zp, hhmmOf, isoDay, isoAdd, isoDow, today, fromIsoDay, gfxStart, gfxCanvas, gfxPdf, gfxBoxes: () => gfxLive.assets?.boxes || [], whatsNewFor, Player, roomUses, bookingConflicts, meetingTimes, Backend, RECORD_KINDS, SPLIT, signPlay, render, pres, roomAccess, activeRoomSession, DeviceSignin, deactTick, presencePrompt, serviceNow, welcomeOf, PLACE_TYPES, emailAudiences, datesComing, tagArtSvg, tagArtPdf, NFC_SUPPLIERS };
+if (/[?&]debug\b/.test(location.search)) window.__app = { S, ctlKeys, Obs, pres, Workstation, tz, zp, hhmmOf, isoDay, isoAdd, isoDow, today, fromIsoDay, gfxStart, gfxCanvas, gfxPdf, gfxBoxes: () => gfxLive.assets?.boxes || [], whatsNewFor, Player, roomUses, bookingConflicts, meetingTimes, Backend, RECORD_KINDS, SPLIT, signPlay, render, pres, roomAccess, activeRoomSession, DeviceSignin, deactTick, presencePrompt, serviceNow, welcomeOf, PLACE_TYPES, emailAudiences, datesComing, tagArtSvg, tagArtPdf, NFC_SUPPLIERS };
