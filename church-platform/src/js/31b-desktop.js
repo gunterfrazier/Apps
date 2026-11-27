@@ -54,6 +54,7 @@ function sideNav(view, head) {
   const me = S.me();
   return html`<nav class="side" aria-label="Main and workspaces">
     <a class="side-church" href="#home" title="${c.name}">${churchMark(c, 34)}<span>${c.name}</span></a>
+    ${S.isMember() ? html`<button type="button" class="side-link side-search" data-act="cmdk" title="Search and commands (${modKey()}+K)">${icon("search")}<span>Search</span><kbd>${modKey()} K</kbd></button>` : ""}
     <div class="side-group">${main.map(link)}</div>
     ${workspacesFor().map(([name, items]) => html`<div class="side-group"><p class="side-h">${name}</p>${items.map(link)}</div>`)}
     <div class="side-foot">
