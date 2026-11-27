@@ -2005,6 +2005,42 @@ await step("desktop layout", async () => {
     await d.close();
   }
 });
+await step("security desk and floating toolbar", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.church")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await page.evaluate(() => { const { S } = __app; window.__secSnap = structuredClone(S.state); if (!S.list("securityAccessAssignments").some((a) => a.userId === S.me().id)) S.add("securityAccessAssignments", { userId: S.me().id, role: "head" }); S.church().activeAlert = null; S.save(); });
+  const sd = await tab(1440, 900);
+  await sd.addInitScript(() => { try { delete window.documentPictureInPicture; } catch {} });   // the small-window fallback: same code, testable here
+  const pops = []; sd.context().on("page", (p) => pops.push(p));
+  try {
+    await sd.goto(base + "?debug#security"); await sd.waitForSelector(".sec-desk");
+    await sd.waitForSelector(".sec-desk-status >> text=Normal operations"); await sd.waitForSelector(".sec-desk-main .sec-chat-feed");
+    await sd.screenshot({ path: join(shots, "50e-security-desk.png") });
+    await sd.click("[data-act=sec-toolbar]"); await sd.waitForTimeout(800);
+    const tb = pops.find((p) => !p.isClosed()); if (!tb) throw new Error("the toolbar window didn't open");
+    await tb.waitForSelector("#sec-tb .sec-tb-level >> text=Normal");
+    // Report from the toolbar: the incident reaches the desk.
+    const before = await sd.evaluate(() => __app.S.list("securityIncidents").length);
+    await tb.click("[data-tb=mode][data-mode=report]"); await tb.waitForSelector("[data-tb-form=report]");
+    await tb.selectOption("[data-tb-form=report] select[name=category]", "suspicious"); await tb.fill("[data-tb-form=report] [name=room]", "Camera 4, north lot"); await tb.fill("[data-tb-form=report] [name=details]", "Person trying car doors");
+    await tb.click("[data-tb-form=report] button");
+    await sd.waitForFunction((n) => __app.S.list("securityIncidents").length > n, before);
+    await sd.waitForSelector(".sec-desk >> text=Camera 4, north lot");
+    // The channel from the toolbar.
+    await tb.click(".sec-tb-msg"); await tb.waitForSelector("[data-tb-form=radio]");
+    await tb.fill("[data-tb-form=radio] [name=text]", "Unit 2 heading to the north lot"); await tb.click("[data-tb-form=radio] button");
+    await sd.waitForSelector(".sec-chat-feed >> text=Unit 2 heading to the north lot");
+    // Declare Level 1 from the toolbar, then the all clear.
+    await tb.click("[data-tb=mode][data-mode=levels]"); await tb.click("[data-tb=level][data-level='1']"); await tb.click("[data-tb=activate]");
+    await tb.waitForSelector(".sec-tb-level.live >> text=L1"); await sd.waitForSelector(".sec-desk-status.live >> text=Level 1");
+    await tb.screenshot({ path: join(shots, "50f-security-toolbar.png") });
+    await tb.click("[data-tb=mode][data-mode=clear]"); await tb.click("[data-tb=allclear]");
+    await tb.waitForSelector(".sec-tb-level:not(.live) >> text=Normal");
+  } finally {
+    for (const p of pops) await p.close().catch(() => {});
+    await sd.close();
+    await page.evaluate(() => { const { S } = __app; if (window.__secSnap) { S.state = window.__secSnap; delete window.__secSnap; S.save(); } });
+  }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");

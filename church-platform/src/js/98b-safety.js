@@ -1083,7 +1083,8 @@ Screens.security = (tail = "") => {
     const scope = `${c.id}:${S.me().id}`;
     if (scope !== secCommsScope) clearSecurityDraft();
     secCommsScope = scope;
-    bodyContent = renderSecurityComms(c);
+    // On a computer, the home is the security desk (98g-security-desk.js), with the channel in the middle.
+    bodyContent = typeof securityDesk === "function" && typeof isDesktop === "function" && isDesktop() ? securityDesk(c) : renderSecurityComms(c);
   }
   else if (sub === "drill") bodyContent = renderSecurityDrillSimulator(c);
   else if (sub === "incidents") bodyContent = renderSecurityIncidents(c, incidentRoute);
