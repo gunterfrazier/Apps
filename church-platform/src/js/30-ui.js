@@ -128,6 +128,7 @@ function render() {
   document.body.classList.toggle("presenting", !!view.present);
   document.body.classList.toggle("kiosk-mode", !!view.kiosk);
   app.innerHTML = view.page ? flat(view.page) : flat(html`<a class="skip" href="#main" data-act="skip">${lang() === "es" ? "Saltar al contenido" : "Skip to content"}</a>
+    ${typeof sideNav === "function" ? sideNav(view, head) : ""}
     ${view.present || view.kiosk ? "" : SANDBOX ? sandboxBar() : isTrainingChurch() ? trainingChurchBar(S.church()) : ""}
     ${view.band ? view.band : bar(view.title, view.back)}
     ${typeof lookDraftBar === "function" ? lookDraftBar() : ""}
@@ -139,6 +140,7 @@ function render() {
     if (lastRoute !== null && !view.page) $("#main")?.focus({ preventScroll: true });
     lastRoute = route;
   }
+  if (typeof desktopClasses === "function") desktopClasses(view, head);
   view.after?.();
   if (typeof wsBar === "function") wsBar();
   if (typeof hydrateColorSuggestions === "function") hydrateColorSuggestions();

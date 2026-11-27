@@ -2451,3 +2451,34 @@ html.calm .ec-media img, html.calm .feature-card img, html.calm .group-card img,
 .lock-add { margin: 6px 0; }
 .sub-head { font-size: .95rem; margin: 14px 0 4px; }
 .row-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* ---------- Desktop layout (31b-desktop.js): a sidebar instead of the bottom tabs, wider pages ---------- */
+:root { --side-w: 248px; }
+.side { display: none; }
+@media (min-width: 1100px) {
+  body.has-side { --side-now: var(--side-w); }
+  body.has-side.side-folded { --side-now: 68px; }
+  body.has-side #app { padding-left: var(--side-now); padding-bottom: 24px; }
+  body.has-side .tabs { display: none; }
+  .side { display: flex; flex-direction: column; gap: 6px; position: fixed; z-index: 30; inset: 0 auto 0 0; width: var(--side-now); padding: 14px 10px; overflow-y: auto;
+    background: var(--surface); border-right: 1px solid var(--line); }
+  .side-church { display: flex; align-items: center; gap: 10px; padding: 6px 8px 12px; color: var(--ink); text-decoration: none; font: 700 .95rem var(--display); }
+  .side-church span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-group { display: grid; gap: 2px; padding-top: 6px; border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+  .side-group:first-of-type { border-top: 0; }
+  .side-h { margin: 4px 10px 2px; font: 700 .68rem var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .side-link { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 6px 10px; border-radius: 10px; color: var(--ink-2); text-decoration: none; font: 600 .9rem var(--display);
+    background: none; border: 0; cursor: pointer; text-align: left; width: 100%; }
+  .side-link svg { width: 20px; height: 20px; flex: none; }
+  .side-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-link:hover { background: var(--sunken); color: var(--ink); }
+  .side-link[aria-current="page"] { background: var(--brand-soft); color: var(--brand-ink); }
+  .side-foot { margin-top: auto; display: grid; gap: 2px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .side-me .avatar { width: 26px; height: 26px; font-size: .7rem; flex: none; }
+  body.side-folded .side-link span, body.side-folded .side-church span, body.side-folded .side-h { display: none; }
+  body.side-folded .side-link, body.side-folded .side-church { justify-content: center; padding-left: 0; padding-right: 0; }
+  /* Pages: a comfortable width, and workspaces the whole window. */
+  body.has-side main.view, body.has-side .bar .wrap { max-width: 860px; }
+  body.has-side.page-wide main.view, body.has-side.page-wide .bar .wrap { max-width: 1280px; }
+  body.has-side .ws-bar { left: calc(var(--side-now) + 12px); }
+}

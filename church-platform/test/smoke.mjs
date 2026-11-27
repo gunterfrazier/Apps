@@ -412,7 +412,7 @@ await step("security command navigation on older browsers", async () => {
       __app.render();
     });
     for (const width of [320, 390, 768, 1280]) {
-      await page.setViewportSize({ width, height: 844 });
+      await page.setViewportSize({ width, height: 844 }); await page.waitForTimeout(250);   // crossing the desktop width redraws the page
       const nav = page.getByRole("navigation", { name: "Security Command sections" });
       for (const [route, title] of [["incidents", "Incident triage"], ["doors", "Doors & Entryways"],
         ["rollcall", "Classroom & Ministry Area Headcount Checklist"], ["reunify", "Guardian Pickup Code & Identity Verification Gate"],
@@ -1971,6 +1971,39 @@ await step("workstations with name and pin", async () => {
   await goTo("admin-signin"); await page.waitForSelector(`.rows >> text=${ben.name}`); await page.waitForSelector("text=Recent sign-ins"); await shot("49h-admin-signin");
   const signins = await page.$$eval("h2:has-text('Recent sign-ins') + .rows .row", (rs) => rs.length); if (signins < 2) throw new Error("both sign-ins should be logged, saw " + signins);
   await page.evaluate(() => { const S = __app.S; S.state.devices = S.state.devices.filter((d) => d.type !== "workstation"); delete S.state.wsPins; delete S.state.wsSignins; delete S.church().timeouts; localStorage.removeItem("ofc-ws"); S.save(); });
+});
+await step("desktop layout", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.church")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  const d = await tab(1440, 900);
+  try {
+    await d.goto(base + "?debug#home"); await d.waitForSelector(".side");
+    if (await d.isVisible(".tabs")) throw new Error("the bottom tabs should give way to the sidebar");
+    const labels = await d.$$eval(".side .side-link span", (s) => s.map((x) => x.textContent));
+    for (const want of ["Home", "Dashboard", "Reports", "Finance", "Admin", "Screens and devices", "Sermon builder"]) if (!labels.includes(want)) throw new Error(`sidebar is missing ${want}: ${labels}`);
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 2500 }).catch(() => null)) { await d.click("#scrim [data-act=close-sheet]"); await d.waitForSelector("#scrim", { state: "detached" }).catch(() => {}); }
+    await d.screenshot({ path: join(shots, "50a-desktop-home.png") });
+    await d.click(".side a[href='#dashboard']"); await d.waitForSelector(".side a[href='#dashboard'][aria-current=page]");
+    if (!(await d.evaluate(() => document.body.classList.contains("page-wide")))) throw new Error("the dashboard should use the full width");
+    await d.screenshot({ path: join(shots, "50b-desktop-dashboard.png") });
+    await d.click("[data-act=side-fold]"); await d.waitForFunction(() => document.body.classList.contains("side-folded"));
+    await d.click("[data-act=side-fold]"); await d.waitForFunction(() => !document.body.classList.contains("side-folded"));
+    // A narrow window goes back to the phone layout.
+    await d.setViewportSize({ width: 800, height: 900 }); await d.waitForSelector(".side", { state: "detached" }); await d.waitForSelector(".tabs");
+    // Someone with the most basic role sees the main tabs and no office workspaces. (In this tab only, not saved:
+    // the test person is the church's primary account holder, whose role can't be switched.)
+    await d.setViewportSize({ width: 1440, height: 900 }); await d.waitForSelector(".side");
+    const memberLabels = await d.evaluate(async () => {
+      const S = __app.S, c = S.church(), m = S.membership(), was = { owner: c.ownerId, role: m.roleId };
+      c.ownerId = "someone-else"; m.roleId = [...c.roles].sort((a, b) => Object.values(a.perms).filter(Boolean).length - Object.values(b.perms).filter(Boolean).length)[0].id; __app.render();
+      await new Promise((ok) => setTimeout(ok, 300));
+      const labels = [...document.querySelectorAll(".side .side-link span")].map((x) => x.textContent);
+      c.ownerId = was.owner; m.roleId = was.role; __app.render();
+      return labels;
+    });
+    if (memberLabels.some((l) => ["Dashboard", "Finance", "Admin", "Screens and devices"].includes(l)) || !memberLabels.includes("Home")) throw new Error("a basic role shouldn't see office workspaces: " + memberLabels);
+  } finally {
+    await d.close();
+  }
 });
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
