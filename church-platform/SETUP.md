@@ -403,6 +403,19 @@ For one click on Sunday, allow pop-ups for the site and, under the site's settin
 **Automatic full screen** to **Allow**. Without it, each window shows a **Click for full screen** button. Set the
 computer's displays to extend, not mirror. Other browsers get plain windows to drag into place.
 
+## The desktop layout
+
+In a window at least 1100 pixels wide, the bottom tabs give way to a sidebar, and pages get wider. The sidebar has
+the main tabs, then the workspaces the person's role opens, grouped:
+- **Sunday:** presenting, screens, scheduling and check-in.
+- **Teaching:** the builders.
+- **Safety:** security command.
+- **Office:** dashboard, reports, finance and admin.
+
+Each workspace appears only when the role allows it and the church has that feature on. Workspaces use the whole
+window; other pages keep a comfortable reading width. **Icons only** folds the sidebar, and each computer remembers
+the choice. Presenting, kiosks, paired screens and the workstation lock screen keep their own full-screen layouts.
+
 ## Workstations: shared computers with name and PIN (version 30)
 
 For an existing project, run `supabase/upgrade-30.sql` after version 29. The `workstation` function deploys with the
