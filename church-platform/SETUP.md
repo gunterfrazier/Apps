@@ -338,6 +338,23 @@ on a computer, the presenter opens in the **Booth** view:
   computer.
 - Slideshow, Scroll and Stage views are still there, and turning Booth mode off brings everything back as it was.
 
+## Set list mode
+
+Every service plan with songs has a **Set list** button. The set list page works for anyone who plans or presents
+services, and for anyone scheduled on that plan. It's built for a phone or tablet on a music stand:
+
+- **The list:** every song in order with its key, tempo, time signature and the sections sung today.
+- **Following:** while the booth presents the plan, the page shows "Following the room" and highlights the song and
+  section on screen.
+- **Parts:** each musician picks a part, kept on their device. **Vocals** shows the words, large. **Chords** shows
+  chords over the words, in their own key or with a capo. **Rhythm** shows sections, tempo and a beat light.
+- **Pedals:** a page-turner pedal (it acts as the arrow keys) steps through the musician's own copy without moving
+  the slides. **Back to live** follows the room again.
+- **Leader controls** for people who can present:
+  - Tap a section to send the booth there. In the Booth view it waits in Preview for the operator to take.
+  - Quick cues (Repeat, Watch me, Last time, Key change, Hold, Out, Build, Down) flash on every musician's page and
+    on the stage display.
+
 ## Looks per screen
 
 Each audience screen can have its own look:

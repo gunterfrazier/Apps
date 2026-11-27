@@ -62,6 +62,7 @@ Screens.service = (id) => {
     body: html`${planHead(p)}
       <p class="muted" style="margin-top:4px">${plural(p.segments.length, "segment")}, ${planMinutes(p)} minutes.</p>
       <div class="btns">${S.can("present") ? html`<a class="btn sm" href="#present-service-${p.id}">${icon("screen")}Present</a>` : ""}
+        ${setlistSongs(p).length ? html`<a class="btn ghost sm" href="#setlist-${p.id}">${icon("music")}Set list</a>` : ""}
         ${edit ? html`<a class="btn ghost sm" href="#slides-service-${p.id}">${icon("image")}Edit slides</a><button class="btn ghost sm" data-act="plan-details" data-id="${p.id}">${icon("edit")}Details</button><button class="btn ghost sm" data-act="layout-save" data-kind="service" data-id="${p.id}">${icon("layers")}Save as layout</button><button class="btn ghost sm" data-act="plan-dup" data-id="${p.id}">${icon("copy")}Copy to next week</button>` : ""}</div>
       ${p.notes ? html`<p class="panel" style="margin-top:12px">${icon("lock")} ${p.notes}</p>` : ""}
       <section class="sec"><div class="sec-head"><h2>Order of service</h2>${edit && p.segments.length > 1 ? html`<span class="faint">Drag ${icon("grip")} to reorder</span>` : ""}</div>
