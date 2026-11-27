@@ -1672,7 +1672,7 @@ await step("digital signage", async () => {
   if (!(await page.evaluate(() => document.body.classList.contains("presenting")))) throw new Error("player isn't full screen");
 });
 // Screens and kiosks open in other tabs, like separate devices would.
-const tab = async (w, h) => { const p = await ctx.newPage(); await p.setViewportSize({ width: w, height: h }); p.on("pageerror", (e) => errors.push(`device tab: ${e.message}`)); return p; };
+const tab = async (w, h) => { const p = await ctx.newPage(); await p.setViewportSize({ width: w, height: h }); p.on("pageerror", (e) => errors.push(`device tab: ${e.message} ${(e.stack || "").split("\n")[1] || ""}`)); return p; };
 const pairNew = async (type, fill = async () => {}) => {
   await goTo("devices"); await page.click("[data-act=device-new]"); await page.locator(`#scrim input[name=type][value=${type}]`).evaluate((el) => el.click());
   await fill(); await sheetSubmit(); await page.waitForSelector("#scrim .pair-code"); return (await page.textContent("#scrim .pair-code")).trim();
@@ -2100,6 +2100,78 @@ await step("desktop drawer instead of sheets", async () => {
     await d.setViewportSize({ width: 800, height: 900 }); await d.waitForTimeout(250);
     await d.click("[data-act=device-new]"); await d.waitForSelector("#scrim .sheet");
     if (await d.$("#scrim.drawer")) throw new Error("a narrow window should keep the sheet");
+  } finally { await d.close(); }
+});
+await step("desktop builder with panes and a Study pane", async () => {
+  if (!(await page.evaluate(() => __app.S.can("build.sermons")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  // Its own sermon, so earlier steps' edits to the seeded ones don't matter.
+  await page.evaluate(() => {
+    const S = __app.S, B = (type, x) => ({ id: Math.random().toString(36).slice(2), type, show: type !== "note", notes: "", ...x });
+    S.state.docs = S.state.docs.filter((x) => x.id !== "desk-test");
+    S.state.docs.push({ id: "desk-test", churchId: S.state.current, kind: "sermon", title: "Abide", passage: "John 15:1-8", authorId: S.me().id, published: false, updated: new Date().toISOString(),
+      blocks: [B("keynote", { text: "Abide: the true vine" }), B("scripture", { ref: "John 15:1-8", translation: "BSB", text: "" }), B("note", { text: "Story about a grapevine" }),
+        B("point", { text: "Jesus is the vine" }), B("point", { text: "Pruning is care" }), B("keynote", { text: "Stay connected" }), B("point", { text: "Remain in Christ" })] });
+    S.save(); S.flush?.();
+  });
+  const d = await tab(1440, 900);
+  try {
+    await d.evaluate(() => localStorage.removeItem("ofc-panes")).catch(() => {});
+    await d.goto(base + "#build-desk-test"); await d.waitForSelector(".desk .panes");
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    for (const p of ["outline", "editor", "study"]) if (!(await d.$(`.desk .pane[data-pane=${p}]`))) throw new Error(`missing the ${p} pane`);
+    if (await d.$(".block-card")) throw new Error("the desktop builder shouldn't show the phone's block cards");
+    // The first block is open in the editor; the Study pane falls back to the sermon's passage and loads it.
+    await d.waitForSelector(".pane[data-pane=editor] form[data-desk-auto] textarea[name=text]");
+    if ((await d.getAttribute(".study", "data-ref")) !== "John 15:1-8") throw new Error("the Study pane should start on the main passage");
+    await d.waitForSelector(".study-verses sup");
+    // Choose a point: it opens in place (no sheet), and typing saves and updates the outline.
+    await d.click(".ol-item:nth-child(4) .ol-pick"); await d.waitForSelector(".ol-item:nth-child(4).on");
+    if (await d.$("#scrim")) throw new Error("editing a block shouldn't open a sheet on desktop");
+    await d.fill(".pane[data-pane=editor] textarea[name=text]", "Jesus is the vine, and we are the branches");
+    await d.waitForSelector(".desk-saved:text('Saved')");
+    await d.waitForSelector(".ol-item:nth-child(4) .ol-text:has-text('we are the branches')");
+    if ((await d.evaluate(() => document.activeElement?.name)) !== "text") throw new Error("saving as you type shouldn't take the cursor out of the editor");
+    // Arrow keys move through the outline.
+    await d.focus(".ol-item:nth-child(4) .ol-pick"); await d.keyboard.press("ArrowDown"); await d.waitForSelector(".ol-item:nth-child(5).on");
+    // A Scripture block: the Study pane follows its passage; pinned, it stays put while the reference changes.
+    await d.click(".ol-item:nth-child(2) .ol-pick"); await d.waitForSelector(".pane[data-pane=editor] input[name=ref]");
+    await d.click("[data-act=desk-pin]"); await d.waitForSelector("[data-act=desk-pin][aria-pressed=true]");
+    await d.fill(".pane[data-pane=editor] input[name=ref]", "Psalm 1:1-3"); await d.waitForSelector(".desk-saved:text('Saved')");
+    await d.waitForSelector(".ol-item:nth-child(2) .ol-text:has-text('Psalm 1:1-3')");
+    if ((await d.getAttribute(".study", "data-ref")) !== "John 15:1-8") throw new Error("a pinned Study pane should stay on its passage");
+    await d.click("[data-act=desk-pin]"); await d.waitForFunction(() => document.querySelector(".study")?.dataset.ref === "Psalm 1:1-3");
+    // Related passages, and Insert drops one in below the selected block.
+    const before = await d.$$eval(".ol-item", (l) => l.length);
+    await d.click("[data-act=desk-tab][data-tab=related]"); await d.waitForSelector(".xref-row [data-act=desk-insert]");
+    await d.click(".xref-row [data-act=desk-insert] >> nth=0");
+    await d.waitForFunction((n) => document.querySelectorAll(".ol-item").length === n + 1, before);
+    if (!(await d.$(".ol-item:nth-child(3).on .ol-text:has-text(':')"))) throw new Error("the inserted passage should come right after the selected block, selected");
+    // A new block is written in the editor pane and lands below the selected one.
+    await d.click(".ol-add [data-act=dblock-new][data-type=question]"); await d.waitForSelector(".pane[data-pane=editor] input[name=_pos][value='3']", { state: "attached" });
+    await d.fill(".pane[data-pane=editor] textarea[name=text]", "Where do you feel pruned right now?"); await d.click(".pane[data-pane=editor] button.btn:text('Add')");
+    await d.waitForSelector(".ol-item:nth-child(4).on .ol-text:has-text('pruned right now')");
+    // The slide strip picks blocks too.
+    await d.click(".strip-slide[data-act=desk-pick] >> nth=0"); await d.waitForSelector(".ol-item:nth-child(1).on");
+    // Resize the outline; the width is remembered on this computer.
+    const w0 = (await d.locator(".pane[data-pane=outline]").boundingBox()).width, rz = await d.locator(".pane-resizer >> nth=0").boundingBox();
+    await d.mouse.move(rz.x + 4, rz.y + 200); await d.mouse.down(); await d.mouse.move(rz.x + 84, rz.y + 200, { steps: 5 }); await d.mouse.up();
+    const w1 = (await d.locator(".pane[data-pane=outline]").boundingBox()).width;
+    if (Math.abs(w1 - w0 - 80) > 4) throw new Error(`dragging should widen the outline by 80px: ${w0} -> ${w1}`);
+    await d.screenshot({ path: join(shots, "50h-desktop-builder.png") });
+    await d.reload(); await d.waitForSelector(".desk .panes");
+    if (Math.abs((await d.locator(".pane[data-pane=outline]").boundingBox()).width - w1) > 2) throw new Error("the outline width should be remembered");
+    // Panes close and come back.
+    await d.click(".pane[data-pane=study] [data-act=pane-close]"); await d.waitForSelector(".pane[data-pane=study]", { state: "detached" });
+    await d.click(".desk-toggles [data-pane=study]"); await d.waitForSelector(".pane[data-pane=study]");
+    // Lessons and study guides use the same workspace; a lesson's Study pane has a Lesson tab with the family page.
+    await d.goto(base + "#build-riverside-doc-lesson"); await d.waitForSelector(".desk .panes");
+    await d.click("[data-act=desk-tab][data-tab=lesson]"); await d.waitForSelector(".study[data-tab=lesson]");
+    await d.goto(base + "#build-riverside-doc-study"); await d.waitForSelector(".desk .pane[data-pane=editor]");
+    if (await d.$("[data-act=desk-tab][data-tab=lesson]")) throw new Error("only lessons have the Lesson tab");
+    await d.goto(base + "#build-desk-test"); await d.waitForSelector(".desk .panes");
+    // A narrow window gets today's phone builder.
+    await d.setViewportSize({ width: 800, height: 900 }); await d.waitForSelector(".block-card"); 
+    if (await d.$(".desk")) throw new Error("a narrow window should keep the phone builder");
   } finally { await d.close(); }
 });
 await step("control keys page", async () => {

@@ -436,7 +436,7 @@ const OpeningSummary = {
   pending: true,
   show() {
     if (!this.pending || !this.eligible || document.visibilityState !== "visible" ||
-        !S.church() || !S.me().name || pendingRoute || thisDevice() || /^#(remote$|wall$|present-|setlist-|booth|(display|stage|overlay)-follow$)/.test(location.hash) || SANDBOX || isTrainingChurch() || $("#scrim, #now-playing[open]") ||
+        !S.church() || !S.me().name || pendingRoute || thisDevice() || /^#(remote$|wall$|present-|setlist-|booth|(display|stage|overlay)-follow$)/.test(location.hash) || (isDesktop() && /^#build-/.test(location.hash)) || SANDBOX || isTrainingChurch() || $("#scrim, #now-playing[open]") ||
         ((Backend.on || Backend.configured()) && !Backend.ready)) return;
     this.pending = false;
 

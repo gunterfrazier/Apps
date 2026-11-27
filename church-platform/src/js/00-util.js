@@ -4,7 +4,7 @@
 const PLATFORM = {
   name: "Our Faithful Church App",
   tagline: "Your church, in your pocket",
-  veritasUrl: "https://claude.ai/artifact/NNq1Q3MLHE93XzekkvdBtc",
+  veritasUrl: "https://veritaslogos.com/app/",
   appUrl: "https://claude.ai/artifact/Htwf4rcWd3CBDK1Yw97j25",
   storageKey: "our-faithful-v1",
   color: "#4250d6",
