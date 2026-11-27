@@ -423,7 +423,7 @@ const MODULES = [
 ];
 /** The screens each feature owns. When a feature is off, its screens and the links to them go away. */
 const FEATURE_ROUTES = {
-  podcast: ["podcast"], presentations: ["services", "service", "songs", "presenter", "layouts", "hymns", "booth"],
+  podcast: ["podcast"], presentations: ["services", "services-grid", "service", "songs", "presenter", "layouts", "hymns", "booth"],
   lessons: ["docs", "build", "lessonschurch", "storylesson", "storyplan"], storylessons: ["storylesson", "storyplan"],
   tickets: ["tickets", "ticket", "mytickets", "paykiosk", "paid"], board: ["board", "admin-boards"],
   forms: ["forms", "form", "formedit", "responses"], finance: ["treasurer", "offering"],
