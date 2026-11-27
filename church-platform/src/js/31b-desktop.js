@@ -11,7 +11,7 @@ const DESKTOP_MIN = 1100;
 const isDesktop = () => innerWidth >= DESKTOP_MIN;
 const sideFolded = () => { try { return localStorage.getItem(SIDE_KEY) === "folded"; } catch { return false; } };
 // Workspaces get the full width of the window; other pages a comfortable reading width.
-const WIDE_HEADS = new Set(["dashboard", "reports", "treasurer", "security", "admin", "devices", "services", "docs", "build", "teams", "admin-checkin", "rooms", "people", "report", "insights", "safety", "incident"]);
+const WIDE_HEADS = new Set(["wall", "dashboard", "reports", "treasurer", "security", "admin", "devices", "services", "docs", "build", "teams", "admin-checkin", "rooms", "people", "report", "insights", "safety", "incident"]);
 
 /** The workspaces this person's role opens, grouped. Each item: [route, icon, label, which heads count as "here"]. */
 function workspacesFor() {
@@ -21,6 +21,7 @@ function workspacesFor() {
     ["Sunday", [
       S.can("present") && on("presentations") && ["services", "screen", "Booth and presenting", ["services", "service", "present", "booth", "slides", "setlist"]],
       S.can("services.plan") && !S.can("present") && on("presentations") && ["services", "list", "Service plans", ["services", "service", "slides", "setlist"]],
+      typeof canWall === "function" && canWall() && ["wall", "layers", "Screen wall", ["wall"]],
       S.can("manage.devices") && ["devices", "lock", "Screens and devices", ["devices", "booth-screens", "booth-check", "control-keys", "signs"]],
       S.can("schedule.teams") && on("volunteers") && ["teams", "hand", "Volunteer scheduling", ["teams", "team"]],
       S.can("checkin.station") && on("checkin") && ["admin-checkin", "kid", "Check-in", ["admin-checkin", "kiosk"]],
