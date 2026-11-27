@@ -2080,6 +2080,28 @@ await step("screen wall", async () => {
     await page.evaluate(() => { const S = __app.S, c = S.church(); S.state.devices = S.state.devices.filter((d) => !d.id.startsWith("wall-")); c.labs = { ...c.labs, booth: false }; S.save(); localStorage.removeItem("ofc-wall"); });
   }
 });
+await step("desktop drawer instead of sheets", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  const d = await tab(1440, 900);
+  try {
+    await d.goto(base + "#devices"); await d.waitForSelector(".side");
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 2000 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    await d.click("[data-act=device-new]"); await d.waitForSelector("#scrim.drawer .sheet");
+    await d.evaluate(() => Promise.all(document.querySelector("#scrim .sheet").getAnimations().map((a) => a.finished)));
+    const box = await d.locator("#scrim .sheet").boundingBox();
+    if (Math.round(box.x + box.width) !== 1440 || box.height < 880) throw new Error(`the drawer should run down the right edge: ${JSON.stringify(box)}`);
+    if ((await d.getAttribute("#scrim .sheet", "aria-modal")) !== "false") throw new Error("the drawer leaves the page usable");
+    // The page beside it still works: opening a device swaps what the drawer shows.
+    const first = await d.textContent("#sheet-title");
+    await d.click(".rows [data-act=device-open] >> nth=0"); await d.waitForFunction((t) => document.querySelector("#sheet-title")?.textContent !== t, first);
+    await d.screenshot({ path: join(shots, "50g-desktop-drawer.png") });
+    await d.keyboard.press("Escape"); await d.waitForSelector("#scrim", { state: "detached" });
+    // A narrow window keeps the phone sheet.
+    await d.setViewportSize({ width: 800, height: 900 }); await d.waitForTimeout(250);
+    await d.click("[data-act=device-new]"); await d.waitForSelector("#scrim .sheet");
+    if (await d.$("#scrim.drawer")) throw new Error("a narrow window should keep the sheet");
+  } finally { await d.close(); }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");

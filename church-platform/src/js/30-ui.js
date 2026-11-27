@@ -272,19 +272,22 @@ function openSheet(title, body, opts = {}) {
   closeSheet(true);
   sheetReturn = document.activeElement;
   const scrim = document.createElement("div");
-  scrim.className = "scrim"; scrim.id = "scrim";
-  scrim.innerHTML = flat(html`<div class="sheet ${opts.wide ? "wide" : ""}" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><div class="grip"></div>
+  // On a computer (the desktop layout), a sheet is a drawer on the right: the page stays visible and usable beside it,
+  // so picking another item just changes what the drawer shows. Phones and full-screen pages keep the sheet.
+  const drawer = document.body.classList.contains("has-side") && typeof isDesktop === "function" && isDesktop();
+  scrim.className = `scrim${drawer ? " drawer" : ""}`; scrim.id = "scrim";
+  scrim.innerHTML = flat(html`<div class="sheet ${opts.wide ? "wide" : ""}" role="dialog" aria-modal="${drawer ? "false" : "true"}" aria-labelledby="sheet-title"><div class="grip"></div>
     <div class="sheet-head"><h2 id="sheet-title">${title}</h2><button class="icon-btn" data-act="close-sheet" aria-label="Close">${icon("x")}</button></div>
     ${body}</div>`);
   scrim.addEventListener("click", (e) => { if (e.target === scrim) closeSheet(); });
   document.body.appendChild(scrim);
-  document.body.classList.add("sheet-open");
+  document.body.classList.add(drawer ? "drawer-open" : "sheet-open");
   const first = opts.focus ? $(opts.focus, scrim) : $("input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file]), textarea, select", scrim);
   (first || $(".sheet", scrim)).focus?.({ preventScroll: true });
 }
 function closeSheet(silent) {
   const s = $("#scrim"); if (!s) return;
-  s.remove(); document.body.classList.remove("sheet-open");
+  s.remove(); document.body.classList.remove("sheet-open", "drawer-open");
   if (!silent) {
     sheetReturn?.focus?.();
     queueMicrotask(() => OpeningSummary.show());
