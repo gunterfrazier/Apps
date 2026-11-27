@@ -2302,6 +2302,51 @@ await step("right-click menus, multi-select and hover previews", async () => {
   const dupes = await page.evaluate(() => { const seen = new Set(), d = []; __app.S.list("reportRuns").filter((r) => r.auto).forEach((r) => { const k = `${r.reportId}|${r.period}`; if (seen.has(k)) d.push(k); seen.add(k); }); return d; });
   if (dupes.length) throw new Error(`scheduled reports ran twice: ${dupes.join(", ")}`);
 });
+await step("desktop layouts: role defaults, saved layouts", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.church") && __app.S.can("build.sermons")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  const me = await page.evaluate(() => {
+    const S = __app.S, B = (type, x) => ({ id: Math.random().toString(36).slice(2), type, show: type !== "note", notes: "", ...x });
+    S.state.docs = S.state.docs.filter((x) => x.id !== "lay-test");
+    S.state.docs.push({ id: "lay-test", churchId: S.state.current, kind: "sermon", title: "Layouts", passage: "Psalm 23", authorId: S.me().id, published: false, updated: new Date().toISOString(), blocks: [B("keynote", { text: "A" }), B("scripture", { ref: "Psalm 23:1", translation: "BSB", text: "" })] });
+    delete S.state.prefs.layoutDefault; S.state.prefs.layouts = [];
+    S.save(); S.flush?.(); return { id: S.me().id, role: S.membership()?.roleId };
+  });
+  // An admin sets the role's default.
+  await goTo("admin-layouts"); await page.selectOption(`select[name="role-${me.role}"]`, "writing"); await page.click("form[data-form=desk-layout-roles] button.btn");
+  await page.waitForFunction((r) => __app.S.church().deskLayouts?.roles?.[r] === "writing", me.role);
+  const d = await tab(1440, 900);
+  const open = (k) => d.$(`.pane[data-pane=${k}]`).then(Boolean);
+  try {
+    await d.goto(base + "#home"); await d.evaluate((id) => { localStorage.removeItem(`ofc-panes:${id}`); localStorage.removeItem("ofc-panes"); }, me.id);
+    // The first time on this computer, the builder opens the role's way: Writing (no Study pane, no slides).
+    await openWhenThere(d, base + "#build-lay-test", ".desk .panes");
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    if ((await open("study")) || (await d.$(".desk-strip"))) throw new Error("the role's default (Writing) should open without the Study pane and slides");
+    // Pick a built-in layout from the menu.
+    await d.click("[data-act=desk-layouts]"); await d.click("#ctx .ctx-i:has-text('Study')");
+    await d.waitForSelector(".pane[data-pane=study]");
+    if ((await d.locator(".pane[data-pane=study]").boundingBox()).width < 480) throw new Error("the Study layout has a wide Study pane");
+    if (await d.evaluate(() => { const r = document.querySelector(".panes"); return r.scrollWidth > r.clientWidth + 1; })) throw new Error("the panes should fit the window");
+    // Save it as my own, my default, and share it with the church.
+    await d.click("[data-act=desk-layouts]"); await d.click("#ctx .ctx-i:has-text('Save this layout')");
+    await d.fill("#scrim input[name=name]", "My study"); await d.check("#scrim input[name=church]"); await d.click("#scrim form[data-form=desk-layout-save] button.btn");
+    await d.waitForSelector("#scrim", { state: "detached" });
+    // The command box switches layouts too; "back to my default" returns.
+    await d.keyboard.press("Control+k"); await d.keyboard.type("layout writing"); await d.keyboard.press("Enter");
+    await d.waitForSelector(".pane[data-pane=study]", { state: "detached" });
+    await d.click("[data-act=desk-layouts]"); await d.click("#ctx .ctx-i:has-text('Back to my default (My study)')");
+    await d.waitForSelector(".pane[data-pane=study]");
+    await d.screenshot({ path: join(shots, "50l-layouts.png") });
+    await d.click("[data-act=desk-layouts]"); await d.click("#ctx .ctx-i:has-text('Manage layouts')");
+    await d.waitForSelector("#scrim .row:has-text('My study') .tag:text('Your default')");
+    await d.keyboard.press("Escape");
+    // It stays as left after a reload.
+    await d.reload(); await d.waitForSelector(".desk .pane[data-pane=study]");
+  } finally { await d.close(); }
+  // The shared layout shows on the admin page and can be a role's default.
+  await goTo("home"); await goTo("admin-layouts"); await page.waitForSelector("section.card .row .t:text('My study')");
+  await page.selectOption(`select[name="role-${me.role}"]`, ""); await page.click("form[data-form=desk-layout-roles] button.btn");
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");
