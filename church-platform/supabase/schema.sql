@@ -183,6 +183,9 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 
+-- New in 31: where a counting batch is (open, counted, verified, closed), for the offering counters' and depositors' rules.
+create or replace function offering_batch(c text, b text) returns text language sql stable security definer set search_path = public as
+  $$ select data->>'status' from records where church_id = c and kind = 'batches' and id = b $$;
 -- Who can read each kind of record.
 create or replace function rec_read(k text, c text, loc text, own text, d jsonb) returns boolean language sql stable security definer set search_path = public as $$
   select case
@@ -202,7 +205,12 @@ create or replace function rec_read(k text, c text, loc text, own text, d jsonb)
     when k = 'eventCheckins' then can(c, 'checkin.events') or can(c, 'manage.content') or can(c, 'view.reports') or can(c, 'take.payments') or collects(d->>'eventId')
     when k = 'ticketPayments' then can(c, 'manage.content') or can(c, 'take.payments') or can(c, 'view.reports') or can(c, 'view.giving') or collects(d->>'eventId')
     when k = 'gathering_regs' then can(c, 'manage.classes') or leads(d->>'_parent')
-    when k in ('gifts', 'recurring') then can(c, 'view.giving')
+    when k = 'recurring' then can(c, 'view.giving')
+    -- New in 31: offering counters see the gifts in a batch while it's being counted and checked; depositors, the gifts in
+    -- batches counted and waiting for the bank. Neither sees anyone's other giving.
+    when k = 'gifts' then can(c, 'view.giving')
+      or (can(c, 'count.offering') and offering_batch(c, d->>'batchId') in ('open', 'counted'))
+      or (can(c, 'deposit.offering') and offering_batch(c, d->>'batchId') in ('counted', 'verified'))
     when k = 'cards' then can(c, 'manage.prayer') or can(c, 'manage.followup')
     when k = 'followups' then can(c, 'manage.followup')
     -- New in 15: schedulers and report readers see who checked in to serve, for the volunteer and staff attendance report.
@@ -234,7 +242,9 @@ create or replace function rec_read(k text, c text, loc text, own text, d jsonb)
     -- Targeted push notifications sent: the people who can send them.
     when k = 'pushCampaigns' then can(c, 'manage.content') or can(c, 'send.email') or can(c, 'send.texts') or can(c, 'schedule.teams')
     -- The treasurer's ledger: people who see giving. (Someone who submitted an expense sees it as its owner, above.)
-    when k in ('expenses', 'budgets', 'batches') then can(c, 'view.giving')
+    when k in ('expenses', 'budgets') then can(c, 'view.giving')
+    -- New in 31: counting batches (dates, counters, totals; not who gave) for offering counters and depositors too.
+    when k = 'batches' then can(c, 'view.giving') or can(c, 'count.offering') or can(c, 'deposit.offering')
     -- Safety: incidents and the security channel are for the security team (and whoever reported, as owner, above).
     when k = 'securityMessages' then security_access(c, auth.uid()) >= 1
     when k = 'securityIncidents' then security_access(c, auth.uid()) >= 2
@@ -273,6 +283,9 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
     -- recordedBy, so they still can't be changed in the app. People can still record test gifts themselves.
     when k = 'gifts' then (own = auth.uid()::text and d->>'status' = 'test' and op = 'insert')
       or (can(c, 'view.giving') and d ? 'recordedBy' and (op <> 'insert' or d->>'recordedBy' = auth.uid()::text))
+      -- New in 31: offering counters enter, fix and remove the cash and checks in a batch that's still open.
+      or (can(c, 'count.offering') and d ? 'recordedBy' and d->>'method' in ('cash', 'check') and offering_batch(c, d->>'batchId') = 'open'
+        and (op <> 'insert' or d->>'recordedBy' = auth.uid()::text))
     when k = 'recurring' then own = auth.uid()::text and (op = 'update' or coalesce((d->>'test')::boolean, false))
     when k = 'cards' then (own = auth.uid()::text and op = 'insert') or can(c, 'manage.prayer') or can(c, 'manage.followup')
     when k = 'followups' then can(c, 'manage.followup') or (op = 'insert' and is_member(c) and d->>'source' in ('card', 'joined', 'kiosk'))
@@ -310,7 +323,17 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
     when k = 'pushCampaigns' then op = 'insert' and d->>'by' = auth.uid()::text and (can(c, 'manage.content') or can(c, 'send.email') or can(c, 'send.texts') or can(c, 'schedule.teams'))
     -- The treasurer's ledger. Any member can submit an expense for reimbursement, waiting for approval.
     when k = 'expenses' then can(c, 'view.giving') or (op = 'insert' and is_member(c) and own = auth.uid()::text and d->>'status' = 'pending-approval')
-    when k in ('budgets', 'batches') then can(c, 'view.giving')
+    when k = 'budgets' then can(c, 'view.giving')
+    -- New in 31: a counting batch goes open, counted, verified, closed (deposited). Counters start, count and remove an
+    -- open batch; a second counter, not the one who counted it, verifies it; a depositor closes a verified batch with the
+    -- deposit in their own name. A change is checked against the batch as it was and as it becomes, so a closed batch
+    -- can't be reopened by a counter.
+    when k = 'batches' then can(c, 'view.giving')
+      or (can(c, 'count.offering') and (
+        (op = 'delete' and coalesce(d->>'status', 'open') = 'open')
+        or (op <> 'delete' and coalesce(d->>'status', 'open') in ('open', 'counted'))
+        or (op <> 'delete' and d->>'status' = 'verified' and d->>'verifiedBy' = auth.uid()::text and d->>'countedBy' is distinct from auth.uid()::text)))
+      or (can(c, 'deposit.offering') and op = 'update' and (d->>'status' = 'verified' or (d->>'status' = 'closed' and d->>'depositedBy' = auth.uid()::text)))
     -- Safety. Anyone at the church can raise an SOS or 911 alert (an incident and a message in their own name) and add their
     -- location to it; the security team handles the rest.
     when k = 'securityMessages' then security_access(c, auth.uid()) >= 1 or (own = auth.uid()::text and d->>'by' = own and is_member(c) and op in ('insert', 'update'))

@@ -306,7 +306,7 @@ function renderTreasurerDonations(acct, year) {
     <div class="btns" style="margin-top:14px">
       <button type="button" class="btn" data-act="treas-gift-new">${icon("plus")}Record donation (Cash / Check / Card)</button>
       <button type="button" class="btn ghost" data-act="treas-split-new">${icon("layers")}Split gift across funds</button>
-      <button type="button" class="btn ghost" data-act="treas-batch-new">${icon("list")}New counting batch</button>
+      <button type="button" class="btn ghost" data-act="offer-new">${icon("list")}Start an offering count</button>
       <button type="button" class="btn ghost" data-act="treas-cats-edit">${icon("edit")}Custom categories</button>
     </div>
 
@@ -324,7 +324,8 @@ function renderTreasurerDonations(acct, year) {
               <span class="t">${b.title} (${fmtShort(fromIsoDay(b.date))})</span>
               <span class="s">Total: <b>${money(tot)}</b> (Cash: ${money(cashSum)} · Checks: ${money(checkSum)}) · Counters: ${[b.counter1, b.counter2].filter(Boolean).join(" & ") || "Unassigned"}${b.depositRef ? ` · Ref ${b.depositRef}` : ""}</span>
             </span>
-            <span class="tag ${b.status === "closed" ? "ok" : "warn"}">${b.status === "closed" ? "Deposited" : "Open"}</span>
+            <span class="tag ${OFFER_STATUS[offerStatus(b)][1]}">${OFFER_STATUS[offerStatus(b)][0]}</span>
+            <a class="btn ghost sm" href="#offering-${b.id}">${offerStatus(b) === "closed" ? "Open" : "Open count"}</a>
             <button type="button" class="btn ghost sm" data-act="treas-batch-pdf" data-id="${b.id}" title="Download deposit sheet PDF">${icon("printer")}PDF</button>
           </div>`;
         }) : empty("No counting batches created yet.")}

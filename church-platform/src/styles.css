@@ -2787,3 +2787,32 @@ th.num .dt-sort { justify-content: flex-end; }
 .dt-table tbody tr.picked { background: color-mix(in srgb, var(--brand) 10%, transparent); }
 .dt-more { margin: 6px 0 0; }
 .dt-tools:has(.dt-sel) [data-act=dt-copy]:not([data-picked]) { display: none; } /* "Copy rows" replaces it while rows are picked */
+
+/* ---------- Offering count (98a-offering.js) ---------- */
+.offer-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0 12px; }
+.offer-spacer { flex: 1; }
+.offer-desk { display: grid; gap: 16px; }
+@media (min-width: 1000px) { .offer-desk { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); align-items: start; } }
+.offer-desk .panel { padding: 16px 18px; margin: 0; }
+.offer-desk h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.offer-tally h3 { margin: 12px 0 4px; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); }
+.tally-row { display: grid; grid-template-columns: 1fr 84px 96px; align-items: center; gap: 8px; padding: 3px 0; }
+.tally-row input { padding: 6px 8px; text-align: right; min-height: 38px; }
+.tally-row output { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.tally-total { display: flex; justify-content: space-between; margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: 1.05rem; }
+.offer-entry { display: grid; grid-template-columns: minmax(130px, 2fr) minmax(56px, .6fr) minmax(86px, .8fr) minmax(70px, .8fr) minmax(80px, .8fr) minmax(96px, 1fr) minmax(96px, 1fr) auto; gap: 8px; align-items: end; margin-bottom: 10px; }
+.offer-entry .field { min-width: 0; }
+.offer-entry input, .offer-entry select { width: 100%; min-width: 0; }
+.offer-entry .field { margin: 0; }
+.offer-entry .field span { font-size: .78rem; }
+.offer-entry input, .offer-entry select { min-height: 40px; padding: 6px 8px; }
+.offer-entry .btn { min-height: 40px; }
+.offer-entry .err, .offer-hint { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 999px) { .offer-entry { grid-template-columns: 1fr 1fr; } .offer-entry .field:first-of-type { grid-column: 1 / -1; } }
+.offer-table td.num, .offer-table th.num { font-variant-numeric: tabular-nums; }
+.offer-sum { display: flex; flex-wrap: wrap; gap: 18px; margin: 10px 0 4px; }
+.offer-diff { margin: 6px 0; }
+.offer-next { align-items: center; }
+.deposit-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.deposit-form .field { margin: 0; }
+.deposit-form .err { flex-basis: 100%; margin: 0; }

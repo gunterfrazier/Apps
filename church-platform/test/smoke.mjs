@@ -2424,6 +2424,55 @@ await step("desktop reports: real tables", async () => {
     await d.goto(base + "#home"); await d.evaluate(() => localStorage.removeItem("ofc-dt"));
   } finally { await d.close(); }
 });
+await step("offering count: counters, a second counter, and the depositor", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.roles")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  // The primary account holder keeps every permission whatever their role: hand that to someone else for this step.
+  const owner = await page.evaluate(() => { const S = __app.S, c = S.church(), was = c.ownerId; if (S.isPrimary()) { c.ownerId = S.members().find((m) => m.userId !== S.me().id).userId; S.save(); S.flush?.(); } return was; });
+  const role = (key) => page.evaluate((key) => {
+    const S = __app.S, c = S.church();
+    if (!c.roles.some((r) => r.id === "counter")) c.roles.push({ id: "counter", name: "Offering counter", rank: 20, perms: { "count.offering": true } }, { id: "depositor", name: "Depositor", rank: 21, perms: { "deposit.offering": true } });
+    S.membership().roleId = key; S.save(); S.flush?.();
+  }, key);
+  await role("counter");
+  const d = await tab(1440, 900);
+  try {
+    await openWhenThere(d, base + "#offering", "[data-act=offer-new]");
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    // A counter gets the count, not the treasurer's giving.
+    if (!(await d.$(".side a[href='#offering']")) || (await d.$(".side a[href='#treasurer']"))) throw new Error("a counter's sidebar has Offering count and not Finance");
+    await d.click("[data-act=offer-new]"); await d.waitForSelector(".offer-entry [data-first]:focus");
+    const id = await d.evaluate(() => location.hash.replace("#offering-", ""));
+    // Count the cash by denomination.
+    await d.fill("input[name=b20]", "5"); await d.fill("input[name=b1]", "3"); await d.click(".offer-tally h2");
+    await d.waitForFunction(() => /^\$103(\.00)?$/.test(document.querySelector("#offer-tally-total")?.textContent || ""));
+    // Keyboard first: Tab across the line, Enter adds it and starts the next.
+    await d.focus(".offer-entry [data-first]"); await d.keyboard.type("Dana Whitfield"); await d.keyboard.press("Tab"); await d.keyboard.press("Tab"); await d.keyboard.press("Tab");
+    await d.keyboard.type("1042"); await d.keyboard.press("Tab"); await d.keyboard.type("250"); await d.keyboard.press("Enter");
+    await d.waitForSelector(".offer-table td:text('Check 1042')");
+    if (!(await d.evaluate(() => document.activeElement?.matches(".offer-entry [data-first]")))) throw new Error("Enter should start the next line");
+    await d.keyboard.type("Ana Alvarez"); await d.selectOption(".offer-entry select[name=method]", "cash"); await d.fill(".offer-entry input[name=amount]", "60"); await d.press(".offer-entry input[name=amount]", "Enter");
+    await d.waitForSelector(".offer-diff .tag:has-text('counted but not entered')"); if (!/\$43(\.00)? counted/.test(await d.textContent(".offer-diff .tag"))) throw new Error("the difference should be $43");
+    await d.click("[data-act=offer-loose]"); await d.waitForSelector(".offer-diff .tag:has-text('Cash matches')");
+    await d.screenshot({ path: join(shots, "50o-offering-count.png") });
+    await d.click("[data-act=offer-counted]"); await d.waitForSelector(".offer-head .tag:text('Waiting to be verified')");
+    if (await d.$("[data-act=offer-verify]")) throw new Error("the counter who counted it can't verify it");
+    // A second counter verifies (in the preview, the main tab stands in for them having counted).
+    await page.waitForFunction((id) => __app.S.get("batches", id)?.status === "counted", id);
+    await page.evaluate((id) => { const S = __app.S, b = S.get("batches", id); b.countedBy = S.members().find((m) => m.userId !== S.me().id).userId; S.save(); S.flush?.(); }, id);
+    await d.reload(); await d.waitForSelector("[data-act=offer-verify]"); await d.click("[data-act=offer-verify]");
+    await d.waitForSelector(".offer-head .tag:text('Ready to deposit')");
+    if (await d.$("form[data-form=offer-deposit]")) throw new Error("counters don't record deposits");
+    // The depositor records the deposit.
+    await page.waitForFunction((id) => __app.S.get("batches", id)?.status === "verified", id);
+    await role("depositor"); await d.reload(); await d.waitForSelector("form[data-form=offer-deposit]");
+    if (await d.$("[data-act=offer-new]")) throw new Error("depositors don't start counts");
+    await d.fill("form[data-form=offer-deposit] input[name=depositRef]", "DEP-77"); await d.click("form[data-form=offer-deposit] button.btn");
+    await d.waitForSelector(".offer-head .tag:text('Deposited')"); await d.waitForSelector(".offer-next:has-text('DEP-77')");
+    await page.waitForFunction((id) => __app.S.get("batches", id)?.status === "closed", id);
+    const total = await page.evaluate((id) => __app.S.get("batches", id)?.totals?.total, id);
+    if (total !== 353) throw new Error(`the batch should total $353 ($250 check, $60 and $43 cash): ${total}`);
+  } finally { await d.close(); await role("admin"); await page.evaluate((was) => { const S = __app.S; S.church().ownerId = was; S.save(); S.flush?.(); }, owner); }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");
