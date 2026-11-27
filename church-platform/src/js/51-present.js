@@ -195,7 +195,7 @@ function presBroadcast() {
       }
     }
   } catch {}
-  const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, live: pres.live, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "", media: pres.media ? { ...pres.media } : null, fade: pres.mode === "booth" ? pres.fade : 0 };
+  const msg = { key: pres.key, loc: presLoc(pres.key), index: pres.index, live: pres.live, black: pres.black, logo: pres.logo, church: S.state.current, segAt: pres.segAt, startedAt: pres.startedAt, msg: pres.msg, captions: pres.cc ? pres.captions : "", media: pres.media ? { ...pres.media } : null, fade: pres.mode === "booth" ? pres.fade : 0, cueIdx: pres.mode === "booth" ? pres.cue : null };
   // Presenting in a room: only that room's display hears it, on the room's own channel.
   if (pres.room) { Object.assign(msg, { room: pres.room.token, loc: pres.room.loc, msg: "", captions: "" }); try { presChannel?.postMessage(msg); } catch {} if (Backend.on) Backend.broadcast(msg, roomTopic(pres.room.token)); return; }
   try { presChannel?.postMessage(msg); } catch {}
