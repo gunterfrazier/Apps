@@ -5,9 +5,11 @@
 // slides. Each pane can close, and widths are remembered on this computer. Below 1,100 px nothing here runs.
 
 /* ----- Panes: a row of resizable side-by-side panes, remembered per computer (localStorage "ofc-panes") ----- */
+// Kept for each person on this computer, so people taking turns at a shared workstation each get their own.
+const panesKey = () => `ofc-panes:${S.state?.me?.id || "anyone"}`;
 const Panes = {
-  read() { try { return JSON.parse(localStorage.getItem("ofc-panes") || "{}") || {}; } catch { return {}; } },
-  write(all) { try { localStorage.setItem("ofc-panes", JSON.stringify(all)); } catch { /* private mode */ } },
+  read() { try { return JSON.parse(localStorage.getItem(panesKey()) || localStorage.getItem("ofc-panes") || "{}") || {}; } catch { return {}; } },
+  write(all) { try { localStorage.setItem(panesKey(), JSON.stringify(all)); } catch { /* private mode */ } },
   get(set) { return this.read()[set] || {}; },
   put(set, patch) { const all = this.read(); all[set] = { ...(all[set] || {}), ...patch }; this.write(all); },
   isOpen(set, key, dflt = true) { const c = this.get(set).closed || {}; return key in c ? !c[key] : dflt; },
@@ -31,7 +33,24 @@ function paneRow(set, panes) {
   return html`<div class="panes" data-panes="${set}">${parts}</div>`;
 }
 /** Lays the columns out from each child's data-col (called after drawing and while resizing). */
-function paneLayout(row) { if (row) row.style.gridTemplateColumns = [...row.children].map((c) => c.dataset.col).join(" "); }
+function paneLayout(row) {
+  if (!row) return;
+  const kids = [...row.children], defs = PaneDefs[row.dataset.panes] || {}, room = row.clientWidth;
+  const px = (c) => (/^\d+px$/.test(c.dataset.col) ? parseInt(c.dataset.col, 10) : 0);
+  // Too wide for the window (a saved width, or a layout made on a bigger screen): shrink the fixed panes toward their
+  // minimums, widest first, before the row has to scroll. Saved widths aren't changed.
+  const fixed = kids.filter((c) => c.matches(".pane") && px(c)), flexMin = kids.filter((c) => c.matches(".pane") && !px(c)).reduce((n, c) => n + (defs[c.dataset.pane]?.min || 320), 0);
+  const gaps = kids.filter((c) => !c.matches(".pane")).length * 8;
+  const widths = new Map(fixed.map((c) => [c, px(c)]));
+  let over = [...widths.values()].reduce((a, b) => a + b, 0) + flexMin + gaps - room;
+  while (room && over > 0) {
+    const c = fixed.filter((x) => widths.get(x) > (defs[x.dataset.pane]?.min || 200)).sort((a, b) => widths.get(b) - widths.get(a))[0]; if (!c) break;
+    const cut = Math.min(over, widths.get(c) - (defs[c.dataset.pane]?.min || 200), 40);
+    widths.set(c, widths.get(c) - cut); over -= cut;
+  }
+  row.style.gridTemplateColumns = kids.map((c) => (widths.has(c) ? `${widths.get(c)}px` : c.dataset.col)).join(" ");
+}
+addEventListener("resize", () => paneLayout($(".panes")));
 function paneResizeTarget(r) {
   const defs = PaneDefs[r.dataset.set] || {}, l = defs[r.dataset.l], rt = defs[r.dataset.r];
   return l?.width ? { p: l, sign: 1 } : rt?.width ? { p: rt, sign: -1 } : null;
@@ -81,7 +100,7 @@ Screens.build = (id) => {
 
 function deskView(d, v) {
   d.blocks.forEach((b) => { b.id ||= uid(); }); // older blocks had no id; selection and the slide strip need one
-  if (desk.doc !== d.id) desk = { doc: d.id, id: d.blocks[0]?.id || null, draft: null, at: 0, pin: null, tab: "passage", t: null, focus: null, scroll: null };
+  if (desk.doc !== d.id) { deskLayoutFirstTime(); desk = { doc: d.id, id: d.blocks[0]?.id || null, draft: null, at: 0, pin: null, tab: Panes.get("builder").tab || "passage", t: null, focus: null, scroll: null }; }
   if (!desk.draft && !d.blocks.some((b) => b.id === desk.id)) desk.id = d.blocks[0]?.id || null;
   const g = d.gatheringId && S.get("gatherings", d.gatheringId), ref = deskRef(d);
   const toggle = (key, label, ic) => { const on = Panes.isOpen("builder", key); return html`<button type="button" class="chip ${on ? "on" : ""}" data-act="pane-toggle" data-set="builder" data-pane="${key}" aria-pressed="${on}">${icon(ic)}${label}</button>`; };
@@ -92,7 +111,8 @@ function deskView(d, v) {
         <p class="desk-meta"><span class="tag brand">${DOC_KINDS[d.kind].label}</span> ${d.published ? html`<span class="tag ok">Published</span>` : html`<span class="tag">Draft</span>`}
           <span class="faint">${[d.passage, g?.name, docWhen(d), d.locationId && multiCampus() ? locName(d.locationId) : ""].filter(Boolean).join(". ")}</span></p>
         <div class="desk-tools"><div class="btns">${docButtons(d)}</div>
-          <div class="desk-toggles" role="group" aria-label="Show or hide panes">${toggle("outline", "Outline", "list")}${toggle("study", "Study", "book")}${toggle("strip", "Slides", "image")}</div></div>
+          <div class="desk-toggles" role="group" aria-label="Show or hide panes">${toggle("outline", "Outline", "list")}${toggle("study", "Study", "book")}${toggle("strip", "Slides", "image")}
+            <button type="button" class="chip" data-act="desk-layouts" aria-haspopup="menu" title="Saved pane layouts">${icon("layers")}Pane layout</button></div></div>
         ${isUnassigned(d) ? html`<div class="demo-note">${icon("calendar")}<div>Unassigned draft: no class, date or time yet. <button class="btn ghost sm" data-act="doc-assign" data-id="${d.id}">Assign to a class</button></div></div>` : ""}
       </div>
       ${paneRow("builder", [
@@ -307,7 +327,7 @@ Actions["desk-pick"] = (el) => {
   render();
 };
 Actions["desk-cancel"] = () => { desk.draft = null; render(); };
-Actions["desk-tab"] = (el) => { desk.tab = el.dataset.tab; render(); };
+Actions["desk-tab"] = (el) => { desk.tab = el.dataset.tab; if (el.dataset.tab !== "lesson") Panes.put("builder", { tab: el.dataset.tab }); render(); };
 Actions["desk-pin"] = () => { const d = S.get("docs", desk.doc); desk.pin = desk.pin ? null : d && deskRef(d); render(); };
 Actions["desk-look"] = (el) => { desk.pin = el.dataset.ref; desk.tab = "passage"; render(); toast(`Pinned to ${el.dataset.ref}. Unpin to follow the outline again.`); };
 Inputs["desk-t"] = (el) => { desk.t = el.value; render(); };
