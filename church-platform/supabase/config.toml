@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.control]
 verify_jwt = false
+
+[functions.workstation]
+verify_jwt = false

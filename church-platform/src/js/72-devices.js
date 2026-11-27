@@ -12,6 +12,7 @@ const DEVICE_TYPES = {
   stage: ["Stage display", "music", "Words, what's next, timers and messages for the band and speaker"],
   overlay: ["Livestream overlay", "live", "Lyrics, Scripture and captions for the streaming computer"],
   booth: ["Booth computer", "list", "Runs service plans and sermon slides for the screens"],
+  workstation: ["Workstation", "lock", "A shared office or security desk computer. People sign in with their name and PIN, and it locks itself when they're done"],
 };
 const canDevices = () => S.isMember() && S.can("manage.devices");
 const DEVICE_KEY = "our-faithful-device";
@@ -19,6 +20,7 @@ const DEVICE_KEY = "our-faithful-device";
 /** The device this browser is set up as, if any. With Supabase it's the device account; otherwise it's kept per tab. */
 function thisDevice() {
   if (Backend.on) return Backend.user ? S.list("devices").find((d) => d.deviceUser === Backend.user.id) || null : null;
+  if (typeof Workstation !== "undefined" && Workstation.person()) return null;   // someone signed in on a workstation
   let id = null; try { id = sessionStorage.getItem(DEVICE_KEY); } catch {}
   return id ? S.get("devices", id) : null;
 }
@@ -26,7 +28,7 @@ function thisDevice() {
 function deviceRoutes(d) {
   const km = d.settings?.kioskMode;
   return { kiosk: km === "wayfind" ? ["wayfind"] : km === "both" ? ["kiosk", "wayfind"] : ["kiosk"], signage: [`signage-${d.settings?.playlistId || ""}`], display: ["display-follow"], room: ["display-room"], stage: ["stage-follow"], overlay: ["overlay-follow"],
-    booth: ["booth", "present", "booth-check", "boothwin", "booth-screens", "display-follow", "stage-follow"] }[d.type] || ["home"];
+    booth: ["booth", "present", "booth-check", "boothwin", "booth-screens", "display-follow", "stage-follow"], workstation: ["workstation"] }[d.type] || ["home"];
 }
 // In the preview, devices are other tabs in the same browser. This keeps the admin's tab and the device's tab in step.
 let devChannel = null;

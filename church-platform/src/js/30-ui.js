@@ -140,6 +140,7 @@ function render() {
     lastRoute = route;
   }
   view.after?.();
+  if (typeof wsBar === "function") wsBar();
   if (typeof hydrateColorSuggestions === "function") hydrateColorSuggestions();
   if (typeof Player !== "undefined") Player.syncUI(head, view);
   SecurityRadio.sync(head);

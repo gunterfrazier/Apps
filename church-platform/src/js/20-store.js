@@ -54,8 +54,9 @@ const S = {
     clearTimeout(this._timer); this._timer = 0;
     if (!skipSync && typeof Backend !== "undefined" && Backend.on) Backend.sync();
     // Live security messages stay on the server and in the signed-in session.
-    const cached = Backend.configured() ? { ...this.state, securityRadioMessages: [], securityDoorChecks: [],
-      notifications: this.state.notifications.filter((n) => n.kind !== "security-radio") } : this.state;
+    const own = typeof wsDemo !== "undefined" && wsDemo ? { ...this.state, me: wsDemo.orig } : this.state;   // see 72i-workstation.js
+    const cached = Backend.configured() ? { ...own, securityRadioMessages: [], securityDoorChecks: [],
+      notifications: own.notifications.filter((n) => n.kind !== "security-radio") } : own;
     const data = JSON.stringify(cached);
     try { localStorage.setItem(PLATFORM.storageKey, data); }
     catch (e) {
