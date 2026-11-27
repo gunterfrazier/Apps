@@ -421,6 +421,24 @@ other browsers open a small ordinary window. From it you can:
 - see how many incidents are open, and jump back to Security Command
 
 It has the same permissions as Security Command itself.
+## Screen wall
+
+**Screen wall** (in the sidebar under Sunday, or **Devices, Screen wall**) is for people who present or look after
+the screens. It shows what every paired screen is showing right now, each worked out the same way the screen works it
+out:
+- **Presentation screens:**
+  - Audience displays appear in their own look.
+  - Stage displays show the words, what's next, the stage message and the clock.
+  - Livestream overlays show their lower third over a checkerboard.
+  - Between services, each shows its idle signage.
+  - Each presentation that's running gets a booth tile with its Program and its Preview.
+- **Room displays:** the slides of whoever is presenting in the room. Otherwise, the main service (rooms set to mirror
+  it) or their idle signage.
+- **Digital signage:** the slide each screen is on, from its schedule and the shared clock.
+- **Other devices:** kiosks, door check-in, the booth computer and workstations, on cards that say what each is for.
+
+Each tile says whether that screen is online. You can filter by kind and campus, choose small, medium or large tiles,
+and click a tile to see it big. The wall only watches; nothing on it changes a screen.
 
 ## The desktop layout
 

@@ -1488,7 +1488,7 @@ await step("presenter shortcut and long stage lyrics", async () => {
     await page.waitForSelector('.sm-next:has-text("very long next line")');
     await page.evaluate(() => window.scrollTo(0, 0));
     for (const [width, height] of [[390, 667], [667, 390], [1280, 720]]) {
-      await page.setViewportSize({ width, height });
+      await page.setViewportSize({ width, height }); await page.waitForTimeout(250);   // crossing the desktop width redraws the page
       const controls = await page.locator('.present-controls').boundingBox();
       if (!controls || controls.y < 0 || controls.y + controls.height > height) throw new Error(`Stage controls out of view at ${width} × ${height}`);
     }
@@ -2039,6 +2039,45 @@ await step("security desk and floating toolbar", async () => {
     for (const p of pops) await p.close().catch(() => {});
     await sd.close();
     await page.evaluate(() => { const { S } = __app; if (window.__secSnap) { S.state = window.__secSnap; delete window.__secSnap; S.save(); } });
+  }
+});
+await step("screen wall", async () => {
+  if (!(await page.evaluate(() => __app.S.can("manage.devices") && __app.S.can("manage.church")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await page.evaluate(() => { const S = __app.S, now = new Date().toISOString(), c = S.church(); c.labs = { ...c.labs, booth: true };
+    for (const [id, name, type, settings] of [["wall-proj", "Sanctuary projector", "display", {}], ["wall-key", "Video switcher key", "display", { look: "green" }], ["wall-stage", "Band monitor", "stage", {}]])
+      S.state.devices.push({ id, churchId: S.state.current, name, type, status: "paired", lastSeen: now, locationId: null, settings });
+    S.save(); });
+  const v = await tab(1440, 900), b = await tab(1400, 900);
+  try {
+    await v.goto(base + "#wall"); await v.waitForSelector(".wall-grid");
+    for (const n of ["Sanctuary projector", "Video switcher key", "Band monitor", "Lobby screen", "Room 201 screen", "Kids check-in kiosk"]) await v.waitForSelector(`.wall-tile >> text=${n}`);
+    for (const h of ["Presentation screens", "Room displays", "Digital signage", "Other devices"]) await v.waitForSelector(`.wall-h >> text=${h}`);
+    if (await v.$(".wall-tile >> text=Booth:")) throw new Error("no booth tile before anything is presented");
+    // Signage shows the slide its screen is on; a free room shows its idle signage; a projector between services its idle screen.
+    await v.waitForSelector(".wall-tile:has-text('Lobby screen') .wall-sign .sg-stage"); await v.waitForSelector(".wall-tile:has-text('Lobby screen') .wall-line >> text=/slide \\d+ of \\d+/");
+    await v.waitForSelector(".wall-tile:has-text('Room 201 screen') .wall-line >> text=Free");
+    await v.click("[data-act=wall-kind][data-kind=signage]"); await v.waitForSelector(".wall-h >> text=Digital signage");
+    if (await v.$(".wall-h >> text=Presentation screens")) throw new Error("the signage filter should show only signage");
+    await v.click("[data-act=wall-kind][data-kind='']"); await v.waitForSelector(".wall-h >> text=Presentation screens");
+    // The booth puts a lyric slide up: the wall follows, each screen in its own look.
+    await b.goto(base + "#present-service-riverside-svc-1"); await b.waitForSelector(".booth-op");
+    const verse = await b.$$eval(".booth-list .slide-pick", (bs) => bs.find((x) => /Verse 1:/.test(x.textContent))?.dataset.i);
+    await b.dblclick(`.booth-list .slide-pick[data-i="${verse}"]`);
+    await v.waitForSelector(".wall-tile >> text=Booth: Sunday worship");
+    await v.waitForSelector(".wall-tile:has-text('Sanctuary projector') .slide.k-lyrics");
+    await v.waitForSelector(".wall-tile:has-text('Video switcher key') .wall-key.green .wall-lt >> text=Blessed assurance");
+    await v.waitForSelector(".wall-tile:has-text('Band monitor') .wall-now >> text=Blessed assurance");
+    // Cueing a slide in the Booth view shows in the booth tile's Preview.
+    await b.click(`.booth-list .slide-pick[data-i="${+verse + 3}"]`); await v.waitForSelector(".wall-cap.preview >> text=Preview (cued)");
+    await v.click("[data-act=wall-size][data-size=l]"); await v.waitForSelector(".wall-grid.size-l");
+    await v.screenshot({ path: join(shots, "50c-screen-wall.png") });
+    await v.click("[data-act=wall-size][data-size=m]"); await v.waitForSelector(".wall-grid.size-m"); await v.waitForTimeout(400);
+    await v.screenshot({ path: join(shots, "50d-screen-wall-all.png"), fullPage: true });
+    await v.click(".wall-tile:has-text('Band monitor') [data-act=wall-focus]"); await v.waitForSelector(".wall-tile.big >> text=Band monitor");
+    await b.click("[data-act=pres-black]"); await v.waitForSelector(".wall-tile:has-text('Sanctuary projector') .slide.k-black");
+  } finally {
+    await v.close(); await b.close();
+    await page.evaluate(() => { const S = __app.S, c = S.church(); S.state.devices = S.state.devices.filter((d) => !d.id.startsWith("wall-")); c.labs = { ...c.labs, booth: false }; S.save(); localStorage.removeItem("ofc-wall"); });
   }
 });
 await step("control keys page", async () => {
