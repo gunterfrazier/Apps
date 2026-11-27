@@ -268,6 +268,7 @@ Screens.admin = (section) => {
         item("manage.devices", "signs", "image", "Digital signage", plural(S.list("signage").length, "playlist"), null, "lobby tv"),
       ])}
       ${sec("Giving and payments", "", [
+        item(["count.offering", "deposit.offering", "view.giving"], "offering", "list", "Offering count and deposits", "Count Sunday's cash and checks with two people, verify, and record the bank deposit", null, "offering counting batch deposit counter depositor dual control"),
         item("view.giving", "treasurer", "give", "Treasurer & accounting platform", "Cash, check & card batches, tithes/offerings, funds, budgets, expenses, weekly & IRS tax reports", null, "treasurer accounting cash check batch tithe offering budget expense tax statements"),
         item("view.giving", "admin-giving", "give", "Gifts and funds", "Online payments, funds, recent gifts and year-end statements", null, "giving stripe paypal square processor donations"),
         item("view.giving", "admin-campaigns", "star", "Pledge campaigns", "A goal for a fund, with pledges and progress"),

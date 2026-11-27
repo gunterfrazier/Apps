@@ -11,7 +11,7 @@ const DESKTOP_MIN = 1100;
 const isDesktop = () => innerWidth >= DESKTOP_MIN;
 const sideFolded = () => { try { return localStorage.getItem(SIDE_KEY) === "folded"; } catch { return false; } };
 // Workspaces get the full width of the window; other pages a comfortable reading width.
-const WIDE_HEADS = new Set(["wall", "directory", "person", "dashboard", "reports", "treasurer", "security", "admin", "devices", "services", "docs", "build", "teams", "admin-checkin", "rooms", "people", "report", "insights", "safety", "incident"]);
+const WIDE_HEADS = new Set(["offering", "wall", "directory", "person", "dashboard", "reports", "treasurer", "security", "admin", "devices", "services", "docs", "build", "teams", "admin-checkin", "rooms", "people", "report", "insights", "safety", "incident"]);
 
 /** The workspaces this person's role opens, grouped. Each item: [route, icon, label, which heads count as "here"]. */
 function workspacesFor() {
@@ -38,6 +38,7 @@ function workspacesFor() {
       hasAdminTools() && ["dashboard", "layers", "Dashboard", ["dashboard"]],
       canReports() && ["reports", "chart", "Reports", ["reports", "report"]],
       typeof canTreasurer === "function" && canTreasurer() && on("finance") && ["treasurer", "give", "Finance", ["treasurer"]],
+      typeof canOffering === "function" && canOffering() && on("finance") && ["offering", "list", "Offering count", ["offering"]],
       hasAdminTools() && ["admin", "gear", "Admin", ["admin"]],
     ]],
   ];
