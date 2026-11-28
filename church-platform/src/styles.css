@@ -3022,3 +3022,17 @@ th.num .dt-sort { justify-content: flex-end; }
 .gq-ev { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
 .gq-draft { display: grid; gap: 6px; max-height: 50vh; overflow: auto; margin: 8px 0 12px; }
 .gq-draft-item { padding: 8px; border: 1px solid var(--line, #e5e7eb); border-radius: 10px; margin: 0; }
+.gm-clues, .gm-fakes { list-style: none; margin: 0 auto; padding: 0; display: grid; gap: .5em; width: min(100%, 1100px); }
+.gm-clues li, .gm-fakes li { display: flex; align-items: center; gap: .8em; background: var(--gpanel); border: 1px solid var(--gline); border-radius: 14px; padding: .6em 1em; font-size: 1.3em; }
+.gm-clues li.new { border-color: #4f8ff7; animation: gm-pop .4s ease-out; }
+.gm-fakes small { margin-left: auto; color: var(--gdim); font-size: .7em; }
+.gm-fakes .gm-count { margin-left: .8em; }
+.gm-fakes li.truth { border-color: #3fb26e; background: #173226; }
+.gm-fakes li.truth small { color: #6fdc9b; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .gm-clues li.new { animation: none; } }
+.pl-clues { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pl-clues li { display: flex; gap: 10px; align-items: center; background: var(--gpanel); border: 1px solid var(--gline); border-radius: 12px; padding: 10px 12px; }
+.pl-clues li:last-child { border-color: #4f8ff7; }
+/* The big screen keeps its host controls in view: the middle scrolls if a reveal is tall. */
+.gm-big { height: 100vh; height: 100dvh; }
+.gm-big .gm-stage { min-height: 0; overflow: auto; align-items: safe center; }

@@ -8,7 +8,10 @@ const GAME_KINDS = {
   quiz: { name: "Bible Quiz", blurb: "Four answers, one is right. The faster you answer, the more you score.", secs: 20 },
   scramble: { name: "Name Scramble", blurb: "Unscramble a Bible name or place. Three tries each.", secs: 30 },
   order: { name: "In Order", blurb: "Put four events in the order they happened.", secs: 35 },
+  who: { name: "Who Am I?", blurb: "Clues about someone in the Bible, one at a time. Guess early for more points.", secs: 40 },
+  fake: { name: "Fake Out", blurb: "Write a believable fake answer, then find the real one. Score for the truth and for every player you fool. Best with 4 or more.", secs: 45, vote: 25 },
 };
+const WHO_CLUES = 5;
 const GAME_TEAMS = [["Salt", "#e9a23b"], ["Light", "#4f8ff7"], ["Vine", "#3fb26e"], ["Rock", "#d9643f"]];
 const GAME_LETTERS = "BCDFGHJKLMNPQRSTVWXZ";
 const GAME_SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/+esm";
@@ -144,6 +147,11 @@ function ghPick(kind) {
     let letters = word; for (let n = 0; n < 20 && letters === word; n++) letters = gameShuffle([...word]).join("");
     return { word, hint, ref, letters };
   }
+  if (kind === "who") {
+    const [name, clues, ref, also] = tuple;
+    return { name, clues: clues.slice(0, WHO_CLUES), ref, accept: [name, ...(also || [])].map(gameNorm) };
+  }
+  if (kind === "fake") { const [q, answer, ref] = tuple; return { q, answer, ref, step: "write", choices: null }; }
   const [title, events] = tuple, ids = "abcd";
   const list = events.map(([t, ref], k) => ({ id: ids[k], t, ref }));
   let shown = gameShuffle(list); for (let n = 0; n < 10 && shown.every((e, k) => e.id === list[k].id); n++) shown = gameShuffle(list);
@@ -156,9 +164,36 @@ function ghAsk() {
   GH.phase = "ask"; GH.limit = GAME_KINDS[g.kind].secs * 1000; GH.startedAt = Date.now();
   ghUpdate();
 }
+/** Who Am I?: how many clues are showing. One more every fifth of the time. */
+const ghClues = () => GH.phase === "reveal" ? WHO_CLUES : Math.min(WHO_CLUES, 1 + Math.floor((Date.now() - GH.startedAt) / (GH.limit / WHO_CLUES)));
+/** Fake Out: the fakes are in (or time is up). Show them with the truth, each the same once, and vote. */
+function ghVote() {
+  const it = GH.item; if (GH.phase !== "ask" || it.step !== "write") return;
+  const byText = new Map();
+  for (const [id, a] of Object.entries(GH.answers)) {
+    if (!a.fake) continue;
+    const k = gameNorm(a.fake); if (!byText.has(k)) byText.set(k, { t: a.fake, by: [] });
+    byText.get(k).by.push(id);
+  }
+  if (!byText.size) { it.step = "vote"; it.choices = [{ id: "c0", t: it.answer, truth: true, by: [] }]; ghReveal(); return; }
+  it.choices = gameShuffle([...byText.values(), { t: it.answer, truth: true, by: [] }]).map((c, i) => ({ ...c, id: `c${i}` }));
+  it.step = "vote"; GH.limit = GAME_KINDS.fake.vote * 1000; GH.startedAt = Date.now();
+  ghUpdate();
+}
+/** Fake Out scores: 1,000 for finding the truth, 500 for each other player who picked your fake. */
+function ghScoreFake() {
+  const it = GH.item, votes = Object.entries(GH.answers).filter(([, a]) => a.vote);
+  for (const [id, a] of Object.entries(GH.answers)) {
+    const picked = it.choices?.find((c) => c.id === a.vote);
+    a.correct = !!picked?.truth;
+    a.fooled = votes.filter(([vid, v]) => vid !== id && it.choices.find((c) => c.id === v.vote)?.by.includes(id)).length;
+    a.points = (a.correct ? 1000 : 0) + 500 * a.fooled;
+  }
+}
 /** The answers are in (or time is up): score them and show the answer. */
 function ghReveal() {
   if (GH.phase !== "ask") return;
+  if (ghGame().kind === "fake") ghScoreFake();
   GH.phase = "reveal"; GH.last = {};
   for (const [id, a] of Object.entries(GH.answers)) {
     if (!GH.players[id] || !a.points) continue;
@@ -173,7 +208,7 @@ function ghNext() {
     if (!ghPlayers().length) { toast("Wait for someone to join first."); return; }
     ghBalance(); GH.phase = "intro";
   } else if (GH.phase === "intro") { ghAsk(); return; }
-  else if (GH.phase === "ask") { ghReveal(); return; }
+  else if (GH.phase === "ask") { if (g.kind === "fake" && GH.item.step === "write") ghVote(); else ghReveal(); return; }
   else if (GH.phase === "reveal") {
     if (GH.ri + 1 < g.rounds) { GH.ri++; ghAsk(); return; }
     GH.phase = "standings";
@@ -188,9 +223,14 @@ function ghYou(id, ranked) {
   const p = GH.players[id], a = GH.answers?.[id], g = ghGame();
   const you = { score: p.score, rank: ranked.findIndex((r) => r.id === id) + 1, team: p.team || 0 };
   if (GH.phase === "ask" || GH.phase === "reveal") {
-    if (g.kind === "scramble") Object.assign(you, { tries: a?.tries || 0, solved: !!a?.solved, done: !!a && (a.solved || a.tries >= 3) });
-    else you.done = !!a;
-    if (a && g.kind !== "scramble") you.picked = a.value;
+    if (g.kind === "scramble" || g.kind === "who") Object.assign(you, { tries: a?.tries || 0, solved: !!a?.solved, done: !!a && (a.solved || a.tries >= 3) });
+    else if (g.kind === "fake") {
+      const voting = GH.item.step === "vote";
+      Object.assign(you, { wrote: !!a?.fake, voted: !!a?.vote, tooTrue: !!a?.tooTrue && !a?.fake, done: voting ? !!a?.vote : !!a?.fake, picked: a?.vote || "" });
+      if (voting) you.mine = GH.item.choices.filter((c) => c.by.includes(id)).map((c) => c.id);
+      if (GH.phase === "reveal") you.fooled = a?.fooled || 0;
+    } else you.done = !!a;
+    if (a && g.kind !== "scramble" && g.kind !== "who" && g.kind !== "fake") you.picked = a.value;
     if (GH.phase === "reveal") { you.points = GH.last[id] || 0; you.correct = !!a?.correct; }
   }
   return you;
@@ -203,10 +243,15 @@ function ghState() {
     if (g.kind === "quiz") q = { q: it.q, options: it.options };
     if (g.kind === "scramble") q = { letters: it.letters, hint: it.hint, len: it.word.length, first: GH.phase === "ask" && ghLeft() < GH.limit / 2 ? it.word[0] : "" };
     if (g.kind === "order") q = { title: it.title, events: it.events.map(({ id, t }) => ({ id, t })) };
+    if (g.kind === "who") q = { clues: it.clues.slice(0, ghClues()), total: WHO_CLUES };
+    if (g.kind === "fake") q = { q: it.q, step: it.step, choices: it.step === "vote" ? it.choices.map(({ id, t }) => ({ id, t })) : null };
     if (GH.phase === "reveal") {
       if (g.kind === "quiz") reveal = { answer: it.answer, ref: it.ref, counts: it.options.map((_, i) => Object.values(GH.answers).filter((a) => a.value === i).length) };
       if (g.kind === "scramble") reveal = { word: it.word, ref: it.ref };
       if (g.kind === "order") reveal = { answer: it.answer, refs: it.refs };
+      if (g.kind === "who") reveal = { name: it.name, ref: it.ref };
+      if (g.kind === "fake") reveal = { answer: it.answer, ref: it.ref, choices: (it.choices || []).map((c) => ({ id: c.id, t: c.t, truth: !!c.truth,
+        by: c.by.map((id) => GH.players[id]?.name).filter(Boolean), votes: Object.values(GH.answers).filter((a) => a.vote === c.id).length })) };
     }
   }
   const you = {}; for (const p of ranked) you[p.id] = ghYou(p.id, ranked);
@@ -241,6 +286,24 @@ function ghHeard(event, p) {
     if (a.solved || a.tries >= 3) return;
     if (gameNorm(p.value) === it.word) Object.assign(a, { solved: true, correct: true, ms, points: Math.round((500 + 500 * speed) * [1, 0.75, 0.5][a.tries]) });
     else a.tries++;
+  } else if (g.kind === "who") {
+    const a = (GH.answers[p.pid] ||= { tries: 0, solved: false, points: 0 });
+    if (a.solved || a.tries >= 3) return;
+    const clues = ghClues();
+    if (it.accept.includes(gameNorm(p.value))) Object.assign(a, { solved: true, correct: true, clues, points: Math.round((1000 - (clues - 1) * 175) * [1, 0.75, 0.5][a.tries]) });
+    else a.tries++;
+  } else if (g.kind === "fake") {
+    const a = (GH.answers[p.pid] ||= {});
+    if (it.step === "write") {
+      if (a.fake) return;
+      const text = String(p.value || "").trim().slice(0, 40);
+      if (!text) return;
+      // Writing the real answer would give it away: ask for a fake one instead.
+      if (gameNorm(text) === gameNorm(it.answer)) a.tooTrue = true; else a.fake = text;
+    } else {
+      if (a.vote || !it.choices.some((c) => c.id === p.value) || it.choices.find((c) => c.id === p.value).by.includes(p.pid)) return;
+      a.vote = p.value;
+    }
   } else {
     if (prev || !Array.isArray(p.value)) return;
     const right = it.answer.filter((id, k) => p.value[k] === id).length, all = right === it.answer.length;
@@ -248,12 +311,16 @@ function ghHeard(event, p) {
   }
   const st = ghState();
   ghSave(); ghNet.send("state", st);
-  if (st.done >= st.count) setTimeout(() => { if (GH?.phase === "ask" && GH.item === it) ghReveal(); }, 700); else ghPatch(st);
+  const step = it.step;
+  if (st.done >= st.count) setTimeout(() => { if (GH?.phase !== "ask" || GH.item !== it || it.step !== step) return; if (g.kind === "fake" && step === "write") ghVote(); else ghReveal(); }, 700);
+  else ghPatch(st);
 }
 /** Time's up: show the answer. And keep the clock on the big screen moving. */
 function ghTimer() {
   if (!GH) return;
-  if (GH.phase === "ask" && ghLeft() <= 0) { ghReveal(); return; }
+  if (GH.phase === "ask" && ghLeft() <= 0) { if (ghGame().kind === "fake" && GH.item.step === "write") ghVote(); else ghReveal(); return; }
+  // Who Am I?: a new clue.
+  if (GH.phase === "ask" && ghGame().kind === "who" && ghClues() !== GH.item.shown) { GH.item.shown = ghClues(); ghSend(); ghDrawn = ""; ghDraw(); return; }
   if (GH.phase !== "ask" || splitRoute().head !== "gameroom") return;
   const left = ghLeft(), el = $("[data-gm-left]");
   if (el) el.textContent = Math.ceil(left / 1000);
@@ -261,12 +328,13 @@ function ghTimer() {
   // Name Scramble shows the first letter halfway.
   if (ghGame().kind === "scramble" && left < GH.limit / 2 && !$("[data-gm-first]")?.textContent) { const f = $("[data-gm-first]"); if (f) { f.textContent = `Starts with ${GH.item.word[0]}`; ghSend(); } }
 }
+const gmDoneText = (st) => `${st.done} of ${st.count} ${st.kind === "fake" ? (st.q?.step === "vote" ? "voted" : "wrote a fake") : st.kind === "who" || st.kind === "scramble" ? "done" : "answered"}`;
 function ghPatch(st) {
-  const el = $("[data-gm-done]"); if (el) el.textContent = `${st.done} of ${st.count} answered`;
+  const el = $("[data-gm-done]"); if (el) el.textContent = gmDoneText(st);
 }
 function ghDraw() {
   if (splitRoute().head !== "gameroom") return;
-  const key = `${GH?.phase}:${GH?.gi}:${GH?.ri}:${GH ? Object.keys(GH.players).length : 0}:${GH ? ghPlayers().map((p) => p.name + p.team).join() : ""}`;
+  const key = `${GH?.phase}:${GH?.gi}:${GH?.ri}:${GH?.item?.step || ""}:${GH ? Object.keys(GH.players).length : 0}:${GH ? ghPlayers().map((p) => p.name + p.team).join() : ""}`;
   if (key === ghDrawn && GH?.phase === "ask") { ghPatch(ghState()); return; }
   ghDrawn = key;
   $("#app").innerHTML = flat(Screens.gameroom().page);
@@ -351,7 +419,7 @@ const gmTeamChip = (t) => t ? html`<span class="gm-team" style="--t:${GAME_TEAMS
 function gmBoard(st, n = 8) {
   const ranked = GH ? ghRanked().slice(0, n) : [];
   return html`<ol class="gm-board">${ranked.map((p, i) => html`<li><span class="gm-place">${i + 1}</span><b>${p.name}</b>${gmTeamChip(p.team)}
-    ${GH.phase === "reveal" && GH.last[p.id] ? html`<span class="gm-plus">+${GH.last[p.id]}</span>` : ""}<span class="gm-score">${p.score.toLocaleString()}</span></li>`)}</ol>`;
+    ${GH.phase === "reveal" && GH.last[p.id] ? html`<span class="gm-plus">+${GH.last[p.id].toLocaleString()}</span>` : ""}<span class="gm-score">${p.score.toLocaleString()}</span></li>`)}</ol>`;
 }
 function gmTeams(st) {
   if (!st.teams) return "";
@@ -391,18 +459,30 @@ function gmStage(st) {
       ${reveal ? html`<span class="gm-count">${st.reveal.counts[i]}</span>` : ""}</div>`)}</div>`;
   } else if (st.kind === "scramble") {
     main = html`<p class="gm-kicker">${it.hint}</p><div class="gm-tiles ${reveal ? "solved" : ""}">${[...(reveal ? it.word : it.letters)].map((ch) => html`<span>${ch}</span>`)}</div>
-      ${reveal ? html`<p class="gm-dim">${it.ref}</p>` : html`<p class="gm-dim" data-gm-first>${st.q.first ? `Starts with ${st.q.first}` : ""}</p>`}`;
+      ${reveal ? "" : html`<p class="gm-dim" data-gm-first>${st.q.first ? `Starts with ${st.q.first}` : ""}</p>`}`;
+  } else if (st.kind === "who") {
+    const clues = reveal ? it.clues : st.q.clues;
+    main = html`<h1 class="gm-q">${reveal ? it.name : "Who am I?"}</h1>
+      <ol class="gm-clues">${clues.map((c, i) => html`<li class="${!reveal && i === clues.length - 1 ? "new" : ""}"><span class="gm-letter">${i + 1}</span><b>${c}</b></li>`)}</ol>
+      ${reveal ? "" : html`<p class="gm-dim" style="text-align:center">Clue ${clues.length} of ${WHO_CLUES}. Guessing earlier scores more.</p>`}`;
+  } else if (st.kind === "fake") {
+    const voting = it.step === "vote", labels = "ABCDEFGHIJKLMNOP";
+    main = html`<h1 class="gm-q">${it.q}</h1>
+      ${reveal ? html`<ol class="gm-fakes">${st.reveal.choices.map((c, i) => html`<li class="${c.truth ? "truth" : ""}"><span class="gm-letter">${labels[i]}</span><b>${c.t}</b>
+          <small>${c.truth ? "The truth" : `${listJoin(c.by)}'s fake`}</small><span class="gm-count">${plural(c.votes, "vote")}</span></li>`)}</ol>`
+        : voting ? html`<p class="gm-kicker" style="text-align:center">One of these is true. Pick it on your phone.</p><ol class="gm-fakes">${it.choices.map((c, i) => html`<li><span class="gm-letter">${labels[i]}</span><b>${c.t}</b></li>`)}</ol>`
+        : html`<p class="gm-blurb" style="text-align:center;margin:auto">Write a fake answer on your phone that sounds true.</p>`}`;
   } else {
     const order = reveal ? it.refs : it.events, labels = "ABCD";
     main = html`<h1 class="gm-q">${it.title}: earliest first</h1><ol class="gm-events ${reveal ? "solved" : ""}">${order.map((e) => html`<li><span class="gm-letter">${labels[it.events.findIndex((x) => x.id === e.id)]}</span><b>${e.t}</b>${reveal && e.ref ? html`<small>${e.ref}</small>` : ""}</li>`)}</ol>`;
   }
   return html`<div class="gm-question">${head}${main}
-    ${reveal ? html`<div class="gm-after">${gmTeams(st)}${gmBoard(st, 5)}</div>` : html`<p class="gm-dim gm-answered" data-gm-done>${st.done} of ${st.count} answered</p>`}</div>`;
+    ${reveal ? html`<div class="gm-after">${gmTeams(st)}${gmBoard(st, 5)}</div>` : html`<p class="gm-dim gm-answered" data-gm-done>${gmDoneText(st)}</p>`}</div>`;
 }
 Screens.gameroom = () => {
   if (!ghLoad()) return { redirect: "games" };
   const st = ghState();
-  const next = { lobby: "Start", intro: "First question", ask: "Show the answer", reveal: st.ri + 1 < st.rounds ? "Next question" : "See scores",
+  const next = { lobby: "Start", intro: "First question", ask: st.kind === "fake" && st.q?.step === "write" ? "Start the vote" : "Show the answer", reveal: st.ri + 1 < st.rounds ? "Next question" : "See scores",
     standings: st.gi + 1 < st.games.length ? `Next: ${st.games[st.gi + 1]?.name}` : "Final scores", final: "" }[st.phase];
   return {
     page: html`<div class="gm gm-big gm-at-${st.phase}" role="main">
