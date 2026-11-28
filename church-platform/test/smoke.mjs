@@ -2562,6 +2562,79 @@ await step("second screen: pop-out slides, notes and dashboard", async () => {
     await dash.screenshot({ path: join(shots, "50s-popout-dashboard.png") });
   } finally { for (const p of pops) await p.close().catch(() => {}); await d.close(); }
 });
+await step("game night: host a room, phones join and play all three games with teams", async () => {
+  const was = await page.evaluate(() => { const S = __app.S, m = S.membership(), r = m.roleId; m.roleId = "admin"; S.save(); S.flush?.(); return r; });
+  const host = await tab(1600, 900), a = await tab(390, 844), b = await tab(390, 844);
+  try {
+    await openWhenThere(host, base + "?debug#games", "form[data-form=games-open]");
+    await host.check("form[data-form=games-open] input[name=teams][value='2']");
+    await host.click("form[data-form=games-open] button.btn");
+    await host.waitForSelector(".gm-lobby .gm-code");
+    const code = (await host.textContent(".gm-code")).trim();
+    if (!/^[A-Z]{4}$/.test(code)) throw new Error(`a 4-letter code, got ${code}`);
+    // Phones join with the code and a name; no account involved.
+    const joinGame = async (p, name) => {
+      await p.goto(base + "#play-" + code); await p.waitForSelector("form[data-form=play-join]");
+      if ((await p.inputValue("form[data-form=play-join] input[name=code]")) !== code) throw new Error("the code from the link fills in");
+      await p.fill("form[data-form=play-join] input[name=name]", name); await p.click(".pl-go");
+      await p.waitForSelector(`.pl-center h1:has-text("You're in, ${name}!")`);
+    };
+    await joinGame(a, "Ana"); await joinGame(b, "Ben");
+    await host.waitForSelector(".gm-chip:has-text('Ana')"); await host.waitForSelector(".gm-chip:has-text('Ben')");
+    // A reload rejoins as the same player.
+    await a.reload(); await a.waitForSelector(`.pl-center h1:has-text("You're in, Ana!")`);
+    if (await host.locator(".gm-chip").count() !== 2) throw new Error("a reload shouldn't add a second Ana");
+    await host.screenshot({ path: join(shots, "99g-game-lobby.png") });
+    await host.evaluate(() => { __app.game().GH.games.forEach((g) => { g.rounds = 1; }); });
+    const space = async () => { await host.keyboard.press("Space"); await host.waitForTimeout(120); };
+    // Teams are split evenly at the start.
+    await space(); await host.waitForSelector(".gm-at-intro .gm-title:has-text('Bible Quiz')");
+    const teams = await host.evaluate(() => Object.values(__app.game().GH.players).map((p) => p.team).sort().join());
+    if (teams !== "1,2") throw new Error(`two even teams, got ${teams}`);
+    await a.waitForSelector(".pl-center h1:has-text('Bible Quiz')");
+    // Bible Quiz: Ana right, Ben wrong. Once everyone answers, the answer shows by itself.
+    await space(); await a.waitForSelector(".pl-opts .gm-opt");
+    const right = await host.evaluate(() => __app.game().GH.item.answer);
+    await a.click(`.pl-opts .gm-opt[data-i="${right}"]`); await b.click(`.pl-opts .gm-opt[data-i="${(right + 1) % 4}"]`);
+    await host.waitForSelector(".gm-at-reveal .gm-opt.right");
+    await a.waitForSelector(".pl-result.good .pl-points"); await b.waitForSelector(".pl-result.miss");
+    await host.screenshot({ path: join(shots, "99h-game-quiz-answer.png") });
+    await a.screenshot({ path: join(shots, "99i-game-phone-correct.png") });
+    // Name Scramble: Ana misses once then solves it; Ben runs out of tries.
+    await space(); await host.waitForSelector(".gm-at-standings"); await space(); await host.waitForSelector(".gm-at-intro .gm-title:has-text('Name Scramble')");
+    await space(); await a.waitForSelector("[data-pl-guess]");
+    const word = await host.evaluate(() => __app.game().GH.item.word);
+    await a.fill("[data-pl-guess]", "WRONG"); await a.press("[data-pl-guess]", "Enter"); await a.waitForSelector(".pl-dim:has-text('Not quite')");
+    await a.screenshot({ path: join(shots, "99j-game-phone-scramble.png") });
+    await a.fill("[data-pl-guess]", word.toLowerCase()); await a.press("[data-pl-guess]", "Enter"); await a.waitForSelector(".pl-good");
+    for (let i = 0; i < 3; i++) { await b.waitForSelector("[data-pl-guess]"); await b.fill("[data-pl-guess]", "NOPE" + "XYZ"[i]); await b.press("[data-pl-guess]", "Enter"); await b.waitForTimeout(150); }
+    await host.waitForSelector(".gm-at-reveal .gm-tiles.solved"); await b.waitForSelector(".pl-result.miss");
+    // In Order: Ana gets the order right, Ben reverses it.
+    await space(); await space(); await host.waitForSelector(".gm-at-intro .gm-title:has-text('In Order')");
+    await space(); await a.waitForSelector(".pl-ev");
+    const order = await host.evaluate(() => __app.game().GH.item.answer);
+    for (const id of order) await a.click(`.pl-ev[data-id="${id}"]`);
+    await a.screenshot({ path: join(shots, "99k-game-phone-order.png") });
+    await a.click("[data-act=play-order-send]");
+    for (const id of [...order].reverse()) await b.click(`.pl-ev[data-id="${id}"]`);
+    await b.click("[data-act=play-order-send]");
+    await host.waitForSelector(".gm-at-reveal .gm-events.solved"); await a.waitForSelector(".pl-result.good");
+    await host.screenshot({ path: join(shots, "99l-game-order-answer.png") });
+    // Final scores: Ana wins, and her team leads.
+    await space(); await space(); await host.waitForSelector(".gm-at-final .gm-title:has-text('wins!')");
+    const top = await host.evaluate(() => __app.game().ghRanked()[0].name);
+    if (top !== "Ana") throw new Error(`Ana should win, got ${top}`);
+    await a.waitForSelector(".pl-center h1:has-text(\"You're in first!\")");
+    await host.screenshot({ path: join(shots, "99m-game-final.png") });
+    // Ending the night tells the phones.
+    await host.click(".gm-host [data-act=game-end]"); await host.waitForURL(/#games$/);
+    await a.waitForSelector(".pl-center h1:has-text('Thanks for playing!')");
+    await a.goto(base + "#play-" + code); await a.click("[data-act=play-leave]").catch(() => {});
+    await a.waitForSelector("form[data-form=play-join]");
+    await a.fill("form[data-form=play-join] input[name=code]", code); await a.fill("form[data-form=play-join] input[name=name]", "Ana"); await a.click(".pl-go");
+    await a.waitForSelector("[data-pl-error]:has-text('No game with that code')");
+  } finally { for (const p of [host, a, b]) await p.close().catch(() => {}); await page.evaluate((r) => { const S = __app.S; S.membership().roleId = r; S.save(); }, was); }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");

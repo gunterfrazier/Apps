@@ -75,6 +75,7 @@ const TAB_CHOICES = [
   { id: "prayer", label: "Prayer", icon: "pray", route: "connect", screens: [], on: () => S.on("prayer") },
   { id: "bible", label: "Bible", icon: "book", screens: ["bible"], on: () => true },
   { id: "give", label: "Give", icon: "give", screens: ["give"], on: () => S.on("giving") },
+  { id: "games", label: "Game night", icon: "game", screens: ["games", "gameroom"], on: () => S.on("games") },
   { id: "checkin", label: "Check in", icon: "kid", screens: ["checkin"], on: () => S.on("checkin") },
   { id: "me", label: "Me", icon: "user", screens: ["me"], on: () => true },
   { id: "more", label: "More", icon: "list", screens: [], on: () => true },

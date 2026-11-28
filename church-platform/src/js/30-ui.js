@@ -91,6 +91,8 @@ function render() {
   // On a church's own subdomain only its public pages open; everything else (joining, signing in) is on the app's address,
   // where sign-ins and paired devices live.
   if (CHURCH_SITE?.subdomain && !["site", "page", "visit", "map"].includes(head)) { location.replace(`${APP_HOME}#${route}`); return; }
+  // Game night on a player's phone: anyone with the code, signed in or not (98o-games-play.js).
+  if (head === "play") { SecurityRadio.sync(head); document.body.classList.remove("presenting", "kiosk-mode"); document.title = "Game night"; app.innerHTML = flat(Screens.play(tail).page); return; }
   const signedOutOk = head === "page" || head === "site" || head === "tag" || head === "pair" || head === "map" || (head === "visit" && !!tail) || (head === "ticket" && !!tail) || head === "thanks";
   // A church device that lost its session signs itself back in. Until then it says so, rather than asking for a code.
   if (Backend.on && !Backend.user && head !== "pair" && DeviceSignin.get()) {
