@@ -9,6 +9,7 @@ const GAME_KINDS = {
   scramble: { name: "Name Scramble", blurb: "Unscramble a Bible name or place. Three tries each.", secs: 30 },
   order: { name: "In Order", blurb: "Put four events in the order they happened.", secs: 35 },
   who: { name: "Who Am I?", blurb: "Clues about someone in the Bible, one at a time. Guess early for more points.", secs: 40 },
+  board: { name: "Bible Board", blurb: "Pick a category and a value, buzz in first, and answer right to win the points. Wrong answers lose them. Ends with a final round you wager on.", secs: 20 },
   fake: { name: "Fake Out", blurb: "Write a believable fake answer, then find the real one. Score for the truth and for every player you fool. Best with 4 or more.", secs: 45, vote: 25 },
 };
 const WHO_CLUES = 5;
@@ -160,6 +161,7 @@ function ghPick(kind) {
 
 function ghAsk() {
   const g = ghGame();
+  if (g.kind === "board") { boardAsk(); return; }
   GH.item = ghPick(g.kind); GH.answers = {}; GH.last = {};
   GH.phase = "ask"; GH.limit = GAME_KINDS[g.kind].secs * 1000; GH.startedAt = Date.now();
   ghUpdate();
@@ -208,6 +210,8 @@ function ghNext() {
     if (!ghPlayers().length) { toast("Wait for someone to join first."); return; }
     ghBalance(); GH.phase = "intro";
   } else if (GH.phase === "intro") { ghAsk(); return; }
+  else if (GH.phase === "ask" && g.kind === "board") { if (GH.item.step !== "pick") boardTimeout(); return; }
+  else if (GH.phase === "reveal" && g.kind === "board") { boardNext(); return; }
   else if (GH.phase === "ask") { if (g.kind === "fake" && GH.item.step === "write") ghVote(); else ghReveal(); return; }
   else if (GH.phase === "reveal") {
     if (GH.ri + 1 < g.rounds) { GH.ri++; ghAsk(); return; }
@@ -222,6 +226,7 @@ function ghNext() {
 function ghYou(id, ranked) {
   const p = GH.players[id], a = GH.answers?.[id], g = ghGame();
   const you = { score: p.score, rank: ranked.findIndex((r) => r.id === id) + 1, team: p.team || 0 };
+  if (g.kind === "board" && (GH.phase === "ask" || GH.phase === "reveal") && GH.item) return boardYou(id, you);
   if (GH.phase === "ask" || GH.phase === "reveal") {
     if (g.kind === "scramble" || g.kind === "who") Object.assign(you, { tries: a?.tries || 0, solved: !!a?.solved, done: !!a && (a.solved || a.tries >= 3) });
     else if (g.kind === "fake") {
@@ -239,7 +244,8 @@ function ghYou(id, ranked) {
 function ghState() {
   const g = ghGame(), it = GH.item, ranked = ghRanked(), asking = GH.phase === "ask" || GH.phase === "reveal";
   let q = null, reveal = null;
-  if (asking && it) {
+  if (asking && it && g.kind === "board") { q = boardQ(); if (GH.phase === "reveal") reveal = boardReveal(); }
+  else if (asking && it) {
     if (g.kind === "quiz") q = { q: it.q, options: it.options };
     if (g.kind === "scramble") q = { letters: it.letters, hint: it.hint, len: it.word.length, first: GH.phase === "ask" && ghLeft() < GH.limit / 2 ? it.word[0] : "" };
     if (g.kind === "order") q = { title: it.title, events: it.events.map(({ id, t }) => ({ id, t })) };
@@ -275,6 +281,7 @@ function ghHeard(event, p) {
     ghUpdate(); return;
   }
   if (event !== "answer" || GH.phase !== "ask" || p.key !== ghKey() || !GH.players[p.pid]) return;
+  if (ghGame().kind === "board") { boardHeard(p); return; }
   const g = ghGame(), it = GH.item, ms = Math.max(0, Math.min(GH.limit, +p.ms || 0)), speed = 1 - ms / GH.limit;
   const prev = GH.answers[p.pid];
   if (g.kind === "quiz") {
@@ -318,6 +325,7 @@ function ghHeard(event, p) {
 /** Time's up: show the answer. And keep the clock on the big screen moving. */
 function ghTimer() {
   if (!GH) return;
+  if (GH.phase === "ask" && ghLeft() <= 0 && ghGame().kind === "board") { boardTimeout(); return; }
   if (GH.phase === "ask" && ghLeft() <= 0) { if (ghGame().kind === "fake" && GH.item.step === "write") ghVote(); else ghReveal(); return; }
   // Who Am I?: a new clue.
   if (GH.phase === "ask" && ghGame().kind === "who" && ghClues() !== GH.item.shown) { GH.item.shown = ghClues(); ghSend(); ghDrawn = ""; ghDraw(); return; }
@@ -334,7 +342,7 @@ function ghPatch(st) {
 }
 function ghDraw() {
   if (splitRoute().head !== "gameroom") return;
-  const key = `${GH?.phase}:${GH?.gi}:${GH?.ri}:${GH?.item?.step || ""}:${GH ? Object.keys(GH.players).length : 0}:${GH ? ghPlayers().map((p) => p.name + p.team).join() : ""}`;
+  const key = `${GH?.phase}:${GH?.gi}:${GH?.ri}:${GH?.item?.step || ""}:${GH?.item?.answering || ""}:${GH?.item?.locked?.length || 0}:${GH?.board ? boardLeft() : ""}:${GH ? Object.keys(GH.players).length : 0}:${GH ? ghPlayers().map((p) => p.name + p.team).join() : ""}`;
   if (key === ghDrawn && GH?.phase === "ask") { ghPatch(ghState()); return; }
   ghDrawn = key;
   $("#app").innerHTML = flat(Screens.gameroom().page);
@@ -371,7 +379,7 @@ Screens.games = () => {
           <label class="field"><span>Name</span><input type="text" name="title" value="${c.name} game night" maxlength="80" required></label>
           <fieldset class="field" style="border:0;padding:0"><legend>Games, in this order</legend>
             ${kinds.map(([k, g]) => html`<div class="gm-pick"><label class="check" style="margin:0"><input type="checkbox" name="g_${k}" checked><span><b>${g.name}</b><br><small class="faint">${g.blurb}</small></span></label>
-              <label class="gm-rounds"><span class="sr">${g.name} rounds</span><select name="r_${k}">${[3, 5, 8, 10].map((n) => html`<option value="${n}" ${attr(n === 5, "selected")}>${n} rounds</option>`)}</select></label></div>`)}
+              <label class="gm-rounds"><span class="sr">${g.name} rounds</span><select name="r_${k}">${(k === "board" ? [3, 4, 5] : [3, 5, 8, 10]).map((n) => html`<option value="${n}" ${attr(n === 5, "selected")}>${n} ${k === "board" ? "categories" : "rounds"}</option>`)}</select></label></div>`)}
           </fieldset>
           ${gqAll().length ? html`<label class="field"><span>Questions</span><select name="source">
             <option value="both">Built-in and yours</option><option value="ours">Only yours</option><option value="builtin">Only built-in</option>
@@ -419,7 +427,7 @@ const gmTeamChip = (t) => t ? html`<span class="gm-team" style="--t:${GAME_TEAMS
 function gmBoard(st, n = 8) {
   const ranked = GH ? ghRanked().slice(0, n) : [];
   return html`<ol class="gm-board">${ranked.map((p, i) => html`<li><span class="gm-place">${i + 1}</span><b>${p.name}</b>${gmTeamChip(p.team)}
-    ${GH.phase === "reveal" && GH.last[p.id] ? html`<span class="gm-plus">+${GH.last[p.id].toLocaleString()}</span>` : ""}<span class="gm-score">${p.score.toLocaleString()}</span></li>`)}</ol>`;
+    ${GH.phase === "reveal" && GH.last[p.id] ? html`<span class="gm-plus" style="${GH.last[p.id] < 0 ? "color:#f08a8d" : ""}">${GH.last[p.id] < 0 ? "−" : "+"}${Math.abs(GH.last[p.id]).toLocaleString()}</span>` : ""}<span class="gm-score">${p.score.toLocaleString()}</span></li>`)}</ol>`;
 }
 function gmTeams(st) {
   if (!st.teams) return "";
@@ -449,6 +457,7 @@ function gmStage(st) {
       ${gmTeams(st)}${gmBoard(st, final ? 10 : 8)}
       ${!final ? html`<p class="gm-dim">Next up: ${st.games[st.gi + 1]?.name || "final scores"}</p>` : ""}</div>`;
   }
+  if (st.kind === "board") return boardStage(st);
   // A question, and its answer.
   const head = html`<div class="gm-qhead"><span>${st.name} · Round ${st.ri + 1} of ${st.rounds}</span>
     ${reveal ? html`<span>${it.ref || (it.refs ? "" : "")}</span>` : html`<span class="gm-clock" aria-hidden="true"><b data-gm-left>${Math.ceil(st.left / 1000)}</b></span>`}</div>
@@ -482,7 +491,8 @@ function gmStage(st) {
 Screens.gameroom = () => {
   if (!ghLoad()) return { redirect: "games" };
   const st = ghState();
-  const next = { lobby: "Start", intro: "First question", ask: st.kind === "fake" && st.q?.step === "write" ? "Start the vote" : "Show the answer", reveal: st.ri + 1 < st.rounds ? "Next question" : "See scores",
+  const next = { lobby: "Start", intro: "First question", ask: st.kind === "board" ? { pick: "", wager: "Start the final", answer: "Time's up" }[st.q?.step] ?? "Show the answer" : st.kind === "fake" && st.q?.step === "write" ? "Start the vote" : "Show the answer",
+    reveal: st.kind === "board" ? (!GH.board || st.q?.final ? "See scores" : boardLeft() ? "Back to the board" : GH.board.final ? "Final round" : "See scores") : st.ri + 1 < st.rounds ? "Next question" : "See scores",
     standings: st.gi + 1 < st.games.length ? `Next: ${st.games[st.gi + 1]?.name}` : "Final scores", final: "" }[st.phase];
   return {
     page: html`<div class="gm gm-big gm-at-${st.phase}" role="main">

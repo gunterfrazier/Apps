@@ -2568,7 +2568,7 @@ await step("game night: host a room, phones join and play all three games with t
   const host = await tab(1600, 900), a = await tab(390, 844), b = await tab(390, 844);
   try {
     await openWhenThere(host, base + "?debug#games", "form[data-form=games-open]");
-    for (const k of ["who", "fake"]) await host.uncheck(`input[name=g_${k}]`);
+    for (const k of ["who", "fake", "board"]) await host.uncheck(`input[name=g_${k}]`);
     await host.check("form[data-form=games-open] input[name=teams][value='2']");
     await host.click("form[data-form=games-open] button.btn");
     await host.waitForSelector(".gm-lobby .gm-code");
@@ -2735,11 +2735,11 @@ await step("game night: a church's own questions, drafted from a sermon, played 
     // A set without In Order questions can't run In Order.
     await host.goto(base + "?debug#games"); await host.waitForSelector("select[name=source]");
     await host.selectOption("select[name=source]", "set:From Luke 15:11-32");
-    for (const k of ["who", "fake"]) await host.uncheck(`input[name=g_${k}]`);
+    for (const k of ["who", "fake", "board"]) await host.uncheck(`input[name=g_${k}]`);
     await host.click("form[data-form=games-open] button.btn");
     await host.waitForSelector("form[data-form=games-open] :text('no questions of yours for In Order')");
     // Only the set's quiz: the question is ours.
-    for (const k of ["order", "scramble", "who", "fake"]) await host.uncheck(`input[name=g_${k}]`);
+    for (const k of ["order", "scramble", "who", "fake", "board"]) await host.uncheck(`input[name=g_${k}]`);
     await host.click("form[data-form=games-open] button.btn"); await host.waitForSelector(".gm-lobby .gm-code");
     const code = (await host.textContent(".gm-code")).trim();
     await a.goto(base + "#play-" + code); await a.fill("form[data-form=play-join] input[name=name]", "Cal"); await a.click(".pl-go");
@@ -2756,7 +2756,7 @@ await step("game night: Who Am I? clue by clue, and Fake Out with fakes and vote
   const G = (fn, arg) => host.evaluate(fn, arg);
   try {
     await openWhenThere(host, base + "?debug#games", "form[data-form=games-open]");
-    for (const k of ["quiz", "scramble", "order"]) await host.uncheck(`input[name=g_${k}]`);
+    for (const k of ["quiz", "scramble", "order", "board"]) await host.uncheck(`input[name=g_${k}]`);
     if (await host.locator("select[name=source]").count()) await host.selectOption("select[name=source]", "builtin");
     await host.click("form[data-form=games-open] button.btn"); await host.waitForSelector(".gm-lobby .gm-code");
     const code = (await host.textContent(".gm-code")).trim();
@@ -2805,6 +2805,71 @@ await step("game night: Who Am I? clue by clue, and Fake Out with fakes and vote
     if (after.Ana - who.Ana !== 1500 || after.Cal - who.Cal !== 500 || after.Ben - who.Ben !== 500) throw new Error(`Fake Out: Ana +1500, Cal +500, Ben +500; got ${JSON.stringify(after)}`);
     await host.click(".gm-host [data-act=game-end]");
   } finally { for (const p of [host, ...Object.values(phones)]) await p.close().catch(() => {}); await page.evaluate((r) => { const S = __app.S; S.membership().roleId = r; S.save(); }, was); }
+});
+await step("game night: Bible Board with picks, buzzing in, a wrong answer and the final wager", async () => {
+  const was = await page.evaluate(() => { const S = __app.S, m = S.membership(), r = m.roleId; m.roleId = "admin"; S.save(); return r; });
+  const host = await tab(1600, 900), Ana = await tab(390, 844), Ben = await tab(390, 844);
+  const G = (fn, arg) => host.evaluate(fn, arg);
+  try {
+    await openWhenThere(host, base + "?debug#games", "form[data-form=games-open]");
+    for (const k of ["quiz", "scramble", "order", "who", "fake"]) await host.uncheck(`input[name=g_${k}]`);
+    if (await host.locator("select[name=source]").count()) await host.selectOption("select[name=source]", "builtin");
+    await host.selectOption("select[name=r_board]", "3");
+    await host.click("form[data-form=games-open] button.btn"); await host.waitForSelector(".gm-lobby .gm-code");
+    const code = (await host.textContent(".gm-code")).trim();
+    for (const [name, p] of [["Ana", Ana], ["Ben", Ben]]) { await p.goto(base + "#play-" + code); await p.fill("form[data-form=play-join] input[name=name]", name); await p.click(".pl-go"); await host.waitForSelector(`.gm-chip:has-text('${name}')`); }
+    const next = async () => { await host.keyboard.press("Space"); await host.waitForTimeout(150); };
+    await next(); await host.waitForSelector(".gm-at-intro .gm-title:has-text('Bible Board')"); await next();
+    await host.waitForSelector(".bb-grid .bb-tile");
+    if (await host.locator(".bb-grid .bb-cat").count() !== 3) throw new Error("three categories");
+    // Ana picks; leave two clues in the first category so the test is short.
+    const ids = await G(() => { const { GH, ghUpdate } = __app.game(), byName = Object.fromEntries(Object.entries(GH.players).map(([id, p]) => [p.name, id]));
+      GH.board.picker = byName.Ana; GH.board.cats.forEach((c, ci) => c.clues.forEach((x, i) => { x.used = !(ci === 0 && i < 2); })); ghUpdate(); return byName; });
+    await host.screenshot({ path: join(shots, "99s-board-pick.png") });
+    await Ben.waitForSelector(".pl-center .pl-q:has-text('Ana is picking')");
+    await Ana.waitForSelector(".pl-q:has-text('Your pick!')");
+    await Ana.click('[data-act=play-board-pick][data-c="0"][data-i="0"]');
+    // Ben buzzes first and answers wrong: he loses 200 and is locked out. Ana buzzes and gets it.
+    await Ben.waitForSelector(".bb-buzz"); await Ana.waitForSelector(".bb-buzz");
+    await Ben.screenshot({ path: join(shots, "99t-board-phone-buzz.png") });
+    // (Only Ben buzzes here: each phone times its own reaction, so which of two taps is "first" isn't the test's to decide.
+    // The fastest reaction winning over the first to arrive is checked on the next clue.)
+    await Ben.click(".bb-buzz");
+    await Ben.waitForSelector("[data-act=play-board-choose]"); await Ana.waitForSelector(".pl-wait:has-text('Ben is answering')");
+    const right = await G(() => { const { GH } = __app.game(); return GH.board.cats[0].clues[0].answer; });
+    await Ben.click(`[data-act=play-board-choose][data-i="${(right + 1) % 4}"]`);
+    await Ben.waitForSelector(".pl-wait:has-text('Not this time')");
+    await Ana.waitForSelector(".bb-buzz:not([disabled])"); await Ana.click(".bb-buzz");
+    await Ana.waitForSelector("[data-act=play-board-choose]"); await Ana.click(`[data-act=play-board-choose][data-i="${right}"]`);
+    await host.waitForSelector(".gm-at-reveal .bb-status.good:has-text('Ana +200')");
+    await Ana.waitForSelector(".pl-points:has-text('+200')"); await Ben.waitForSelector(".pl-points:has-text('−200')");
+    // Back to the board: Ana picks again (she answered right). Nobody buzzes; the host shows the answer.
+    await next(); await Ana.waitForSelector(".pl-q:has-text('Your pick!')");
+    await Ana.click('[data-act=play-board-pick][data-c="0"][data-i="1"]'); await host.waitForSelector(".bb-status.buzz");
+    // A slow reaction that arrives first loses to a faster one that arrives a moment later.
+    await G((ids) => { const { ghHeard, ghKey } = __app.game(), k = ghKey();
+      ghHeard("answer", { pid: ids.Ben, key: k, value: { type: "buzz", ms: 900 } }); setTimeout(() => ghHeard("answer", { pid: ids.Ana, key: k, value: { type: "buzz", ms: 300 } }), 150); }, ids);
+    await Ana.waitForSelector("[data-act=play-board-choose]"); await Ben.waitForSelector(".pl-wait:has-text('Ana is answering')");
+    const right2 = await G(() => __app.game().GH.board.cats[0].clues[1].answer);
+    await Ana.click(`[data-act=play-board-choose][data-i="${(right2 + 1) % 4}"]`);
+    // Ana missed (−400). Nobody else buzzes; the host shows the answer.
+    await host.waitForSelector(".bb-status.buzz"); await next();
+    await host.waitForSelector(".gm-at-reveal .bb-status:has-text('Nobody got it')");
+    // The board is clear: the final round. Wagers in private, then the clue.
+    await next(); await host.waitForSelector(".gm-title:has-text('')"); await Ana.waitForSelector("form[data-form=play-wager]");
+    if ((await Ana.getAttribute("form[data-form=play-wager] input[name=n]", "max")) !== "1000") throw new Error("anyone can wager up to 1,000");
+    await Ana.fill("form[data-form=play-wager] input[name=n]", "200"); await Ana.click("form[data-form=play-wager] button");
+    await Ben.fill("form[data-form=play-wager] input[name=n]", "1000"); await Ben.click("form[data-form=play-wager] button");
+    await Ana.waitForSelector("[data-act=play-board-final]");
+    const fr = await G(() => __app.game().GH.board.final.answer);
+    await Ana.click(`[data-act=play-board-final][data-i="${fr}"]`); await Ben.click(`[data-act=play-board-final][data-i="${(fr + 1) % 4}"]`);
+    await host.waitForSelector(".gm-at-reveal .gm-board li:has-text('Ana')");
+    await host.screenshot({ path: join(shots, "99u-board-final.png") });
+    const scores = await G(() => Object.fromEntries(Object.values(__app.game().GH.players).map((p) => [p.name, p.score])));
+    if (scores.Ana !== 0 || scores.Ben !== -1200) throw new Error(`Ana 200 - 400 + 200 wager = 0, Ben -200 - 1000 wager = -1200; got ${JSON.stringify(scores)}`);
+    await next(); await host.waitForSelector(".gm-at-standings");
+    await host.click(".gm-host [data-act=game-end]");
+  } finally { for (const p of [host, Ana, Ben]) await p.close().catch(() => {}); await page.evaluate((r) => { const S = __app.S; S.membership().roleId = r; S.save(); }, was); }
 });
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }

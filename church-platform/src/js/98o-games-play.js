@@ -47,7 +47,7 @@ function plSend(value) {
 function plDraw() {
   if (splitRoute().head !== "play") return;
   const st = PL?.st, you = st?.you?.[PL?.pid];
-  const sig = JSON.stringify([st?.phase, plKey(st), st?.count, you, PL?.pick, st?.phase === "ask" ? [st.q?.first, st.q?.clues?.length, st.q?.step] : 0, st?.phase === "lobby" ? 0 : st?.top]);
+  const sig = JSON.stringify([st?.phase, plKey(st), st?.count, you, PL?.pick, st?.phase === "ask" ? (st.kind === "board" ? st.q : [st.q?.first, st.q?.clues?.length, st.q?.step]) : 0, st?.phase === "lobby" ? 0 : st?.top]);
   if (sig === plDrawn) return;
   const typed = $("[data-pl-guess]")?.value || "";
   plDrawn = sig;
@@ -56,6 +56,7 @@ function plDraw() {
 }
 
 function plQuestion(st, you) {
+  if (st.kind === "board") return boardPhone(st, you);
   const q = st.q, sent = PL.sent[plKey(st)], done = you?.done;
   if (st.kind === "quiz") {
     return html`<p class="pl-q">${q.q}</p><div class="pl-opts">${q.options.map((o, i) => html`<button class="gm-opt gm-o${i} ${done && you.picked === i ? "picked" : ""}" data-act="play-quiz" data-i="${i}" ${attr(done, "disabled")}><span class="gm-shape" aria-hidden="true"></span><b>${o}</b></button>`)}</div>
@@ -95,6 +96,7 @@ function plQuestion(st, you) {
       <button class="btn" data-act="play-order-send" ${attr(pick.length < q.events.length, "disabled")}>Lock in</button></div>`}`;
 }
 function plReveal(st, you) {
+  if (st.kind === "board") return boardPhoneReveal(st, you);
   const r = st.reveal, q = st.q;
   const answer = st.kind === "quiz" ? q.options[r.answer] : st.kind === "scramble" ? r.word : st.kind === "who" ? r.name : st.kind === "fake" ? r.answer
     : r.answer.map((id) => q.events.find((e) => e.id === id)?.t).join(" → ");
@@ -129,7 +131,7 @@ Screens.play = (tail) => {
     const standing = you ? html`<p class="pl-standing">${plOrdinal(you.rank)} of ${st.count} · <b>${you.score.toLocaleString()}</b> points</p>` : "";
     if (st.phase === "lobby") body = html`<div class="pl-center"><h1>You're in, ${PL.name}!</h1>${team}<p class="pl-dim">Look at the big screen. The game starts soon.</p><p class="pl-dim">${plural(st.count, "player")} so far</p></div>`;
     else if (st.phase === "intro") body = html`<div class="pl-center"><p class="pl-dim">Game ${st.gi + 1} of ${st.games.length}</p><h1>${st.name}</h1><p>${st.blurb}</p><p class="pl-dim">Get ready…</p>${standing}</div>`;
-    else if (st.phase === "ask") body = html`<div class="pl-ask"><div class="pl-bar"><span>Round ${st.ri + 1} of ${st.rounds}</span><span class="gm-clock"><b data-pl-left>${Math.ceil(plLeft() / 1000)}</b></span></div>${plQuestion(st, you)}</div>`;
+    else if (st.phase === "ask") body = html`<div class="pl-ask"><div class="pl-bar"><span>${st.kind === "board" ? (st.q?.final ? "Final round" : `Clue ${st.ri + 1}`) : `Round ${st.ri + 1} of ${st.rounds}`}</span><span class="gm-clock"><b data-pl-left>${Math.ceil(plLeft() / 1000)}</b></span></div>${plQuestion(st, you)}</div>`;
     else if (st.phase === "reveal") body = html`<div class="pl-center">${plReveal(st, you)}${standing}</div>`;
     else {
       const final = st.phase === "final";

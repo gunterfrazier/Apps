@@ -144,3 +144,86 @@ const GAME_FAKE = [
   ["King Saul was looking for his father's lost ____ when he met Samuel.", "Donkeys", "1 Samuel 9:3"],
   ["Jacob used a ____ as a pillow when he dreamed of a stairway to heaven.", "Stone", "Genesis 28:11"],
 ];
+
+// Bible Board: categories of five clues, easiest first (worth 200 to 1,000). Each clue: [question, [right, wrong, wrong,
+// wrong], reference].
+const GAME_BOARD = [
+  ["In the Beginning", [
+    ["On which day did God rest?", ["The seventh", "The first", "The sixth", "The third"], "Genesis 2:2"],
+    ["What was the garden where Adam and Eve lived?", ["Eden", "Gethsemane", "Goshen", "Sharon"], "Genesis 2:8"],
+    ["Who was Adam and Eve's first son?", ["Cain", "Abel", "Seth", "Enoch"], "Genesis 4:1"],
+    ["What sign did God give that He'd never flood the earth again?", ["A rainbow", "A dove", "A star", "An olive tree"], "Genesis 9:13"],
+    ["Where did people try to build a tower to the heavens?", ["Babel", "Ur", "Nineveh", "Sodom"], "Genesis 11:9"]]],
+  ["Kings and Queens", [
+    ["Which future king defeated Goliath as a young man?", ["David", "Saul", "Solomon", "Josiah"], "1 Samuel 17:50"],
+    ["Which queen came to test Solomon with hard questions?", ["The Queen of Sheba", "Esther", "Jezebel", "Vashti"], "1 Kings 10:1"],
+    ["Which king of Israel married Jezebel?", ["Ahab", "Jeroboam", "Omri", "Jehu"], "1 Kings 16:31"],
+    ["Which king began to reign at eight and had the Book of the Law found?", ["Josiah", "Joash", "Hezekiah", "Uzziah"], "2 Kings 22:1, 8"],
+    ["Which king of Babylon ate grass like an ox?", ["Nebuchadnezzar", "Belshazzar", "Darius", "Cyrus"], "Daniel 4:33"]]],
+  ["Prophets", [
+    ["Which prophet ran from God and ended up inside a great fish?", ["Jonah", "Amos", "Elijah", "Micah"], "Jonah 1:17"],
+    ["Which prophet anointed David as king?", ["Samuel", "Nathan", "Elijah", "Gad"], "1 Samuel 16:13"],
+    ["Who confronted David with a story about a poor man's lamb?", ["Nathan", "Samuel", "Gad", "Elisha"], "2 Samuel 12:1-7"],
+    ["Which prophet saw a valley of dry bones come to life?", ["Ezekiel", "Daniel", "Jeremiah", "Isaiah"], "Ezekiel 37:1-10"],
+    ["Which prophet married Gomer, a picture of God's faithful love?", ["Hosea", "Amos", "Micah", "Joel"], "Hosea 1:3"]]],
+  ["Miracles of Jesus", [
+    ["About how many men did Jesus feed with five loaves and two fish?", ["5,000", "500", "1,000", "12,000"], "Matthew 14:21"],
+    ["How did Jesus calm the storm?", ["He spoke to the wind and waves", "He bailed out the boat", "He steered to shore", "He waited until morning"], "Mark 4:39"],
+    ["Which blind man near Jericho did Jesus heal?", ["Bartimaeus", "Zacchaeus", "Lazarus", "Malchus"], "Mark 10:46-52"],
+    ["When Peter cut off a man's ear at Jesus' arrest, whose servant was he?", ["The high priest's", "Pilate's", "Herod's", "Caesar's"], "John 18:10"],
+    ["How many men with leprosy did Jesus heal when only one came back to thank Him?", ["Ten", "Seven", "Twelve", "Three"], "Luke 17:17"]]],
+  ["Parables", [
+    ["What did the shepherd leave to find his one lost sheep?", ["The other 99", "His house", "His sheepdog", "His family"], "Luke 15:4"],
+    ["In Jesus' story, who helped the man beaten by robbers?", ["A Samaritan", "A priest", "A Levite", "A soldier"], "Luke 10:33"],
+    ["In the parable of the sower, what happened to the seed on the path?", ["Birds ate it", "Thorns choked it", "It withered in the sun", "It grew a hundredfold"], "Luke 8:5"],
+    ["What did the woman sweep her house to find?", ["A lost coin", "A lost ring", "A lost key", "A lost lamp"], "Luke 15:8"],
+    ["What did the servant with one talent do with it?", ["Buried it", "Doubled it", "Gave it away", "Spent it"], "Matthew 25:18"]]],
+  ["Women of the Bible", [
+    ["Who was the first woman?", ["Eve", "Sarah", "Ruth", "Mary"], "Genesis 3:20"],
+    ["Which woman hid two Israelite spies in Jericho?", ["Rahab", "Ruth", "Deborah", "Jael"], "Joshua 2:1-6"],
+    ["Who prayed for a son and became Samuel's mother?", ["Hannah", "Peninnah", "Elizabeth", "Sarah"], "1 Samuel 1:20"],
+    ["Who sat at Jesus' feet listening while Martha served?", ["Mary", "Joanna", "Salome", "Susanna"], "Luke 10:39"],
+    ["Mark says Jesus first appeared after rising to whom?", ["Mary Magdalene", "His mother Mary", "Salome", "Joanna"], "Mark 16:9"]]],
+  ["Bible Places", [
+    ["In which river was Jesus baptized?", ["The Jordan", "The Nile", "The Euphrates", "The Tigris"], "Mark 1:9"],
+    ["On which mountain did Moses receive the Ten Commandments?", ["Sinai", "Carmel", "Zion", "Ararat"], "Exodus 19:20"],
+    ["Where did Noah's ark come to rest?", ["The mountains of Ararat", "Mount Sinai", "Mount Carmel", "Mount Hermon"], "Genesis 8:4"],
+    ["Where were Jesus' followers first called Christians?", ["Antioch", "Jerusalem", "Rome", "Corinth"], "Acts 11:26"],
+    ["On which island was John when he saw the visions of Revelation?", ["Patmos", "Malta", "Crete", "Cyprus"], "Revelation 1:9"]]],
+  ["By the Numbers", [
+    ["How many tribes of Israel were there?", ["12", "10", "7", "40"], "Genesis 49:28"],
+    ["How many years did Israel wander in the wilderness?", ["40", "7", "70", "400"], "Numbers 14:33"],
+    ["How many days did Jesus fast in the wilderness?", ["40", "3", "7", "12"], "Matthew 4:2"],
+    ["How many pieces of silver was Judas paid?", ["30", "10", "40", "100"], "Matthew 26:15"],
+    ["How many people were saved in Noah's ark?", ["8", "2", "6", "12"], "1 Peter 3:20"]]],
+  ["Animals", [
+    ["What creature tempted Eve in the garden?", ["A serpent", "A lion", "A raven", "A goat"], "Genesis 3:1"],
+    ["What did Jesus ride into Jerusalem?", ["A donkey", "A horse", "A camel", "A chariot"], "Matthew 21:7"],
+    ["Which birds fed Elijah by the brook?", ["Ravens", "Doves", "Eagles", "Sparrows"], "1 Kings 17:6"],
+    ["What did God provide for Abraham to offer instead of Isaac?", ["A ram", "A lamb", "A goat", "A dove"], "Genesis 22:13"],
+    ["What animals did Samson tie together with torches?", ["Foxes", "Dogs", "Goats", "Wolves"], "Judges 15:4"]]],
+  ["The Early Church", [
+    ["What happened on the day of Pentecost?", ["The Holy Spirit came", "Jesus was born", "The temple was rebuilt", "Jesus was baptized"], "Acts 2:1-4"],
+    ["Who was the first follower of Jesus killed for his faith?", ["Stephen", "James", "Peter", "Paul"], "Acts 7:59-60"],
+    ["Which couple lied about the price of their land?", ["Ananias and Sapphira", "Aquila and Priscilla", "Zechariah and Elizabeth", "Joseph and Mary"], "Acts 5:1-2"],
+    ["Who explained Isaiah to an Ethiopian official on a desert road?", ["Philip", "Peter", "Paul", "Barnabas"], "Acts 8:30-35"],
+    ["Who fell asleep in a window during Paul's long talk?", ["Eutychus", "Timothy", "Tychicus", "Onesimus"], "Acts 20:9"]]],
+  ["Books of the Bible", [
+    ["What is the first book of the Bible?", ["Genesis", "Exodus", "Matthew", "Psalms"], ""],
+    ["What is the last book of the Bible?", ["Revelation", "Jude", "Malachi", "Acts"], ""],
+    ["Which book holds 150 songs and prayers?", ["Psalms", "Proverbs", "Lamentations", "Song of Songs"], ""],
+    ["Which book tells of the church after Jesus ascended?", ["Acts", "Romans", "Hebrews", "Luke"], "Acts 1:1-3"],
+    ["Which is the shortest book of the Old Testament?", ["Obadiah", "Jonah", "Haggai", "Ruth"], ""]]],
+];
+
+// Bible Board's final round: [category, question, [right, wrong, wrong, wrong], reference].
+const GAME_FINAL = [
+  ["Long Lives", "Who is the oldest person whose age the Bible records?", ["Methuselah", "Noah", "Adam", "Enoch"], "Genesis 5:27"],
+  ["The Twelve", "Who took Judas' place among the twelve apostles?", ["Matthias", "Barnabas", "Silas", "Stephen"], "Acts 1:26"],
+  ["Prophets", "Which prophet was told to lie on his side for 390 days?", ["Ezekiel", "Jeremiah", "Hosea", "Isaiah"], "Ezekiel 4:4-5"],
+  ["Kings of Judah", "Which king had 15 years added to his life?", ["Hezekiah", "Josiah", "Asa", "Uzziah"], "2 Kings 20:6"],
+  ["Letters", "Which one-chapter letter did Paul write about a runaway slave?", ["Philemon", "Jude", "Titus", "3 John"], "Philemon 1:10-16"],
+  ["Places", "Where did Paul speak about an altar \"to an unknown god\"?", ["Athens", "Corinth", "Ephesus", "Rome"], "Acts 17:22-23"],
+  ["Judges", "Which left-handed judge defeated King Eglon?", ["Ehud", "Othniel", "Shamgar", "Jephthah"], "Judges 3:15-21"],
+  ["At the Temple", "Which prophetess gave thanks when she saw the baby Jesus at the temple?", ["Anna", "Elizabeth", "Huldah", "Miriam"], "Luke 2:36-38"],
+];

@@ -466,7 +466,9 @@ A host puts **Game night** on a TV or projector, and everyone plays on their own
   reloads rejoins as the same player.
 - **Games:** Bible Quiz (four answers, faster scores more), Name Scramble (a Bible name or place, three tries), In
   Order (four events, earliest first), Who Am I? (clues one at a time; guessing earlier scores more) and Fake Out
-  (everyone writes a believable fake answer, then hunts for the real one). One scoreboard covers the night.
+  (everyone writes a believable fake answer, then hunts for the real one) and Bible Board (categories of clues worth
+  200 to 1,000: buzz in, answer right to win the points, wrong to lose them, and a final round with wagers). One scoreboard
+  covers the night.
 - **Teams:** 2 to 4 teams, split evenly at the start. A team's score is the average of its players.
 - **Guests' access:** guest players use an anonymous sign-in kept to that browser tab. It reaches only the room they
   joined: they belong to no church, so every other rule turns them away. Rooms close after 6 hours or when the host
