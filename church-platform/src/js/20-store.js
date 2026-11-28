@@ -121,8 +121,7 @@ const S = {
           if (JSON.stringify(merged) !== JSON.stringify(cached)) {
             this.state = merged;
             if (typeof wsAfterLoad === "function") wsAfterLoad();
-            const busy = document.getElementById("scrim") || document.activeElement?.matches?.("input, textarea, select, [contenteditable]");
-            if (!busy && typeof render === "function") setTimeout(render);
+            if (typeof render === "function" && !(typeof pageBusy === "function" && pageBusy())) setTimeout(render);
           }
         }
       } catch { /* unreadable: save this tab's copy as before */ }

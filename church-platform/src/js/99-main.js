@@ -31,8 +31,7 @@ if (!FORWARDING) {
     if (S._timer) return;
     if (!S.incoming()) return;
     if (typeof wsAfterLoad === "function") wsAfterLoad();
-    const busy = document.getElementById("scrim") || document.activeElement?.matches?.("input, textarea, select, [contenteditable]");
-    if (!busy) render();
+    if (!pageBusy()) render();
   });
   document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("presenting")) render(); });
   render();

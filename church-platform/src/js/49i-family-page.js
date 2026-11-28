@@ -137,7 +137,15 @@ function printDoc(title, inner) {
   frame.onload = () => {
     const w = frame.contentWindow, imgs = [...w.document.images];
     Promise.all(imgs.map((i) => i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; }))).then(() => {
-      w.focus(); w.print(); setTimeout(() => frame.remove(), 60000);
+      // Printing needs the frame to have the keyboard, but it mustn't keep it: an invisible frame holding the keyboard
+      // swallows every key (the presenter's arrows, shortcuts) until someone clicks. Hand it back once printing is done.
+      const back = document.activeElement;
+      let gone = false;
+      const done = () => { if (gone) return; gone = true; frame.remove(); };
+      w.addEventListener("afterprint", () => setTimeout(done, 0), { once: true });
+      w.focus(); w.print();
+      window.focus(); if (back && back !== document.body && back.isConnected) back.focus({ preventScroll: true }); else frame.blur();
+      setTimeout(done, 60000); // a browser that never says printing finished
     });
   };
   document.body.appendChild(frame);

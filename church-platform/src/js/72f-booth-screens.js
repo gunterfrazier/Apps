@@ -75,7 +75,9 @@ Screens["booth-screens"] = () => {
     <div class="btns"><button class="btn" data-act="pres-open" data-route="display-follow" data-name="ofc-screen-display-0">${icon("screen")}Audience window</button><button class="btn ghost" data-act="pres-open" data-route="stage-follow" data-name="ofc-screen-stage-1">${icon("music")}Stage window</button></div>` };
   const d = boothScr.details;
   if (!d && !boothScr.asked) { boothScr.asked = true; scrFind(false).then((x) => { if (x) render(); }); }
-  const jobs = d ? scrJobs(d) : {};
+  // Choices made but not saved yet are kept here, so a redraw (another tab saving, a display plugged in) can't undo them.
+  const draft = (boothScr.draft ||= { jobs: {}, looks: {} });
+  const jobs = d ? { ...scrJobs(d), ...draft.jobs } : {};
   const open = boothScr.wins.filter((w) => !w.closed).length;
   return {
     title: "Screens on this computer", back,
@@ -87,8 +89,8 @@ Screens["booth-screens"] = () => {
           <div class="scr-map" aria-hidden="true">${scrMap(d, jobs)}</div>
           ${d.screens.map((s, i) => html`<div class="field scr-row"><label for="scr-${i}">${scrName(s, i)} <span class="faint">${s.width}×${s.height}${s === d.currentScreen ? ", where this window is" : ""}</span></label>
             <div class="scr-pick"><select id="scr-${i}" name="job-${i}" data-key="${scrKey(s)}" data-change="scr-job">${SCREEN_JOBS.map(([v, l]) => html`<option value="${v}" ${attr(jobs[scrKey(s)] === v, "selected")}>${l}</option>`)}</select>
-            <select name="look-${i}" data-look="${scrKey(s)}" aria-label="Look on ${scrName(s, i)}" ${attr(jobs[scrKey(s)] !== "display", "hidden")}>${SCREEN_LOOKS.map(([v, l]) => html`<option value="${v}" ${attr((setup.looks?.[scrKey(s)] || "full") === v, "selected")}>${l}</option>`)}</select></div></div>`)}
-          ${locs.length > 1 ? html`<div class="field"><label for="scr-loc">These screens show</label><select id="scr-loc" name="loc">${locationOptions(setup.loc || "", "Whatever is presented at any campus")}</select></div>` : ""}
+            <select name="look-${i}" data-look="${scrKey(s)}" data-change="scr-look" aria-label="Look on ${scrName(s, i)}" ${attr(jobs[scrKey(s)] !== "display", "hidden")}>${SCREEN_LOOKS.map(([v, l]) => html`<option value="${v}" ${attr((draft.looks[scrKey(s)] || setup.looks?.[scrKey(s)] || "full") === v, "selected")}>${l}</option>`)}</select></div></div>`)}
+          ${locs.length > 1 ? html`<div class="field"><label for="scr-loc">These screens show</label><select id="scr-loc" name="loc" data-change="scr-loc">${locationOptions(draft.loc ?? setup.loc ?? "", "Whatever is presented at any campus")}</select></div>` : ""}
           <div class="btns"><button class="btn ghost">Save</button></div></form>
         <div class="btns"><button class="btn" data-act="scr-open">${icon("screen")}Open my screens</button>${open ? html`<button class="btn ghost" data-act="scr-close">${icon("x")}Close ${open === 1 ? "the screen" : `${open} screens`}</button>` : ""}</div>`}
       <details class="panel scr-tips"><summary><b>Make it one click on Sunday</b></summary>
@@ -118,6 +120,9 @@ function scrKeep(f) {
   const looks = { ...(scrSetup().looks || {}) };
   for (const sel of f.querySelectorAll("select[data-look]")) looks[sel.dataset.look] = sel.value === "full" ? undefined : sel.value;
   scrSave({ ...scrSetup(), jobs, looks: JSON.parse(JSON.stringify(looks)), loc: f.querySelector("[name=loc]")?.value || "" });
+  boothScr.draft = null; // saved now
 }
 Forms["scr-save"] = (d, f) => { scrKeep(f); toast("Saved for this computer"); render(); };
-Inputs["scr-job"] = (el) => { const look = el.parentElement.querySelector("select[data-look]"); if (look) look.hidden = el.value !== "display"; };
+Inputs["scr-look"] = (el) => { (boothScr.draft ||= { jobs: {}, looks: {} }).looks[el.dataset.look] = el.value; };
+Inputs["scr-loc"] = (el) => { (boothScr.draft ||= { jobs: {}, looks: {} }).loc = el.value; };
+Inputs["scr-job"] = (el) => { (boothScr.draft ||= { jobs: {}, looks: {} }).jobs[el.dataset.key] = el.value; const look = el.parentElement.querySelector("select[data-look]"); if (look) look.hidden = el.value !== "display"; };
