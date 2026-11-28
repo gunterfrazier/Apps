@@ -192,6 +192,7 @@ create or replace function rec_read(k text, c text, loc text, own text, d jsonb)
     when k in ('securityProtocolRequests', 'securityAccessAssignments') then is_member(c) and (own = auth.uid()::text or security_access(c, auth.uid()) = 3)
     when own is not null and own = auth.uid()::text then true
     when is_primary(c) then true
+    when k = 'gameQuestions' then can(c, 'host.games') or can(c, 'manage.church')
     when k in ('sermons', 'events', 'news', 'plans', 'gatherings', 'forms', 'outlines') then sees_location(c, loc)
     when k = 'prayers' then can(c, 'manage.prayer') or (is_member(c) and not coalesce((d->>'private')::boolean, false) and not coalesce((d->>'hidden')::boolean, false))
     when k = 'docs' then can(c, 'present') or (d->>'kind' = 'sermon' and can(c, 'build.sermons')) or can(c, 'manage.classes') or (d->>'gatheringId' is not null and leads(d->>'gatheringId'))
@@ -258,6 +259,7 @@ create or replace function rec_write(k text, c text, own text, d jsonb, op text)
   select case
     when k in ('securityProtocolRequests', 'securityAccessAssignments') then false
     when is_primary(c) then true
+    when k = 'gameQuestions' then can(c, 'host.games') or can(c, 'manage.church')
     when k in ('sermons', 'plans') then can(c, 'manage.sermons')
     when k in ('events', 'news', 'forms') then can(c, 'manage.content')
     when k = 'gatherings' then can(c, 'manage.classes') or (d->'leaders' ? auth.uid()::text and (can(c, 'lead.groups') or can(c, 'teach.classes')))

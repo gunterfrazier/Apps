@@ -2689,6 +2689,64 @@ await step("logos are saved as PNG with a plain background removed", async () =>
     await page.evaluate((w) => { const S = __app.S; S.membership().roleId = w.role; S.updateChurch({ logo: w.logo }); S.save(); }, was);
   }
 });
+await step("game night: a church's own questions, drafted from a sermon, played as a set", async () => {
+  const was = await page.evaluate(() => { const S = __app.S, m = S.membership(), r = m.roleId; m.roleId = "admin";
+    S.state.gameQuestions = (S.state.gameQuestions || []).filter((q) => q.churchId !== S.state.current); S.save(); return r; });
+  const host = await tab(1440, 900), a = await tab(390, 844);
+  try {
+    await openWhenThere(host, base + "?debug#gameqs-quiz", ".seg");
+    // By hand: a quiz question.
+    await host.click("[data-act=gq-edit]");
+    const sheet = host.locator("#scrim");
+    await sheet.locator("input[name=q]").fill("Who rolled away the stone?");
+    await sheet.locator("input[name=right]").fill("An angel");
+    for (const [i, w] of ["Peter", "Mary", "A soldier"].entries()) await sheet.locator(`input[name=wrong${i}]`).fill(w);
+    await sheet.locator("input[name=set]").fill("Easter");
+    await sheet.locator("button.btn").click(); await sheetGone();
+    await host.waitForSelector(".rows .t:has-text('Who rolled away the stone?')");
+    // Same answer twice is refused.
+    await host.click("[data-act=gq-edit]");
+    await sheet.locator("input[name=q]").fill("Dup"); await sheet.locator("input[name=right]").fill("A");
+    for (const i of [0, 1, 2]) await sheet.locator(`input[name=wrong${i}]`).fill(i ? `B${i}` : "a");
+    await sheet.locator("button.btn").click(); await sheet.locator(".error:has-text('need to be different'), [role=alert]:has-text('need to be different')").first().waitFor();
+    await sheet.locator("[data-act=close-sheet]").first().click(); await sheetGone();
+    // Drafted from a sermon: the AI's draft is checked before anything is added.
+    await host.evaluate(() => { window.__aiStub = async () => ({
+      quiz: [{ q: "Where did the lost son go?", right: "A far country", wrong: ["Jerusalem", "Egypt", "Rome"], ref: "Luke 15:13" },
+             { q: "Bad one", right: "x", wrong: ["x", "y", "z"], ref: "" }],
+      names: [{ word: "Pigs!", hint: "What he fed", ref: "Luke 15:15" }],
+      order: [{ title: "Coming home", events: [{ t: "He asks for his share" }, { t: "He spends it all" }, { t: "He feeds pigs" }, { t: "His father runs to him" }] }] }); __app.render(); });
+    await host.click("[data-act=gq-ai]");
+    await sheet.locator("input[name=passage]").fill("Luke 15:11-32");
+    if (await sheet.locator("select[name=sermon]").count()) await sheet.locator("select[name=sermon]").selectOption("");
+    await sheet.locator("button.btn").click();
+    await sheet.locator("form[data-form=gq-ai-add]").waitFor();
+    const items = await sheet.locator(".gq-draft-item").count();
+    if (items !== 3) throw new Error(`the draft keeps the 3 good questions and drops the bad one, got ${items}`);
+    if ((await sheet.locator("input[name=set]").inputValue()) !== "From Luke 15:11-32") throw new Error("the set is named for the passage");
+    await host.screenshot({ path: join(shots, "99n-game-questions-draft.png") });
+    await sheet.locator(".gq-draft-item:has-text('Coming home') input").uncheck();
+    await sheet.locator("button.btn").click(); await sheetGone();
+    await host.waitForSelector(".rows .t:has-text('Where did the lost son go?')");
+    const counts = await host.evaluate(() => { const g = __app.S.state.gameQuestions.filter((q) => q.churchId === __app.S.state.current); return g.map((q) => q.game).sort().join(); });
+    if (counts !== "quiz,quiz,scramble") throw new Error(`expected two quiz questions and one name, got ${counts}`);
+    // A set without In Order questions can't run In Order.
+    await host.goto(base + "?debug#games"); await host.waitForSelector("select[name=source]");
+    await host.selectOption("select[name=source]", "set:From Luke 15:11-32");
+    await host.click("form[data-form=games-open] button.btn");
+    await host.waitForSelector("form[data-form=games-open] :text('no questions of yours for In Order')");
+    // Only the set's quiz: the question is ours.
+    await host.uncheck("input[name=g_order]"); await host.uncheck("input[name=g_scramble]");
+    await host.click("form[data-form=games-open] button.btn"); await host.waitForSelector(".gm-lobby .gm-code");
+    const code = (await host.textContent(".gm-code")).trim();
+    await a.goto(base + "#play-" + code); await a.fill("form[data-form=play-join] input[name=name]", "Cal"); await a.click(".pl-go");
+    await host.waitForSelector(".gm-chip:has-text('Cal')");
+    await host.keyboard.press("Space"); await host.waitForSelector(".gm-at-intro"); await host.keyboard.press("Space");
+    await host.waitForSelector(".gm-q:has-text('Where did the lost son go?')");
+    await a.waitForSelector(".pl-q:has-text('Where did the lost son go?')");
+    await host.click(".gm-host [data-act=game-end]");
+  } finally { for (const p of [host, a]) await p.close().catch(() => {}); await page.evaluate((r) => { const S = __app.S; S.membership().roleId = r; S.save(); }, was); }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");
