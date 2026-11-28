@@ -188,7 +188,7 @@ Screens.dashboard = () => {
   if (!S.isMember() || !hasAdminTools()) return { redirect: "me" };
   const shown = dashLayout().filter((w) => w.on);
   return { title: "Dashboard", back: "admin",
-    body: html`<div class="report-filters"><span class="muted">${S.church().name}</span>${campusChip()}<button class="btn ghost sm" data-act="dash-edit">${icon("edit")}Customize</button></div>
+    body: html`<div class="report-filters"><span class="muted">${S.church().name}</span>${campusChip()}<button class="btn ghost sm" data-act="dash-edit">${icon("edit")}Customize</button>${isDesktop() ? html`<button class="btn ghost sm" data-act="pop-open" data-route="popout-dashboard" data-name="ofc-pop-dashboard" title="Open the dashboard in a window for a wall monitor">${icon("screen")}Wall screen</button>` : ""}</div>
       ${shown.map((w) => html`<section class="sec dash-widget" data-widget="${w.k}">${w.k === "numbers" ? "" : html`<div class="sec-head"><h2>${w.title}</h2></div>`}${["numbers", "attendance", "giving", "campaigns"].includes(w.k) ? DASH[w.k][2]() : html`<div class="panel">${DASH[w.k][2]()}</div>`}</section>`)}
       ${shown.length ? "" : html`<div class="panel" style="margin-top:16px"><p style="margin:0">Every widget is hidden. Choose Customize to bring some back.</p></div>`}
       ${canReports() ? html`<p style="text-align:center;margin-top:18px"><a class="btn ghost" href="#reports">All reports</a></p>` : ""}` };
