@@ -130,21 +130,21 @@ const ghRanked = () => ghPlayers().sort((a, b) => b.score - a.score || a.name.lo
 
 /** A fresh question for the current game, not used yet tonight. */
 function ghPick(kind) {
-  const bank = kind === "quiz" ? GAME_QUIZ : kind === "scramble" ? GAME_NAMES : GAME_ORDER;
-  const used = (GH.used[kind] ||= []);
-  let left = bank.map((_, i) => i).filter((i) => !used.includes(i));
-  if (!left.length) { GH.used[kind] = []; left = bank.map((_, i) => i); }
-  const i = left[Math.floor(Math.random() * left.length)]; GH.used[kind].push(i);
+  // The night's questions for this game (gqBank, 98p-games-questions.js), each with a key so none repeats.
+  const bank = GH.bank?.[kind] || [], used = (GH.used[kind] ||= []);
+  let left = bank.filter(([key]) => !used.includes(key));
+  if (!left.length) { GH.used[kind] = []; left = bank; }
+  const [key, tuple] = left[Math.floor(Math.random() * left.length)]; GH.used[kind].push(key);
   if (kind === "quiz") {
-    const [q, opts, ref] = bank[i], shuffled = gameShuffle(opts.map((t, k) => ({ t, right: !k })));
+    const [q, opts, ref] = tuple, shuffled = gameShuffle(opts.map((t, k) => ({ t, right: !k })));
     return { q, options: shuffled.map((o) => o.t), answer: shuffled.findIndex((o) => o.right), ref };
   }
   if (kind === "scramble") {
-    const [word, hint, ref] = bank[i];
+    const [word, hint, ref] = tuple;
     let letters = word; for (let n = 0; n < 20 && letters === word; n++) letters = gameShuffle([...word]).join("");
     return { word, hint, ref, letters };
   }
-  const [title, events] = bank[i], ids = "abcd";
+  const [title, events] = tuple, ids = "abcd";
   const list = events.map(([t, ref], k) => ({ id: ids[k], t, ref }));
   let shown = gameShuffle(list); for (let n = 0; n < 10 && shown.every((e, k) => e.id === list[k].id); n++) shown = gameShuffle(list);
   return { title, events: shown, answer: list.map((e) => e.id), refs: list };
@@ -305,11 +305,15 @@ Screens.games = () => {
             ${kinds.map(([k, g]) => html`<div class="gm-pick"><label class="check" style="margin:0"><input type="checkbox" name="g_${k}" checked><span><b>${g.name}</b><br><small class="faint">${g.blurb}</small></span></label>
               <label class="gm-rounds"><span class="sr">${g.name} rounds</span><select name="r_${k}">${[3, 5, 8, 10].map((n) => html`<option value="${n}" ${attr(n === 5, "selected")}>${n} rounds</option>`)}</select></label></div>`)}
           </fieldset>
+          ${gqAll().length ? html`<label class="field"><span>Questions</span><select name="source">
+            <option value="both">Built-in and yours</option><option value="ours">Only yours</option><option value="builtin">Only built-in</option>
+            ${gqSets().map((s) => html`<option value="set:${s}">Only the set "${s}"</option>`)}</select></label>` : ""}
           <fieldset class="field" style="border:0;padding:0"><legend>Teams</legend><div class="radios">
             ${[[0, "Everyone for themselves"], [2, "2 teams"], [3, "3 teams"], [4, "4 teams"]].map(([n, l]) => html`<label><input type="radio" name="teams" value="${n}" ${attr(!n, "checked")}><span>${l}</span></label>`)}</div>
             <small>Teams are split evenly when you start. A team's score is the average of its players, so a smaller team isn't behind.</small></fieldset>
           <button class="btn">${icon("play")}Open the room</button>
         </form></section>` : ""}
+      ${host ? html`<a class="row panel" href="#gameqs" style="margin-top:14px"><span class="lead-ic">${icon("edit")}</span><span class="body"><span class="t">Your questions</span><span class="s">${gqAll().length ? plural(gqAll().length, "question") : "Write your own, or make them from a sermon"}</span></span>${icon("chev")}</a>` : ""}
       ${!host ? html`<p class="faint" style="margin-top:14px">Leaders who can host game nights start them here.</p>` : ""}`,
   };
 };
@@ -322,11 +326,14 @@ Forms["games-open"] = async (d, f) => {
   if (!S.can("host.games")) return;
   const games = Object.keys(GAME_KINDS).filter((k) => d[`g_${k}`]).map((k) => ({ kind: k, rounds: +d[`r_${k}`] || 5 }));
   if (!games.length) return formError(f, "Pick at least one game.");
+  const source = String(d.source || "both"), bank = gqBank(source);
+  const empty = games.filter((g) => !bank[g.kind].length).map((g) => GAME_KINDS[g.kind].name);
+  if (empty.length) return formError(f, `There are no questions of yours for ${listJoin(empty)} ${source.startsWith("set:") ? "in that set" : "yet"}. Add some, or use the built-in ones.`);
   const title = String(d.title || "").trim() || "Game night";
   let r;
   try { r = await GameNet.open(title); } catch (e) { return formError(f, e.message); }
   GH = { room: r.room, code: r.code, title, church: S.church().name, games, teams: +d.teams || 0, players: {}, phase: "lobby", gi: 0, ri: 0,
-    item: null, answers: {}, last: {}, used: {}, limit: 0, startedAt: 0, until: Date.now() + 6 * 3600e3 };
+    item: null, answers: {}, last: {}, used: {}, bank, limit: 0, startedAt: 0, until: Date.now() + 6 * 3600e3 };
   ghSave(); ghConnect(); go("gameroom");
 };
 Actions["game-end"] = async () => { await ghEnd(); toast("Game night ended"); go("games"); };

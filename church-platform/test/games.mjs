@@ -106,4 +106,54 @@ await check("ending the night closes the room to everyone", async () => {
   assert.equal(await sends(U.leader, topic(), "state"), false);
   assert.equal(await fails(as(U.guest2, `select game_join('${code}', 'Lee')`)), true);
 });
+
+// A church's own questions (upgrade-33.sql): only hosts read or change them.
+const policy = (name) => { const i = schema.indexOf(`create policy "${name}" on records`); return schema.slice(i, schema.indexOf(";", i) + 1); };
+const db2 = new PGlite();
+await db2.exec(`
+  create role anon; create role authenticated; create role service_role;
+  create schema auth; create table auth.users (id uuid primary key);
+  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
+  grant usage on schema public, auth to authenticated;
+  ${["profiles", "churches", "roles", "locations", "memberships", "records"].map(table).join("\n")}
+  ${["is_primary", "church_live", "is_member", "device_perms", "can", "sees_location", "offering_batch"].map(fn).join("\n")}
+  create function collects(e text) returns boolean language sql as $$ select false $$;
+  create function leads(g text) returns boolean language sql as $$ select false $$;
+  create function on_team(c text, t text) returns boolean language sql as $$ select false $$;
+  create function in_channel(c text, ch text) returns boolean language sql as $$ select false $$;
+  create function security_access(c text, u uuid) returns int language sql as $$ select 0 $$;
+  create function volunteer_preapproved(c text) returns boolean language sql as $$ select false $$;
+  ${fn("rec_read")}
+  ${fn("rec_write")}
+  alter table records enable row level security;
+  ${["read records", "add records", "change records", "remove records"].map(policy).join("\n")}
+  grant select, insert, update, delete on records to authenticated;
+`);
+await db2.exec(readFileSync(join(here, "..", "supabase", "upgrade-33.sql"), "utf8"));
+await db2.exec(`
+  insert into auth.users values ${Object.values(U).map((u) => `('${u}')`).join(",")};
+  insert into churches (id, handle, name, owner_id) values ('grace', 'grace', 'Grace Church', '${U.owner}');
+  insert into roles (church_id, key, name, rank, perms) values ('grace', 'leader', 'Leader', 30, '{"host.games": true}'), ('grace', 'member', 'Member', 10, '{}');
+  insert into memberships (church_id, user_id, role_key) values ('grace', '${U.leader}', 'leader'), ('grace', '${U.member}', 'member');
+`);
+const as2 = async (who, sql) => {
+  await db2.exec(`reset role; select set_config('test.uid', '${who || ""}', false); set role authenticated;`);
+  try { return await db2.query(sql); } finally { await db2.exec("reset role;"); }
+};
+const add = (who, id, owner) => as2(who, `insert into records (kind, id, church_id, owner, data) values ('gameQuestions', '${id}', 'grace', '${owner}', '{"game": "quiz"}')`);
+await check("a church's own questions: hosts add and read them; members and guests can't", async () => {
+  await add(U.leader, "q1", U.leader);
+  await add(U.owner, "q2", U.owner);
+  assert.equal(await fails(add(U.member, "q3", U.member)), true);
+  assert.equal(await fails(add(U.guest, "q4", U.guest)), true);
+  const seen = async (who) => (await as2(who, `select count(*)::int as n from records where kind = 'gameQuestions'`)).rows[0].n;
+  assert.equal(await seen(U.leader), 2);
+  assert.equal(await seen(U.owner), 2);
+  assert.equal(await seen(U.member), 0);
+  assert.equal(await seen(U.guest), 0);
+  await as2(U.leader, `update records set data = '{"game": "quiz", "q": "x"}' where id = 'q2'`);
+  assert.equal((await db2.query(`select data->>'q' as q from records where id = 'q2'`)).rows[0].q, "x");
+  await as2(U.member, `delete from records where id = 'q1'`);
+  assert.equal(await seen(U.leader), 2);
+});
 console.log(`\n${n} checks passed`);

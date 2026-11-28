@@ -2,7 +2,7 @@
 // text; this checks the person may use it, keeps a daily limit, calls Claude and returns the JSON it wrote.
 import { admin, caller, can, env, fail, handle, json } from "../_shared/util.ts";
 
-const TEACHING = ["build.studies", "build.lessons", "build.sermons", "lead.groups", "teach.classes", "manage.sermons"];
+const TEACHING = ["build.studies", "build.lessons", "build.sermons", "lead.groups", "teach.classes", "manage.sermons", "host.games"];
 const DAILY = Number(env("AI_DAILY_LIMIT", "40"));
 
 handle(async (req) => {

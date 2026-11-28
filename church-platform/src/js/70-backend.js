@@ -383,9 +383,9 @@ const Backend = {
 
 /** Collections kept in the records table, one row per item. */
 const RECORD_KINDS = ["sermons", "events", "news", "prayers", "gatherings", "plans", "gifts", "recurring", "docs", "songs", "library", "services", "layouts", "savedBlocks", "channels", "messages", "cards",
-  "checkins", "serving", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "deliveries", "devices", "signage", "roomSessions", "presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns", "ticketPayments", "eventCheckins"];
+  "checkins", "serving", "teamMembers", "blockouts", "notifications", "attendance", "followups", "forms", "formResponses", "bookings", "deliveries", "devices", "signage", "roomSessions", "presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns", "ticketPayments", "eventCheckins", "gameQuestions"];
 /** Kinds a database that hasn't had upgrade-10.sql yet turns away. That's no reason to tell people their changes weren't saved. */
-const QUIET_KINDS = ["presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns", "ticketPayments", "eventCheckins"];
+const QUIET_KINDS = ["presence", "milestones", "campaigns", "pledges", "activity", "customReports", "reportRuns", "ticketPayments", "eventCheckins", "gameQuestions"];
 /** Lists inside a record that belong to one person each, stored as their own rows so security can follow the person. */
 const SPLIT = {
   events: { field: "registrations", kind: "event_regs", owner: (r) => r.by },

@@ -473,6 +473,12 @@ A host puts **Game night** on a TV or projector, and everyone plays on their own
 
 The feature can be turned off under **Admin, Features**.
 
+**Your own questions (version 33).** Run `supabase/upgrade-33.sql` after version 32, and deploy the `ai` function
+again so hosts can draft questions from a sermon. Under **Game night, Your questions**, hosts write quiz questions,
+names to unscramble and events to put in order, or **Make questions from a sermon** (or a passage): the draft is
+checked before anything is added. Questions can be grouped in sets, and a night can use the built-in questions,
+yours, both, or one set. Only people who can host see them, so players can't look up the answers.
+
 ## Workstations: shared computers with name and PIN (version 30)
 
 For an existing project, run `supabase/upgrade-30.sql` after version 29. The `workstation` function deploys with the

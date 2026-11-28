@@ -3019,3 +3019,6 @@ th.num .dt-sort { justify-content: flex-end; }
 .gm-pick { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line, #e5e7eb); }
 .gm-rounds select { min-width: 120px; }
 .gm .btn.ghost { background: var(--gpanel); color: var(--gink); border-color: var(--gline); }
+.gq-ev { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+.gq-draft { display: grid; gap: 6px; max-height: 50vh; overflow: auto; margin: 8px 0 12px; }
+.gq-draft-item { padding: 8px; border: 1px solid var(--line, #e5e7eb); border-radius: 10px; margin: 0; }

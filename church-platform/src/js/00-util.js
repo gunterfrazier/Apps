@@ -429,7 +429,7 @@ const FEATURE_ROUTES = {
   podcast: ["podcast"], presentations: ["services", "services-grid", "service", "songs", "presenter", "layouts", "hymns", "booth"],
   lessons: ["docs", "build", "lessonschurch", "storylesson", "storyplan"], storylessons: ["storylesson", "storyplan"],
   tickets: ["tickets", "ticket", "mytickets", "paykiosk", "paid"], board: ["board", "admin-boards"],
-  forms: ["forms", "form", "formedit", "responses"], games: ["games", "gameroom"], finance: ["treasurer", "offering"],
+  forms: ["forms", "form", "formedit", "responses"], games: ["games", "gameroom", "gameqs"], finance: ["treasurer", "offering"],
   volunteers: ["serving", "teams", "team", "crew", "schedule-blockouts", "schedule-calendar", "schedule-matrix"],
   rooms: ["rooms", "roompresent", "admin-rooms"], signage: ["signs", "signedit"], media: ["medialib", "graphics", "graphic"],
   visitors: ["visit", "map", "wayfind", "welcomeback", "admin-visitpage", "admin-map", "admin-welcome"],
