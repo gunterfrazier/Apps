@@ -2528,6 +2528,40 @@ await step("service plans side by side", async () => {
     await page.evaluate(() => { const S = __app.S; S.state.services = S.state.services.filter((x) => !x.id.startsWith("pg-")); S.save(); S.flush?.(); });
   }
 });
+await step("second screen: pop-out slides, notes and dashboard", async () => {
+  if (!(await page.evaluate(() => __app.S.can("build.sermons") && __app.S.can("view.reports")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
+  await page.evaluate(() => {
+    const S = __app.S, B = (type, x) => ({ id: Math.random().toString(36).slice(2), type, show: type !== "note", notes: "", ...x });
+    S.state.docs = S.state.docs.filter((x) => x.id !== "pop-test");
+    S.state.docs.push({ id: "pop-test", churchId: S.state.current, kind: "sermon", title: "Pop", passage: "John 3:16", authorId: S.me().id, published: false, updated: new Date().toISOString(),
+      blocks: [B("keynote", { text: "Loved" }), B("scripture", { ref: "John 3:16", translation: "BSB", text: "For God so loved the world" }), B("point", { text: "God gives", notes: "Pause here and look up" }), B("note", { text: "Story about a gift" })] });
+    S.save(); S.flush?.();
+  });
+  const d = await tab(1440, 900), pops = [];
+  const open = async (label) => { await d.click("[data-act=desk-popout]"); const [p] = await Promise.all([d.context().waitForEvent("page"), d.click(`#ctx .ctx-i:has-text('${label}')`)]); pops.push(p); await p.setViewportSize({ width: 1280, height: 720 }); return p; };
+  try {
+    await openWhenThere(d, base + "#build-pop-test", ".desk .panes");
+    if (await d.waitForSelector("#scrim [data-act=close-sheet]", { timeout: 1500 }).catch(() => null)) await d.click("#scrim [data-act=close-sheet]");
+    // Slides: the slide for the block you're on, large, with the next one.
+    const slides = await open("Slides"); await slides.waitForSelector(".pop-slides .pop-main .stage .slide");
+    await d.click(".ol-item:nth-child(3) .ol-pick"); await slides.waitForSelector(".pop-tools:has-text('Block 3 of 4')");
+    // The window's arrow keys move the builder too.
+    await slides.keyboard.press("ArrowRight"); await d.waitForSelector(".ol-item:nth-child(4).on");
+    await slides.screenshot({ path: join(shots, "50q-popout-slides.png") });
+    // Notes: the words and private notes in big type, following the builder and its typing.
+    const notes = await open("Notes"); await d.click(".ol-item:nth-child(3) .ol-pick");
+    await notes.waitForSelector(".pop-mynotes:has-text('Pause here and look up')");
+    await d.fill(".pane[data-pane=editor] textarea[name=text]", "God gives his Son"); await d.waitForSelector(".desk-saved:text('Saved')");
+    await notes.waitForSelector(".pop-text:has-text('God gives his Son')");
+    await notes.screenshot({ path: join(shots, "50r-popout-notes.png") });
+    // Dashboard on a wall screen.
+    await d.goto(base + "#dashboard"); await d.waitForSelector("[data-act=pop-open][data-route=popout-dashboard]");
+    const [dash] = await Promise.all([d.context().waitForEvent("page"), d.click("[data-act=pop-open][data-route=popout-dashboard]")]); pops.push(dash);
+    await dash.setViewportSize({ width: 1920, height: 1080 }); await dash.waitForSelector(".pop-dash .dash-widget");
+    if (!(await dash.textContent(".pop-dash-head")).includes("Refreshes every minute")) throw new Error("the wall screen keeps itself up to date");
+    await dash.screenshot({ path: join(shots, "50s-popout-dashboard.png") });
+  } finally { for (const p of pops) await p.close().catch(() => {}); await d.close(); }
+});
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("devices"); await page.click("a[href='#control-keys']"); await page.waitForSelector("text=Control keys work once the app is connected");

@@ -112,7 +112,8 @@ function deskView(d, v) {
           <span class="faint">${[d.passage, g?.name, docWhen(d), d.locationId && multiCampus() ? locName(d.locationId) : ""].filter(Boolean).join(". ")}</span></p>
         <div class="desk-tools"><div class="btns">${docButtons(d)}</div>
           <div class="desk-toggles" role="group" aria-label="Show or hide panes">${toggle("outline", "Outline", "list")}${toggle("study", "Study", "book")}${toggle("strip", "Slides", "image")}
-            <button type="button" class="chip" data-act="desk-layouts" aria-haspopup="menu" title="Saved pane layouts">${icon("layers")}Pane layout</button></div></div>
+            <button type="button" class="chip" data-act="desk-layouts" aria-haspopup="menu" title="Saved pane layouts">${icon("layers")}Pane layout</button>
+            <button type="button" class="chip" data-act="desk-popout" aria-haspopup="menu" title="Open the slides or your notes in a window for another screen">${icon("screen")}Second screen</button></div></div>
         ${isUnassigned(d) ? html`<div class="demo-note">${icon("calendar")}<div>Unassigned draft: no class, date or time yet. <button class="btn ghost sm" data-act="doc-assign" data-id="${d.id}">Assign to a class</button></div></div>` : ""}
       </div>
       ${paneRow("builder", [
