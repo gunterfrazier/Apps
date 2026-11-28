@@ -3,7 +3,7 @@
 // added). Each is a gameQuestions record: only people who can host read them (upgrade-33.sql), so players can't look up
 // the answers. A night can use the built-in questions, the church's, both, or one set of the church's.
 
-const GQ_GAMES = { quiz: "Bible Quiz", scramble: "Name Scramble", order: "In Order" };
+const GQ_GAMES = { quiz: "Bible Quiz", scramble: "Name Scramble", order: "In Order", who: "Who Am I?", fake: "Fake Out" };
 const gqAll = (game) => (S.state.gameQuestions || []).filter((q) => q.churchId === S.state.current && (!game || q.game === game));
 const gqSets = () => [...new Set(gqAll().map((q) => q.set).filter(Boolean))].sort();
 
@@ -11,19 +11,21 @@ const gqSets = () => [...new Set(gqAll().map((q) => q.set).filter(Boolean))].sor
 function gqTuple(q) {
   if (q.game === "quiz") return [q.q, [q.right, ...(q.wrong || [])], q.ref || ""];
   if (q.game === "scramble") return [q.word, q.hint, q.ref || ""];
+  if (q.game === "who") return [q.name, q.clues || [], q.ref || "", q.also || []];
+  if (q.game === "fake") return [q.q, q.answer, q.ref || ""];
   return [q.title, (q.events || []).map((e) => [e.t, e.ref || ""])];
 }
 /** The questions a night draws on for each game: { quiz: [[key, tuple]], ... }. */
 function gqBank(source) {
   const out = {};
   for (const kind of Object.keys(GAME_KINDS)) {
-    const built = kind === "quiz" ? GAME_QUIZ : kind === "scramble" ? GAME_NAMES : kind === "order" ? GAME_ORDER : [];
+    const built = kind === "quiz" ? GAME_QUIZ : kind === "scramble" ? GAME_NAMES : kind === "order" ? GAME_ORDER : kind === "who" ? GAME_WHO : kind === "fake" ? GAME_FAKE : [];
     const ours = gqAll(kind).filter((q) => !source.startsWith("set:") || q.set === source.slice(4));
     out[kind] = [...(source === "both" || source === "builtin" ? built.map((t, i) => [`b${i}`, t]) : []), ...(source !== "builtin" ? ours.map((q) => [`c${q.id}`, gqTuple(q)]) : [])];
   }
   return out;
 }
-const gqSummary = (q) => q.game === "quiz" ? q.q : q.game === "scramble" ? `${q.word}: ${q.hint}` : `${q.title}: ${(q.events || []).map((e) => e.t).join(" → ")}`;
+const gqSummary = (q) => q.game === "quiz" ? q.q : q.game === "scramble" ? `${q.word}: ${q.hint}` : q.game === "who" ? `${q.name}: ${(q.clues || [])[0] || ""}` : q.game === "fake" ? `${q.q} (${q.answer})` : `${q.title}: ${(q.events || []).map((e) => e.t).join(" → ")}`;
 
 Screens.gameqs = (tail) => {
   if (!S.on("games")) return { redirect: "home" };
@@ -34,7 +36,7 @@ Screens.gameqs = (tail) => {
     title: "Your questions", back: "games", tab: "games",
     body: html`<p class="muted" style="margin-top:14px">Questions your church writes, for game nights here. Only people who can host see them, so players can't look up the answers.</p>
       <div class="seg" role="group" aria-label="Game" style="margin-top:10px">${Object.entries(GQ_GAMES).map(([k, l]) => html`<a href="#gameqs-${k}" ${attr(k === game, 'aria-current="page"')}>${l} <small class="faint">${gqAll(k).length}</small></a>`)}</div>
-      <div class="btns" style="margin:14px 0"><button class="btn" data-act="gq-edit" data-game="${game}">${icon("plus")}Add ${game === "quiz" ? "a question" : game === "scramble" ? "a name" : "events"}</button>
+      <div class="btns" style="margin:14px 0"><button class="btn" data-act="gq-edit" data-game="${game}">${icon("plus")}Add ${{ quiz: "a question", scramble: "a name", order: "events", who: "a person", fake: "a fact" }[game]}</button>
         ${gqCanDraft() ? html`<button class="btn ghost" data-act="gq-ai">${icon("bolt")}Make questions from a sermon</button>` : ""}</div>
       ${list.length ? Object.entries(bySet).sort(([a], [b]) => a.localeCompare(b)).map(([set, qs]) => html`<section class="sec"><h2 class="sec-head">${set || "No set"} <small class="faint">${qs.length}</small></h2>
         <div class="rows">${qs.map((q) => html`<div class="row"><span class="body"><span class="t">${gqSummary(q)}</span><span class="s">${q.game === "quiz" ? `Answer: ${q.right}${q.ref ? ` · ${q.ref}` : ""}` : q.ref || ""}</span></span>
@@ -57,6 +59,14 @@ Actions["gq-edit"] = (el) => {
   else if (game === "scramble") fields = html`<label class="field"><span>Name or place</span><input type="text" name="word" value="${v("word")}" maxlength="12" required><small>One word, 3 to 12 letters. Players unscramble it.</small></label>
     <label class="field"><span>Clue</span><input type="text" name="hint" value="${v("hint")}" maxlength="80" required></label>
     <label class="field"><span>Bible reference</span><input type="text" name="ref" value="${v("ref")}" maxlength="40"></label>`;
+  else if (game === "who") fields = html`<label class="field"><span>Who</span><input type="text" name="name" value="${v("name")}" maxlength="30" required placeholder="Like: Barnabas"></label>
+    <label class="field"><span>Also accept <small class="faint">(optional)</small></span><input type="text" name="also" value="${(q?.also || []).join(", ")}" maxlength="80" placeholder="Other names, with commas: Joseph of Cyprus"></label>
+    <p class="faint" style="margin:0">Five clues, hardest first. They show one at a time.</p>
+    ${[0, 1, 2, 3, 4].map((i) => html`<label class="field"><span>Clue ${i + 1}</span><input type="text" name="c${i}" value="${q?.clues?.[i] || ""}" maxlength="100" required></label>`)}
+    <label class="field"><span>Bible reference</span><input type="text" name="ref" value="${v("ref")}" maxlength="40"></label>`;
+  else if (game === "fake") fields = html`<label class="field"><span>Fact with a blank</span><input type="text" name="q" value="${v("q")}" maxlength="140" required placeholder="Lydia sold ____ cloth."><small>Write ____ where the answer goes. Pick something few people know, so fakes sound true.</small></label>
+    <label class="field"><span>The real answer</span><input type="text" name="answer" value="${v("answer")}" maxlength="40" required placeholder="Purple"></label>
+    <label class="field"><span>Bible reference</span><input type="text" name="ref" value="${v("ref")}" maxlength="40"></label>`;
   else fields = html`<label class="field"><span>Title</span><input type="text" name="title" value="${v("title")}" maxlength="60" required placeholder="Like: Paul's journeys"></label>
     <p class="faint" style="margin:0">Four events, in the order they happened. Players see them shuffled.</p>
     ${[0, 1, 2, 3].map((i) => html`<div class="gq-ev"><label class="field"><span>${["First", "Second", "Third", "Last"][i]}</span><input type="text" name="e${i}" value="${q?.events?.[i]?.t || ""}" maxlength="70" required></label>
@@ -78,6 +88,21 @@ function gqClean(game, d) {
     if (word.length < 3 || word.length > 12) return "The name is one word of 3 to 12 letters.";
     if (!t(d.hint, 80)) return "Add a clue.";
     return { word, hint: t(d.hint, 80), ref: t(d.ref, 40) };
+  }
+  if (game === "who") {
+    const clues = (d.clues || [0, 1, 2, 3, 4].map((i) => d[`c${i}`])).map((c) => t(c, 100)).filter(Boolean).slice(0, 5);
+    const name = t(d.name, 30), also = (Array.isArray(d.also) ? d.also : String(d.also || "").split(",")).map((x) => t(x, 30)).filter(Boolean).slice(0, 4);
+    if (!gameNorm(name)) return "Say who it is.";
+    if (clues.length < 5) return "Write five clues.";
+    if (clues.some((c) => gameNorm(c).includes(gameNorm(name)))) return "A clue gives the name away. Leave the name out of the clues.";
+    return { name, also, clues, ref: t(d.ref, 40) };
+  }
+  if (game === "fake") {
+    let text = t(d.q, 140); const answer = t(d.answer, 40);
+    if (!text || !answer) return "Write the fact and its real answer.";
+    if (!text.includes("____")) text = text.replace(/_{2,}/, "____");
+    if (!text.includes("____")) return "Put ____ where the answer goes.";
+    return { q: text, answer, ref: t(d.ref, 40) };
   }
   const events = (d.events || [0, 1, 2, 3].map((i) => ({ t: d[`e${i}`], ref: d[`r${i}`] }))).slice(0, 4).map((e) => ({ t: t(e?.t, 70), ref: t(e?.ref, 40) }));
   if (!t(d.title, 60) || events.length < 4 || events.some((e) => !e.t)) return "Add a title and four events.";
@@ -121,6 +146,8 @@ Forms["gq-ai"] = async (d, f) => {
     const context = s ? sermonContext(s, text) : `Passage: ${ref}.\nPassage text (BSB): ${text || "(not available)"}`;
     const ask = [want.includes("quiz") && `"quiz": 8 multiple-choice questions, each with one right answer and three wrong but believable answers (each answer under 60 characters)`,
       want.includes("scramble") && `"names": up to 6 people or places named in the passage, each one word of 3 to 12 letters, with a short clue that doesn't contain the word`,
+      want.includes("who") && `"who": up to 3 people from the passage, each with exactly 5 clues from hardest to easiest that never say their name`,
+      want.includes("fake") && `"fake": up to 5 lesser-known facts from the passage, each a sentence with ____ where a short answer (1 to 3 words) goes, and that answer`,
       want.includes("order") && `"order": up to 2 sets of exactly 4 events from the passage, listed in the order they happened (an empty list if the passage doesn't tell events in order)`].filter(Boolean).join("; ");
     const out = await AI.json(`${AI_RULES}
 
@@ -128,11 +155,13 @@ ${context}
 
 Write questions for a church game night about this ${s ? "sermon and its passage" : "passage"}, for all ages. Every answer must come straight from the passage${s ? " or the sermon" : ""}. Give a Bible reference for each, inside ${ref}.
 Write: ${ask}.
-JSON shape: {"quiz":[{"q":"...","right":"...","wrong":["...","...","..."],"ref":"..."}],"names":[{"word":"...","hint":"...","ref":"..."}],"order":[{"title":"...","events":[{"t":"...","ref":"..."}]}]}`);
+JSON shape: {"quiz":[{"q":"...","right":"...","wrong":["...","...","..."],"ref":"..."}],"names":[{"word":"...","hint":"...","ref":"..."}],"order":[{"title":"...","events":[{"t":"...","ref":"..."}]}],"who":[{"name":"...","clues":["..."],"ref":"..."}],"fake":[{"q":"... ____ ...","answer":"...","ref":"..."}]}`);
     const items = [];
     for (const x of (want.includes("quiz") ? out?.quiz : null) || []) { const c = gqClean("quiz", x); if (typeof c !== "string") items.push({ game: "quiz", ...c }); }
     for (const x of (want.includes("scramble") ? out?.names : null) || []) { const c = gqClean("scramble", x); if (typeof c !== "string") items.push({ game: "scramble", ...c }); }
     for (const x of (want.includes("order") ? out?.order : null) || []) { const c = gqClean("order", x); if (typeof c !== "string") items.push({ game: "order", ...c }); }
+    for (const x of (want.includes("who") ? out?.who : null) || []) { const c = gqClean("who", x); if (typeof c !== "string") items.push({ game: "who", ...c }); }
+    for (const x of (want.includes("fake") ? out?.fake : null) || []) { const c = gqClean("fake", x); if (typeof c !== "string") items.push({ game: "fake", ...c }); }
     if (!items.length) throw { code: "bad" };
     gqDraft = { items, set: s ? `From "${s.title}"` : `From ${ref}` };
     gqDraftShow();
@@ -143,7 +172,7 @@ function gqDraftShow() {
   openSheet("Check the questions", html`<form data-form="gq-ai-add">
     <p class="faint">Drafted with Veritas Logos. Uncheck any you don't want. You can edit them after they're added.</p>
     <div class="gq-draft">${d.items.map((q, i) => html`<label class="check gq-draft-item"><input type="checkbox" name="k${i}" checked><span><small class="tag">${GQ_GAMES[q.game]}</small> <b>${gqSummary(q)}</b>
-      ${q.game === "quiz" ? html`<br><small>Right: ${q.right}. Wrong: ${q.wrong.join(", ")}.${q.ref ? ` ${q.ref}` : ""}</small>` : q.ref ? html`<br><small>${q.ref}</small>` : ""}</span></label>`)}</div>
+      ${q.game === "quiz" ? html`<br><small>Right: ${q.right}. Wrong: ${q.wrong.join(", ")}.${q.ref ? ` ${q.ref}` : ""}</small>` : q.game === "who" ? html`<br><small>${q.clues.join(" · ")}</small>` : q.ref ? html`<br><small>${q.ref}</small>` : ""}</span></label>`)}</div>
     <label class="field"><span>Set</span><input type="text" name="set" value="${d.set}" maxlength="60" required><small>Play just this set on the night, or mix it with the rest.</small></label>
     <button class="btn">Add the checked questions</button></form>`, { wide: true });
 }

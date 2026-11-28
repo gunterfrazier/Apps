@@ -2458,8 +2458,9 @@ await step("offering count: counters, a second counter, and the depositor", asyn
     await d.waitForFunction(() => /^\$103(\.00)?$/.test(document.querySelector("#offer-tally-total")?.textContent || ""));
     // Keyboard first: Tab across the line, Enter adds it and starts the next.
     await d.focus(".offer-entry [data-first]"); await d.keyboard.type("Dana Whitfield");
-    // The name box suggests members; if Chrome shows that list, the first Tab only closes it. Close it first.
-    await d.keyboard.press("Escape"); await d.keyboard.press("Tab"); await d.keyboard.press("Tab"); await d.keyboard.press("Tab");
+    // The name box suggests members. Chrome can show that list again just after Escape, and then a Tab only closes it,
+    // so the Tabs start from Env # instead: the order checked is still Env #, Paid by, Check #.
+    await d.focus(".offer-entry input[name=envelopeNo]"); await d.keyboard.press("Tab"); await d.keyboard.press("Tab");
     await d.waitForFunction(() => document.activeElement?.name === "checkNo", null, { timeout: 2000 }).catch(async () => { throw new Error(`Tab should reach Check #, not ${await d.evaluate(() => document.activeElement?.name || document.activeElement?.tagName)}`); });
     await d.keyboard.type("1042"); await d.keyboard.press("Tab"); await d.keyboard.type("250"); await d.keyboard.press("Enter");
     await d.waitForSelector(".offer-table td:text('Check 1042')");
@@ -2567,6 +2568,7 @@ await step("game night: host a room, phones join and play all three games with t
   const host = await tab(1600, 900), a = await tab(390, 844), b = await tab(390, 844);
   try {
     await openWhenThere(host, base + "?debug#games", "form[data-form=games-open]");
+    for (const k of ["who", "fake"]) await host.uncheck(`input[name=g_${k}]`);
     await host.check("form[data-form=games-open] input[name=teams][value='2']");
     await host.click("form[data-form=games-open] button.btn");
     await host.waitForSelector(".gm-lobby .gm-code");
@@ -2733,10 +2735,11 @@ await step("game night: a church's own questions, drafted from a sermon, played 
     // A set without In Order questions can't run In Order.
     await host.goto(base + "?debug#games"); await host.waitForSelector("select[name=source]");
     await host.selectOption("select[name=source]", "set:From Luke 15:11-32");
+    for (const k of ["who", "fake"]) await host.uncheck(`input[name=g_${k}]`);
     await host.click("form[data-form=games-open] button.btn");
     await host.waitForSelector("form[data-form=games-open] :text('no questions of yours for In Order')");
     // Only the set's quiz: the question is ours.
-    await host.uncheck("input[name=g_order]"); await host.uncheck("input[name=g_scramble]");
+    for (const k of ["order", "scramble", "who", "fake"]) await host.uncheck(`input[name=g_${k}]`);
     await host.click("form[data-form=games-open] button.btn"); await host.waitForSelector(".gm-lobby .gm-code");
     const code = (await host.textContent(".gm-code")).trim();
     await a.goto(base + "#play-" + code); await a.fill("form[data-form=play-join] input[name=name]", "Cal"); await a.click(".pl-go");
@@ -2746,6 +2749,62 @@ await step("game night: a church's own questions, drafted from a sermon, played 
     await a.waitForSelector(".pl-q:has-text('Where did the lost son go?')");
     await host.click(".gm-host [data-act=game-end]");
   } finally { for (const p of [host, a]) await p.close().catch(() => {}); await page.evaluate((r) => { const S = __app.S; S.membership().roleId = r; S.save(); }, was); }
+});
+await step("game night: Who Am I? clue by clue, and Fake Out with fakes and votes", async () => {
+  const was = await page.evaluate(() => { const S = __app.S, m = S.membership(), r = m.roleId; m.roleId = "admin"; S.save(); return r; });
+  const host = await tab(1600, 900), phones = { Ana: await tab(390, 844), Ben: await tab(390, 844), Cal: await tab(390, 844) };
+  const G = (fn, arg) => host.evaluate(fn, arg);
+  try {
+    await openWhenThere(host, base + "?debug#games", "form[data-form=games-open]");
+    for (const k of ["quiz", "scramble", "order"]) await host.uncheck(`input[name=g_${k}]`);
+    if (await host.locator("select[name=source]").count()) await host.selectOption("select[name=source]", "builtin");
+    await host.click("form[data-form=games-open] button.btn"); await host.waitForSelector(".gm-lobby .gm-code");
+    const code = (await host.textContent(".gm-code")).trim();
+    for (const [name, p] of Object.entries(phones)) { await p.goto(base + "#play-" + code); await p.fill("form[data-form=play-join] input[name=name]", name); await p.click(".pl-go"); await host.waitForSelector(`.gm-chip:has-text('${name}')`); }
+    await G(() => { __app.game().GH.games.forEach((g) => { g.rounds = 1; }); });
+    const next = async () => { await host.keyboard.press("Space"); await host.waitForTimeout(150); };
+    const { Ana, Ben, Cal } = phones;
+    // Who Am I?: one clue, then a second.
+    await next(); await host.waitForSelector(".gm-at-intro .gm-title:has-text('Who Am I?')"); await next();
+    await Ben.waitForSelector(".pl-clues li");
+    if (await Ben.locator(".pl-clues li").count() !== 1) throw new Error("one clue to start");
+    await G(() => { __app.game().GH.startedAt -= 8100; });
+    await Ben.waitForFunction(() => document.querySelectorAll(".pl-clues li").length === 2);
+    await host.waitForFunction(() => document.querySelectorAll(".gm-clues li").length === 2);
+    await host.screenshot({ path: join(shots, "99o-game-who.png") });
+    const name = await G(() => __app.game().GH.item.name);
+    const guess = async (p, g) => { await p.fill("[data-pl-guess]", g); await p.press("[data-pl-guess]", "Enter"); await p.waitForTimeout(150); };
+    await guess(Ana, "Nobody"); await Ana.waitForSelector(".pl-dim:has-text('Not quite')"); await guess(Ana, name.toLowerCase());
+    await Ana.waitForSelector(".pl-good");
+    for (const g of ["X", "Y", "Z"]) { await Ben.waitForSelector("[data-pl-guess]"); await guess(Ben, g); }
+    await guess(Cal, name);
+    await host.waitForSelector(".gm-at-reveal .gm-q:has-text('" + name + "')");
+    const who = await G(() => Object.fromEntries(Object.values(__app.game().GH.players).map((p) => [p.name, p.score])));
+    if (who.Ana !== 619 || who.Cal !== 825 || who.Ben !== 0) throw new Error(`Who Am I? scores at the second clue: Ana 619 (one miss), Cal 825, Ben 0; got ${JSON.stringify(who)}`);
+    // Fake Out: writing the truth is refused; matching fakes become one choice; you can't vote for your own.
+    await next(); await next(); await host.waitForSelector(".gm-at-intro .gm-title:has-text('Fake Out')"); await next();
+    await Ana.waitForSelector("form[data-form=play-fake]");
+    const answer = await G(() => __app.game().GH.item.answer);
+    const fake = async (p, t) => { await p.fill("form[data-form=play-fake] input", t); await p.press("form[data-form=play-fake] input", "Enter"); await p.waitForTimeout(150); };
+    await fake(Ana, answer); await Ana.waitForSelector(".pl-good:has-text(\"That's the real answer\")");
+    await fake(Ana, "Zebra stripes"); await fake(Ben, "Moon dust"); await fake(Cal, "zebra stripes!");
+    await host.waitForSelector(".gm-fakes li");
+    if (await host.locator(".gm-fakes li").count() !== 3) throw new Error("two fakes (one written twice) and the truth");
+    await host.screenshot({ path: join(shots, "99p-game-fake-vote.png") });
+    const ids = await G(() => { const c = __app.game().GH.item.choices; return { truth: c.find((x) => x.truth).id, zebra: c.find((x) => /zebra/i.test(x.t)).id, moon: c.find((x) => /moon/i.test(x.t)).id }; });
+    if (!(await Ana.locator(`[data-act=play-fake-vote][data-id="${ids.zebra}"]`).isDisabled())) throw new Error("you can't vote for your own fake");
+    await Ana.screenshot({ path: join(shots, "99q-game-phone-fake-vote.png") });
+    await Ana.click(`[data-act=play-fake-vote][data-id="${ids.truth}"]`);
+    await Ben.click(`[data-act=play-fake-vote][data-id="${ids.zebra}"]`);
+    await Cal.click(`[data-act=play-fake-vote][data-id="${ids.moon}"]`);
+    await host.waitForSelector(".gm-at-reveal .gm-fakes li.truth");
+    if (!(await host.textContent(".gm-fakes")).includes("Ana and Cal's fake")) throw new Error("the reveal names who wrote each fake");
+    await Ana.waitForSelector(".pl-big:has-text('You found the truth!')"); await Ana.waitForSelector(".pl-dim:has-text('You fooled 1 player')");
+    await host.screenshot({ path: join(shots, "99r-game-fake-reveal.png") });
+    const after = await G(() => Object.fromEntries(Object.values(__app.game().GH.players).map((p) => [p.name, p.score])));
+    if (after.Ana - who.Ana !== 1500 || after.Cal - who.Cal !== 500 || after.Ben - who.Ben !== 500) throw new Error(`Fake Out: Ana +1500, Cal +500, Ben +500; got ${JSON.stringify(after)}`);
+    await host.click(".gm-host [data-act=game-end]");
+  } finally { for (const p of [host, ...Object.values(phones)]) await p.close().catch(() => {}); await page.evaluate((r) => { const S = __app.S; S.membership().roleId = r; S.save(); }, was); }
 });
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
@@ -4586,7 +4645,9 @@ await step("delete my account", async () => {
   p.on("pageerror", (e) => errors.push(`delete account pageerror: ${e.message}`));
   await p.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
   await p.goto(base + "?debug#welcome"); await p.fill("input[name=name]", "Sam Delete"); await p.fill("input[name=email]", "sam@example.com");
-  await p.click("form[data-form=welcome] button"); await p.waitForTimeout(500);
+  // Wait for the welcome form to finish, not a fixed time: on a busy machine half a second wasn't always enough, and the
+  // app then sent this page back to the welcome screen, which has no Delete link.
+  await p.click("form[data-form=welcome] button"); await p.waitForFunction(() => __app.S.me()?.name === "Sam Delete");
   await p.evaluate(() => { const S = __app.S, me = S.me().id; S.state.prefs ||= {}; S.state.prefs.askPresence = false; S.state.current = "riverside";
     if (!S.state.memberships.some((m) => m.churchId === "riverside" && m.userId === me)) S.state.memberships.push({ churchId: "riverside", userId: me, roleId: "member", locations: [], joined: new Date().toISOString() });
     S.state.recurring ||= []; S.state.recurring.push({ id: "rec-del", churchId: "riverside", by: me, amount: 25, frequency: "monthly", active: true }); S.save();

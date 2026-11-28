@@ -29,7 +29,9 @@ function plHeard(event, st) {
   PL.st = st;
   // The host doesn't know this phone yet (it reloaded, or this phone just joined): say hello again.
   if (st.phase !== "ended" && !st.you?.[PL.pid] && Date.now() - (PL.helloAt || 0) > 2000) plHello();
-  if (st.phase === "ask" && PL.arrival.key !== plKey(st)) { PL.arrival = { key: plKey(st), at: Date.now(), left: st.left, limit: st.limit }; PL.pick = []; }
+  // A new question, or Fake Out moving from writing to voting: start this phone's clock from what the host says is left.
+  const clock = `${plKey(st)}:${st.q?.step || ""}`;
+  if (st.phase === "ask" && PL.arrival.clock !== clock) { if (PL.arrival.key !== plKey(st)) PL.pick = []; PL.arrival = { key: plKey(st), clock, at: Date.now(), left: st.left, limit: st.limit }; }
   plDraw();
 }
 const plLeft = () => PL?.arrival?.key === plKey() ? Math.max(0, PL.arrival.at + PL.arrival.left - Date.now()) : 0;
@@ -45,7 +47,7 @@ function plSend(value) {
 function plDraw() {
   if (splitRoute().head !== "play") return;
   const st = PL?.st, you = st?.you?.[PL?.pid];
-  const sig = JSON.stringify([st?.phase, plKey(st), st?.count, you, PL?.pick, st?.phase === "ask" ? st.q?.first : 0, st?.phase === "lobby" ? 0 : st?.top]);
+  const sig = JSON.stringify([st?.phase, plKey(st), st?.count, you, PL?.pick, st?.phase === "ask" ? [st.q?.first, st.q?.clues?.length, st.q?.step] : 0, st?.phase === "lobby" ? 0 : st?.top]);
   if (sig === plDrawn) return;
   const typed = $("[data-pl-guess]")?.value || "";
   plDrawn = sig;
@@ -67,6 +69,24 @@ function plQuestion(st, you) {
         : html`<form data-form="play-guess" class="pl-guess"><input type="text" name="guess" data-pl-guess maxlength="${q.len + 4}" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Your answer" placeholder="${q.len} letters" required><button class="btn">Guess</button></form>
           <p class="pl-dim">${you?.tries ? `Not quite. ${plural(tries, "try", "tries")} left.` : `${plural(tries, "try", "tries")}`}</p>`}`;
   }
+  if (st.kind === "who") {
+    const tries = 3 - (you?.tries || 0);
+    return html`<p class="pl-q">Who am I?</p><ol class="pl-clues">${q.clues.map((c, i) => html`<li><span class="gm-letter">${i + 1}</span>${c}</li>`)}</ol>
+      ${you?.solved ? html`<p class="pl-wait pl-good">You got it! Look at the big screen.</p>` : done ? html`<p class="pl-wait">Out of tries. The answer is coming up.</p>`
+        : html`<form data-form="play-guess" class="pl-guess"><input type="text" name="guess" data-pl-guess maxlength="30" autocomplete="off" autocapitalize="words" spellcheck="false" aria-label="Your guess" placeholder="Their name" required><button class="btn">Guess</button></form>
+          <p class="pl-dim">${you?.tries ? `Not quite. ${plural(tries, "try", "tries")} left.` : `${plural(tries, "try", "tries")}. A new clue comes every few seconds.`}</p>`}`;
+  }
+  if (st.kind === "fake") {
+    const labels = "ABCDEFGHIJKLMNOP";
+    if (q.step === "write") return html`<p class="pl-q">${q.q}</p>
+      ${you?.wrote ? html`<p class="pl-wait">Your fake is in. Get ready to vote.</p>`
+        : html`<form data-form="play-fake" class="pl-guess"><input type="text" name="fake" data-pl-guess maxlength="40" autocomplete="off" spellcheck="false" aria-label="Your fake answer" placeholder="A fake answer that sounds true" required><button class="btn">Send</button></form>
+          ${you?.tooTrue ? html`<p class="pl-wait pl-good">That's the real answer! Keep it secret and write a fake one.</p>` : html`<p class="pl-dim">Fool the others: they'll try to spot the real answer.</p>`}`}`;
+    return html`<p class="pl-q">${q.q}</p><p class="pl-dim">Which one is true?</p>
+      <div class="pl-events">${q.choices.map((c, i) => { const mine = you?.mine?.includes(c.id); return html`<button class="pl-ev ${you?.picked === c.id ? "on" : ""}" data-act="play-fake-vote" data-id="${c.id}" ${attr(done || mine, "disabled")}>
+        <span class="gm-letter">${labels[i]}</span><b>${c.t}</b>${mine ? html`<small class="pl-dim" style="margin-left:auto">Yours</small>` : ""}</button>`; })}</div>
+      ${done ? html`<p class="pl-wait">Vote locked in. Look at the big screen.</p>` : ""}`;
+  }
   const pick = done ? sent || [] : PL.pick, labels = "ABCD";
   return html`<p class="pl-q">${q.title}: tap them from earliest to latest</p>
     <div class="pl-events">${q.events.map((e, i) => { const at = pick.indexOf(e.id); return html`<button class="pl-ev ${at >= 0 ? "on" : ""}" data-act="play-order-pick" data-id="${e.id}" ${attr(done || at >= 0, "disabled")}>
@@ -76,7 +96,13 @@ function plQuestion(st, you) {
 }
 function plReveal(st, you) {
   const r = st.reveal, q = st.q;
-  const answer = st.kind === "quiz" ? q.options[r.answer] : st.kind === "scramble" ? r.word : r.answer.map((id) => q.events.find((e) => e.id === id)?.t).join(" → ");
+  const answer = st.kind === "quiz" ? q.options[r.answer] : st.kind === "scramble" ? r.word : st.kind === "who" ? r.name : st.kind === "fake" ? r.answer
+    : r.answer.map((id) => q.events.find((e) => e.id === id)?.t).join(" → ");
+  if (st.kind === "fake") return html`<div class="pl-result ${you?.points ? "good" : "miss"}">
+    <p class="pl-big">${you?.correct ? "You found the truth!" : you?.picked ? "Fooled!" : "No vote"}</p>
+    ${you?.fooled ? html`<p class="pl-dim">You fooled ${plural(you.fooled, "player")}.</p>` : ""}
+    ${you?.points ? html`<p class="pl-points">+${you.points.toLocaleString()}</p>` : ""}
+    <p class="pl-dim">The truth: <b>${answer}</b></p></div>`;
   return html`<div class="pl-result ${you?.correct ? "good" : you?.points ? "some" : "miss"}">
     <p class="pl-big">${you?.correct ? "Correct!" : you?.points ? "Partly right" : you?.done || you?.tries ? "Not this time" : "No answer"}</p>
     ${you?.points ? html`<p class="pl-points">+${you.points.toLocaleString()}</p>` : ""}
@@ -134,6 +160,8 @@ Forms["play-join"] = async (d, f) => {
 };
 Actions["play-quiz"] = (el) => { const you = PL?.st?.you?.[PL.pid]; if (PL?.st?.phase !== "ask" || you?.done) return; plSend(+el.dataset.i); };
 Forms["play-guess"] = (d, f) => { const g = gameNorm(d.guess); if (!g || PL?.st?.phase !== "ask") return; plSend(g); f.reset(); };
+Forms["play-fake"] = (d, f) => { const t = String(d.fake || "").trim(); if (!t || PL?.st?.phase !== "ask") return; plSend(t.slice(0, 40)); f.reset(); };
+Actions["play-fake-vote"] = (el) => { const you = PL?.st?.you?.[PL.pid]; if (PL?.st?.phase !== "ask" || PL.st.q?.step !== "vote" || you?.done) return; plSend(el.dataset.id); };
 Actions["play-order-pick"] = (el) => { if (!PL || PL.pick.includes(el.dataset.id) || PL.pick.length >= 4) return; PL.pick = [...PL.pick, el.dataset.id]; plDraw(); };
 Actions["play-order-undo"] = () => { if (!PL) return; PL.pick = PL.pick.slice(0, -1); plDraw(); };
 Actions["play-order-send"] = () => { if (!PL || PL.pick.length < (PL.st?.q?.events?.length || 4)) return; plSend(PL.pick); };
