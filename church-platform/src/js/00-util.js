@@ -349,6 +349,7 @@ const PERMS = [
   ["Leading", "build.sermons", "Sermon builder"],
   ["Leading", "chat.leaders", "Leadership chat"],
   ["Leading", "book.rooms", "Request rooms for their groups and events"],
+  ["Leading", "host.games", "Host game nights on the big screen"],
   ["Sunday", "services.plan", "Plan services, segments and songs"],
   ["Sunday", "present", "Run presentations on the screens"],
   ["Sunday", "present.rooms", "Present on any room's display, at any time"],
@@ -385,6 +386,7 @@ const NEW_PERM_DEFAULTS = {
   "book.rooms": ["pastor", "staff", "teacher", "leader"], "schedule.teams": ["pastor", "staff", "media"],
   "manage.followup": ["pastor", "staff"], "view.reports": ["pastor", "staff"], "send.email": ["pastor", "staff"], "manage.devices": ["pastor", "staff", "media"],
   "present.rooms": ["pastor", "staff", "media"], "take.payments": ["pastor", "staff"], "send.texts": ["pastor", "staff"], "checkin.events": ["pastor", "staff"],
+  "host.games": ["pastor", "staff", "teacher", "leader", "media"],
 };
 /** What each kind of signed-in church device may do. Devices never get a person's role. */
 // A room display reads bookings ("rooms.view", a device-only permission) to know who has the room right now.
@@ -410,6 +412,7 @@ const MODULES = [
   ["chat", "Chat", "Messages between members and groups", "Connect"],
   ["board", "Community board", "Posts, needs and offers from members", "Connect"],
   ["forms", "Forms and signups", "Registrations, surveys and signup forms", "Connect"],
+  ["games", "Game night", "Bible party games on the big screen, played on phones", "Connect"],
   ["checkin", "Kids check-in", "Check-in stations, name tags and pickup codes", "Kids and families"],
   ["parents", "Parent portal", "What parents see about their kids", "Kids and families"],
   ["giving", "Giving", "Online giving, funds and campaigns", "Giving"],
@@ -426,7 +429,7 @@ const FEATURE_ROUTES = {
   podcast: ["podcast"], presentations: ["services", "services-grid", "service", "songs", "presenter", "layouts", "hymns", "booth"],
   lessons: ["docs", "build", "lessonschurch", "storylesson", "storyplan"], storylessons: ["storylesson", "storyplan"],
   tickets: ["tickets", "ticket", "mytickets", "paykiosk", "paid"], board: ["board", "admin-boards"],
-  forms: ["forms", "form", "formedit", "responses"], finance: ["treasurer", "offering"],
+  forms: ["forms", "form", "formedit", "responses"], games: ["games", "gameroom"], finance: ["treasurer", "offering"],
   volunteers: ["serving", "teams", "team", "crew", "schedule-blockouts", "schedule-calendar", "schedule-matrix"],
   rooms: ["rooms", "roompresent", "admin-rooms"], signage: ["signs", "signedit"], media: ["medialib", "graphics", "graphic"],
   visitors: ["visit", "map", "wayfind", "welcomeback", "admin-visitpage", "admin-map", "admin-welcome"],
@@ -613,6 +616,7 @@ const ICONS = {
   skipFwd: '<path d="m13 5 4 3.5L13 12"/><path d="M16.5 8.5H12a6.5 6.5 0 1 0 5.8 9.5"/>',
   cast: '<path d="M3 18.5a2.5 2.5 0 0 1 2.5 2.5M3 14.5a6.5 6.5 0 0 1 6.5 6.5M3 10.5a10.5 10.5 0 0 1 10.5 10.5"/><path d="M3 6.5V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2.5"/>',
   moon: '<path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z"/>',
+  game: '<rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7.5 10.5v4M5.5 12.5h4"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor"/><circle cx="17.5" cy="13.8" r="1" fill="currentColor"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
 };
 const icon = (name, label) => raw(`<svg class="i" viewBox="0 0 24 24" ${label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true"'}>${ICONS[name] || ""}</svg>`);

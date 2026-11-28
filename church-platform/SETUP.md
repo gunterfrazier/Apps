@@ -453,6 +453,26 @@ Each workspace appears only when the role allows it and the church has that feat
 window; other pages keep a comfortable reading width. **Icons only** folds the sidebar, and each computer remembers
 the choice. Presenting, kiosks, paired screens and the workstation lock screen keep their own full-screen layouts.
 
+## Game night (version 32)
+
+For an existing project, run `supabase/upgrade-32.sql` after version 31. Then turn on guest players: in the Supabase
+dashboard, **Authentication, Sign In / Providers**, switch on **Allow anonymous sign-ins**. Without it, only people
+signed in to the app can play.
+
+A host puts **Game night** on a TV or projector, and everyone plays on their own phone: no app, no account.
+- **Hosting:** people with **Host game nights on the big screen** (pastors, staff, teachers, group leaders and media by
+  default) pick the games, rounds and teams, and open a room. The screen shows a 4-letter code and a QR code.
+- **Joining:** players scan the code or open the app's address with `#play`, type the code and their name. A phone that
+  reloads rejoins as the same player.
+- **Games:** Bible Quiz (four answers, faster scores more), Name Scramble (a Bible name or place, three tries) and In
+  Order (four events, earliest first). One scoreboard covers the night.
+- **Teams:** 2 to 4 teams, split evenly at the start. A team's score is the average of its players.
+- **Guests' access:** guest players use an anonymous sign-in kept to that browser tab. It reaches only the room they
+  joined: they belong to no church, so every other rule turns them away. Rooms close after 6 hours or when the host
+  ends the night.
+
+The feature can be turned off under **Admin, Features**.
+
 ## Workstations: shared computers with name and PIN (version 30)
 
 For an existing project, run `supabase/upgrade-30.sql` after version 29. The `workstation` function deploys with the
