@@ -498,7 +498,7 @@ const Bible = {
 };
 
 // ---------- Images (uploads are resized and kept as data URLs) ----------
-function readImage(file, maxSide = 1400, quality = 0.82, { preserveTransparency = false } = {}) {
+function readImage(file, maxSide = 1400, quality = 0.82, { preserveTransparency = false, type = "" } = {}) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type)) return reject(new Error("Choose an image file."));
     const url = URL.createObjectURL(file);
@@ -512,7 +512,7 @@ function readImage(file, maxSide = 1400, quality = 0.82, { preserveTransparency 
       if (!png && !preserveTransparency) { g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); }
       g.drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      resolve(c.toDataURL(preserveTransparency ? "image/webp" : png ? "image/png" : "image/jpeg", quality));
+      resolve(c.toDataURL(type || (preserveTransparency ? "image/webp" : png ? "image/png" : "image/jpeg"), quality));
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That image couldn't be read.")); };
     img.src = url;
