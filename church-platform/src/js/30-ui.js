@@ -480,3 +480,16 @@ new MutationObserver(() => {
     bar.scrollLeft = Math.max(0, at - (bar.clientWidth - t.offsetWidth) / 2);
   });
 }).observe(document.documentElement, { childList: true, subtree: true });
+
+// ----- Someone is in the middle of something -----
+// A form someone has started filling in (and not submitted) is "dirty" until the page redraws it. A redraw that nobody
+// asked for, such as another tab saving, waits while a form is dirty, a sheet is open or a field has the cursor, so it
+// can't throw away choices not saved yet. The page catches up at its next redraw.
+const dirtyForms = new WeakSet();
+const markDirty = (e) => { const f = e.target.closest?.("form"); if (f && !f.matches("[data-desk-auto]") && !e.target.matches?.("[type=search]")) dirtyForms.add(f); };
+document.addEventListener("input", markDirty, true);
+document.addEventListener("change", markDirty, true);
+function pageBusy() {
+  return !!document.getElementById("scrim") || !!document.activeElement?.matches?.("input, textarea, select, [contenteditable]")
+    || [...document.querySelectorAll("#app form")].some((f) => dirtyForms.has(f));
+}

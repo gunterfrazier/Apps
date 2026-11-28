@@ -2,7 +2,7 @@
 // Run: node build.mjs && node test/smoke.mjs   (needs Playwright; set CHROME=/path/to/chrome if it can't find a browser)
 import { createRequire } from "node:module";
 import { createServer } from "node:http";
-import { readFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fakeObs } from "./fake-obs.mjs";
@@ -78,7 +78,9 @@ let current = "";
 // ONLY="part of a step's name" runs just the sign-up steps and the steps that match (for working on one step).
 // Separate several with | to run the steps a later one depends on, like ONLY="household|classes and kids".
 const ONLY = process.env.ONLY || "";
-const step = async (name, fn) => { if (ONLY && !["welcome", "join as basic member"].includes(name) && !ONLY.split("|").some((o) => name.includes(o))) return; current = name; try { await fn(); } catch (e) { const lines = e.message.split("\n"), waiting = lines.find((l) => /waiting for/.test(l)); errors.push(`${name}: ${lines[0]}${waiting ? ` (${waiting.replace(/\x1b\[[0-9;]*m/g, "").trim()})` : ""}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); } };
+const tabShots = []; // pictures of the tabs a step opened, taken as they closed
+const step = async (name, fn) => { if (ONLY && !["welcome", "join as basic member"].includes(name) && !ONLY.split("|").some((o) => name.includes(o))) return; current = name; tabShots.length = 0; try { await fn(); } catch (e) {
+  tabShots.forEach((img, i) => writeFileSync(join(shots, `fail-${name.replace(/\W+/g, "-")}-tab${i + 1}.png`), img)); const lines = e.message.split("\n"), waiting = lines.find((l) => /waiting for/.test(l)); errors.push(`${name}: ${lines[0]}${waiting ? ` (${waiting.replace(/\x1b\[[0-9;]*m/g, "").trim()})` : ""}`); await shot(`fail-${name.replace(/\W+/g, "-")}`).catch(() => {}); } };
 const shot = (name) => page.screenshot({ path: join(shots, `${name}.png`), fullPage: true });
 const goTo = async (hash) => { await page.evaluate((h) => { location.hash = h; }, hash); await page.waitForTimeout(90); };
 const text = () => page.textContent("#app");
@@ -1675,7 +1677,13 @@ await step("digital signage", async () => {
 // A tab opened straight after the main tab saves can start from the copy before it (browsers pass changes between tabs
 // a moment late; the merge then brings it in). Open a page that needs the new data again if it isn't there yet.
 const openWhenThere = async (p, url, sel) => { for (let n = 0; n < 3; n++) { await p.goto(url); if (await p.waitForSelector(sel, { timeout: 4000 }).catch(() => null)) return; } throw new Error(`${sel} never appeared at ${url}`); };
-const tab = async (w, h) => { const p = await ctx.newPage(); await p.setViewportSize({ width: w, height: h }); p.on("pageerror", (e) => errors.push(`device tab: ${e.message} ${(e.stack || "").split("\n")[1] || ""}`)); return p; };
+const tab = async (w, h) => {
+  const p = await ctx.newPage(); await p.setViewportSize({ width: w, height: h }); p.on("pageerror", (e) => errors.push(`device tab: ${e.message} ${(e.stack || "").split("\n")[1] || ""}`));
+  // Keep a picture of the tab as it closes: if the step then fails, the runner saves it (the main page alone rarely shows why).
+  const close = p.close.bind(p);
+  p.close = async (...a) => { const img = await p.screenshot({ timeout: 3000 }).catch(() => null); if (img) tabShots.push(img); return close(...a); };
+  return p;
+};
 const pairNew = async (type, fill = async () => {}) => {
   await goTo("devices"); await page.click("[data-act=device-new]"); await page.locator(`#scrim input[name=type][value=${type}]`).evaluate((el) => el.click());
   await fill(); await sheetSubmit(); await page.waitForSelector("#scrim .pair-code"); return (await page.textContent("#scrim .pair-code")).trim();
@@ -1762,6 +1770,9 @@ await step("screens on the booth computer", async () => {
   if (!(await t.$("select[data-look]:not([hidden])"))) throw new Error("an audience display should offer a look");
   // The stage TV becomes a second audience screen with a green lower third, for a chroma key.
   await t.selectOption("#scr-2", "display"); await t.selectOption("select[name=look-2]", "green");
+  // Another tab saving redraws this one; choices not saved yet have to survive it.
+  await page.evaluate(() => { __app.S.save(); __app.S.flush?.(); }); await t.waitForTimeout(400);
+  if ((await t.inputValue("#scr-2")) !== "display" || (await t.inputValue("select[name=look-2]")) !== "green") throw new Error("a redraw undid the screen choices");
   await t.screenshot({ path: join(shots, "49d-booth-screens.png"), fullPage: true });
   const pops = []; t.context().on("page", (p) => pops.push(p));
   await t.click("[data-act=scr-open]"); await t.waitForFunction(() => document.body.innerText.includes("Close 2 screens"));
@@ -2446,7 +2457,10 @@ await step("offering count: counters, a second counter, and the depositor", asyn
     await d.fill("input[name=b20]", "5"); await d.fill("input[name=b1]", "3"); await d.click(".offer-tally h2");
     await d.waitForFunction(() => /^\$103(\.00)?$/.test(document.querySelector("#offer-tally-total")?.textContent || ""));
     // Keyboard first: Tab across the line, Enter adds it and starts the next.
-    await d.focus(".offer-entry [data-first]"); await d.keyboard.type("Dana Whitfield"); await d.keyboard.press("Tab"); await d.keyboard.press("Tab"); await d.keyboard.press("Tab");
+    await d.focus(".offer-entry [data-first]"); await d.keyboard.type("Dana Whitfield");
+    // The name box suggests members; if Chrome shows that list, the first Tab only closes it. Close it first.
+    await d.keyboard.press("Escape"); await d.keyboard.press("Tab"); await d.keyboard.press("Tab"); await d.keyboard.press("Tab");
+    await d.waitForFunction(() => document.activeElement?.name === "checkNo", null, { timeout: 2000 }).catch(async () => { throw new Error(`Tab should reach Check #, not ${await d.evaluate(() => document.activeElement?.name || document.activeElement?.tagName)}`); });
     await d.keyboard.type("1042"); await d.keyboard.press("Tab"); await d.keyboard.type("250"); await d.keyboard.press("Enter");
     await d.waitForSelector(".offer-table td:text('Check 1042')");
     if (!(await d.evaluate(() => document.activeElement?.matches(".offer-entry [data-first]")))) throw new Error("Enter should start the next line");
@@ -3335,9 +3349,13 @@ await step("family page: coloring pages print, For parents goes home, parents se
   // Printing builds a print page with the coloring page on it.
   await page.click(".fam-print [data-act=family-print]");
   await page.waitForFunction(() => [...document.querySelectorAll("iframe[srcdoc]")].some((f) => f.srcdoc.includes("coloring") || f.srcdoc.includes("<img")));
+  // Printing mustn't leave the keyboard in the hidden print frame, where every key press would vanish.
+  await page.waitForTimeout(1500);
+  if (await page.evaluate(() => document.activeElement?.tagName === "IFRAME")) throw new Error("after printing, the keyboard should come back to the page");
 });
 await step("story backgrounds match the story on every slide", async () => {
   // The demo's Zacchaeus lesson uses the Zacchaeus pictures, in story order, with the words in each picture's open side.
+  if (!(await page.evaluate(() => __app.S.can("build.lessons") && __app.S.can("present")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
   await goTo("build-riverside-doc-zacchaeus"); await page.waitForSelector(".bg-panel .bg-strip img");
   await goTo("present-doc-riverside-doc-zacchaeus"); await page.waitForSelector("#stage .slide");
   for (let i = 0; i < 40; i++) await page.keyboard.press("ArrowLeft"); // from the first slide
