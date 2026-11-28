@@ -3036,3 +3036,19 @@ th.num .dt-sort { justify-content: flex-end; }
 /* The big screen keeps its host controls in view: the middle scrolls if a reveal is tall. */
 .gm-big { height: 100vh; height: 100dvh; }
 .gm-big .gm-stage { min-height: 0; overflow: auto; align-items: safe center; }
+/* Bible Board */
+.bb-grid { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: .45em; width: min(100%, 1400px); margin: 0 auto; }
+.bb-cat { display: grid; place-items: center; text-align: center; min-height: 3.2em; padding: .4em; background: #1d2b44; border-radius: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; font-size: .9em; line-height: 1.15; }
+.bb-tile { display: grid; place-items: center; min-height: 2.6em; font: inherit; font-size: 1.6em; font-weight: 800; color: #f2c14e; background: #22355a; border: 0; border-radius: 10px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.bb-tile:hover, .bb-tile:focus-visible { background: #2c4675; outline: 3px solid #fff; outline-offset: 1px; }
+.bb-tile.used { background: rgba(255, 255, 255, .03); cursor: default; }
+.bb-status { text-align: center; font-size: 1.5em; font-weight: 800; }
+.bb-status.good { color: #6fdc9b; }
+.bb-status.buzz { color: #f2c14e; }
+.pl-grid { font-size: 12px; gap: 4px; }
+.pl-grid .bb-tile { font-size: 15px; min-height: 44px; }
+.pl-grid .bb-cat { min-height: 44px; font-size: 10px; padding: 2px; }
+.bb-buzz { width: 100%; min-height: 160px; border-radius: 24px; border: 0; font: inherit; font-size: 2.4rem; font-weight: 900; color: #fff; background: radial-gradient(circle at 30% 30%, #ff6b6b, #c62828); box-shadow: 0 8px 0 #7f1d1d; cursor: pointer; }
+.bb-buzz:active { transform: translateY(4px); box-shadow: 0 4px 0 #7f1d1d; }
+.bb-buzz:disabled { background: #3a4458; box-shadow: none; cursor: default; }
+.bb-opts-list li { font-size: .95rem; }
