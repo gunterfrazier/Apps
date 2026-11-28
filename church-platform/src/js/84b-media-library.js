@@ -260,6 +260,7 @@ function mfUse(url, kind) {
   const scope = mf.form && mf.form.isConnected ? mf.form : document;
   const field = $(`[name="${mf.field}"]`, scope) || $(`[name="${mf.field}"]`);
   if (!field) return;
+  if (kind !== "video" && field.form && $(`[data-change="pick-image"][data-field="${mf.field}"][data-logo]`, field.form)) { logoFieldPut(field.form, mf.field, url); return; }
   field.value = url; field.dispatchEvent(new Event("input", { bubbles: true })); field.dispatchEvent(new Event("change", { bubbles: true }));
   const prev = $(`[data-preview="${mf.field}"]`, scope);
   if (prev) prev.innerHTML = kind === "video" ? `<video src="${esc(url)}" muted playsinline loop autoplay></video>` : `<img src="${esc(url)}" alt="">`;

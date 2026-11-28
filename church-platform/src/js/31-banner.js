@@ -421,12 +421,13 @@ Inputs["banner-logo-upload"] = async (input) => {
   save.disabled = true;
   status.textContent = "Reading logos…";
   const logos = [];
-  let failed = 0;
+  let failed = 0, cleared = 0;
   for (const file of files) {
     try {
-      const src = await readImage(file, 512, .94, { preserveTransparency: true });
+      const logo = await readLogo(file);
       const name = file.name.replace(/\.[^.]+$/, "").trim().slice(0, 100) || "Uploaded logo";
-      logos.push({ id: uid(), name, src });
+      logos.push({ id: uid(), name, src: logo.src });
+      if (logo.cleared) cleared++;
     } catch { failed++; }
   }
   input.value = "";
@@ -435,6 +436,7 @@ Inputs["banner-logo-upload"] = async (input) => {
   status.textContent = "";
   if (!activeBannerDraft(draft)) return;
   if (logos.length) addBannerLogos(draft, logos);
+  if (cleared && !failed) toast(cleared === logos.length && cleared === 1 ? "Background removed. Remove background lets you fine-tune it." : `Background removed from ${plural(cleared, "logo")}.`);
   if (failed) toast(logos.length ? `${plural(failed, "logo")} could not be read. The other logos were added.` : "Those logos could not be read. Choose image files.");
 };
 Actions["banner-logo-remove"] = () => {
@@ -447,12 +449,12 @@ Actions["banner-logo-remove"] = () => {
   refreshBannerLogo("");
 };
 
-async function bannerLogoPixels(src) {
+async function bannerLogoPixels(src, max = 512) {
   const img = new Image();
   if (isUrl(src)) img.crossOrigin = "anonymous";
   img.src = src;
   await img.decode();
-  const scale = Math.min(1, 512 / Math.max(img.naturalWidth, img.naturalHeight));
+  const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
   canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
@@ -546,7 +548,7 @@ function makeLogoTransparent(edit, tolerance, includeHoles) {
   // One color: every pixel that shows becomes white or dark, keeping its see-through edges.
   if (tint) { const [r, g, b] = logoColorRgb(tint); for (let i = 0; i < pixels.length; i += 4) { pixels[i] = r; pixels[i + 1] = g; pixels[i + 2] = b; } }
   ctx.putImageData(output, 0, 0);
-  return canvas.toDataURL("image/webp", .94);
+  return canvas.toDataURL("image/png");
 }
 
 const logoColorHex = (rgb) => "#" + rgb.map((value) => value.toString(16).padStart(2, "0")).join("");
@@ -556,7 +558,7 @@ let bannerLogoEdit;
  * The "Remove logo background" sheet, for any logo: the banner's, or a graphic's. active() says whether the thing
  * being edited is still open; onSave(name, src) keeps the transparent copy.
  */
-async function openLogoCleaner({ src, name, active, onSave, button }) {
+async function openLogoCleaner({ src, name, active, onSave, button, naming = true }) {
   if (!src) return;
   if (button) button.disabled = true;
   try {
@@ -568,7 +570,7 @@ async function openLogoCleaner({ src, name, active, onSave, button }) {
     for (let i = 3; i < edit.original.data.length; i += 4) {
       if (edit.original.data[i]) visiblePixels++;
     }
-    bannerLogoEdit = { ...edit, active, onSave, backgrounds: found.colors, visiblePixels, src, result: "" };
+    bannerLogoEdit = { ...edit, active, onSave, naming, backgrounds: found.colors, visiblePixels, src, result: "" };
     openSheet("Remove logo background", html`<form data-form="banner-logo-copy">
       <div class="banner-logo-comparison">
         <figure>
@@ -590,8 +592,8 @@ async function openLogoCleaner({ src, name, active, onSave, button }) {
         <small>All white works well on photos and dark slides.</small></fieldset>
       <label class="range"><span>Color tolerance</span><input type="range" name="tolerance" min="0" max="120" value="24" data-input="banner-logo-preview"><output>24</output></label>
       <p class="faint" data-logo-copy-status role="status"></p>
-      <label class="field"><span>Copy name</span><input type="text" name="name" value="${String(name || "Logo").slice(0, 80)} (transparent)" maxlength="100" required></label>
-      <button type="submit" class="btn">Save transparent copy</button>
+      ${naming ? html`<label class="field"><span>Copy name</span><input type="text" name="name" value="${String(name || "Logo").slice(0, 80)} (transparent)" maxlength="100" required></label>` : ""}
+      <button type="submit" class="btn">${naming ? "Save transparent copy" : "Use this logo"}</button>
     </form>`);
     refreshLogoColors($('#scrim [data-form="banner-logo-copy"]'));
   } catch {
@@ -603,7 +605,7 @@ Actions["banner-logo-clean"] = (button) => {
   if (!activeBannerDraft(draft)) return;
   keepDraft();
   const asset = bannerLogoAsset(draft), src = bannerLogoSrc(S.church(), draft);
-  openLogoCleaner({ src, button, name: asset?.name || "Account logo",
+  openLogoCleaner({ src: logoOriginal(src), button, name: asset?.name || "Account logo",
     active: () => activeBannerDraft(draft) && bannerLogoSrc(S.church(), draft) === src,
     onSave: (name, result) => addBannerLogos(draft, [{ id: uid(), name, src: result }]) });
 };
@@ -664,8 +666,8 @@ Inputs["banner-logo-preview"] = (input) => refreshLogoPreview(input.form);
 Forms["banner-logo-copy"] = (data, form) => {
   const edit = bannerLogoEdit;
   if (!edit?.result || !edit.active()) return;
-  const name = data.name.trim();
-  if (!name) return formError(form, "Name the transparent copy.");
+  const name = String(data.name || "").trim();
+  if (edit.naming && !name) return formError(form, "Name the transparent copy.");
   bannerLogoEdit = null;
   closeSheet(true);
   edit.onSave(name, edit.result);

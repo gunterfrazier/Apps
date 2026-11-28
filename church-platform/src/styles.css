@@ -413,6 +413,8 @@ main.view:has(.banner-workspace) { max-width: 1080px; }
 .embed-card { display: flex; gap: 14px; align-items: center; padding: 14px 16px; border-radius: var(--r-l); background: var(--surface); box-shadow: var(--sh-1); color: inherit; text-decoration: none; }
 .embed-card .body { flex: 1; min-width: 0; } .embed-card .t { font-weight: 700; display: block; } .embed-card .s { color: var(--ink-2); font-size: .88rem; display: block; }
 .img-preview img { max-width: 100%; max-height: 180px; border-radius: 14px; display: block; margin-top: 6px; box-shadow: var(--sh-1); }
+/* A logo sits on a checkerboard, so a removed background shows as removed. */
+.img-preview.logo-preview img { padding: 10px; background: repeating-conic-gradient(#e7e9ee 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
 .row-tools { display: flex; flex: none; }
 .row-tools .icon-btn { width: 38px; height: 38px; }
 .pick-list { max-height: 240px; overflow: auto; border: 1.5px solid var(--line); border-radius: 14px; padding: 4px 12px; }

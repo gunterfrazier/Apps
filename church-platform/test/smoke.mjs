@@ -1267,7 +1267,7 @@ await step("theme switch, features, colors, fonts, crop and screen footer", asyn
   // Crop to a square.
   await page.click('[data-act=crop-image][data-field="logo"]'); await page.waitForSelector("#crop-box");
   await page.click('[data-act=crop-shape][data-k="1:1"]'); await page.click("[data-act=crop-apply]");
-  await page.waitForFunction(() => document.querySelector('input[name="logo"]').value.startsWith("data:image/webp"));
+  await page.waitForFunction(() => document.querySelector('input[name="logo"]').value.startsWith("data:image/png"));
   await page.click('form[data-form="admin-account"] button.btn:not([type=button])');
   // A font from the library on the banner.
   await goTo("admin-banner"); await page.click("[data-act=banner-section][data-section=text]");
@@ -2634,6 +2634,60 @@ await step("game night: host a room, phones join and play all three games with t
     await a.fill("form[data-form=play-join] input[name=code]", code); await a.fill("form[data-form=play-join] input[name=name]", "Ana"); await a.click(".pl-go");
     await a.waitForSelector("[data-pl-error]:has-text('No game with that code')");
   } finally { for (const p of [host, a, b]) await p.close().catch(() => {}); await page.evaluate((r) => { const S = __app.S; S.membership().roleId = r; S.save(); }, was); }
+});
+await step("logos are saved as PNG with a plain background removed", async () => {
+  const was = await page.evaluate(() => {
+    const S = __app.S, m = S.membership(), before = { role: m.roleId, logo: S.church().logo };
+    m.roleId = "admin"; S.save(); return before;
+  });
+  // A JPEG logo: a blue badge with a white center, on a white background. And a photo, which has no plain background.
+  const [logoJpg, photoJpg] = await page.evaluate(() => {
+    const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = "#1f4fa0"; g.beginPath(); g.arc(32, 32, 24, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#fff"; g.beginPath(); g.arc(32, 32, 8, 0, Math.PI * 2); g.fill();
+    const logo = c.toDataURL("image/jpeg", 0.95);
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) { g.fillStyle = `rgb(${(x * 37 + y * 11) % 256},${(x * 7 + y * 53) % 256},${(x * y) % 256})`; g.fillRect(x, y, 1, 1); }
+    return [logo, c.toDataURL("image/jpeg", 0.95)];
+  });
+  const file = (name, d) => ({ name, mimeType: "image/jpeg", buffer: Buffer.from(d.split(",")[1], "base64") });
+  // Alpha at a corner, on the badge, and in its white center.
+  const alpha = () => page.locator('[data-preview="logo"] img').evaluate(async (img) => {
+    await img.decode(); const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"); g.drawImage(img, 0, 0, 64, 64);
+    return [[2, 2], [32, 14], [32, 32]].map(([x, y]) => g.getImageData(x, y, 1, 1).data[3] > 128 ? 1 : 0).join("");
+  });
+  const value = () => page.inputValue('form[data-form="admin-account"] input[name="logo"]');
+  try {
+    await page.evaluate(() => __app.render());
+    await goTo("admin-account");
+    await page.setInputFiles('input[data-field="logo"]', file("Church logo.jpg", logoJpg));
+    await page.waitForFunction(() => document.querySelector('form[data-form="admin-account"] input[name="logo"]').value.startsWith("data:image/png"));
+    if ((await alpha()) !== "011") throw new Error(`the white background should be cleared and the white center kept, got ${await alpha()}`);
+    await page.locator('[data-preview="logo"]').screenshot({ path: join(shots, "47l-logo-auto-clear.png") });
+    // Undo puts the white background back, still a PNG.
+    await page.click('[data-act="logo-undo"][data-field="logo"]');
+    if ((await alpha()) !== "111" || !(await value()).startsWith("data:image/png")) throw new Error("Undo should put the background back as a PNG");
+    if (await page.isVisible('[data-act="logo-undo"][data-field="logo"]')) throw new Error("Undo should hide once used");
+    // Remove background opens the full sheet; its usual setting also clears inside closed shapes.
+    await page.click('[data-act="logo-clean"][data-field="logo"]');
+    const sheet = page.locator("#scrim");
+    await sheet.locator("[data-logo-result]:not([hidden])").waitFor();
+    if (await sheet.locator('input[name="name"]').count()) throw new Error("the logo field's sheet shouldn't ask to name a copy");
+    await sheet.getByRole("button", { name: "Use this logo" }).click(); await sheetGone();
+    if ((await alpha()) !== "010") throw new Error(`the sheet's result should be used, got ${await alpha()}`);
+    // A photo keeps its background, but is still a PNG.
+    const before = await value(); // read first: the photo can finish before a later read, and the wait would never end
+    await page.setInputFiles('input[data-field="logo"]', file("Photo.jpg", photoJpg));
+    await page.waitForFunction((v) => document.querySelector('form[data-form="admin-account"] input[name="logo"]').value !== v, before);
+    if ((await alpha()) !== "111" || !(await value()).startsWith("data:image/png")) throw new Error("a photo should be kept whole, as a PNG");
+    if (await page.isVisible('[data-act="logo-undo"][data-field="logo"]')) throw new Error("nothing to undo for a photo");
+    // An older JPEG logo becomes a PNG when the details are saved.
+    await page.evaluate((d) => { const f = document.querySelector('form[data-form="admin-account"] input[name="logo"]'); f.value = d; }, logoJpg);
+    await page.click('form[data-form="admin-account"] button.btn:not([type=button])');
+    await page.waitForFunction(() => __app.S.church().logo.startsWith("data:image/png"));
+  } finally {
+    await page.evaluate((w) => { const S = __app.S; S.membership().roleId = w.role; S.updateChurch({ logo: w.logo }); S.save(); }, was);
+  }
 });
 await step("control keys page", async () => {
   if (!(await page.evaluate(() => __app.S.can("manage.devices")))) { await goTo("me"); await page.click("[data-act=demo-role]"); await page.click('#scrim [data-act=demo-role-set][data-id="admin"]'); await sheetGone(); }
