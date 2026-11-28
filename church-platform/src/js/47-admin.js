@@ -382,7 +382,7 @@ AdminScreens.account = () => {
       <label class="field"><span>City and state</span><input type="text" name="city" value="${c.city || ""}" maxlength="60"></label>
       ${tzSelect("timeZone", validTz(c.timeZone) ? c.timeZone : "", { inherit: validTz(c.timeZone) ? "" : "Choose a time zone", hint: "Every date and time in the app is in this zone: services, events, classes, check-in and reports. People elsewhere see times labeled with it. A campus in another zone can have its own, under Locations." })}
       <label class="field"><span>One line about your church</span><input type="text" name="tagline" value="${c.tagline}" maxlength="90"></label>
-      ${imageField("logo", "Logo", c.logo, "Any shape works: the whole logo always shows. Shown on Home, the banner and in the church list.", 512)}
+      ${imageField("logo", "Logo", c.logo, "Any shape works: the whole logo always shows. Shown on Home, the banner and in the church list. A plain background is removed for you, and it's saved as a PNG.", 512, { logo: true })}
       <fieldset class="field" style="border:0;padding:0"><legend style="font-weight:700;margin-bottom:6px">Church color</legend>
         ${colorPicker("customColor", c.color, { sources: churchColorSources(c), label: "Church color", church: true })}
         <small>Buttons, links and highlights use it. <a href="#admin-appearance">Appearance</a> has fonts, corners and light or dark.</small></fieldset>
@@ -402,6 +402,8 @@ Forms["admin-account"] = async (d, f) => {
   const c = S.church(), handle = d.handle ? slugify(d.handle).slice(0, 30) : c.handle;
   const problem = handle !== c.handle && handleProblem(handle, c.id);
   if (problem) return formError(f, problem);
+  // An older logo saved as JPEG or WebP becomes a PNG the next time the details are saved (same picture, same background).
+  if (/^data:image\/(?!png)/.test(d.logo || "")) d.logo = await logoAsPng(d.logo).catch(() => d.logo);
   if (handle !== c.handle && await handleTakenOnline(handle, c.id)) return formError(f, `${churchAddress(c, handle)} is taken. Try adding your city, like ${handle}-springfield.`);
   const bad = SOCIAL.find(([k]) => d[`s_${k}`] && !isUrl(d[`s_${k}`]));
   if (bad) return formError(f, `The ${bad[1]} link should start with https://`);

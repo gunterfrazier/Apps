@@ -6,11 +6,11 @@ const CROP_SHAPES = [["free", "Free", 0], ["1:1", "Square", 1], ["16:9", "Wide",
 let cropJob = null;
 
 /** Opens the cropper on a picture; done(url) gets the cropped picture. */
-async function openCropper(src, done) {
+async function openCropper(src, done, { type = "image/webp" } = {}) {
   const img = new Image();
   if (/^https?:/.test(src)) img.crossOrigin = "anonymous";
   try { img.src = src; await img.decode(); } catch { toast("This picture couldn't be opened for cropping."); return; }
-  cropJob = { img, done, rotate: 0, ratio: 0, box: { x: 0.05, y: 0.05, w: 0.9, h: 0.9 } };
+  cropJob = { img, done, type, rotate: 0, ratio: 0, box: { x: 0.05, y: 0.05, w: 0.9, h: 0.9 } };
   openSheet("Crop picture", html`<div class="cropper">
     <div class="crop-shapes" role="group" aria-label="Shape">${CROP_SHAPES.map(([k, l], i) => html`<button type="button" class="chip" data-act="crop-shape" data-k="${k}" aria-pressed="${i === 0}">${l}</button>`)}</div>
     <div class="crop-stage" id="crop-stage"><canvas id="crop-canvas"></canvas><div class="crop-box" id="crop-box" tabindex="0" aria-label="Crop area. Use the arrow keys to move it, and Shift with the arrow keys to resize it.">
@@ -72,7 +72,7 @@ Actions["crop-apply"] = () => {
   const out = document.createElement("canvas"); out.width = Math.max(1, Math.round(sw * scale)); out.height = Math.max(1, Math.round(sh * scale));
   out.getContext("2d").drawImage(src, sx, sy, sw, sh, 0, 0, out.width, out.height);
   let url;
-  try { url = out.toDataURL("image/webp", 0.9); } catch { toast("This picture's site doesn't allow editing it here. Save it to your device and upload it instead."); return; }
+  try { url = out.toDataURL(job.type, 0.9); } catch { toast("This picture's site doesn't allow editing it here. Save it to your device and upload it instead."); return; }
   cropJob = null; closeSheet(true); job.done(url); toast("Cropped");
 };
 // Move the box by dragging it; resize by its corners.
@@ -108,11 +108,8 @@ addEventListener("resize", () => { if (cropJob && $("#crop-stage")) cropDraw(); 
 Actions["crop-image"] = (el) => {
   const form = el.closest("form"), name = el.dataset.field, field = $(`input[name="${name}"]`, form);
   if (!field?.value) return;
-  openCropper(field.value, (url) => {
-    field.value = url; field.dispatchEvent(new Event("input", { bubbles: true }));
-    const prev = $(`[data-preview="${name}"]`, form); if (prev) prev.innerHTML = `<img src="${url}" alt="">`;
-    imageFieldChanged(form, name, url);
-  });
+  const logo = !!$(`[data-change="pick-image"][data-field="${name}"][data-logo]`, form);
+  openCropper(field.value, (url) => imageFieldSet(form, name, url), { type: logo ? "image/png" : "image/webp" });
 };
 
 // Two fingers on the picture resize the crop box around its middle (and Ctrl with the wheel on a computer).

@@ -442,32 +442,36 @@ Inputs["pick-image"] = async (el) => {
   const file = el.files?.[0]; if (!file) return;
   const form = el.closest("form");
   try {
-    const url = await readImage(file, +(el.dataset.max || 1400));
-    const field = $(`input[name="${el.dataset.field}"]`, form);
-    field.value = url; field.dispatchEvent(new Event("input", { bubbles: true }));
-    const prev = $(`[data-preview="${el.dataset.field}"]`, form);
-    if (prev) prev.innerHTML = `<img src="${url}" alt="">`;
-    imageFieldChanged(form, el.dataset.field, url);
+    if (el.dataset.logo) { el.value = ""; return await logoFieldPut(form, el.dataset.field, await readImage(file, +(el.dataset.max || 512), 1, { preserveTransparency: true, type: "image/png" })); }
+    imageFieldSet(form, el.dataset.field, await readImage(file, +(el.dataset.max || 1400)));
   } catch (e) { formError(form, e.message); }
 };
-Actions["clear-image"] = (el) => {
-  const form = el.closest("form");
-  const field = $(`input[name="${el.dataset.field}"]`, form); field.value = ""; field.dispatchEvent(new Event("input", { bubbles: true }));
-  const prev = $(`[data-preview="${el.dataset.field}"]`, form); if (prev) prev.innerHTML = "";
-  imageFieldChanged(form, el.dataset.field, "");
-};
+Actions["clear-image"] = (el) => imageFieldSet(el.closest("form"), el.dataset.field, "");
+/** Puts a picture (or nothing) into an image field: the hidden value, the preview and the buttons that go with it. */
+function imageFieldSet(form, name, url) {
+  const field = $(`input[name="${name}"]`, form); if (!field) return;
+  field.value = url; field.dispatchEvent(new Event("input", { bubbles: true }));
+  const prev = $(`[data-preview="${name}"]`, form); if (prev) prev.innerHTML = url ? `<img src="${esc(url)}" alt="">` : "";
+  imageFieldChanged(form, name, url);
+}
 /** After an image field changes: its Crop button, and the colors in the new picture. */
 function imageFieldChanged(form, name, url) {
   const crop = $(`[data-act="crop-image"][data-field="${name}"]`, form); if (crop) crop.hidden = !url;
+  const clean = $(`[data-act="logo-clean"][data-field="${name}"]`, form); if (clean) clean.hidden = !url;
+  const undo = $(`[data-act="logo-undo"][data-field="${name}"]`, form);
+  if (undo) undo.hidden = !url || !LogoOriginal.has(url);
   const box = $(`[data-colors-for="${name}"]`, form);
   if (box) { box.innerHTML = url ? flat(html`<div class="cp-suggest" data-suggest-src="${url}" data-suggest-label="Colors in this picture"></div>`) : ""; hydrateColorSuggestions(box); }
 }
-function imageField(name, label, value, hint, max) {
+/** A picture field. With { logo: true } the picture is kept as a PNG and a plain background is cleared automatically. */
+function imageField(name, label, value, hint, max, { logo = false } = {}) {
   return html`<div class="field"><span>${label}</span><input type="hidden" name="${name}" value="${value || ""}">
-    <div class="img-preview" data-preview="${name}">${value ? html`<img src="${value}" alt="">` : ""}</div>
-    <div class="btns" style="margin-top:6px"><label class="btn ghost sm">${icon("image")}Choose image<input type="file" accept="image/*" class="sr" data-change="pick-image" data-field="${name}" ${attr(max, `data-max="${max}"`)}></label>
+    <div class="img-preview ${logo ? "logo-preview" : ""}" data-preview="${name}">${value ? html`<img src="${value}" alt="">` : ""}</div>
+    <div class="btns" style="margin-top:6px"><label class="btn ghost sm">${icon("image")}Choose image<input type="file" accept="image/*" class="sr" data-change="pick-image" data-field="${name}" ${attr(max, `data-max="${max}"`)} ${attr(logo, "data-logo=\"1\"")}></label>
     ${mediaFindBtn(name, "image", max || 1400)}
     <button type="button" class="btn ghost sm" data-act="crop-image" data-field="${name}" ${attr(!value, "hidden")}>${icon("expand")}Crop</button>
+    ${logo ? html`<button type="button" class="btn ghost sm" data-act="logo-clean" data-field="${name}" ${attr(!value, "hidden")}>Remove background</button>
+    <button type="button" class="btn ghost sm" data-act="logo-undo" data-field="${name}" hidden>Undo background removal</button>` : ""}
     <button type="button" class="btn ghost sm" data-act="clear-image" data-field="${name}">Remove</button></div>${hint ? html`<small>${hint}</small>` : ""}
     <div class="img-colors" data-colors-for="${name}">${value ? html`<div class="cp-suggest" data-suggest-src="${value}" data-suggest-label="Colors in this picture"></div>` : ""}</div></div>`;
 }

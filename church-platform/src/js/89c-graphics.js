@@ -939,7 +939,7 @@ Actions["gfx-graphic-remove"] = (el) => {
 Actions["gfx-logo-clean"] = (button) => {
   const g = gfxCurrent(); if (!g) return;
   const src = gfxLogoSrc(g), id = g.id;
-  openLogoCleaner({ src, button, name: g.logoId === "own" ? "This graphic's logo" : "Logo",
+  openLogoCleaner({ src: logoOriginal(src), button, name: g.logoId === "own" ? "This graphic's logo" : "Logo",
     active: () => !!S.get("graphics", id),
     onSave: (name, result) => { const x = S.get("graphics", id); if (!x) return; Object.assign(x, { logoSrc: result, logoId: "own" }); gfxSave(x); gfxRerender(); toast("The see-through logo is on this graphic"); } });
 };
